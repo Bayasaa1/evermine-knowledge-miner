@@ -21,9 +21,10 @@ import {
   Languages,
   Captions,
   CaptionsOff,
+  PlayCircle,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
-import { MINDS, pickVisual, type Mind, type VisualAsset } from "@/lib/minds";
+import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
@@ -68,7 +69,27 @@ type Msg = {
   text: string;
   via: Via;
   visual?: VisualAsset | null;
+  clip?: SourceClip | null;
 };
+
+const CLIP_MARKER = /\[\[clip:([a-z0-9_-]+)\]\]/gi;
+
+/** Pulls the model's citation marker out of the reply and returns clean prose. */
+function extractClipId(text: string): { text: string; clipId: string | null } {
+  let clipId: string | null = null;
+  const clean = text.replace(CLIP_MARKER, (_m, id: string) => {
+    clipId = id;
+    return "";
+  });
+  return { text: clean.trim(), clipId };
+}
+
+/** A question is "complex" when it asks for reasoning, method or judgement. */
+function isComplexQuestion(text: string): boolean {
+  const t = text.toLowerCase();
+  if (t.length > 60) return true;
+  return /\b(how|why|what|when|should|explain|teach|best|difference|hyaltai|яаж|яагаад|юу)\b/.test(t);
+}
 
 function uid() {
   return Math.random().toString(36).slice(2);
@@ -105,6 +126,7 @@ function Explore() {
   const [capture, setCapture] = useState(true);
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
+  const [openClip, setOpenClip] = useState<SourceClip | null>(null);
   const callSessionRef = useRef<string | null>(null);
   const chatSessionRef = useRef<string | null>(null);
 
@@ -286,10 +308,15 @@ function Explore() {
     }
 
     if (!reply) reply = "I don't have that in my mined brain yet.";
+    const { text: cleanReply, clipId } = extractClipId(reply);
+    reply = cleanReply || reply;
     const visual = pickVisual(selected, `${text} ${reply}`);
+    const clip =
+      (clipId ? findClip(selected, clipId) : null) ??
+      (isComplexQuestion(text) ? pickClip(selected, `${text} ${reply}`) : null);
     setThreads((t) => ({
       ...t,
-      [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual }],
+      [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual, clip }],
     }));
     setThinking(false);
     if (via === "call") speak(reply);
@@ -604,6 +631,25 @@ function Explore() {
                     </figcaption>
                   </figure>
                 )}
+                {m.role === "agent" && m.clip && (
+                  <button
+                    onClick={() => setOpenClip(m.clip ?? null)}
+                    className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-primary/60"
+                  >
+                    <span className="relative block h-12 w-20 shrink-0 overflow-hidden rounded-md">
+                      <img src={m.clip.poster} alt="" width={160} height={96} className="h-full w-full object-cover" />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <PlayCircle className="h-5 w-5 text-white" />
+                      </span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-primary">Source Clip · 5s</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {m.clip.label} · [{m.clip.timestamp}]
+                      </span>
+                    </span>
+                  </button>
+                )}
                 {m.role === "agent" && (
                   <button
                     onClick={() => (speaking ? stopSpeaking() : speak(m.text))}
@@ -649,6 +695,8 @@ function Explore() {
           </button>
         </div>
       </div>
+
+      {openClip && <SourceClipModal clip={openClip} onClose={() => setOpenClip(null)} />}
 
       {/* Full-screen AI video call */}
       {callOpen && (
@@ -851,6 +899,71 @@ function Explore() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Plays the cited 5-second window from the creator's original source video. */
+function SourceClipModal({ clip, onClose }: { clip: SourceClip; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = clip.start;
+    void v.play().catch(() => undefined);
+    const onTime = () => {
+      if (v.currentTime >= clip.end || v.currentTime < clip.start - 0.1) v.currentTime = clip.start;
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [clip]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="absolute inset-0 z-[60] flex items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-label="Source clip"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-primary">Source Clip · [{clip.timestamp}]</p>
+            <p className="truncate text-sm font-medium text-foreground">{clip.label}</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close clip"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <video
+          ref={videoRef}
+          src={clip.src}
+          poster={clip.poster}
+          playsInline
+          muted
+          controls
+          className="max-h-[55dvh] w-full bg-black object-contain"
+        />
+        <blockquote className="border-t border-border px-4 py-3 text-sm italic text-muted-foreground">
+          “{clip.quote}”
+        </blockquote>
+      </div>
     </div>
   );
 }

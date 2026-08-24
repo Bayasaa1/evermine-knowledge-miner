@@ -29,6 +29,15 @@ function buildSystemPrompt(mindId: string, lang: LangCode) {
           ),
         ]
       : []),
+    ...(mind.clips.length
+      ? [
+          ``,
+          `SOURCE VIDEO CITATIONS (moments from the owner's original videos):`,
+          ...mind.clips.map((c) => `- id=${c.id} @ ${c.timestamp} — ${c.label} | said: "${c.quote}"`),
+          `When the question is complex (asks for reasoning, method, a decision, a technique or a belief) and one of these moments genuinely supports your answer, END the answer with the citation marker on its own final line: [[clip:<id>]].`,
+          `Use at most one marker, only when the clip really matches, and never mention or describe the marker in your prose. Skip it for greetings, small talk and one-word answers.`,
+        ]
+      : []),
     ``,
     `RULES:`,
     `- Answer in first person as the Primary Owner, matching the tone and vocabulary above.`,
