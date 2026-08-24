@@ -1024,94 +1024,232 @@ function Index() {
     [addLog],
   );
 
-  const handleMine = useCallback(async () => {
-    if (!file || chunks.length === 0 || status === "processing") return;
-    if (!apiKey.trim()) {
-      setStatus("error");
-      setStatusNote("noteNoKey");
-      addLog("error", "No API key configured");
-      return;
-    }
-    if (provider !== "gemini") {
-      setStatus("error");
-      setStatusNote("noteProviderOnly");
-      addLog("error", `Provider "${provider}" is not supported yet`);
-      return;
-    }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    stopTimer();
-    setStatus("processing");
-    setStatusNote("noteUploading");
-    setResults([]);
-    setFailedPieces([]);
-    setFocusedPiece(null);
-    setCurrentPiece(1);
-    setDonePieces(0);
-    setElapsed(0);
-    startedAtRef.current = Date.now();
-    timerRef.current = setInterval(() => setElapsed((Date.now() - startedAtRef.current) / 1000), 250);
-    addLog("info", `Mining started — ${chunks.length} piece(s) with ${model}`);
-
-    try {
-      const uploaded = await uploadVideo(apiKey, file, {
-        signal: controller.signal,
-        onState: (s) => addLog("info", `Gemini file state: ${s}`),
-      });
-      addLog("info", `Upload complete: ${uploaded.uri}`);
-      setStatusNote("noteMining");
-
-      for (const chunk of chunks) {
-        if (controller.signal.aborted) break;
-        setCurrentPiece(chunk.index + 1);
-        addLog(
-          "info",
-          `Request → piece ${chunk.index + 1}/${chunks.length} (${formatDuration(chunk.start)}–${formatDuration(chunk.end)})`,
-        );
-        let data;
+  /** Runs `fn` with the first usable key, rotating to backups on 429 / rejected keys. */
+  const withRotatingKey = useCallback(
+    async <T,>(label: string, fn: (key: string) => Promise<T>): Promise<T> => {
+      for (;;) {
+        const entry = keysRef.current.find((k) => k.state === "ok");
+        if (!entry) throw new QuotaPaused();
         try {
-          data = await mineChunk(apiKey, model, uploaded, chunk.start, chunk.end, controller.signal);
-        } catch (chunkErr) {
-          if (!(chunkErr instanceof DOMException && chunkErr.name === "AbortError")) {
-            setFailedPieces((f) => (f.includes(chunk.index) ? f : [...f, chunk.index]));
-          }
-          throw chunkErr;
+          return await fn(entry.value);
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") throw err;
+          const quota = isQuotaError(err);
+          if (!quota && !isKeyRejected(err)) throw err;
+          const next = keysRef.current.map((k) =>
+            k.id === entry.id
+              ? { ...k, state: quota ? ("exhausted" as const) : ("invalid" as const), exhaustedAt: Date.now() }
+              : k,
+          );
+          commitKeys(next);
+          const left = next.filter((k) => k.state === "ok").length;
+          addLog(
+            "warn",
+            `${label}: key ${entry.label} ${quota ? "hit its quota (429)" : "was rejected"} — ${
+              left > 0 ? `switching to the next backup key (${left} left)` : "no backup keys left"
+            }`,
+          );
         }
-        addLog(
-          "info",
-          `Response ← piece ${chunk.index + 1}: ${data.transcript.length} transcript line(s), ${data.scenes.length} scene note(s), ${data.knowledge.length} knowledge point(s)`,
-        );
-        setResults((r) => [...r, { index: chunk.index, chunk, data }]);
-        void recordGrowth({
-          beliefs: data.subconsciousness.beliefs.length,
-          memories: data.story.beats.length,
-          skills: data.subconsciousness.skills.length,
-        });
-        setDonePieces(chunk.index + 1);
+      }
+    },
+    [addLog, commitKeys],
+  );
+
+  const startMining = useCallback(
+    async (startIndex: number, initialRef: UploadedFile | null) => {
+      if (chunks.length === 0 || status === "processing") return;
+      if (keysRef.current.filter((k) => k.state === "ok").length === 0) {
+        setStatus(keysRef.current.length > 0 ? "paused" : "error");
+        setStatusNote(keysRef.current.length > 0 ? "notePausedQuota" : "noteNoKey");
+        addLog("error", "No usable API key in the rotation pool");
+        return;
+      }
+      if (provider !== "gemini") {
+        setStatus("error");
+        setStatusNote("noteProviderOnly");
+        addLog("error", `Provider "${provider}" is not supported yet`);
+        return;
+      }
+      if (!initialRef && !file) {
+        setStatus("error");
+        setStatusNote("noteNeedVideo");
+        toast.error(t.resumeNeedVideo);
+        return;
       }
 
-      if (!controller.signal.aborted) {
+      const controller = new AbortController();
+      abortRef.current = controller;
+      stopTimer();
+      setStatus("processing");
+      setStatusNote(startIndex > 0 ? "noteResuming" : "noteUploading");
+      if (startIndex === 0) {
+        setResults([]);
+        setDonePieces(0);
+      }
+      setFailedPieces([]);
+      setFocusedPiece(null);
+      setCurrentPiece(startIndex + 1);
+      setElapsed(0);
+      startedAtRef.current = Date.now();
+      timerRef.current = setInterval(() => setElapsed((Date.now() - startedAtRef.current) / 1000), 250);
+      addLog(
+        "info",
+        startIndex > 0
+          ? `Resuming at piece ${startIndex + 1}/${chunks.length} with ${model}`
+          : `Mining started — ${chunks.length} piece(s) with ${model}`,
+      );
+
+      let uploaded = initialRef;
+      let pending = startIndex;
+      const checkpoint = (nextIndex: number, reason: ResumeState["reason"]): ResumeState => ({
+        fileName: source?.name ?? file?.name ?? "",
+        fileSize: source?.size ?? file?.size ?? 0,
+        duration,
+        model,
+        chunks,
+        nextIndex,
+        fileRef: uploaded,
+        reason,
+        savedAt: Date.now(),
+      });
+
+      try {
+        if (!uploaded) {
+          uploaded = await withRotatingKey("upload", (key) =>
+            uploadVideo(key, file!, {
+              signal: controller.signal,
+              onState: (s) => addLog("info", `Gemini file state: ${s}`),
+            }),
+          );
+          fileRefRef.current = uploaded;
+          addLog("info", `Upload complete: ${uploaded.uri}`);
+        } else {
+          addLog("info", `Reusing the uploaded video (${uploaded.uri}) — no re-upload needed`);
+        }
+        setStatusNote("noteMining");
+
+        for (const chunk of chunks) {
+          if (chunk.index < startIndex) continue;
+          if (controller.signal.aborted) break;
+          pending = chunk.index;
+          setCurrentPiece(chunk.index + 1);
+          addLog(
+            "info",
+            `Request → piece ${chunk.index + 1}/${chunks.length} (${formatDuration(chunk.start)}–${formatDuration(chunk.end)})`,
+          );
+          let data;
+          try {
+            data = await withRotatingKey(`piece ${chunk.index + 1}`, (key) =>
+              mineChunk(key, model, uploaded!, chunk.start, chunk.end, controller.signal),
+            );
+          } catch (chunkErr) {
+            if (
+              !(chunkErr instanceof DOMException && chunkErr.name === "AbortError") &&
+              !(chunkErr instanceof QuotaPaused)
+            ) {
+              setFailedPieces((f) => (f.includes(chunk.index) ? f : [...f, chunk.index]));
+            }
+            throw chunkErr;
+          }
+          addLog(
+            "info",
+            `Response ← piece ${chunk.index + 1}: ${data.transcript.length} transcript line(s), ${data.scenes.length} scene note(s), ${data.knowledge.length} knowledge point(s)`,
+          );
+          setResults((r) =>
+            [...r.filter((x) => x.index !== chunk.index), { index: chunk.index, chunk, data }].sort(
+              (a, b) => a.index - b.index,
+            ),
+          );
+          void recordGrowth({
+            beliefs: data.subconsciousness.beliefs.length,
+            memories: data.story.beats.length,
+            skills: data.subconsciousness.skills.length,
+          });
+          setDonePieces(chunk.index + 1);
+          // Progressive checkpoint: written after every 5-minute chunk.
+          const cp = checkpoint(chunk.index + 1, "running");
+          setResumeState(chunk.index + 1 < chunks.length ? cp : null);
+          if (chunk.index + 1 < chunks.length) await saveResume(cp);
+          else await clearResume();
+        }
+
+        if (!controller.signal.aborted) {
+          stopTimer();
+          setStatus("complete");
+          setStatusNote("noteComplete");
+          addLog("info", "All pieces processed");
+          await clearResume();
+          setResumeState(null);
+          const active = keysRef.current.find((k) => k.state === "ok");
+          if (active) void deleteFile(active.value, uploaded.name);
+        }
+      } catch (err) {
         stopTimer();
-        setStatus("complete");
-        setStatusNote("noteComplete");
-        addLog("info", "All pieces processed");
-        void deleteFile(apiKey, uploaded.name);
+        if (err instanceof DOMException && err.name === "AbortError") {
+          const cp = checkpoint(pending, "stopped");
+          await saveResume(cp);
+          setResumeState(cp);
+          addLog("warn", `Job cancelled by user — progress saved at piece ${pending + 1}`);
+          setStatus("ready");
+          setStatusNote("noteReady");
+        } else if (err instanceof QuotaPaused) {
+          const cp = checkpoint(pending, "quota");
+          await saveResume(cp);
+          setResumeState(cp);
+          setStatus("paused");
+          setStatusNote("notePausedQuota");
+          addLog(
+            "error",
+            `All API keys are out of quota — mining paused at piece ${pending + 1}/${chunks.length}. Progress saved.`,
+          );
+          toast.error(t.pausedQuota, { description: t.pausedQuotaBody });
+        } else {
+          const cp = checkpoint(pending, "error");
+          await saveResume(cp);
+          setResumeState(cp);
+          handleFailure(err);
+        }
+      } finally {
+        abortRef.current = null;
+        stopTimer();
       }
-    } catch (err) {
-      stopTimer();
-      if (err instanceof DOMException && err.name === "AbortError") {
-        addLog("warn", "Job cancelled by user");
-        setStatus("ready");
-        setStatusNote("noteReady");
-      } else {
-        handleFailure(err);
-      }
-    } finally {
-      abortRef.current = null;
-      stopTimer();
-    }
-  }, [file, chunks, status, apiKey, provider, model, stopTimer, addLog, handleFailure]);
+    },
+    [
+      chunks,
+      status,
+      provider,
+      file,
+      model,
+      source,
+      duration,
+      stopTimer,
+      addLog,
+      handleFailure,
+      withRotatingKey,
+      t,
+    ],
+  );
+
+  const handleMine = useCallback(() => {
+    void clearResume();
+    setResumeState(null);
+    fileRefRef.current = null;
+    void startMining(0, null);
+  }, [startMining]);
+
+  const handleResume = useCallback(() => {
+    const state = resumeState;
+    if (!state) return;
+    void startMining(state.nextIndex, state.fileRef ?? fileRefRef.current);
+  }, [resumeState, startMining]);
+
+  const handleDiscardResume = useCallback(() => {
+    void clearResume();
+    setResumeState(null);
+    setStatus("ready");
+    setStatusNote("noteReady");
+    addLog("info", "Saved mining checkpoint discarded.");
+  }, [addLog]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.abort();
@@ -1123,23 +1261,52 @@ function Index() {
     addLog("warn", "Job cancelled by user");
   }, [stopTimer, addLog]);
 
+  /** Validates a pasted key and appends it to the rotation pool. */
   const handleSaveKey = useCallback(async () => {
     const key = apiKey.trim();
     if (!key) return;
+    if (keysRef.current.some((k) => k.value === key)) {
+      toast.error(t.keyDuplicate);
+      return;
+    }
     setKeyState("checking");
     addLog("info", "Validating API key...");
     try {
       const models = await validateApiKey(key);
-      await saveApiKey(key);
+      const entry = makeKeyEntry(key, `Key ${keysRef.current.length + 1} · ${maskKey(key)}`);
+      commitKeys([...keysRef.current, entry]);
+      setApiKey("");
       setKeyState("valid");
-      setStatus("ready");
+      if (status !== "processing") setStatus(status === "paused" ? "ready" : status);
       setStatusNote("noteKeySaved");
-      addLog("info", `API key valid — ${models.length} model(s) available. Key saved to IndexedDB.`);
+      toast.success(t.keyAdded);
+      addLog(
+        "info",
+        `API key valid — ${models.length} model(s) available. Added to the rotation pool (${keysRef.current.length} key(s)).`,
+      );
     } catch (err) {
       setKeyState("invalid");
       handleFailure(err);
     }
-  }, [apiKey, addLog, handleFailure]);
+  }, [apiKey, addLog, handleFailure, commitKeys, t, status]);
+
+  const handleRemoveKey = useCallback(
+    (id: string) => {
+      commitKeys(keysRef.current.filter((k) => k.id !== id));
+      addLog("info", "API key removed from the rotation pool.");
+    },
+    [commitKeys, addLog],
+  );
+
+  const handleResetKeys = useCallback(() => {
+    commitKeys(keysRef.current.map((k) => ({ ...k, state: "ok" as const, exhaustedAt: undefined })));
+    if (status === "paused") {
+      setStatus("ready");
+      setStatusNote("noteReady");
+    }
+    addLog("info", "All API keys marked available again.");
+  }, [commitKeys, addLog, status]);
+
 
   const handleExport = useCallback(() => {
     const mine = buildMineFile({
