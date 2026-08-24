@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
+import { idbGet, idbSet, STORES } from "@/lib/store";
+import { buildMineFile, parseMineFile, downloadMineFile, type MineResult } from "@/lib/mine-file";
 import {
   validateApiKey,
   uploadVideo,
@@ -9,7 +11,6 @@ import {
   deleteFile,
   describeError,
   GeminiError,
-  type ChunkResult,
 } from "@/lib/gemini";
 import {
   Brain,
@@ -29,6 +30,8 @@ import {
   Save,
   Square,
   Layers,
+  Download,
+  FolderOpen,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -87,6 +90,28 @@ const translations = {
     stopped: "Job cancelled by user.",
     pieces: "pieces",
     duration: "Duration",
+    results: "Results",
+    model: "Model",
+    keyValid: "Key validated and stored locally.",
+    keyInvalid: "Key rejected — see the App Log.",
+    keyChecking: "Validating key...",
+    saveMine: "Save Mine (.json)",
+    openMine: "Open Saved Mine",
+    localOnly: "Everything stays on this device — keys, videos and results never leave your browser.",
+    restored: "Restored your last mining session from this device.",
+    noteReady: "System ready to process video.",
+    noteKeyRejected: "API key rejected — check your Google Gemini key.",
+    noteQuota: "Quota or rate limit reached. Try again later.",
+    noteGeneric: "Something went wrong. Check the app log.",
+    noteNoKey: "Add and save your Google Gemini API key first.",
+    noteProviderOnly: "Only Google Gemini is wired up right now.",
+    noteUploading: "Uploading video to Gemini...",
+    noteMining: "Mining knowledge from your video...",
+    noteComplete: "Knowledge extraction complete.",
+    noteKeySaved: "API key saved and validated.",
+    noteExported: "Mine saved to your device.",
+    noteImported: "Saved mine loaded.",
+    noteImportFailed: "That file is not a valid Evermine mine.",
   },
   mn: {
     appName: "Evermine",
@@ -108,10 +133,10 @@ const translations = {
     complete: "Дууссан",
     error: "Алдаа",
     structuredKnowledge: "Бүтцэд оруулсан мэдлэг",
-    transcript: "Гарчиг",
+    transcript: "Ярианы бичлэг",
     appLog: "Аппликэйшн бүртгэл",
     noResults: "Боловсруулалт эхэлсний дараа энд харуулна.",
-    noTranscript: "Боловсруулалт дууссаны дараа гарчиг энд харуулна.",
+    noTranscript: "Боловсруулалт дууссаны дараа ярианы бичлэг энд харуулна.",
     noLog: "Аппликэйшн бүртгэл энд харуулна.",
     dashboard: "Хяналтын самбар",
     settings: "Тохиргоо",
@@ -127,6 +152,28 @@ const translations = {
     stopped: "Хэрэглэгч ажлыг цуцаллаа.",
     pieces: "хэсэг",
     duration: "Үргэлжлэх хугацаа",
+    results: "Үр дүн",
+    model: "Загвар",
+    keyValid: "Түлхүүр баталгаажиж, төхөөрөмж дээр хадгалагдлаа.",
+    keyInvalid: "Түлхүүр татгалзагдлаа — Бүртгэлийг шалгана уу.",
+    keyChecking: "Түлхүүрийг шалгаж байна...",
+    saveMine: "Мэдээллийг хадгалах (.json)",
+    openMine: "Хадгалсан файл нээх",
+    localOnly: "Бүх зүйл таны төхөөрөмж дээр үлддэг — түлхүүр, видео, үр дүн хэзээ ч хөтчөөс гардаггүй.",
+    restored: "Өмнөх ажлыг энэ төхөөрөмжөөс сэргээлээ.",
+    noteReady: "Систем видео боловсруулахад бэлэн.",
+    noteKeyRejected: "API түлхүүр татгалзагдлаа — Gemini түлхүүрээ шалгана уу.",
+    noteQuota: "Хязгаарт хүрлээ. Дараа дахин оролдоно уу.",
+    noteGeneric: "Алдаа гарлаа. Бүртгэлийг шалгана уу.",
+    noteNoKey: "Эхлээд Gemini API түлхүүрээ хадгална уу.",
+    noteProviderOnly: "Одоогоор зөвхөн Google Gemini дэмжигдэнэ.",
+    noteUploading: "Видеог Gemini рүү илгээж байна...",
+    noteMining: "Видеонээс мэдлэг гаргаж байна...",
+    noteComplete: "Мэдлэг гаргах ажил дууслаа.",
+    noteKeySaved: "API түлхүүр хадгалагдаж баталгаажлаа.",
+    noteExported: "Мэдээлэл төхөөрөмж дээр хадгалагдлаа.",
+    noteImported: "Хадгалсан мэдээлэл ачаалагдлаа.",
+    noteImportFailed: "Энэ файл зөв Evermine файл биш байна.",
   },
 };
 
@@ -152,7 +199,7 @@ function Index() {
   const [apiKey, setApiKey] = useState("");
   const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");
-  const [statusNote, setStatusNote] = useState<string>("System ready to process video.");
+  const [statusNote, setStatusNote] = useState<string>("noteReady");
   const [activeTab, setActiveTab] = useState<Tab>("knowledge");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -163,7 +210,10 @@ function Index() {
   const [donePieces, setDonePieces] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [log, setLog] = useState<string[]>([]);
-  const [results, setResults] = useState<{ index: number; chunk: Chunk; data: ChunkResult }[]>([]);
+  const [results, setResults] = useState<MineResult[]>([]);
+  const [source, setSource] = useState<{ name: string; size: number } | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -191,6 +241,66 @@ function Index() {
     });
   }, []);
 
+  // Restore the last session from IndexedDB ('evermind' v2) — strictly client side.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
+      const prefs = await idbGet<{ lang?: Language; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
+      if (cancelled) return;
+      if (prefs) {
+        if (prefs.lang) setLang(prefs.lang);
+        if (prefs.provider) setProvider(prefs.provider);
+        if (prefs.model) setModel(prefs.model);
+      }
+      if (saved) {
+        try {
+          const mine = parseMineFile(saved);
+          setResults(mine.results);
+          setChunks(mine.chunks);
+          setDuration(mine.source.duration);
+          setSource({ name: mine.source.name, size: mine.source.size });
+          setDonePieces(mine.results.length);
+          setLog(mine.log);
+          if (mine.results.length > 0) {
+            setStatus("complete");
+            setStatusNote("restored");
+            setCurrentPiece(mine.results.length);
+          }
+        } catch {
+          /* ignore malformed cache */
+        }
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    void idbSet(STORES.SETTINGS, "prefs", { lang, provider, model });
+  }, [hydrated, lang, provider, model]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setTimeout(() => {
+      void idbSet(
+        STORES.SESSION,
+        "last",
+        buildMineFile({
+          source: { name: source?.name ?? "", size: source?.size ?? 0, duration },
+          model,
+          chunks,
+          results,
+          log,
+        }),
+      );
+    }, 400);
+    return () => clearTimeout(id);
+  }, [hydrated, source, duration, model, chunks, results, log]);
+
   const t = translations[lang];
 
   const statusConfig: Record<Status, { label: string; icon: React.ElementType; color: string }> = {
@@ -213,8 +323,9 @@ function Index() {
   const acceptFile = useCallback(
     (f: File) => {
       setFile(f);
+      setSource({ name: f.name, size: f.size });
       setStatus("ready");
-      setStatusNote("System ready to process video.");
+      setStatusNote("noteReady");
       setChunks([]);
       setDuration(null);
       setCurrentPiece(0);
@@ -272,11 +383,11 @@ function Index() {
       setStatus("error");
       if (err instanceof GeminiError && (err.status === 401 || err.status === 403)) {
         setKeyState("invalid");
-        setStatusNote("API key rejected — check your Google Gemini key.");
+        setStatusNote("noteKeyRejected");
       } else if (err instanceof GeminiError && err.status === 429) {
-        setStatusNote("Quota or rate limit reached. Try again later.");
+        setStatusNote("noteQuota");
       } else {
-        setStatusNote("Something went wrong. Check the app log.");
+        setStatusNote("noteGeneric");
       }
       addLog("error", message);
     },
@@ -287,13 +398,13 @@ function Index() {
     if (!file || chunks.length === 0 || status === "processing") return;
     if (!apiKey.trim()) {
       setStatus("error");
-      setStatusNote("Add and save your Google Gemini API key first.");
+      setStatusNote("noteNoKey");
       addLog("error", "No API key configured");
       return;
     }
     if (provider !== "gemini") {
       setStatus("error");
-      setStatusNote("Only Google Gemini is wired up right now.");
+      setStatusNote("noteProviderOnly");
       addLog("error", `Provider "${provider}" is not supported yet`);
       return;
     }
@@ -302,7 +413,7 @@ function Index() {
     abortRef.current = controller;
     stopTimer();
     setStatus("processing");
-    setStatusNote("Uploading video to Gemini...");
+    setStatusNote("noteUploading");
     setResults([]);
     setCurrentPiece(1);
     setDonePieces(0);
@@ -317,7 +428,7 @@ function Index() {
         onState: (s) => addLog("info", `Gemini file state: ${s}`),
       });
       addLog("info", `Upload complete: ${uploaded.uri}`);
-      setStatusNote("Mining knowledge from your video...");
+      setStatusNote("noteMining");
 
       for (const chunk of chunks) {
         if (controller.signal.aborted) break;
@@ -338,7 +449,7 @@ function Index() {
       if (!controller.signal.aborted) {
         stopTimer();
         setStatus("complete");
-        setStatusNote("Knowledge extraction complete.");
+        setStatusNote("noteComplete");
         addLog("info", "All pieces processed");
         void deleteFile(apiKey, uploaded.name);
       }
@@ -347,7 +458,7 @@ function Index() {
       if (err instanceof DOMException && err.name === "AbortError") {
         addLog("warn", "Job cancelled by user");
         setStatus("ready");
-        setStatusNote("System ready to process video.");
+        setStatusNote("noteReady");
       } else {
         handleFailure(err);
       }
@@ -362,7 +473,7 @@ function Index() {
     abortRef.current = null;
     stopTimer();
     setStatus("ready");
-    setStatusNote("System ready to process video.");
+    setStatusNote("noteReady");
     setCurrentPiece(0);
     addLog("warn", "Job cancelled by user");
   }, [stopTimer, addLog]);
@@ -377,7 +488,7 @@ function Index() {
       await saveApiKey(key);
       setKeyState("valid");
       setStatus("ready");
-      setStatusNote("API key saved and validated.");
+      setStatusNote("noteKeySaved");
       addLog("info", `API key valid — ${models.length} model(s) available. Key saved to IndexedDB.`);
     } catch (err) {
       setKeyState("invalid");
@@ -385,12 +496,55 @@ function Index() {
     }
   }, [apiKey, addLog, handleFailure]);
 
+  const handleExport = useCallback(() => {
+    const mine = buildMineFile({
+      source: { name: source?.name ?? "mine", size: source?.size ?? 0, duration },
+      model,
+      chunks,
+      results,
+      log,
+    });
+    const filename = downloadMineFile(mine);
+    setStatusNote("noteExported");
+    addLog("info", `Exported ${results.length} piece(s) to ${filename}`);
+  }, [source, duration, model, chunks, results, log, addLog]);
+
+  const handleImport = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (importInputRef.current) importInputRef.current.value = "";
+      if (!f) return;
+      try {
+        const mine = parseMineFile(JSON.parse(await f.text()));
+        abortRef.current?.abort();
+        stopTimer();
+        setFile(null);
+        setResults(mine.results);
+        setChunks(mine.chunks);
+        setDuration(mine.source.duration);
+        setSource({ name: mine.source.name, size: mine.source.size });
+        setDonePieces(mine.results.length);
+        setCurrentPiece(mine.results.length);
+        setElapsed(0);
+        setLog([...mine.log, `[${new Date().toLocaleTimeString([], { hour12: false })}] [info] Imported ${f.name}`]);
+        setStatus(mine.results.length > 0 ? "complete" : "ready");
+        setStatusNote("noteImported");
+        setActiveTab("knowledge");
+      } catch (err) {
+        setStatus("error");
+        setStatusNote("noteImportFailed");
+        addLog("error", `Import rejected: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [addLog, stopTimer],
+  );
+
   const removeFile = useCallback(() => {
     abortRef.current?.abort();
     stopTimer();
     setFile(null);
     setStatus("ready");
-    setStatusNote("System ready to process video.");
+    setStatusNote("noteReady");
     setChunks([]);
     setDuration(null);
     setCurrentPiece(0);
@@ -524,7 +678,7 @@ function Index() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.status}</p>
               <p className={`text-sm font-semibold ${statusConfig[status].color}`}>{statusConfig[status].label}</p>
             </div>
-            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{statusNote}</div>
+            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{(t as Record<string, string>)[statusNote] ?? statusNote}</div>
 
           </div>
 
@@ -558,7 +712,7 @@ function Index() {
 
                 <div>
                   <label htmlFor="model" className="mb-2 block text-sm font-medium text-muted-foreground">
-                    Model
+                    {t.model}
                   </label>
                   <select
                     id="model"
@@ -614,10 +768,10 @@ function Index() {
                       }`}
                     >
                       {keyState === "valid"
-                        ? "Key validated and stored locally."
+                        ? t.keyValid
                         : keyState === "invalid"
-                          ? "Key rejected — see the App Log."
-                          : "Validating key..."}
+                          ? t.keyInvalid
+                          : t.keyChecking}
                     </p>
                   )}
                 </div>
@@ -765,7 +919,7 @@ function Index() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <FileText className="h-4 w-4" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">Results</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t.results}</h3>
             </div>
 
             <div className="mb-4 inline-flex rounded-lg border border-border bg-muted p-1">
@@ -887,6 +1041,31 @@ function Index() {
               )}
             </div>
 
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                onClick={handleExport}
+                disabled={results.length === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                {t.saveMine}
+              </button>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                <FolderOpen className="h-4 w-4" />
+                {t.openMine}
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImport}
+                className="sr-only"
+              />
+              <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-[320px]">{t.localOnly}</p>
+            </div>
           </section>
         </div>
       </main>
