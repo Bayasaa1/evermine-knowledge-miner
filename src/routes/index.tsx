@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
@@ -353,6 +354,8 @@ function Index() {
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -370,7 +373,7 @@ function Index() {
   const [voiceSample, setVoiceSample] = useState<VoiceSample | null>(null);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
-  const [ownership, setOwnership] = useState<Ownership>(() => createOwnership());
+  const [ownership, setOwnership] = useState<Ownership>(() => ({ ...createOwnership(), mindId: "" }));
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
@@ -775,6 +778,11 @@ function Index() {
     abortRef.current?.abort();
     stopTimer();
     setFile(null);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setResolution(null);
     setStatus("ready");
     setStatusNote("noteReady");
     setChunks([]);
