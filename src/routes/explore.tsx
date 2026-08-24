@@ -1,59 +1,68 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   Brain,
-  Compass,
-  Search,
-  Sparkles,
-  Send,
-  Star,
-  Clock,
+  ChevronDown,
+  ChevronUp,
   MessageSquare,
-  ShieldCheck,
   Mic,
   MicOff,
-  Video,
-  Volume2,
+  Phone,
+  PhoneOff,
+  Send,
   Square,
+  Star,
+  Volume2,
+  X,
+  Download,
+  Sparkles,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, type Mind, type VisualAsset } from "@/lib/minds";
+import {
+  applyDelta,
+  emptyVault,
+  exportUserVault,
+  loadCaptureEnabled,
+  loadVault,
+  mineUserTurns,
+  saveCaptureEnabled,
+  saveVault,
+  vaultSignals,
+  type UserVault,
+} from "@/lib/user-vault";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
     meta: [
-      { title: "Evermine — Mind Marketplace" },
+      { title: "Evermine — Mind Feed" },
       {
         name: "description",
         content:
-          "Browse Evermine Mind Vaults and talk with an AI Clone by text, voice or video avatar — grounded in the creator's mined Core Brain.",
+          "Swipe a vertical feed of Evermine Mind Vaults, chat in a bottom sheet or start a full-screen AI call — while your own Subconsciousness Vault is mined in the background.",
       },
-      { property: "og:title", content: "Evermine — Mind Marketplace" },
+      { property: "og:title", content: "Evermine — Mind Feed" },
       {
         property: "og:description",
-        content: "Browse Mind Vaults and talk with AI Clones by text, voice or video.",
+        content: "Swipe AI Clone Mind Vaults, chat or call, and build your own Mind Vault as you talk.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Explore,
 });
 
-type Mode = "text" | "voice" | "video";
+type Via = "text" | "call";
 type Msg = {
   id: string;
   role: "user" | "agent";
   text: string;
-  via: Mode;
+  via: Via;
   visual?: VisualAsset | null;
 };
-
-const MODES: { id: Mode; label: string; icon: typeof MessageSquare }[] = [
-  { id: "text", label: "Text Chat", icon: MessageSquare },
-  { id: "voice", label: "Voice Talk", icon: Mic },
-  { id: "video", label: "Video Avatar", icon: Video },
-];
 
 function uid() {
   return Math.random().toString(36).slice(2);
@@ -69,47 +78,90 @@ function greeting(mind: Mind): Msg {
 }
 
 function Explore() {
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Mind>(MINDS[0]!);
-  const [mode, setMode] = useState<Mode>("text");
-  const [messages, setMessages] = useState<Msg[]>(() => [greeting(MINDS[0]!)]);
+  const [index, setIndex] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
+
+  const [threads, setThreads] = useState<Record<string, Msg[]>>({});
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [capture, setCapture] = useState(true);
+  const [vault, setVault] = useState<UserVault>(() => emptyVault());
+  const [mining, setMining] = useState(false);
+
+  const feedRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const pendingRef = useRef<string[]>([]);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return MINDS;
-    return MINDS.filter((m) =>
-      [m.name, m.domain, m.bio, ...m.tags].some((v) => v.toLowerCase().includes(q)),
-    );
-  }, [query]);
+  const selected = MINDS[index] ?? MINDS[0]!;
+  const messages = threads[selected.id] ?? [greeting(selected)];
 
+  /* ---------- user vault bootstrapping ---------- */
   useEffect(() => {
-    setMessages([greeting(selected)]);
-    setError(null);
-    stopSpeaking();
-  }, [selected]);
+    let alive = true;
+    void (async () => {
+      const [v, c] = await Promise.all([loadVault(), loadCaptureEnabled()]);
+      if (!alive) return;
+      setVault(v);
+      setCapture(c);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
+  /* ---------- feed scroll tracking ---------- */
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, thinking]);
+    const el = feedRef.current;
+    if (!el) return;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const next = Math.round(el.scrollTop / el.clientHeight);
+        setIndex((prev) => (next !== prev && next >= 0 && next < MINDS.length ? next : prev));
+      });
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setSpeechSupported("speechSynthesis" in window);
+  const goTo = useCallback((next: number) => {
+    const el = feedRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(MINDS.length - 1, next));
+    el.scrollTo({ top: clamped * el.clientHeight, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
-    if (mode === "text") textareaRef.current?.focus();
-  }, [mode, thinking]);
+    function onKey(e: KeyboardEvent) {
+      if (chatOpen || callOpen || vaultOpen) return;
+      if (e.key === "ArrowDown") goTo(index + 1);
+      if (e.key === "ArrowUp") goTo(index - 1);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, goTo, chatOpen, callOpen, vaultOpen]);
 
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, thinking, chatOpen]);
+
+  useEffect(() => {
+    if (chatOpen) composerRef.current?.focus();
+  }, [chatOpen, thinking]);
+
+  /* ---------- speech ---------- */
   function stopSpeaking() {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
@@ -119,23 +171,52 @@ function Explore() {
   function speak(text: string) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text.replace(/[*_`#>\[\]()]/g, ""));
-    utter.rate = 1;
+    const utter = new SpeechSynthesisUtterance(text.replace(/[*_`#>[\]()]/g, ""));
     utter.onend = () => setSpeaking(false);
     utter.onerror = () => setSpeaking(false);
     setSpeaking(true);
     window.speechSynthesis.speak(utter);
   }
 
-  async function send(rawText: string, via: Mode) {
+  /* ---------- background Mind Miner ---------- */
+  const flushMiner = useCallback(
+    async (force = false) => {
+      if (!capture) {
+        pendingRef.current = [];
+        return;
+      }
+      const batch = pendingRef.current;
+      if (batch.length === 0 || (!force && batch.length < 2)) return;
+      pendingRef.current = [];
+      setMining(true);
+      const delta = await mineUserTurns(batch);
+      if (delta) {
+        setVault((prev) => {
+          const next = applyDelta(prev, delta, batch.length);
+          void saveVault(next);
+          return next;
+        });
+      }
+      setMining(false);
+    },
+    [capture],
+  );
+
+  /* ---------- conversation ---------- */
+  async function send(rawText: string, via: Via) {
     const text = rawText.trim();
     if (!text || thinking) return;
     setError(null);
     setInput("");
     const userMsg: Msg = { id: uid(), role: "user", text, via };
     const history = [...messages, userMsg];
-    setMessages(history);
+    setThreads((t) => ({ ...t, [selected.id]: history }));
     setThinking(true);
+
+    if (capture) {
+      pendingRef.current.push(text);
+      void flushMiner();
+    }
 
     let reply = "";
     try {
@@ -151,8 +232,7 @@ function Explore() {
       if (!res.ok) throw new Error(data.error ?? "This mind could not answer right now.");
       reply = (data.text ?? "").trim();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "This mind could not answer right now.";
-      setError(message);
+      setError(e instanceof Error ? e.message : "This mind could not answer right now.");
       reply =
         selected.coreBrain.sampleLines[history.length % selected.coreBrain.sampleLines.length] ??
         selected.coreBrain.sampleLines[0]!;
@@ -160,17 +240,21 @@ function Explore() {
 
     if (!reply) reply = "I don't have that in my mined brain yet.";
     const visual = pickVisual(selected, `${text} ${reply}`);
-    setMessages((m) => [...m, { id: uid(), role: "agent", text: reply, via, visual }]);
+    setThreads((t) => ({
+      ...t,
+      [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual }],
+    }));
     setThinking(false);
-    if (via !== "text") speak(reply);
+    if (via === "call") speak(reply);
   }
 
   function toggleListening() {
     const SR =
-      typeof window !== "undefined" &&
-      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      typeof window !== "undefined"
+        ? window.SpeechRecognition ?? window.webkitSpeechRecognition
+        : undefined;
     if (!SR) {
-      setError("Voice input isn't supported in this browser — type your message instead.");
+      setError("Voice input isn't supported in this browser — type instead.");
       return;
     }
     if (listening) {
@@ -178,12 +262,12 @@ function Explore() {
       setListening(false);
       return;
     }
-    const rec = new SR();
+    const rec: SpeechRecognition = new SR();
     rec.lang = "en-US";
     rec.interimResults = false;
-    rec.onresult = (ev: any) => {
+    rec.onresult = (ev) => {
       const said = ev.results[0]?.[0]?.transcript ?? "";
-      if (said) void send(said, mode);
+      if (said) void send(said, "call");
     };
     rec.onend = () => setListening(false);
     rec.onerror = () => {
@@ -195,323 +279,446 @@ function Explore() {
     rec.start();
   }
 
+  function endCall() {
+    recognitionRef.current?.stop();
+    setListening(false);
+    stopSpeaking();
+    setCallOpen(false);
+    void flushMiner(true);
+  }
+
+  async function toggleCapture(on: boolean) {
+    setCapture(on);
+    await saveCaptureEnabled(on);
+    if (!on) pendingRef.current = [];
+  }
+
   const lastAgent = [...messages].reverse().find((m) => m.role === "agent");
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
 
   return (
-    <div className="dark min-h-screen overflow-x-hidden bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-border bg-background/80 px-4 py-4 backdrop-blur-md sm:px-6 lg:px-8">
-        <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Brain className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-semibold tracking-tight sm:text-xl">
-                Mind Marketplace
-              </h1>
-              <p className="truncate text-xs text-muted-foreground">
-                Browse Mind Vaults and talk with AI Clones
-              </p>
-            </div>
+    <div className="dark relative h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+      {/* Top bar */}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4">
+        <div className="pointer-events-auto flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <Brain className="h-4.5 w-4.5" />
           </div>
-          <ModeSwitch />
+          <div className="leading-tight">
+            <p className="text-sm font-semibold">Mind Feed</p>
+            <p className="text-[11px] text-white/60">Swipe up for the next Mind</p>
+          </div>
+        </div>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button
+            onClick={() => setVaultOpen(true)}
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 text-xs font-medium text-white backdrop-blur-md"
+          >
+            <Sparkles className={`h-4 w-4 ${mining ? "animate-pulse text-primary" : "text-white/70"}`} />
+            My Vault
+            <span className="rounded-full bg-primary/20 px-1.5 text-[10px] text-primary">
+              {vaultSignals(vault)}
+            </span>
+          </button>
+          <div className="hidden sm:block">
+            <ModeSwitch />
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto min-w-0 max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-        <div className="flex min-w-0 flex-wrap items-center gap-4 rounded-[12px] border border-border bg-card px-4 py-4 sm:px-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
-            <Compass className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Explorer Mode
-            </p>
-            <p className="text-sm font-semibold text-foreground">
-              {MINDS.length} Mind Vaults available in preview
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-status-green" />
-            Signed vaults only
-          </div>
-        </div>
+      {/* Vertical snap feed */}
+      <div
+        ref={feedRef}
+        className="h-full w-full snap-y snap-mandatory overflow-y-auto overscroll-contain scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {MINDS.map((mind, i) => (
+          <section
+            key={mind.id}
+            className="relative h-[100dvh] w-full snap-start snap-always overflow-hidden"
+          >
+            <img
+              src={mind.cover}
+              alt={`${mind.name} highlight`}
+              loading={i === 0 ? "eager" : "lazy"}
+              width={640}
+              height={1152}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/60" />
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_1.05fr]">
-          {/* Marketplace list */}
-          <section className="min-w-0 space-y-4">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search minds, skills or domains…"
-                className="w-full rounded-lg border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-              />
+            {/* Info overlay */}
+            <div className="absolute inset-x-0 bottom-0 z-10 max-w-[calc(100%-5.5rem)] p-5 pb-8">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-12 w-12 items-center justify-center rounded-full border-2 text-base font-semibold text-white"
+                  style={{ borderColor: mind.accent, background: `${mind.accent}33` }}
+                >
+                  {mind.shortName.slice(0, 2)}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-white">{mind.name}</p>
+                  <p className="truncate text-xs text-white/70">{mind.domain}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-white/90">{mind.highlight}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {mind.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-white/20 bg-black/30 px-2 py-0.5 text-[11px] text-white/80 backdrop-blur-sm"
+                  >
+                    {tag}
+                  </span>
+                ))}
+                <span className="rounded-full bg-primary/25 px-2 py-0.5 text-[11px] text-primary">
+                  ${mind.perQuery.toFixed(2)}/query
+                </span>
+              </div>
             </div>
 
-            <div className="grid min-w-0 gap-4 md:grid-cols-2">
-              {filtered.map((m) => {
-                const active = m.id === selected.id;
-                return (
-                  <article
-                    key={m.id}
-                    className={`flex min-w-0 flex-col rounded-[12px] border bg-card p-5 transition-colors ${
-                      active ? "border-primary/70" : "border-border hover:border-primary/40"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-base font-semibold text-foreground">
-                          {m.name}
-                        </h3>
-                        <p className="truncate text-xs text-muted-foreground">{m.domain}</p>
-                      </div>
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs text-foreground">
-                        <Star className="h-3 w-3 text-status-amber" />
-                        {m.rating.toFixed(1)}
-                      </span>
-                    </div>
-                    <p className="mt-3 flex-1 text-sm text-muted-foreground">{m.bio}</p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {m.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />${m.hourly}/hr
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <Sparkles className="h-3.5 w-3.5" />${m.perQuery.toFixed(2)}/query
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setSelected(m)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        {active ? "Talking" : "Talk"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-              {filtered.length === 0 && (
-                <p className="text-sm text-muted-foreground">No minds match that search.</p>
-              )}
+            {/* Right action rail */}
+            <div className="absolute bottom-8 right-3 z-20 flex flex-col items-center gap-5">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/40 backdrop-blur-md">
+                  <Star className="h-5 w-5 text-status-amber" />
+                </div>
+                <span className="text-[11px] text-white/80">{mind.rating.toFixed(1)}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => {
+                    setIndex(i);
+                    setChatOpen(true);
+                  }}
+                  aria-label={`Chat with ${mind.shortName}`}
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md transition-transform active:scale-95"
+                >
+                  <MessageSquare className="h-6 w-6" />
+                </button>
+                <span className="text-[11px] text-white/80">Chat</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <button
+                  onClick={() => {
+                    setIndex(i);
+                    setCallOpen(true);
+                  }}
+                  aria-label={`Call ${mind.shortName}`}
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95"
+                >
+                  <Phone className="h-6 w-6" />
+                </button>
+                <span className="text-[11px] text-white/80">AI Call</span>
+              </div>
+            </div>
+
+            {/* Desktop / accessible nav */}
+            <div className="absolute right-4 top-1/2 z-20 hidden -translate-y-1/2 flex-col gap-2 lg:flex">
+              <button
+                onClick={() => goTo(i - 1)}
+                disabled={i === 0}
+                aria-label="Previous mind"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-md disabled:opacity-30"
+              >
+                <ChevronUp className="h-5 w-5" />
+              </button>
+              <button
+                onClick={() => goTo(i + 1)}
+                disabled={i === MINDS.length - 1}
+                aria-label="Next mind"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-md disabled:opacity-30"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </button>
             </div>
           </section>
+        ))}
+      </div>
 
-          {/* Mind interaction */}
-          <section className="flex min-w-0 flex-col rounded-[12px] border border-border bg-card">
-            <div className="flex flex-wrap items-center gap-3 border-b border-border p-5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-base font-semibold text-foreground">{selected.name}</h3>
-                <p className="truncate text-xs text-muted-foreground">
-                  Preview clone · {selected.access === "public" ? "Public vault" : "Private vault"} ·
-                  ${selected.perQuery.toFixed(2)}/query
-                </p>
+      {/* Feed position dots */}
+      <div className="pointer-events-none absolute left-2 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-1.5">
+        {MINDS.map((m, i) => (
+          <span
+            key={m.id}
+            className={`h-1.5 w-1.5 rounded-full transition-colors ${
+              i === index ? "bg-primary" : "bg-white/30"
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Chat bottom sheet */}
+      <div
+        className={`absolute inset-x-0 bottom-0 z-40 flex h-[78dvh] flex-col rounded-t-3xl border-t border-border bg-background/95 backdrop-blur-xl transition-transform duration-300 ${
+          chatOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+        aria-hidden={!chatOpen}
+      >
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="mx-auto h-1 w-10 rounded-full bg-muted" />
+        </div>
+        <div className="flex items-center gap-3 px-4 pb-3">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold"
+            style={{ borderColor: selected.accent, background: `${selected.accent}22` }}
+          >
+            {selected.shortName.slice(0, 2)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold">{selected.shortName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {capture ? "Mind Miner is capturing your side" : "Mind Miner off"}
+            </p>
+          </div>
+          <button
+            onClick={() => setCallOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            aria-label="Start AI call"
+          >
+            <Phone className="h-4.5 w-4.5" />
+          </button>
+          <button
+            onClick={() => setChatOpen(false)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
+            aria-label="Close chat"
+          >
+            <X className="h-4.5 w-4.5" />
+          </button>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 pb-2">
+          {messages.map((m) => (
+            <div key={m.id} className={m.role === "user" ? "flex justify-end" : ""}>
+              <div
+                className={`max-w-[86%] rounded-2xl px-3.5 py-2.5 text-sm ${
+                  m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                }`}
+              >
+                {m.role === "agent" ? (
+                  <div className="markdown-chat leading-relaxed">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                )}
+                {m.visual && (
+                  <figure className="mt-3 overflow-hidden rounded-lg border border-border">
+                    <img
+                      src={m.visual.src}
+                      alt={m.visual.label}
+                      loading="lazy"
+                      width={768}
+                      height={512}
+                      className="h-auto w-full"
+                    />
+                    <figcaption className="bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                      Visual Data · {m.visual.label} · [{m.visual.timestamp}]
+                    </figcaption>
+                  </figure>
+                )}
+                {m.role === "agent" && (
+                  <button
+                    onClick={() => (speaking ? stopSpeaking() : speak(m.text))}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    <Volume2 className="h-3 w-3" />
+                    {speaking ? "Stop" : "Play voice"}
+                  </button>
+                )}
               </div>
             </div>
+          ))}
+          {thinking && (
+            <div className="max-w-[80%] animate-pulse rounded-2xl bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
+              {selected.shortName} is thinking…
+            </div>
+          )}
+          {error && <p className="text-xs text-status-red">{error}</p>}
+        </div>
 
-            {/* Mode switcher */}
-            <div className="border-b border-border p-4">
-              <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-muted p-1">
-                {MODES.map((m) => {
-                  const Icon = m.icon;
-                  const active = mode === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setMode(m.id);
-                        if (m.id === "text") stopSpeaking();
-                      }}
-                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                        active
-                          ? "bg-card text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{m.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Switch modes anytime — the conversation stays the same.
+        <div className="flex items-end gap-2 border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <textarea
+            ref={composerRef}
+            value={input}
+            rows={1}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send(input, "text");
+              }
+            }}
+            placeholder={`Ask ${selected.shortName} something…`}
+            className="max-h-28 min-w-0 flex-1 resize-none rounded-2xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+          />
+          <button
+            onClick={() => void send(input, "text")}
+            disabled={!input.trim() || thinking}
+            aria-label="Send message"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Full-screen AI video call */}
+      {callOpen && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-black">
+          <img
+            src={selected.cover}
+            alt=""
+            width={640}
+            height={1152}
+            className="absolute inset-0 h-full w-full object-cover opacity-40"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/90" />
+
+          <div className="relative z-10 flex items-center justify-between p-4">
+            <div>
+              <p className="text-sm font-semibold text-white">{selected.name}</p>
+              <p className="text-[11px] text-white/70">
+                {speaking ? "Speaking…" : thinking ? "Thinking…" : listening ? "Listening…" : "Connected"}
               </p>
             </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[11px] text-white/80 backdrop-blur-md">
+              <Sparkles className={`h-3.5 w-3.5 ${mining ? "animate-pulse text-primary" : "text-white/50"}`} />
+              {capture ? (mining ? "Mining your mind…" : "Mind Miner on") : "Mind Miner off"}
+            </span>
+          </div>
 
-            {/* Video avatar stage */}
-            {mode === "video" && (
-              <div className="border-b border-border p-5">
-                <div className="relative flex h-44 items-center justify-center overflow-hidden rounded-[12px] border border-border bg-gradient-to-b from-muted to-background">
-                  <div
-                    className={`flex h-20 w-20 items-center justify-center rounded-full border-2 text-2xl font-semibold text-foreground transition-transform ${
-                      speaking ? "animate-pulse scale-105" : ""
-                    }`}
-                    style={{ borderColor: selected.accent, background: `${selected.accent}22` }}
-                  >
-                    {selected.shortName.slice(0, 2)}
-                  </div>
-                  <span className="absolute bottom-3 left-3 rounded-full bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground">
-                    {speaking ? "Speaking…" : thinking ? "Thinking…" : "Avatar idle"}
-                  </span>
-                  {speaking && (
-                    <button
-                      onClick={stopSpeaking}
-                      className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[11px] text-foreground"
-                    >
-                      <Square className="h-3 w-3" /> Stop
-                    </button>
-                  )}
-                </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  Video avatar preview drives the mined voice profile; photoreal rendering unlocks
-                  with a full vault license.
+          <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
+            <div
+              className={`flex h-36 w-36 items-center justify-center rounded-full border-4 text-4xl font-semibold text-white transition-transform ${
+                speaking ? "scale-105 animate-pulse" : ""
+              }`}
+              style={{ borderColor: selected.accent, background: `${selected.accent}33` }}
+            >
+              {selected.shortName.slice(0, 2)}
+            </div>
+            <div className="max-h-40 w-full max-w-md space-y-2 overflow-y-auto text-center">
+              {lastUser && <p className="text-xs text-white/60">You: {lastUser.text}</p>}
+              {lastAgent && (
+                <p className="text-base leading-relaxed text-white">
+                  {lastAgent.text.replace(/[*_`#>[\]()]/g, "")}
                 </p>
-              </div>
-            )}
-
-            {/* Transcript (shared across all modes) */}
-            <div ref={scrollRef} className="min-h-[300px] flex-1 space-y-3 overflow-y-auto p-5">
-              {messages.map((m) => (
-                <div key={m.id} className={m.role === "user" ? "flex justify-end" : ""}>
-                  <div
-                    className={`max-w-[88%] rounded-[12px] px-3.5 py-2.5 text-sm ${
-                      m.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
-                  >
-                    {m.via !== "text" && (
-                      <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider opacity-70">
-                        {m.via === "voice" ? <Mic className="h-3 w-3" /> : <Video className="h-3 w-3" />}
-                        {m.via}
-                      </span>
-                    )}
-                    {m.role === "agent" ? (
-                      <div className="markdown-chat space-y-2 leading-relaxed">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-                      </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{m.text}</p>
-                    )}
-                    {m.visual && (
-                      <figure className="mt-3 overflow-hidden rounded-lg border border-border">
-                        <img
-                          src={m.visual.src}
-                          alt={m.visual.label}
-                          loading="lazy"
-                          width={768}
-                          height={512}
-                          className="h-auto w-full"
-                        />
-                        <figcaption className="bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground">
-                          Visual Data · {m.visual.label} · [{m.visual.timestamp}]
-                        </figcaption>
-                      </figure>
-                    )}
-                    {m.role === "agent" && (
-                      <button
-                        onClick={() => (speaking ? stopSpeaking() : speak(m.text))}
-                        disabled={!speechSupported}
-                        className="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-                      >
-                        <Volume2 className="h-3 w-3" />
-                        {speaking ? "Stop" : "Play voice"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {thinking && (
-                <div className="max-w-[85%] animate-pulse rounded-[12px] bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
-                  {selected.shortName} is thinking…
-                </div>
               )}
             </div>
+            {error && <p className="text-xs text-status-red">{error}</p>}
+          </div>
 
-            {error && (
-              <p className="border-t border-border px-5 py-2 text-xs text-status-red">{error}</p>
-            )}
-
-            {/* Composer */}
-            <div className="border-t border-border p-4">
-              {mode === "text" ? (
-                <div className="flex items-end gap-2">
-                  <textarea
-                    ref={textareaRef}
-                    value={input}
-                    rows={1}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void send(input, "text");
-                      }
-                    }}
-                    placeholder={`Ask ${selected.shortName} something…`}
-                    className="max-h-32 min-w-0 flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  />
-                  <button
-                    onClick={() => void send(input, "text")}
-                    disabled={!input.trim() || thinking}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                    aria-label="Send message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={toggleListening}
-                    disabled={thinking}
-                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${
-                      listening
-                        ? "bg-status-red/15 text-status-red"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90"
-                    }`}
-                  >
-                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                    {listening ? "Listening — tap to stop" : "Hold a conversation"}
-                  </button>
-                  <input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void send(input, mode);
-                    }}
-                    placeholder="…or type instead"
-                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-                  />
-                  <button
-                    onClick={() => void send(input, mode)}
-                    disabled={!input.trim() || thinking}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                    aria-label="Send message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+          <div className="relative z-10 space-y-4 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            <label className="mx-auto flex w-full max-w-md items-center justify-between gap-3 rounded-2xl border border-white/15 bg-black/40 px-4 py-3 text-xs text-white/85 backdrop-blur-md">
+              <span>Capture my Subconsciousness during calls</span>
+              <input
+                type="checkbox"
+                checked={capture}
+                onChange={(e) => void toggleCapture(e.target.checked)}
+                className="h-5 w-9 shrink-0 appearance-none rounded-full bg-white/20 transition-colors before:block before:h-4 before:w-4 before:translate-x-0.5 before:translate-y-0.5 before:rounded-full before:bg-white before:transition-transform checked:bg-primary checked:before:translate-x-4.5"
+              />
+            </label>
+            <div className="flex items-center justify-center gap-5">
+              <button
+                onClick={() => setChatOpen(true)}
+                aria-label="Open chat"
+                className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md active:scale-95"
+              >
+                <MessageSquare className="h-6 w-6" />
+              </button>
+              <button
+                onClick={toggleListening}
+                disabled={thinking}
+                aria-label={listening ? "Stop listening" : "Start speaking"}
+                className={`flex h-20 w-20 items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-50 ${
+                  listening ? "bg-status-red text-white" : "bg-primary text-primary-foreground"
+                }`}
+              >
+                {listening ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+              </button>
+              <button
+                onClick={speaking ? stopSpeaking : endCall}
+                aria-label={speaking ? "Stop voice" : "End call"}
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-status-red/90 text-white active:scale-95"
+              >
+                {speaking ? <Square className="h-5 w-5" /> : <PhoneOff className="h-6 w-6" />}
+              </button>
             </div>
-          </section>
+            <p className="text-center text-[11px] text-white/50">
+              Tap the mic, speak, and the clone answers out loud.
+            </p>
+          </div>
         </div>
-      </main>
+      )}
+
+      {/* My Mind Vault sheet */}
+      {vaultOpen && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-xl">
+          <div className="flex items-center gap-3 border-b border-border p-4">
+            <Brain className="h-5 w-5 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">My Subconsciousness Vault</p>
+              <p className="text-[11px] text-muted-foreground">
+                Mined from your own turns · {vault.turns} captured · stays on this device
+              </p>
+            </div>
+            <button
+              onClick={() => setVaultOpen(false)}
+              aria-label="Close vault"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+          </div>
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <label className="flex items-center justify-between gap-3 rounded-[12px] border border-border bg-card px-4 py-3 text-sm">
+              <span>Capture my Subconsciousness during calls</span>
+              <input
+                type="checkbox"
+                checked={capture}
+                onChange={(e) => void toggleCapture(e.target.checked)}
+                className="h-5 w-9 shrink-0 appearance-none rounded-full bg-muted transition-colors before:block before:h-4 before:w-4 before:translate-x-0.5 before:translate-y-0.5 before:rounded-full before:bg-white before:transition-transform checked:bg-primary checked:before:translate-x-4.5"
+              />
+            </label>
+            {(
+              [
+                ["Interests", vault.interests],
+                ["Beliefs & values", vault.beliefs],
+                ["Problems you're solving", vault.questions],
+                ["Tone notes", vault.toneNotes],
+              ] as const
+            ).map(([label, items]) => (
+              <div key={label} className="rounded-[12px] border border-border bg-card p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  {label}
+                </p>
+                {items.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Nothing mined yet — talk to a Mind and this fills itself in.
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-1.5 text-sm text-foreground">
+                    {items.map((it) => (
+                      <li key={it} className="flex gap-2">
+                        <span className="text-primary">•</span>
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => exportUserVault(vault)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[12px] bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
+            >
+              <Download className="h-4 w-4" /> Export my Mind Vault
+            </button>
+            <div className="sm:hidden">
+              <ModeSwitch />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
