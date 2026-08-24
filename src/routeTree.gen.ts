@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const ExploreRoute = ExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMindChatRoute = ApiMindChatRouteImport.update({
+  id: '/api/mind-chat',
+  path: '/api/mind-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/api/mind-chat': typeof ApiMindChatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/api/mind-chat': typeof ApiMindChatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/api/mind-chat': typeof ApiMindChatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/creator' | '/explore'
+  fullPaths: '/' | '/creator' | '/explore' | '/api/mind-chat'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/creator' | '/explore'
-  id: '__root__' | '/' | '/creator' | '/explore'
+  to: '/' | '/creator' | '/explore' | '/api/mind-chat'
+  id: '__root__' | '/' | '/creator' | '/explore' | '/api/mind-chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
+  ApiMindChatRoute: typeof ApiMindChatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mind-chat': {
+      id: '/api/mind-chat'
+      path: '/api/mind-chat'
+      fullPath: '/api/mind-chat'
+      preLoaderRoute: typeof ApiMindChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
+  ApiMindChatRoute: ApiMindChatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
