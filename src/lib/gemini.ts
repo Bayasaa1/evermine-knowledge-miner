@@ -414,7 +414,9 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
       end: String(w?.end ?? ""),
       quality: String(w?.quality ?? ""),
       note: String(w?.note ?? ""),
+      musicPresent: w?.musicPresent === true,
     })),
+    audio,
     subconsciousness,
   };
 }
