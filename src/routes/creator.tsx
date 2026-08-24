@@ -86,6 +86,12 @@ import {
   Play,
   Music,
   Quote,
+  Plus,
+  Trash2,
+  RotateCw,
+  PauseCircle,
+  PlayCircle,
+
 } from "lucide-react";
 
 /** Inline looping preview of a short action window inside the source video. */
