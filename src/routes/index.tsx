@@ -431,6 +431,7 @@ function Index() {
           /* ignore malformed cache */
         }
       }
+      setOwnership((o) => (o.mindId ? o : { ...o, mindId: newMindId() }));
       setHydrated(true);
     })();
     return () => {
