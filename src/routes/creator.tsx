@@ -1308,7 +1308,10 @@ function Index() {
   );
 
   const handleResetKeys = useCallback(() => {
-    commitKeys(keysRef.current.map((k) => ({ ...k, state: "ok" as const, exhaustedAt: undefined })));
+    commitKeys(
+      keysRef.current.map(({ exhaustedAt: _drop, ...k }) => ({ ...k, state: "ok" as const })),
+    );
+
     if (status === "paused") {
       setStatus("ready");
       setStatusNote("noteReady");
