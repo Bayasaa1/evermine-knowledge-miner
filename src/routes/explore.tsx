@@ -18,9 +18,14 @@ import {
   X,
   Download,
   Sparkles,
+  Languages,
+  Captions,
+  CaptionsOff,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, type Mind, type VisualAsset } from "@/lib/minds";
+import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
+import { startDub, type DubHandle } from "@/lib/voice-dub";
 import {
   applyDelta,
   emptyVault,
@@ -90,6 +95,12 @@ function Explore() {
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [lang, setLang] = useState<LangCode>("en");
+  const [langOpen, setLangOpen] = useState(false);
+  const [mouth, setMouth] = useState(0);
+  const [dubbing, setDubbing] = useState(false);
+  const [captions, setCaptions] = useState(false);
+
   const [capture, setCapture] = useState(true);
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
@@ -99,6 +110,7 @@ function Explore() {
   const recognitionRef = useRef<any>(null);
   const pendingRef = useRef<string[]>([]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const dubRef = useRef<DubHandle | null>(null);
 
   const selected = MINDS[index] ?? MINDS[0]!;
   const messages = threads[selected.id] ?? [greeting(selected)];
@@ -161,22 +173,47 @@ function Explore() {
     if (chatOpen) composerRef.current?.focus();
   }, [chatOpen, thinking]);
 
-  /* ---------- speech ---------- */
+  /* ---------- native voice dubbing + lip-sync ---------- */
   function stopSpeaking() {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+    dubRef.current?.stop();
+    dubRef.current = null;
     setSpeaking(false);
+    setDubbing(false);
+    setMouth(0);
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
   }
 
   function speak(text: string) {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text.replace(/[*_`#>[\]()]/g, ""));
-    utter.onend = () => setSpeaking(false);
-    utter.onerror = () => setSpeaking(false);
+    stopSpeaking();
+    const clean = text.replace(/[*_`#>[\]()]/g, "").trim();
+    if (!clean) return;
+    setDubbing(true);
     setSpeaking(true);
-    window.speechSynthesis.speak(utter);
+    const handle = startDub({
+      mindId: selected.id,
+      text: clean,
+      lang,
+      onViseme: setMouth,
+      onStart: () => setDubbing(false),
+      onError: (message) => {
+        setError(message);
+        setDubbing(false);
+        setSpeaking(false);
+        setMouth(0);
+      },
+    });
+    dubRef.current = handle;
+    void handle.done.then(() => {
+      if (dubRef.current === handle) {
+        dubRef.current = null;
+        setSpeaking(false);
+        setDubbing(false);
+        setMouth(0);
+      }
+    });
   }
+
+  useEffect(() => () => dubRef.current?.stop(), []);
 
   /* ---------- background Mind Miner ---------- */
   const flushMiner = useCallback(
@@ -225,6 +262,7 @@ function Explore() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mindId: selected.id,
+          lang,
           messages: history.map((m) => ({ role: m.role, text: m.text })),
         }),
       });
@@ -263,7 +301,7 @@ function Explore() {
       return;
     }
     const rec = new SR();
-    rec.lang = "en-US";
+    rec.lang = LANGUAGES[lang].speechLang;
     rec.interimResults = false;
     rec.onresult = (ev: any) => {
       const said = ev.results[0]?.[0]?.transcript ?? "";
