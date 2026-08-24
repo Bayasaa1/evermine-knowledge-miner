@@ -102,8 +102,24 @@ export function downloadMineFile(mine: MineFile): string {
 /** Lightweight brain bundle meant to be dropped into an AI agent as system context. */
 export type AgentBrain = {
   format: "evermine.agent-brain";
-  version: 1;
+  version: 2;
   createdAt: string;
+  mindId: string;
+  ownership: {
+    creatorName: string;
+    creatorEmail: string;
+    accessLevel: AccessLevel;
+    signature: DigitalSignature;
+  };
+  monetization: {
+    accessLevel: AccessLevel;
+    rate: number;
+    currency: string;
+    unit: RateUnit;
+    priceLabel: string;
+    listedOnMarketplace: boolean;
+    licenseTerms: string;
+  };
   persona: {
     source: string;
     videoDuration: number | null;
