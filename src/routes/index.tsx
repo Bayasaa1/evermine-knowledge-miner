@@ -472,24 +472,42 @@ function Index() {
 
   const acceptFile = useCallback(
     (f: File) => {
+      if (f.size > MAX_FILE_BYTES) {
+        toast.error(t.tooLarge, { description: `${f.name} · ${formatBytes(f.size)}` });
+        addLog("error", `Rejected ${f.name}: ${formatBytes(f.size)} exceeds the 2GB limit`);
+        return;
+      }
+      if (!isAllowedVideo(f)) {
+        toast.error(t.badType, { description: `${f.name} · ${f.type || "unknown type"}` });
+        addLog("error", `Rejected ${f.name}: unsupported format (${f.type || "unknown"})`);
+        return;
+      }
+
       setFile(f);
       setSource({ name: f.name, size: f.size });
       setStatus("ready");
       setStatusNote("noteReady");
       setChunks([]);
       setDuration(null);
+      setResolution(null);
       setCurrentPiece(0);
       setDonePieces(0);
       setElapsed(0);
       setResults([]);
-      addLog("info", `Loaded ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`);
+      addLog("info", `Loaded ${f.name} (${formatBytes(f.size)})`);
 
       const url = URL.createObjectURL(f);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
         const d = video.duration;
-        URL.revokeObjectURL(url);
+        if (video.videoWidth && video.videoHeight) {
+          setResolution({ width: video.videoWidth, height: video.videoHeight });
+        }
         if (!Number.isFinite(d) || d <= 0) {
           addLog("warn", "Could not read duration from file");
           return;
@@ -501,12 +519,12 @@ function Index() {
         addLog("info", `Split into ${parts.length} piece(s) of up to 5 minutes`);
       };
       video.onerror = () => {
-        URL.revokeObjectURL(url);
         addLog("warn", "Unsupported or unreadable video file");
+        toast.error(t.badType, { description: f.name });
       };
       video.src = url;
     },
-    [addLog],
+    [addLog, t],
   );
 
   const handleDrop = useCallback(
