@@ -498,7 +498,21 @@ function Explore() {
       [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual, clip }],
     }));
     setThinking(false);
+    // Signed-in explorers keep a private, account-scoped copy of the thread.
+    if (authed) {
+      void appendChatMessages({
+        data: {
+          mindId: selected.id,
+          lang,
+          messages: [
+            { role: "user" as const, body: text },
+            { role: "agent" as const, body: reply },
+          ],
+        },
+      }).catch(() => undefined);
+    }
     if (via === "call") speak(reply);
+
   }
 
   function toggleListening() {
