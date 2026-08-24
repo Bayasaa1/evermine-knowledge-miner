@@ -63,7 +63,7 @@ export function parseMineFile(raw: unknown): MineFile {
 
   const source = raw['source'];
   if (!isObj(source) || !isStr(source['name']) || !isNum(source['size'])) throw new Error('Invalid "source" section.');
-  if (!(source['duration'] === null || isNum(source['duration']))) throw new Error('Invalid "source['duration']".');
+  if (!(source['duration'] === null || isNum(source['duration']))) throw new Error('Invalid "source.duration".');
 
   if (!Array.isArray(raw['chunks']) || !raw['chunks'].every(isChunk)) throw new Error('Invalid "chunks" section.');
   if (!Array.isArray(raw['results'])) throw new Error('Invalid "results" section.');
