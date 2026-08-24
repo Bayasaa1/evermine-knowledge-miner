@@ -199,6 +199,29 @@ function Explore() {
     };
   }, []);
 
+  const deleteOne = useCallback(
+    async (field: VaultField, item: string) => {
+      const next = removeVaultItem(vault, field, item);
+      setVault(next);
+      await saveVault(next);
+      toast.success("Data point deleted");
+    },
+    [vault],
+  );
+
+  const deleteAll = useCallback(async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      window.setTimeout(() => setConfirmDelete(false), 4000);
+      return;
+    }
+    setConfirmDelete(false);
+    const fresh = await deleteVault();
+    setVault(fresh);
+    toast.success("All mined memory deleted from this device");
+  }, [confirmDelete]);
+
+
   /* ---------- feed scroll tracking ---------- */
   useEffect(() => {
     const el = feedRef.current;
