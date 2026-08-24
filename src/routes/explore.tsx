@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   Brain,
+  Trash2,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -43,8 +44,12 @@ import {
   saveCaptureEnabled,
   saveVault,
   vaultSignals,
+  removeVaultItem,
+  deleteVault,
   type UserVault,
+  type VaultField,
 } from "@/lib/user-vault";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -131,6 +136,7 @@ function Explore() {
   const [capture, setCapture] = useState(true);
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [openClip, setOpenClip] = useState<SourceClip | null>(null);
   const callSessionRef = useRef<string | null>(null);
   const chatSessionRef = useRef<string | null>(null);
@@ -198,6 +204,29 @@ function Explore() {
       alive = false;
     };
   }, []);
+
+  const deleteOne = useCallback(
+    async (field: VaultField, item: string) => {
+      const next = removeVaultItem(vault, field, item);
+      setVault(next);
+      await saveVault(next);
+      toast.success("Data point deleted");
+    },
+    [vault],
+  );
+
+  const deleteAll = useCallback(async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      window.setTimeout(() => setConfirmDelete(false), 4000);
+      return;
+    }
+    setConfirmDelete(false);
+    const fresh = await deleteVault();
+    setVault(fresh);
+    toast.success("All mined memory deleted from this device");
+  }, [confirmDelete]);
+
 
   /* ---------- feed scroll tracking ---------- */
   useEffect(() => {
@@ -953,23 +982,40 @@ function Explore() {
             </button>
           </div>
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            <label className="flex items-center justify-between gap-3 rounded-[12px] border border-border bg-card px-4 py-3 text-sm">
-              <span>Capture my Subconsciousness during calls</span>
-              <input
-                type="checkbox"
-                checked={capture}
-                onChange={(e) => void toggleCapture(e.target.checked)}
-                className="h-5 w-9 shrink-0 appearance-none rounded-full bg-muted transition-colors before:block before:h-4 before:w-4 before:translate-x-0.5 before:translate-y-0.5 before:rounded-full before:bg-white before:transition-transform checked:bg-primary checked:before:translate-x-4.5"
-              />
-            </label>
+            <div className="rounded-[12px] border border-border bg-card p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Privacy controls
+              </p>
+              <label className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <span>
+                  Background Mind Mining
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                    {capture ? "Active during calls & chats" : "Paused — nothing is being mined"}
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={capture}
+                  onChange={(e) => void toggleCapture(e.target.checked)}
+                  className="h-5 w-9 shrink-0 appearance-none rounded-full bg-muted transition-colors before:block before:h-4 before:w-4 before:translate-x-0.5 before:translate-y-0.5 before:rounded-full before:bg-white before:transition-transform checked:bg-primary checked:before:translate-x-4.5"
+                />
+              </label>
+              <button
+                onClick={() => void toggleCapture(!capture)}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-[12px] border border-border px-4 py-2.5 text-sm font-medium"
+              >
+                {capture ? <Square className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+                {capture ? "Pause Background Mining" : "Resume Background Mining"}
+              </button>
+            </div>
             {(
               [
-                ["Interests", vault.interests],
-                ["Beliefs & values", vault.beliefs],
-                ["Problems you're solving", vault.questions],
-                ["Tone notes", vault.toneNotes],
+                ["Interests", "interests", vault.interests],
+                ["Beliefs & values", "beliefs", vault.beliefs],
+                ["Problems you're solving", "questions", vault.questions],
+                ["Tone notes", "toneNotes", vault.toneNotes],
               ] as const
-            ).map(([label, items]) => (
+            ).map(([label, field, items]) => (
               <div key={label} className="rounded-[12px] border border-border bg-card p-4">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {label}
@@ -981,9 +1027,16 @@ function Explore() {
                 ) : (
                   <ul className="mt-2 space-y-1.5 text-sm text-foreground">
                     {items.map((it) => (
-                      <li key={it} className="flex gap-2">
+                      <li key={it} className="flex items-start gap-2">
                         <span className="text-primary">•</span>
-                        <span>{it}</span>
+                        <span className="flex-1">{it}</span>
+                        <button
+                          onClick={() => void deleteOne(field, it)}
+                          aria-label={`Delete "${it}"`}
+                          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -996,6 +1049,17 @@ function Explore() {
             >
               <Download className="h-4 w-4" /> Export my Mind Vault
             </button>
+            <button
+              onClick={() => void deleteAll()}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[12px] border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              {confirmDelete ? "Tap again to permanently delete" : "Delete all my memory"}
+            </button>
+            <p className="text-center text-[11px] text-muted-foreground">
+              Everything here lives only on this device. Deleting is immediate and irreversible.
+            </p>
+
             <div className="sm:hidden">
               <ModeSwitch />
             </div>

@@ -104,3 +104,21 @@ export function exportUserVault(vault: UserVault) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+export type VaultField = "interests" | "beliefs" | "questions" | "toneNotes";
+
+/** Remove a single mined data point from the vault. */
+export function removeVaultItem(vault: UserVault, field: VaultField, item: string): UserVault {
+  return {
+    ...vault,
+    updatedAt: new Date().toISOString(),
+    [field]: vault[field].filter((v) => v !== item),
+  };
+}
+
+/** Wipe every mined data point (keeps nothing server-side — vault is device-local). */
+export async function deleteVault(): Promise<UserVault> {
+  const fresh = emptyVault();
+  await saveVault(fresh);
+  return fresh;
+}
