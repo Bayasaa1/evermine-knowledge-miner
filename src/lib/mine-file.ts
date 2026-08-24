@@ -1,5 +1,5 @@
 import type { Chunk } from "./chunking";
-import { normalizeChunkResult, type ChunkResult } from "./gemini";
+import { normalizeChunkResult, type ChunkResult, type CulturalExpression } from "./gemini";
 import {
   normalizeOwnership,
   signMind,
