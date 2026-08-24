@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
+import { loadApiKey, saveApiKey } from "@/lib/keystore";
+import {
+  validateApiKey,
+  uploadVideo,
+  mineChunk,
+  deleteFile,
+  describeError,
+  GeminiError,
+  type ChunkResult,
+} from "@/lib/gemini";
 import {
   Brain,
   KeyRound,
