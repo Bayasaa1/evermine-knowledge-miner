@@ -524,12 +524,8 @@ function Index() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.status}</p>
               <p className={`text-sm font-semibold ${statusConfig[status].color}`}>{statusConfig[status].label}</p>
             </div>
-            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">
-              {status === "ready" && "System ready to process video."}
-              {status === "processing" && "Mining knowledge from your video..."}
-              {status === "complete" && "Knowledge extraction complete."}
-              {status === "error" && "Something went wrong. Check the app log."}
-            </div>
+            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{statusNote}</div>
+
           </div>
 
           {/* Main grid */}
