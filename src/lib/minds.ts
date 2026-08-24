@@ -25,6 +25,16 @@ export type CoreBrain = {
   culturalVocabulary?: { phrase: string; kind: string; intent: string; meaning: string; usage: string }[];
 };
 
+export type VoiceProfile = {
+  /** Base voice model the cloned timbre is rendered through. */
+  voice: string;
+  timbre: string;
+  accent: string;
+  emotion: string;
+  pace: string;
+  speed?: number;
+};
+
 export type Mind = {
   id: string;
   name: string;
@@ -41,6 +51,8 @@ export type Mind = {
   highlight: string;
   coreBrain: CoreBrain;
   visuals: VisualAsset[];
+  /** Cloned voice model rebuilt from the Mind Vault's Voice Sample Data. */
+  voiceProfile: VoiceProfile;
 };
 
 export const MINDS: Mind[] = [
@@ -106,6 +118,14 @@ export const MINDS: Mind[] = [
         keywords: ["lead", "rope", "green", "train", "walk", "start", "handle", "calm"],
       },
     ],
+    voiceProfile: {
+      voice: "onyx",
+      timbre: "Low, weathered baritone with a dry, grainy edge and long open vowels.",
+      accent: "Mongolian steppe accent \u2014 rolled r, heavy back-of-throat consonants, flat unhurried intonation.",
+      emotion: "Steady and warm, never raised; quiet authority with occasional soft amusement.",
+      pace: "Slow, with long pauses between thoughts.",
+      speed: 0.92,
+    },
   },
   {
     id: "mind_chef",
@@ -150,6 +170,14 @@ export const MINDS: Mind[] = [
       ],
     },
     visuals: [],
+    voiceProfile: {
+      voice: "shimmer",
+      timbre: "Bright mid-range voice, slightly husky, with a smiling resonance.",
+      accent: "Mongolian-accented, softened consonants, gently sing-song phrase endings.",
+      emotion: "Generous and encouraging, quick bursts of delight when describing food.",
+      pace: "Lively, short phrases separated by small breaths.",
+      speed: 1,
+    },
   },
   {
     id: "mind_founder",
@@ -194,6 +222,14 @@ export const MINDS: Mind[] = [
       ],
     },
     visuals: [],
+    voiceProfile: {
+      voice: "echo",
+      timbre: "Clear, dense mid-baritone with crisp articulation and little vibrato.",
+      accent: "Mongolian accent flattened by years of international meetings; precise consonants.",
+      emotion: "Composed, analytical, with controlled conviction on key points.",
+      pace: "Brisk and even, minimal filler.",
+      speed: 1.05,
+    },
   },
   {
     id: "mind_dancer",
@@ -246,6 +282,14 @@ export const MINDS: Mind[] = [
         keywords: ["arm", "sweep", "release", "phrase", "movement", "floor", "weight", "turn"],
       },
     ],
+    voiceProfile: {
+      voice: "nova",
+      timbre: "Light, airy soprano with breathy onsets and quick pitch lifts.",
+      accent: "Young urban Mongolian accent, rhythmic and percussive on stressed syllables.",
+      emotion: "Playful and expressive, energy rising at the end of sentences.",
+      pace: "Fast with rhythmic stops.",
+      speed: 1.08,
+    },
   },
 ];
 
