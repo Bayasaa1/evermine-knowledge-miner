@@ -4,6 +4,10 @@ import coverKitchen from "@/assets/cover-kitchen.jpg";
 import coverFounder from "@/assets/cover-founder.jpg";
 import coverDance from "@/assets/cover-dance.jpg";
 import danceImg from "@/assets/action-dance.jpg";
+import clipHorse from "@/assets/clip-horse.mp4.asset.json";
+import clipKitchen from "@/assets/clip-kitchen.mp4.asset.json";
+import clipFounder from "@/assets/clip-founder.mp4.asset.json";
+import clipDance from "@/assets/clip-dance.mp4.asset.json";
 
 export type VisualAsset = {
   id: string;
@@ -11,6 +15,23 @@ export type VisualAsset = {
   timestamp: string;
   src: string;
   keywords: string[];
+};
+
+/** A 5-second citation window from the creator's original source video. */
+export type SourceClip = {
+  id: string;
+  label: string;
+  /** Where the moment sits in the original video (MM:SS). */
+  timestamp: string;
+  /** Verbatim line the creator said at that moment. */
+  quote: string;
+  /** Topics this clip is evidence for. */
+  topics: string[];
+  poster: string;
+  src: string;
+  /** Offset inside the clip file, in seconds. */
+  start: number;
+  end: number;
 };
 
 export type CoreBrain = {
@@ -51,6 +72,8 @@ export type Mind = {
   highlight: string;
   coreBrain: CoreBrain;
   visuals: VisualAsset[];
+  /** Source-video citations the avatar can attach to complex answers. */
+  clips: SourceClip[];
   /** Cloned voice model rebuilt from the Mind Vault's Voice Sample Data. */
   voiceProfile: VoiceProfile;
 };
@@ -118,6 +141,30 @@ export const MINDS: Mind[] = [
         keywords: ["lead", "rope", "green", "train", "walk", "start", "handle", "calm"],
       },
     ],
+    clips: [
+      {
+        id: "clip_green_horse",
+        label: "Starting a green horse without force",
+        timestamp: "12:40",
+        quote: "Slow your own hands first. The horse copies you before it obeys you.",
+        topics: ["green horse", "training", "starting", "hands", "calm", "rope", "nervous", "fear", "lead"],
+        poster: coverHorse,
+        src: clipHorse.url,
+        start: 0,
+        end: 5,
+      },
+      {
+        id: "clip_conditioning",
+        label: "Conditioning across open steppe",
+        timestamp: "31:05",
+        quote: "Give it a week of walking before you ask for anything fancy.",
+        topics: ["conditioning", "distance", "endurance", "gait", "fatigue", "lameness", "week", "walking"],
+        poster: horseImg,
+        src: clipHorse.url,
+        start: 0,
+        end: 5,
+      },
+    ],
     voiceProfile: {
       voice: "onyx",
       timbre: "Low, weathered baritone with a dry, grainy edge and long open vowels.",
@@ -170,6 +217,30 @@ export const MINDS: Mind[] = [
       ],
     },
     visuals: [],
+    clips: [
+      {
+        id: "clip_airag_sound",
+        label: "Listening to airag before tasting it",
+        timestamp: "08:22",
+        quote: "Listen to it before you taste it — the fizz tells you where it is.",
+        topics: ["airag", "ferment", "fermentation", "sound", "ready", "taste", "dairy", "starter", "jar"],
+        poster: coverKitchen,
+        src: clipKitchen.url,
+        start: 0,
+        end: 5,
+      },
+      {
+        id: "clip_cold_room",
+        label: "Cold room, more patience — not more starter",
+        timestamp: "24:47",
+        quote: "Cold room? Then patience, not more starter.",
+        topics: ["cold", "temperature", "patience", "starter", "slow", "batch", "timing", "curd"],
+        poster: coverKitchen,
+        src: clipKitchen.url,
+        start: 0,
+        end: 5,
+      },
+    ],
     voiceProfile: {
       voice: "shimmer",
       timbre: "Bright mid-range voice, slightly husky, with a smiling resonance.",
@@ -222,6 +293,30 @@ export const MINDS: Mind[] = [
       ],
     },
     visuals: [],
+    clips: [
+      {
+        id: "clip_cut_feature",
+        label: "Cutting the loudest customer's feature",
+        timestamp: "05:13",
+        quote: "Cut the feature that only the loudest customer wants; keep the one the quiet ones use daily.",
+        topics: ["cut", "feature", "roadmap", "scope", "customer", "product", "prioritise", "quiet users"],
+        poster: coverFounder,
+        src: clipFounder.url,
+        start: 0,
+        end: 5,
+      },
+      {
+        id: "clip_one_sentence",
+        label: "Say the company in one sentence",
+        timestamp: "18:36",
+        quote: "Say the company in one sentence. If you can't, the round isn't the problem.",
+        topics: ["fundraising", "deck", "pitch", "story", "investor", "round", "seed", "narrative", "hiring"],
+        poster: coverFounder,
+        src: clipFounder.url,
+        start: 0,
+        end: 5,
+      },
+    ],
     voiceProfile: {
       voice: "echo",
       timbre: "Clear, dense mid-baritone with crisp articulation and little vibrato.",
@@ -282,6 +377,30 @@ export const MINDS: Mind[] = [
         keywords: ["arm", "sweep", "release", "phrase", "movement", "floor", "weight", "turn"],
       },
     ],
+    clips: [
+      {
+        id: "clip_release_sweep",
+        label: "Release sweep — weight into the floor",
+        timestamp: "03:18",
+        quote: "Drop the weight into the floor first; the arm arrives on its own.",
+        topics: ["arm", "release", "floor", "weight", "sweep", "technique", "balance", "movement"],
+        poster: danceImg,
+        src: clipDance.url,
+        start: 0,
+        end: 5,
+      },
+      {
+        id: "clip_breath_count",
+        label: "Counting the breath, not the beat",
+        timestamp: "27:02",
+        quote: "Count the breath, not the beat — the beat is where the audience is.",
+        topics: ["breath", "beat", "count", "phrase", "rehearsal", "music", "timing", "half speed"],
+        poster: coverDance,
+        src: clipDance.url,
+        start: 0,
+        end: 5,
+      },
+    ],
     voiceProfile: {
       voice: "nova",
       timbre: "Light, airy soprano with breathy onsets and quick pitch lifts.",
@@ -295,6 +414,21 @@ export const MINDS: Mind[] = [
 
 export function findMind(id: string): Mind | undefined {
   return MINDS.find((m) => m.id === id);
+}
+
+/** Best-matching source clip for a question + answer pair, or null. */
+export function pickClip(mind: Mind, text: string): SourceClip | null {
+  const lower = text.toLowerCase();
+  let best: { clip: SourceClip; score: number } | null = null;
+  for (const clip of mind.clips) {
+    const score = clip.topics.reduce((n, t) => (lower.includes(t.toLowerCase()) ? n + 1 : n), 0);
+    if (score > 0 && (!best || score > best.score)) best = { clip, score };
+  }
+  return best?.clip ?? null;
+}
+
+export function findClip(mind: Mind, id: string): SourceClip | null {
+  return mind.clips.find((c) => c.id === id) ?? null;
 }
 
 export function pickVisual(mind: Mind, text: string): VisualAsset | null {
