@@ -138,6 +138,46 @@ function Explore() {
   const pendingRef = useRef<string[]>([]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const dubRef = useRef<DubHandle | null>(null);
+  const minerAudioRef = useRef<MiningRecorderHandle | null>(null);
+
+  /* ---------- adaptive streaming ---------- */
+  const net = useNetworkQuality(callOpen);
+  const [forceHd, setForceHd] = useState(false);
+  const tier: StreamTier = forceHd ? "hd" : net.tier;
+  const tierRef = useRef<StreamTier>(tier);
+  tierRef.current = tier;
+  const degraded = tier !== "hd";
+  const [audioBytes, setAudioBytes] = useState(0);
+  const [savedBytes, setSavedBytes] = useState(0);
+
+  useEffect(() => {
+    if (!callOpen) setForceHd(false);
+  }, [callOpen]);
+
+  /* ---------- compressed background mining capture ---------- */
+  useEffect(() => {
+    if (!callOpen || !capture) return;
+    let handle: MiningRecorderHandle | null = null;
+    let alive = true;
+    void (async () => {
+      handle = await startMiningCapture({
+        getTier: () => tierRef.current,
+        onBytes: (total, saved) => {
+          setAudioBytes(total);
+          setSavedBytes(saved);
+        },
+      });
+      if (!alive) handle?.stop();
+      else minerAudioRef.current = handle;
+    })();
+    return () => {
+      alive = false;
+      handle?.stop();
+      minerAudioRef.current?.stop();
+      minerAudioRef.current = null;
+    };
+  }, [callOpen, capture]);
+
 
   const selected = MINDS[index] ?? MINDS[0]!;
   const messages = threads[selected.id] ?? [greeting(selected)];
