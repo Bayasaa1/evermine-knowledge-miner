@@ -37,17 +37,17 @@ const isStr = (v: unknown): v is string => typeof v === "string";
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
 function isChunk(v: unknown): v is Chunk {
-  return isObj(v) && isNum(v.index) && isNum(v.start) && isNum(v.end) && isNum(v.duration);
+  return isObj(v) && isNum(v['index']) && isNum(v['start']) && isNum(v['end']) && isNum(v['duration']);
 }
 
 function isChunkResult(v: unknown): v is ChunkResult {
   if (!isObj(v)) return false;
-  const { transcript, scenes, knowledge } = v;
+  const transcript = v['transcript'], scenes = v['scenes'], knowledge = v['knowledge'];
   return (
     Array.isArray(transcript) &&
-    transcript.every((l) => isObj(l) && isStr(l.timestamp) && isStr(l.speech)) &&
+    transcript.every((l) => isObj(l) && isStr(l['timestamp']) && isStr(l['speech'])) &&
     Array.isArray(scenes) &&
-    scenes.every((s) => isObj(s) && isStr(s.timestamp) && isStr(s.description)) &&
+    scenes.every((s) => isObj(s) && isStr(s['timestamp']) && isStr(s['description'])) &&
     Array.isArray(knowledge) &&
     knowledge.every(isStr)
   );
@@ -56,28 +56,28 @@ function isChunkResult(v: unknown): v is ChunkResult {
 /** Strictly validates a parsed .evermine.json payload. Throws with a readable reason. */
 export function parseMineFile(raw: unknown): MineFile {
   if (!isObj(raw)) throw new Error("File is not a valid Evermine object.");
-  if (raw.format !== MINE_FORMAT) throw new Error('Missing or wrong "format" field — not an Evermine mine file.');
-  if (!isNum(raw.version) || raw.version > MINE_VERSION) throw new Error("Unsupported Evermine file version.");
-  if (!isStr(raw.savedAt)) throw new Error('Invalid "savedAt" field.');
-  if (!isStr(raw.model)) throw new Error('Invalid "model" field.');
+  if (raw['format'] !== MINE_FORMAT) throw new Error('Missing or wrong "format" field — not an Evermine mine file.');
+  if (!isNum(raw['version']) || raw['version'] > MINE_VERSION) throw new Error("Unsupported Evermine file version.");
+  if (!isStr(raw['savedAt'])) throw new Error('Invalid "savedAt" field.');
+  if (!isStr(raw['model'])) throw new Error('Invalid "model" field.');
 
-  const source = raw.source;
-  if (!isObj(source) || !isStr(source.name) || !isNum(source.size)) throw new Error('Invalid "source" section.');
-  if (!(source.duration === null || isNum(source.duration))) throw new Error('Invalid "source.duration".');
+  const source = raw['source'];
+  if (!isObj(source) || !isStr(source['name']) || !isNum(source['size'])) throw new Error('Invalid "source" section.');
+  if (!(source['duration'] === null || isNum(source['duration']))) throw new Error('Invalid "source['duration']".');
 
-  if (!Array.isArray(raw.chunks) || !raw.chunks.every(isChunk)) throw new Error('Invalid "chunks" section.');
-  if (!Array.isArray(raw.results)) throw new Error('Invalid "results" section.');
-  for (const r of raw.results) {
-    if (!isObj(r) || !isNum(r.index) || !isChunk(r.chunk) || !isChunkResult(r.data))
+  if (!Array.isArray(raw['chunks']) || !raw['chunks'].every(isChunk)) throw new Error('Invalid "chunks" section.');
+  if (!Array.isArray(raw['results'])) throw new Error('Invalid "results" section.');
+  for (const r of raw['results']) {
+    if (!isObj(r) || !isNum(r['index']) || !isChunk(r['chunk']) || !isChunkResult(r['data']))
       throw new Error('Invalid entry in "results".');
   }
-  if (!Array.isArray(raw.log) || !raw.log.every(isStr)) throw new Error('Invalid "log" section.');
+  if (!Array.isArray(raw['log']) || !raw['log'].every(isStr)) throw new Error('Invalid "log" section.');
 
   return raw as unknown as MineFile;
 }
 
 export function downloadMineFile(mine: MineFile): string {
-  const base = (mine.source.name || "mine").replace(/\.[^.]+$/, "").replace(/[^\w-]+/g, "_") || "mine";
+  const base = (mine.source['name'] || "mine").replace(/\.[^.]+$/, "").replace(/[^\w-]+/g, "_") || "mine";
   const filename = `${base}.evermine.json`;
   const blob = new Blob([JSON.stringify(mine, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
