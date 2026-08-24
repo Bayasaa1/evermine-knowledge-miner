@@ -84,8 +84,14 @@ export function parseMineFile(raw: unknown): MineFile {
     results.push({ index: r['index'], chunk: r['chunk'], data: normalizeChunkResult(r['data']) });
   }
   if (!Array.isArray(raw['log']) || !raw['log'].every(isStr)) throw new Error('Invalid "log" section.');
+  if (raw['ownership'] !== undefined && !isObj(raw['ownership'])) throw new Error('Invalid "ownership" section.');
 
-  return { ...(raw as unknown as MineFile), results, version: MINE_VERSION };
+  return {
+    ...(raw as unknown as MineFile),
+    results,
+    ownership: normalizeOwnership(raw['ownership']),
+    version: MINE_VERSION,
+  };
 }
 
 function safeBase(name: string, fallback: string) {
