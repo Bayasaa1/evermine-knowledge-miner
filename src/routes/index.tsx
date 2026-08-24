@@ -127,12 +127,22 @@ const navLinks = [
   { key: "help", icon: Globe, href: "#" },
 ];
 
+const MODELS = [
+  { value: "gemini-2.5-flash", label: "gemini-2.5-flash (recommended)" },
+  { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
+  { value: "gemini-1.5-flash", label: "gemini-1.5-flash" },
+  { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
+];
+
 function Index() {
   const [lang, setLang] = useState<Language>("en");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
+  const [model, setModel] = useState("gemini-2.5-flash");
   const [apiKey, setApiKey] = useState("");
+  const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");
+  const [statusNote, setStatusNote] = useState<string>("System ready to process video.");
   const [activeTab, setActiveTab] = useState<Tab>("knowledge");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -140,12 +150,18 @@ function Index() {
   const [duration, setDuration] = useState<number | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [currentPiece, setCurrentPiece] = useState(0);
+  const [donePieces, setDonePieces] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [log, setLog] = useState<string[]>([]);
+  const [results, setResults] = useState<{ index: number; chunk: Chunk; data: ChunkResult }[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const SIM_SECONDS_PER_PIECE = 2;
+  const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
+    const ts = new Date().toLocaleTimeString([], { hour12: false });
+    setLog((l) => [...l, `[${ts}] [${level}] ${message}`]);
+  }, []);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -155,6 +171,15 @@ function Index() {
   }, []);
 
   useEffect(() => stopTimer, [stopTimer]);
+
+  useEffect(() => {
+    loadApiKey().then((k) => {
+      if (k) {
+        setApiKey(k);
+        setKeyState("valid");
+      }
+    });
+  }, []);
 
   const t = translations[lang];
 
@@ -175,40 +200,43 @@ function Index() {
     setIsDragging(false);
   }, []);
 
-  const acceptFile = useCallback((f: File) => {
-    setFile(f);
-    setStatus("ready");
-    setChunks([]);
-    setDuration(null);
-    setCurrentPiece(0);
-    setElapsed(0);
-    setLog([`[info] Loaded ${f.name}`]);
+  const acceptFile = useCallback(
+    (f: File) => {
+      setFile(f);
+      setStatus("ready");
+      setStatusNote("System ready to process video.");
+      setChunks([]);
+      setDuration(null);
+      setCurrentPiece(0);
+      setDonePieces(0);
+      setElapsed(0);
+      setResults([]);
+      addLog("info", `Loaded ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`);
 
-    const url = URL.createObjectURL(f);
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      const d = video.duration;
-      URL.revokeObjectURL(url);
-      if (!Number.isFinite(d) || d <= 0) {
-        setLog((l) => [...l, "[warn] Could not read duration from file"]);
-        return;
-      }
-      const parts = splitIntoChunks(d);
-      setDuration(d);
-      setChunks(parts);
-      setLog((l) => [
-        ...l,
-        `[info] Duration ${formatDuration(d)}`,
-        `[info] Split into ${parts.length} piece(s) of up to 5 minutes`,
-      ]);
-    };
-    video.onerror = () => {
-      URL.revokeObjectURL(url);
-      setLog((l) => [...l, "[warn] Unsupported or unreadable video file"]);
-    };
-    video.src = url;
-  }, []);
+      const url = URL.createObjectURL(f);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        const d = video.duration;
+        URL.revokeObjectURL(url);
+        if (!Number.isFinite(d) || d <= 0) {
+          addLog("warn", "Could not read duration from file");
+          return;
+        }
+        const parts = splitIntoChunks(d);
+        setDuration(d);
+        setChunks(parts);
+        addLog("info", `Duration ${formatDuration(d)}`);
+        addLog("info", `Split into ${parts.length} piece(s) of up to 5 minutes`);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        addLog("warn", "Unsupported or unreadable video file");
+      };
+      video.src = url;
+    },
+    [addLog],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -228,63 +256,146 @@ function Index() {
     [acceptFile],
   );
 
-  const handleMine = useCallback(() => {
-    if (!file || chunks.length === 0) return;
+  const handleFailure = useCallback(
+    (err: unknown) => {
+      const message = describeError(err);
+      setStatus("error");
+      if (err instanceof GeminiError && (err.status === 401 || err.status === 403)) {
+        setKeyState("invalid");
+        setStatusNote("API key rejected — check your Google Gemini key.");
+      } else if (err instanceof GeminiError && err.status === 429) {
+        setStatusNote("Quota or rate limit reached. Try again later.");
+      } else {
+        setStatusNote("Something went wrong. Check the app log.");
+      }
+      addLog("error", message);
+    },
+    [addLog],
+  );
+
+  const handleMine = useCallback(async () => {
+    if (!file || chunks.length === 0 || status === "processing") return;
+    if (!apiKey.trim()) {
+      setStatus("error");
+      setStatusNote("Add and save your Google Gemini API key first.");
+      addLog("error", "No API key configured");
+      return;
+    }
+    if (provider !== "gemini") {
+      setStatus("error");
+      setStatusNote("Only Google Gemini is wired up right now.");
+      addLog("error", `Provider "${provider}" is not supported yet`);
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
     stopTimer();
     setStatus("processing");
+    setStatusNote("Uploading video to Gemini...");
+    setResults([]);
     setCurrentPiece(1);
+    setDonePieces(0);
     setElapsed(0);
     startedAtRef.current = Date.now();
-    setLog((l) => [...l, `[info] Mining started — ${chunks.length} piece(s)`]);
+    timerRef.current = setInterval(() => setElapsed((Date.now() - startedAtRef.current) / 1000), 250);
+    addLog("info", `Mining started — ${chunks.length} piece(s) with ${model}`);
 
-    const totalMs = chunks.length * SIM_SECONDS_PER_PIECE * 1000;
-    timerRef.current = setInterval(() => {
-      const ms = Date.now() - startedAtRef.current;
-      setElapsed(ms / 1000);
-      const piece = Math.min(chunks.length, Math.floor(ms / (SIM_SECONDS_PER_PIECE * 1000)) + 1);
-      setCurrentPiece(piece);
-      if (ms >= totalMs) {
-        stopTimer();
-        setCurrentPiece(chunks.length);
-        setElapsed(totalMs / 1000);
-        setStatus("complete");
-        setLog((l) => [...l, "[info] All pieces processed", "[info] Knowledge extraction complete"]);
+    try {
+      const uploaded = await uploadVideo(apiKey, file, {
+        signal: controller.signal,
+        onState: (s) => addLog("info", `Gemini file state: ${s}`),
+      });
+      addLog("info", `Upload complete: ${uploaded.uri}`);
+      setStatusNote("Mining knowledge from your video...");
+
+      for (const chunk of chunks) {
+        if (controller.signal.aborted) break;
+        setCurrentPiece(chunk.index + 1);
+        addLog(
+          "info",
+          `Request → piece ${chunk.index + 1}/${chunks.length} (${formatDuration(chunk.start)}–${formatDuration(chunk.end)})`,
+        );
+        const data = await mineChunk(apiKey, model, uploaded, chunk.start, chunk.end, controller.signal);
+        addLog(
+          "info",
+          `Response ← piece ${chunk.index + 1}: ${data.transcript.length} transcript line(s), ${data.scenes.length} scene note(s), ${data.knowledge.length} knowledge point(s)`,
+        );
+        setResults((r) => [...r, { index: chunk.index, chunk, data }]);
+        setDonePieces(chunk.index + 1);
       }
-    }, 100);
-  }, [file, chunks, stopTimer]);
+
+      if (!controller.signal.aborted) {
+        stopTimer();
+        setStatus("complete");
+        setStatusNote("Knowledge extraction complete.");
+        addLog("info", "All pieces processed");
+        void deleteFile(apiKey, uploaded.name);
+      }
+    } catch (err) {
+      stopTimer();
+      if (err instanceof DOMException && err.name === "AbortError") {
+        addLog("warn", "Job cancelled by user");
+        setStatus("ready");
+        setStatusNote("System ready to process video.");
+      } else {
+        handleFailure(err);
+      }
+    } finally {
+      abortRef.current = null;
+      stopTimer();
+    }
+  }, [file, chunks, status, apiKey, provider, model, stopTimer, addLog, handleFailure]);
 
   const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     stopTimer();
     setStatus("ready");
+    setStatusNote("System ready to process video.");
     setCurrentPiece(0);
-    setElapsed(0);
-    setLog((l) => [...l, "[warn] Job cancelled by user"]);
-  }, [stopTimer]);
+    addLog("warn", "Job cancelled by user");
+  }, [stopTimer, addLog]);
 
-  const handleSaveKey = useCallback(() => {
-    if (!apiKey.trim()) return;
-    setStatus("ready");
-  }, [apiKey]);
+  const handleSaveKey = useCallback(async () => {
+    const key = apiKey.trim();
+    if (!key) return;
+    setKeyState("checking");
+    addLog("info", "Validating API key...");
+    try {
+      const models = await validateApiKey(key);
+      await saveApiKey(key);
+      setKeyState("valid");
+      setStatus("ready");
+      setStatusNote("API key saved and validated.");
+      addLog("info", `API key valid — ${models.length} model(s) available. Key saved to IndexedDB.`);
+    } catch (err) {
+      setKeyState("invalid");
+      handleFailure(err);
+    }
+  }, [apiKey, addLog, handleFailure]);
 
   const removeFile = useCallback(() => {
+    abortRef.current?.abort();
     stopTimer();
     setFile(null);
     setStatus("ready");
+    setStatusNote("System ready to process video.");
     setChunks([]);
     setDuration(null);
     setCurrentPiece(0);
+    setDonePieces(0);
     setElapsed(0);
+    setResults([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [stopTimer]);
 
   const totalPieces = chunks.length;
-  const progressPct =
-    totalPieces > 0 && status !== "ready"
-      ? Math.min(100, (elapsed / (totalPieces * SIM_SECONDS_PER_PIECE)) * 100)
-      : 0;
-  const remaining = Math.max(0, totalPieces * SIM_SECONDS_PER_PIECE - elapsed);
+  const progressPct = totalPieces > 0 ? Math.min(100, (donePieces / totalPieces) * 100) : 0;
+  const remaining = donePieces > 0 ? (elapsed / donePieces) * (totalPieces - donePieces) : 0;
 
   const StatusIcon = statusConfig[status].icon;
+
 
   return (
     <div className="dark min-h-screen bg-background text-foreground">
