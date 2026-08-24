@@ -181,10 +181,12 @@ function Explore() {
   /* ---------- background Mind Miner ---------- */
   const flushMiner = useCallback(
     async (force = false) => {
+      console.log("[miner] capture", capture);
       if (!capture) {
         pendingRef.current = [];
         return;
       }
+      console.log("[miner] flush", force, pendingRef.current.length);
       const batch = pendingRef.current;
       if (batch.length === 0 || (!force && batch.length < 2)) return;
       pendingRef.current = [];
