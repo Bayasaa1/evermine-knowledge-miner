@@ -26,6 +26,7 @@ import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, type Mind, type VisualAsset } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
+import { startSession, endSession, recordQuery } from "@/lib/analytics";
 import {
   applyDelta,
   emptyVault,
