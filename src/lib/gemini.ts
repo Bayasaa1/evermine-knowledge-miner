@@ -252,9 +252,48 @@ const responseSchema = {
           end: { type: "string" },
           quality: { type: "string" },
           note: { type: "string" },
+          musicPresent: { type: "boolean" },
         },
-        required: ["start", "end", "quality", "note"],
+        required: ["start", "end", "quality", "note", "musicPresent"],
       },
+    },
+    audio: {
+      type: "object",
+      properties: {
+        hasMusic: { type: "boolean" },
+        atmosphere: { type: "string" },
+        genres: strArr,
+        moods: strArr,
+        tempo: { type: "string" },
+        segments: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              start: { type: "string" },
+              end: { type: "string" },
+              genre: { type: "string" },
+              mood: { type: "string" },
+              tempo: { type: "string" },
+              instrumentation: { type: "string" },
+              isOriginalByOwner: { type: "boolean" },
+              note: { type: "string" },
+            },
+            required: [
+              "start",
+              "end",
+              "genre",
+              "mood",
+              "tempo",
+              "instrumentation",
+              "isOriginalByOwner",
+              "note",
+            ],
+          },
+        },
+        audioSkillAssets: strArr,
+      },
+      required: ["hasMusic", "atmosphere", "genres", "moods", "tempo", "segments", "audioSkillAssets"],
     },
     subconsciousness: {
       type: "object",
@@ -262,28 +301,22 @@ const responseSchema = {
         skills: strArr,
         beliefs: strArr,
         decisionLogic: strArr,
+        aestheticProfile: strArr,
       },
-      required: ["skills", "beliefs", "decisionLogic"],
+      required: ["skills", "beliefs", "decisionLogic", "aestheticProfile"],
     },
   },
-  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "subconsciousness"],
+  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness"],
 };
-
-const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
-Extract FIVE pillars and return JSON only.
-
-0. "speakers": perform SPEAKER DIARIZATION. List every distinct voice as "Speaker A", "Speaker B", ... with a "role" of "primary" for the Primary Owner (the creator whose mind is being cloned — usually the person who speaks the most, teaches, explains, answers, or owns the camera/space), "secondary" for customers, interviewers, guests or bystanders, and "unknown" when unclear. "description" says briefly why.
-1. "subtitle": the EXACT VERBATIM transcript of everything spoken, split into short lines, each with a "timestamp" in MM:SS or HH:MM:SS relative to the START OF THE WHOLE VIDEO, plus the "speaker" label and its "role". NEVER translate or paraphrase. Preserve the original mix of Mongolian (Cyrillic) and English word for word, including filler words.
-2. "story": the narrative. "summary" = chronological account of what happens and what the person experiences in this segment; "tone" = the dominant emotional tone; "beats" = ordered events with timestamp, the event, and the emotion felt.
-3. "faceData": for video cloning AND visual action capture. Each entry describes one clear keyframe: what is seen, "gestures" (body/hand/head movement), "lighting" (quality and direction), "faceAngle" (e.g. frontal, 3/4 left, profile, looking down), and "cloneQuality" (excellent / good / poor + why).
-   Additionally tag HIGH-PRECISION PHYSICAL ACTIONS that text cannot fully capture (dance moves, speed and rhythm of motion, cooking technique, hand gestures, tool use, hardware assembly, sport form): set "isKeyAction" to true, name the movement in "actionType", and give a tight clip window "clipStart"/"clipEnd" (whole-video-relative timestamps, 2-8 seconds long) so the user can replay the movement. For ordinary talking-head frames set "isKeyAction" to false, "actionType" to "" and leave clipStart/clipEnd equal to the timestamp.
-4. "voiceData": time windows with the CLEANEST audio for voice cloning — single speaker, no music, no overlapping noise. Give "start" and "end" timestamps (whole-video relative), "quality" (excellent / good / usable) and a short "note". Prefer continuous windows of 15 seconds or more.
-5. "subconsciousness": the PRIMARY OWNER's core brain, for downstream AI agents to query.
-   CRITICAL RULE: extract skills, beliefs and decision logic ONLY from speech spoken by the Primary Owner. Secondary speakers' words may be used only as context (the question or prompt that explains the owner's answer) and must NEVER be attributed to the core brain. If the Primary Owner never states something, do not include it.
-   Three arrays of short standalone statements written in the speaker's original language:
-   - "skills": what they know how to do.
-   - "beliefs": what they value, advocate for, or criticise.
+...
    - "decisionLogic": how they approach problems and make choices (if/then reasoning, priorities, rules of thumb).
+   - "aestheticProfile": the owner's AESTHETIC TASTE AND MOOD PREFERENCE, derived from the audio and music atmosphere of "audio" (chosen genres, moods, tempo, instrumentation, and how they talk about music/sound) combined with their visual styling. Short statements such as "Prefers calm acoustic backdrops while teaching". Only include preferences that plausibly belong to the Primary Owner.
+
+6. "audio": MUSIC & AUDIO ATMOSPHERE PROFILING of the audio layer.
+   - "hasMusic": whether any background music or musical performance is audible.
+   - "genres", "moods" (e.g. Chill, Intense, Acoustic, Melancholic, Uplifting), "tempo" (e.g. "slow ~70 BPM", "upbeat ~120 BPM") and "atmosphere" = one sentence describing the overall sonic feel of the segment (room tone, ambience, noise, music balance).
+   - "segments": each distinct music or notable non-speech audio passage with whole-video-relative "start"/"end", "genre", "mood", "tempo", "instrumentation", a short "note", and "isOriginalByOwner" set to true ONLY when the Primary Owner is performing, singing, playing, composing or using their own custom audio theme.
+   - "audioSkillAssets": short descriptions of ORIGINAL musical performance, composition or custom audio themes created by the Primary Owner (instrument, style, skill level, timestamp). Leave empty if there are none.
 
 Only cover the requested time range. Output JSON only.`;
 
