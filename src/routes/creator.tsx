@@ -1064,6 +1064,38 @@ function Index() {
     [addLog, commitKeys],
   );
 
+  /**
+   * Mirrors the finished mind into the signed-in user's private cloud vault.
+   * Signed-out miners keep working fully offline — nothing is uploaded.
+   */
+  const syncMinedToCloud = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const mine = buildMineFile({
+        source: { name: source?.name ?? "", size: source?.size ?? 0, duration },
+        model,
+        ownership,
+        chunks,
+        results: resultsRef.current,
+        log: [],
+      });
+      const { id } = await upsertVault({
+        data: {
+          ...(cloudVaultIdRef.current ? { id: cloudVaultIdRef.current } : {}),
+          title: source?.name || "Untitled mind",
+          kind: "mine",
+          payload: JSON.parse(JSON.stringify(mine)) as Json,
+        },
+      });
+      cloudVaultIdRef.current = id;
+      await idbSet(STORES.SETTINGS, "cloud_vault_id", id);
+      addLog("info", "Mind synced to your private cloud vault.");
+    } catch (err) {
+      addLog("warn", `Cloud sync skipped: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, [isAuthenticated, source, duration, model, ownership, chunks, addLog]);
+
+
   const startMining = useCallback(
     async (startIndex: number, initialRef: UploadedFile | null) => {
       if (chunks.length === 0 || status === "processing") return;
