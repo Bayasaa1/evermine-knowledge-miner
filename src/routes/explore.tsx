@@ -21,9 +21,10 @@ import {
   Languages,
   Captions,
   CaptionsOff,
+  PlayCircle,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
-import { MINDS, pickVisual, type Mind, type VisualAsset } from "@/lib/minds";
+import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
@@ -68,7 +69,27 @@ type Msg = {
   text: string;
   via: Via;
   visual?: VisualAsset | null;
+  clip?: SourceClip | null;
 };
+
+const CLIP_MARKER = /\[\[clip:([a-z0-9_-]+)\]\]/gi;
+
+/** Pulls the model's citation marker out of the reply and returns clean prose. */
+function extractClipId(text: string): { text: string; clipId: string | null } {
+  let clipId: string | null = null;
+  const clean = text.replace(CLIP_MARKER, (_m, id: string) => {
+    clipId = id;
+    return "";
+  });
+  return { text: clean.trim(), clipId };
+}
+
+/** A question is "complex" when it asks for reasoning, method or judgement. */
+function isComplexQuestion(text: string): boolean {
+  const t = text.toLowerCase();
+  if (t.length > 60) return true;
+  return /\b(how|why|what|when|should|explain|teach|best|difference|hyaltai|яаж|яагаад|юу)\b/.test(t);
+}
 
 function uid() {
   return Math.random().toString(36).slice(2);
@@ -105,6 +126,7 @@ function Explore() {
   const [capture, setCapture] = useState(true);
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
+  const [openClip, setOpenClip] = useState<SourceClip | null>(null);
   const callSessionRef = useRef<string | null>(null);
   const chatSessionRef = useRef<string | null>(null);
 
@@ -286,10 +308,15 @@ function Explore() {
     }
 
     if (!reply) reply = "I don't have that in my mined brain yet.";
+    const { text: cleanReply, clipId } = extractClipId(reply);
+    reply = cleanReply || reply;
     const visual = pickVisual(selected, `${text} ${reply}`);
+    const clip =
+      (clipId ? findClip(selected, clipId) : null) ??
+      (isComplexQuestion(text) ? pickClip(selected, `${text} ${reply}`) : null);
     setThreads((t) => ({
       ...t,
-      [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual }],
+      [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual, clip }],
     }));
     setThinking(false);
     if (via === "call") speak(reply);
@@ -603,6 +630,25 @@ function Explore() {
                       Visual Data · {m.visual.label} · [{m.visual.timestamp}]
                     </figcaption>
                   </figure>
+                )}
+                {m.role === "agent" && m.clip && (
+                  <button
+                    onClick={() => setOpenClip(m.clip ?? null)}
+                    className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-border bg-card p-2 text-left transition-colors hover:border-primary/60"
+                  >
+                    <span className="relative block h-12 w-20 shrink-0 overflow-hidden rounded-md">
+                      <img src={m.clip.poster} alt="" width={160} height={96} className="h-full w-full object-cover" />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <PlayCircle className="h-5 w-5 text-white" />
+                      </span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-semibold text-primary">Source Clip · 5s</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {m.clip.label} · [{m.clip.timestamp}]
+                      </span>
+                    </span>
+                  </button>
                 )}
                 {m.role === "agent" && (
                   <button
