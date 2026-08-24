@@ -7,7 +7,15 @@ import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
-import { loadApiKey, saveApiKey } from "@/lib/keystore";
+import {
+  loadApiKeys,
+  saveApiKeys,
+  makeKeyEntry,
+  maskKey,
+  type ApiKeyEntry,
+} from "@/lib/keystore";
+import { saveResume, loadResume, clearResume, type ResumeState } from "@/lib/resume";
+
 import { idbGet, idbSet, STORES } from "@/lib/store";
 import {
   buildMineFile,
