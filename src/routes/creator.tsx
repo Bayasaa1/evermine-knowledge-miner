@@ -361,6 +361,11 @@ const translations = {
     beliefs: "Beliefs & Opinions",
     decisionLogic: "Decision Logic",
     aestheticProfile: "Aesthetic Profile & Mood Preference",
+    expressiveStyle: "Expressive Style",
+    culturalVocabulary: "Cultural Vocabulary & Expressive Style",
+    culturalLiteral: "Literal",
+    culturalMeaning: "True intent",
+    culturalUsage: "Used when",
     audioAtmosphere: "Music & Audio Atmosphere",
     audioGenres: "Genres",
     audioMoods: "Mood / tone",
@@ -513,6 +518,11 @@ const translations = {
     beliefs: "Итгэл үнэмшил ба үзэл бодол",
     decisionLogic: "Шийдвэрийн логик",
     aestheticProfile: "Гоо зүйн профайл ба сэтгэл санааны сонголт",
+    expressiveStyle: "Ярианы хэв маяг",
+    culturalVocabulary: "Соёлын хэллэг ба илэрхийллийн хэв маяг",
+    culturalLiteral: "Үгчилсэн утга",
+    culturalMeaning: "Жинхэнэ санаа",
+    culturalUsage: "Хэрэглэх үе",
     audioAtmosphere: "Хөгжим ба дууны уур амьсгал",
     audioGenres: "Төрөл жанр",
     audioMoods: "Сэтгэл хөдлөл / өнгө аяс",
@@ -2073,6 +2083,7 @@ function Index() {
                         { key: "beliefs", label: t.beliefs },
                         { key: "decisionLogic", label: t.decisionLogic },
                         { key: "aestheticProfile", label: t.aestheticProfile },
+                        { key: "expressiveStyle", label: t.expressiveStyle },
                       ] as const
                     ).map((group) => {
                       const items = Array.from(
@@ -2094,6 +2105,8 @@ function Index() {
                       );
                     })
                   )}
+
+                  {results.length > 0 && <CulturalVocabulary results={visibleResults} t={t} />}
 
                   {isMining && results.length > 0 && <TabSkeleton rows={2} groups={1} />}
                 </div>
