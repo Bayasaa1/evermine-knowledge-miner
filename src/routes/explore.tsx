@@ -5,6 +5,10 @@ import remarkGfm from "remark-gfm";
 import {
   Brain,
   Trash2,
+  Heart,
+  Bell,
+  UserPlus,
+  UserCheck,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -50,6 +54,24 @@ import {
   type VaultField,
 } from "@/lib/user-vault";
 import { toast } from "sonner";
+import {
+  loadFollows,
+  saveFollows,
+  toggleFollow,
+  loadFavorites,
+  saveFavorites,
+  toggleFavorite,
+  isFavorite,
+  resolveFavorite,
+  loadNotifications,
+  saveNotifications,
+  unreadCount,
+  enablePushNotifications,
+  pushNotification,
+  nextCreatorUpdate,
+  type FavoriteClip,
+  type CreatorNotification,
+} from "@/lib/social";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -137,6 +159,10 @@ function Explore() {
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [follows, setFollows] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteClip[]>([]);
+  const [notifs, setNotifs] = useState<CreatorNotification[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [openClip, setOpenClip] = useState<SourceClip | null>(null);
   const callSessionRef = useRef<string | null>(null);
   const chatSessionRef = useRef<string | null>(null);
