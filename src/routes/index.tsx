@@ -1,6 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
+import { loadApiKey, saveApiKey } from "@/lib/keystore";
+import {
+  validateApiKey,
+  uploadVideo,
+  mineChunk,
+  deleteFile,
+  describeError,
+  GeminiError,
+  type ChunkResult,
+} from "@/lib/gemini";
 import {
   Brain,
   KeyRound,
@@ -127,12 +137,22 @@ const navLinks = [
   { key: "help", icon: Globe, href: "#" },
 ];
 
+const MODELS = [
+  { value: "gemini-2.5-flash", label: "gemini-2.5-flash (recommended)" },
+  { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
+  { value: "gemini-1.5-flash", label: "gemini-1.5-flash" },
+  { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
+];
+
 function Index() {
   const [lang, setLang] = useState<Language>("en");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
+  const [model, setModel] = useState("gemini-2.5-flash");
   const [apiKey, setApiKey] = useState("");
+  const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");
+  const [statusNote, setStatusNote] = useState<string>("System ready to process video.");
   const [activeTab, setActiveTab] = useState<Tab>("knowledge");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -140,12 +160,18 @@ function Index() {
   const [duration, setDuration] = useState<number | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [currentPiece, setCurrentPiece] = useState(0);
+  const [donePieces, setDonePieces] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [log, setLog] = useState<string[]>([]);
+  const [results, setResults] = useState<{ index: number; chunk: Chunk; data: ChunkResult }[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const SIM_SECONDS_PER_PIECE = 2;
+  const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
+    const ts = new Date().toLocaleTimeString([], { hour12: false });
+    setLog((l) => [...l, `[${ts}] [${level}] ${message}`]);
+  }, []);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -155,6 +181,15 @@ function Index() {
   }, []);
 
   useEffect(() => stopTimer, [stopTimer]);
+
+  useEffect(() => {
+    loadApiKey().then((k) => {
+      if (k) {
+        setApiKey(k);
+        setKeyState("valid");
+      }
+    });
+  }, []);
 
   const t = translations[lang];
 
@@ -175,40 +210,43 @@ function Index() {
     setIsDragging(false);
   }, []);
 
-  const acceptFile = useCallback((f: File) => {
-    setFile(f);
-    setStatus("ready");
-    setChunks([]);
-    setDuration(null);
-    setCurrentPiece(0);
-    setElapsed(0);
-    setLog([`[info] Loaded ${f.name}`]);
+  const acceptFile = useCallback(
+    (f: File) => {
+      setFile(f);
+      setStatus("ready");
+      setStatusNote("System ready to process video.");
+      setChunks([]);
+      setDuration(null);
+      setCurrentPiece(0);
+      setDonePieces(0);
+      setElapsed(0);
+      setResults([]);
+      addLog("info", `Loaded ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`);
 
-    const url = URL.createObjectURL(f);
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.onloadedmetadata = () => {
-      const d = video.duration;
-      URL.revokeObjectURL(url);
-      if (!Number.isFinite(d) || d <= 0) {
-        setLog((l) => [...l, "[warn] Could not read duration from file"]);
-        return;
-      }
-      const parts = splitIntoChunks(d);
-      setDuration(d);
-      setChunks(parts);
-      setLog((l) => [
-        ...l,
-        `[info] Duration ${formatDuration(d)}`,
-        `[info] Split into ${parts.length} piece(s) of up to 5 minutes`,
-      ]);
-    };
-    video.onerror = () => {
-      URL.revokeObjectURL(url);
-      setLog((l) => [...l, "[warn] Unsupported or unreadable video file"]);
-    };
-    video.src = url;
-  }, []);
+      const url = URL.createObjectURL(f);
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        const d = video.duration;
+        URL.revokeObjectURL(url);
+        if (!Number.isFinite(d) || d <= 0) {
+          addLog("warn", "Could not read duration from file");
+          return;
+        }
+        const parts = splitIntoChunks(d);
+        setDuration(d);
+        setChunks(parts);
+        addLog("info", `Duration ${formatDuration(d)}`);
+        addLog("info", `Split into ${parts.length} piece(s) of up to 5 minutes`);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        addLog("warn", "Unsupported or unreadable video file");
+      };
+      video.src = url;
+    },
+    [addLog],
+  );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -228,63 +266,146 @@ function Index() {
     [acceptFile],
   );
 
-  const handleMine = useCallback(() => {
-    if (!file || chunks.length === 0) return;
+  const handleFailure = useCallback(
+    (err: unknown) => {
+      const message = describeError(err);
+      setStatus("error");
+      if (err instanceof GeminiError && (err.status === 401 || err.status === 403)) {
+        setKeyState("invalid");
+        setStatusNote("API key rejected — check your Google Gemini key.");
+      } else if (err instanceof GeminiError && err.status === 429) {
+        setStatusNote("Quota or rate limit reached. Try again later.");
+      } else {
+        setStatusNote("Something went wrong. Check the app log.");
+      }
+      addLog("error", message);
+    },
+    [addLog],
+  );
+
+  const handleMine = useCallback(async () => {
+    if (!file || chunks.length === 0 || status === "processing") return;
+    if (!apiKey.trim()) {
+      setStatus("error");
+      setStatusNote("Add and save your Google Gemini API key first.");
+      addLog("error", "No API key configured");
+      return;
+    }
+    if (provider !== "gemini") {
+      setStatus("error");
+      setStatusNote("Only Google Gemini is wired up right now.");
+      addLog("error", `Provider "${provider}" is not supported yet`);
+      return;
+    }
+
+    const controller = new AbortController();
+    abortRef.current = controller;
     stopTimer();
     setStatus("processing");
+    setStatusNote("Uploading video to Gemini...");
+    setResults([]);
     setCurrentPiece(1);
+    setDonePieces(0);
     setElapsed(0);
     startedAtRef.current = Date.now();
-    setLog((l) => [...l, `[info] Mining started — ${chunks.length} piece(s)`]);
+    timerRef.current = setInterval(() => setElapsed((Date.now() - startedAtRef.current) / 1000), 250);
+    addLog("info", `Mining started — ${chunks.length} piece(s) with ${model}`);
 
-    const totalMs = chunks.length * SIM_SECONDS_PER_PIECE * 1000;
-    timerRef.current = setInterval(() => {
-      const ms = Date.now() - startedAtRef.current;
-      setElapsed(ms / 1000);
-      const piece = Math.min(chunks.length, Math.floor(ms / (SIM_SECONDS_PER_PIECE * 1000)) + 1);
-      setCurrentPiece(piece);
-      if (ms >= totalMs) {
-        stopTimer();
-        setCurrentPiece(chunks.length);
-        setElapsed(totalMs / 1000);
-        setStatus("complete");
-        setLog((l) => [...l, "[info] All pieces processed", "[info] Knowledge extraction complete"]);
+    try {
+      const uploaded = await uploadVideo(apiKey, file, {
+        signal: controller.signal,
+        onState: (s) => addLog("info", `Gemini file state: ${s}`),
+      });
+      addLog("info", `Upload complete: ${uploaded.uri}`);
+      setStatusNote("Mining knowledge from your video...");
+
+      for (const chunk of chunks) {
+        if (controller.signal.aborted) break;
+        setCurrentPiece(chunk.index + 1);
+        addLog(
+          "info",
+          `Request → piece ${chunk.index + 1}/${chunks.length} (${formatDuration(chunk.start)}–${formatDuration(chunk.end)})`,
+        );
+        const data = await mineChunk(apiKey, model, uploaded, chunk.start, chunk.end, controller.signal);
+        addLog(
+          "info",
+          `Response ← piece ${chunk.index + 1}: ${data.transcript.length} transcript line(s), ${data.scenes.length} scene note(s), ${data.knowledge.length} knowledge point(s)`,
+        );
+        setResults((r) => [...r, { index: chunk.index, chunk, data }]);
+        setDonePieces(chunk.index + 1);
       }
-    }, 100);
-  }, [file, chunks, stopTimer]);
+
+      if (!controller.signal.aborted) {
+        stopTimer();
+        setStatus("complete");
+        setStatusNote("Knowledge extraction complete.");
+        addLog("info", "All pieces processed");
+        void deleteFile(apiKey, uploaded.name);
+      }
+    } catch (err) {
+      stopTimer();
+      if (err instanceof DOMException && err.name === "AbortError") {
+        addLog("warn", "Job cancelled by user");
+        setStatus("ready");
+        setStatusNote("System ready to process video.");
+      } else {
+        handleFailure(err);
+      }
+    } finally {
+      abortRef.current = null;
+      stopTimer();
+    }
+  }, [file, chunks, status, apiKey, provider, model, stopTimer, addLog, handleFailure]);
 
   const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     stopTimer();
     setStatus("ready");
+    setStatusNote("System ready to process video.");
     setCurrentPiece(0);
-    setElapsed(0);
-    setLog((l) => [...l, "[warn] Job cancelled by user"]);
-  }, [stopTimer]);
+    addLog("warn", "Job cancelled by user");
+  }, [stopTimer, addLog]);
 
-  const handleSaveKey = useCallback(() => {
-    if (!apiKey.trim()) return;
-    setStatus("ready");
-  }, [apiKey]);
+  const handleSaveKey = useCallback(async () => {
+    const key = apiKey.trim();
+    if (!key) return;
+    setKeyState("checking");
+    addLog("info", "Validating API key...");
+    try {
+      const models = await validateApiKey(key);
+      await saveApiKey(key);
+      setKeyState("valid");
+      setStatus("ready");
+      setStatusNote("API key saved and validated.");
+      addLog("info", `API key valid — ${models.length} model(s) available. Key saved to IndexedDB.`);
+    } catch (err) {
+      setKeyState("invalid");
+      handleFailure(err);
+    }
+  }, [apiKey, addLog, handleFailure]);
 
   const removeFile = useCallback(() => {
+    abortRef.current?.abort();
     stopTimer();
     setFile(null);
     setStatus("ready");
+    setStatusNote("System ready to process video.");
     setChunks([]);
     setDuration(null);
     setCurrentPiece(0);
+    setDonePieces(0);
     setElapsed(0);
+    setResults([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [stopTimer]);
 
   const totalPieces = chunks.length;
-  const progressPct =
-    totalPieces > 0 && status !== "ready"
-      ? Math.min(100, (elapsed / (totalPieces * SIM_SECONDS_PER_PIECE)) * 100)
-      : 0;
-  const remaining = Math.max(0, totalPieces * SIM_SECONDS_PER_PIECE - elapsed);
+  const progressPct = totalPieces > 0 ? Math.min(100, (donePieces / totalPieces) * 100) : 0;
+  const remaining = donePieces > 0 ? (elapsed / donePieces) * (totalPieces - donePieces) : 0;
 
   const StatusIcon = statusConfig[status].icon;
+
 
   return (
     <div className="dark min-h-screen bg-background text-foreground">
@@ -403,12 +524,8 @@ function Index() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.status}</p>
               <p className={`text-sm font-semibold ${statusConfig[status].color}`}>{statusConfig[status].label}</p>
             </div>
-            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">
-              {status === "ready" && "System ready to process video."}
-              {status === "processing" && "Mining knowledge from your video..."}
-              {status === "complete" && "Knowledge extraction complete."}
-              {status === "error" && "Something went wrong. Check the app log."}
-            </div>
+            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{statusNote}</div>
+
           </div>
 
           {/* Main grid */}
@@ -440,6 +557,24 @@ function Index() {
                 </div>
 
                 <div>
+                  <label htmlFor="model" className="mb-2 block text-sm font-medium text-muted-foreground">
+                    Model
+                  </label>
+                  <select
+                    id="model"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  >
+                    {MODELS.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label htmlFor="api-key" className="mb-2 block text-sm font-medium text-muted-foreground">
                     {t.apiKey}
                   </label>
@@ -448,20 +583,45 @@ function Index() {
                       id="api-key"
                       type="password"
                       value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        setKeyState("none");
+                      }}
                       placeholder={t.apiKeyPlaceholder}
                       className="flex-1 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <button
                       onClick={handleSaveKey}
-                      disabled={!apiKey.trim()}
+                      disabled={!apiKey.trim() || keyState === "checking"}
                       className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Save className="h-4 w-4" />
+                      {keyState === "checking" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
                       <span className="hidden sm:inline">{t.saveKey}</span>
                     </button>
                   </div>
+                  {keyState !== "none" && (
+                    <p
+                      className={`mt-2 text-xs font-medium ${
+                        keyState === "valid"
+                          ? "text-status-green"
+                          : keyState === "invalid"
+                            ? "text-status-red"
+                            : "text-status-amber"
+                      }`}
+                    >
+                      {keyState === "valid"
+                        ? "Key validated and stored locally."
+                        : keyState === "invalid"
+                          ? "Key rejected — see the App Log."
+                          : "Validating key..."}
+                    </p>
+                  )}
                 </div>
+
               </div>
             </section>
 
@@ -646,28 +806,56 @@ function Index() {
 
             <div className="min-h-[220px] rounded-[12px] border border-border bg-muted p-5">
               {activeTab === "knowledge" && (
-                <div className="space-y-3">
-                  {status === "complete" ? (
-                    <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
-                      <li>Extracted the core narrative arc from the uploaded video.</li>
-                      <li>Identified three recurring themes and linked them to prior entries.</li>
-                      <li>Generated memory anchors ready for review and recall.</li>
-                    </ul>
-                  ) : (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noResults}</p>
+                  ) : (
+                    results.map((r) => (
+                      <div key={r.index}>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
+                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
+                        </p>
+                        {r.data.knowledge.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">—</p>
+                        ) : (
+                          <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+                            {r.data.knowledge.map((k, i) => (
+                              <li key={i}>{k}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))
                   )}
                 </div>
               )}
 
               {activeTab === "transcript" && (
-                <div>
-                  {status === "complete" ? (
-                    <p className="text-sm leading-relaxed text-foreground">
-                      Transcript text will be shown here. [00:00] Introduction begins. [00:42] Main topic introduced.
-                      [02:15] Key insight discussed. [05:30] Conclusion and next steps.
-                    </p>
-                  ) : (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noTranscript}</p>
+                  ) : (
+                    results.map((r) => (
+                      <div key={r.index}>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
+                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
+                        </p>
+                        <div className="space-y-1.5">
+                          {r.data.transcript.map((line, i) => (
+                            <p key={`t${i}`} className="text-sm leading-relaxed text-foreground">
+                              <span className="mr-2 font-mono text-xs text-muted-foreground">[{line.timestamp}]</span>
+                              {line.speech}
+                            </p>
+                          ))}
+                          {r.data.scenes.map((s, i) => (
+                            <p key={`s${i}`} className="text-sm italic leading-relaxed text-muted-foreground">
+                              <span className="mr-2 font-mono text-xs not-italic">[{s.timestamp}]</span>
+                              {s.description}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
@@ -677,7 +865,16 @@ function Index() {
                   <p>[system] Evermine initialized</p>
                   {log.length === 0 && <p>[system] Waiting for video input...</p>}
                   {log.map((line, i) => (
-                    <p key={i} className={line.startsWith("[warn]") ? "text-status-amber" : ""}>
+                    <p
+                      key={i}
+                      className={
+                        line.includes("[error]")
+                          ? "text-status-red"
+                          : line.includes("[warn]")
+                            ? "text-status-amber"
+                            : ""
+                      }
+                    >
                       {line}
                     </p>
                   ))}
@@ -686,10 +883,10 @@ function Index() {
                       [info] Processing piece {currentPiece} of {totalPieces}...
                     </p>
                   )}
-                  {status === "error" && <p className="text-status-red">[error] Processing failed</p>}
                 </div>
               )}
             </div>
+
           </section>
         </div>
       </main>
