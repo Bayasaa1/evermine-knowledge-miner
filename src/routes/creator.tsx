@@ -68,6 +68,7 @@ import {
   Film,
   Play,
   Music,
+  Quote,
 } from "lucide-react";
 
 /** Inline looping preview of a short action window inside the source video. */
