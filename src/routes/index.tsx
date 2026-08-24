@@ -66,6 +66,25 @@ import {
   CircleSlash,
 } from "lucide-react";
 
+function TabSkeleton({ rows = 3, groups = 2 }: { rows?: number; groups?: number }) {
+  return (
+    <div className="space-y-5" aria-hidden="true">
+      {Array.from({ length: groups }).map((_, g) => (
+        <div key={g} className="space-y-2">
+          <div className="skeleton-line h-3 w-28" />
+          {Array.from({ length: rows }).map((_, r) => (
+            <div
+              key={r}
+              className="skeleton-line h-3.5"
+              style={{ width: `${92 - ((r * 13 + g * 7) % 38)}%` }}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
