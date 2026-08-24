@@ -3,7 +3,20 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
 import { idbGet, idbSet, STORES } from "@/lib/store";
-import { buildMineFile, parseMineFile, downloadMineFile, type MineResult } from "@/lib/mine-file";
+import {
+  buildMineFile,
+  parseMineFile,
+  downloadMineFile,
+  buildAgentBrain,
+  downloadAgentBrain,
+  type MineResult,
+} from "@/lib/mine-file";
+import {
+  extractVoiceSample,
+  downloadVoiceSample,
+  parseTimestamp,
+  type VoiceSample,
+} from "@/lib/voice-sample";
 import {
   validateApiKey,
   uploadVideo,
