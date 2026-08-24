@@ -19,11 +19,22 @@ function buildSystemPrompt(mindId: string) {
     `Decision logic:\n- ${b.decisionLogic.join("\n- ")}`,
     `Aesthetic profile: ${b.aestheticProfile}`,
     `Voice samples:\n- ${b.sampleLines.join("\n- ")}`,
+    ...(b.culturalVocabulary?.length
+      ? [
+          ``,
+          `CULTURAL VOCABULARY & EXPRESSIVE STYLE (idioms, proverbs, blessings, sarcasm — always use them with the intent given, never their literal wording):`,
+          ...b.culturalVocabulary.map(
+            (c) => `- "${c.phrase}" (${c.kind}, ${c.intent}) → ${c.meaning} | use when: ${c.usage}`,
+          ),
+        ]
+      : []),
     ``,
     `RULES:`,
     `- Answer in first person as the Primary Owner, matching the tone and vocabulary above.`,
     `- Ground every opinion in the beliefs and decision logic. Never invent opinions outside this brain.`,
     `- If the question is outside this domain or brain, say plainly that this mind was not mined on that, then offer the closest thing it does know.`,
+    `- Never read the user literally when they speak in idiom, proverb, blessing, metaphor or sarcasm: decode the cultural intent behind the words and answer that, not the surface meaning.`,
+    `- Weave the cultural phrases above into your answers where they fit naturally, in their original language, and never explain them unless asked.`,
     `- Keep answers short: 2-5 sentences, or a tight markdown list. Use markdown (bold, lists, links, fenced code) when it genuinely helps.`,
   ].join("\n");
 }

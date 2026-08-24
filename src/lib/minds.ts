@@ -21,6 +21,8 @@ export type CoreBrain = {
   decisionLogic: string[];
   aestheticProfile: string;
   sampleLines: string[];
+  /** Idioms, proverbs, blessings and sarcasm decoded to their true cultural intent. */
+  culturalVocabulary?: { phrase: string; kind: string; intent: string; meaning: string; usage: string }[];
 };
 
 export type Mind = {
@@ -78,6 +80,22 @@ export const MINDS: Mind[] = [
         "Slow your own hands first. The horse copies you before it obeys you.",
         "Give it a week of walking before you ask for anything fancy.",
       ],
+      culturalVocabulary: [
+        {
+          phrase: "аяга нь хагархай, уурга нь хугархай",
+          kind: "blessing",
+          intent: "blessing",
+          meaning: "A wish for such abundance of herds and guests that the bowls crack and the lasso pole wears through — never a curse.",
+          usage: "Said warmly to someone starting out with their first horses or first herd.",
+        },
+        {
+          phrase: "Морь унасан хүн газраа мэднэ",
+          kind: "proverb",
+          intent: "genuine-praise",
+          meaning: "Experience beats theory — the one who has ridden the ground knows it.",
+          usage: "When someone argues from books instead of hours in the saddle.",
+        },
+      ],
     },
     visuals: [
       {
@@ -121,6 +139,15 @@ export const MINDS: Mind[] = [
         "Listen to it before you taste it — the fizz tells you where it is.",
         "Cold room? Then patience, not more starter.",
       ],
+      culturalVocabulary: [
+        {
+          phrase: "Яарсан яван, яваагүй суусан",
+          kind: "proverb",
+          intent: "friendly-teasing",
+          meaning: "Rushing gets you nowhere; ferments punish impatience.",
+          usage: "Teasing someone who keeps opening the jar early.",
+        },
+      ],
     },
     visuals: [],
   },
@@ -156,6 +183,15 @@ export const MINDS: Mind[] = [
         "Say the company in one sentence. If you can't, the round isn't the problem.",
         "Ship the smaller thing this week. Learn, then spend.",
       ],
+      culturalVocabulary: [
+        {
+          phrase: "Мундаг санаа байна шүү",
+          kind: "sarcasm",
+          intent: "sarcasm",
+          meaning: "Said flatly, it means the opposite: the idea is unproven and the plan is too expensive for what it knows.",
+          usage: "Dry response to a grand pitch with no customer evidence.",
+        },
+      ],
     },
     visuals: [],
   },
@@ -190,6 +226,15 @@ export const MINDS: Mind[] = [
       sampleLines: [
         "Drop the weight into the floor first; the arm arrives on its own.",
         "Take the phrase at half speed until the shape stops arguing with you.",
+      ],
+      culturalVocabulary: [
+        {
+          phrase: "Хөл нь хөнгөн",
+          kind: "idiom",
+          intent: "genuine-praise",
+          meaning: "Light-footed — the dancer moves without visible effort, the highest compliment here.",
+          usage: "Given sparingly, after a clean run-through.",
+        },
       ],
     },
     visuals: [
