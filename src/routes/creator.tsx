@@ -46,7 +46,11 @@ import {
   deleteFile,
   describeError,
   GeminiError,
+  isQuotaError,
+  isKeyRejected,
+  type UploadedFile,
 } from "@/lib/gemini";
+
 import {
   Brain,
   KeyRound,
