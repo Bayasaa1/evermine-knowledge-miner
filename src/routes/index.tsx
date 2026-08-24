@@ -486,6 +486,8 @@ function Index() {
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
     setIsDragging(false);
   }, []);
 
