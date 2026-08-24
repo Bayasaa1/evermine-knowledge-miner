@@ -28,6 +28,8 @@ import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, typ
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
+import { useNetworkQuality, TIER_LABEL, type StreamTier } from "@/lib/network-quality";
+import { startMiningCapture, MINING_PROFILES, formatBytes, type MiningRecorderHandle } from "@/lib/mining-audio";
 import {
   applyDelta,
   emptyVault,
