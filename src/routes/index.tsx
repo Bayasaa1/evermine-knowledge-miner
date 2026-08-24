@@ -63,6 +63,7 @@ import {
   Search,
   Copy,
   Check,
+  CircleSlash,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -126,6 +127,14 @@ const translations = {
     help: "Help",
     removeFile: "Remove file",
     progress: "Mining Progress",
+    chunkTimeline: "Chunk Timeline",
+    chunkPending: "Pending",
+    chunkProcessing: "Processing",
+    chunkDone: "Completed",
+    chunkFailed: "Failed",
+    showingPiece: "Showing piece",
+    showAllPieces: "Show all pieces",
+    openChunkData: "Open this chunk's extracted data",
     piece: "Piece",
     of: "of",
     elapsed: "Elapsed",
@@ -248,6 +257,14 @@ const translations = {
     help: "Тусламж",
     removeFile: "Файл устгах",
     progress: "Боловсруулалтын явц",
+    chunkTimeline: "Хэсгүүдийн цагийн зурвас",
+    chunkPending: "Хүлээгдэж буй",
+    chunkProcessing: "Боловсруулж байна",
+    chunkDone: "Дууссан",
+    chunkFailed: "Амжилтгүй",
+    showingPiece: "Харуулж буй хэсэг",
+    showAllPieces: "Бүх хэсгийг харуулах",
+    openChunkData: "Энэ хэсгийн өгөгдлийг нээх",
     piece: "Хэсэг",
     of: "/",
     elapsed: "Өнгөрсөн",
@@ -379,6 +396,9 @@ function Index() {
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [currentPiece, setCurrentPiece] = useState(0);
   const [donePieces, setDonePieces] = useState(0);
+  const [failedPieces, setFailedPieces] = useState<number[]>([]);
+  const [focusedPiece, setFocusedPiece] = useState<number | null>(null);
+  const resultsRef = useRef<HTMLElement | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [log, setLog] = useState<string[]>([]);
   const [results, setResults] = useState<MineResult[]>([]);
@@ -622,6 +642,8 @@ function Index() {
     setStatus("processing");
     setStatusNote("noteUploading");
     setResults([]);
+    setFailedPieces([]);
+    setFocusedPiece(null);
     setCurrentPiece(1);
     setDonePieces(0);
     setElapsed(0);
@@ -644,7 +666,15 @@ function Index() {
           "info",
           `Request → piece ${chunk.index + 1}/${chunks.length} (${formatDuration(chunk.start)}–${formatDuration(chunk.end)})`,
         );
-        const data = await mineChunk(apiKey, model, uploaded, chunk.start, chunk.end, controller.signal);
+        let data;
+        try {
+          data = await mineChunk(apiKey, model, uploaded, chunk.start, chunk.end, controller.signal);
+        } catch (chunkErr) {
+          if (!(chunkErr instanceof DOMException && chunkErr.name === "AbortError")) {
+            setFailedPieces((f) => (f.includes(chunk.index) ? f : [...f, chunk.index]));
+          }
+          throw chunkErr;
+        }
         addLog(
           "info",
           `Response ← piece ${chunk.index + 1}: ${data.transcript.length} transcript line(s), ${data.scenes.length} scene note(s), ${data.knowledge.length} knowledge point(s)`,
@@ -822,9 +852,23 @@ function Index() {
   const StatusIcon = statusConfig[status].icon;
 
 
+  // ---- Chunk timeline ----
+  type ChunkState = "pending" | "processing" | "done" | "failed";
+  const chunkState = (index: number): ChunkState => {
+    if (failedPieces.includes(index)) return "failed";
+    if (results.some((r) => r.index === index)) return "done";
+    if (status === "processing" && index + 1 === currentPiece) return "processing";
+    return "pending";
+  };
+  const focusChunk = (index: number) => {
+    setFocusedPiece((cur) => (cur === index ? null : index));
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const visibleResults = focusedPiece === null ? results : results.filter((r) => r.index === focusedPiece);
+
   // ---- Transcript tab helpers ----
   type TLine = { timestamp: string; text: string; kind: "speech" | "scene" };
-  const transcriptGroups = results.map((r) => {
+  const transcriptGroups = visibleResults.map((r) => {
     const lines: TLine[] = [
       ...r.data.transcript.map((l) => ({ timestamp: l.timestamp, text: l.speech, kind: "speech" as const })),
       ...r.data.scenes.map((sc) => ({ timestamp: sc.timestamp, text: sc.description, kind: "scene" as const })),
@@ -1240,20 +1284,50 @@ function Index() {
                 />
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-1.5">
-                {chunks.map((c) => (
-                  <span
-                    key={c.index}
-                    title={`${formatDuration(c.start)} – ${formatDuration(c.end)}`}
-                    className={`h-1.5 flex-1 min-w-[10px] rounded-full ${
-                      c.index + 1 < currentPiece || status === "complete"
-                        ? "bg-status-green"
-                        : c.index + 1 === currentPiece
-                          ? "bg-status-amber"
-                          : "bg-secondary"
-                    }`}
-                  />
-                ))}
+              <div className="mt-6">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.chunkTimeline}</p>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-secondary" />{t.chunkPending}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 animate-pulse rounded-full bg-status-blue" />{t.chunkProcessing}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-green" />{t.chunkDone}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-red" />{t.chunkFailed}</span>
+                  </div>
+                </div>
+                <div className="flex w-full flex-wrap gap-1 overflow-hidden rounded-[12px] border border-border bg-muted p-1">
+                  {chunks.map((c) => {
+                    const st = chunkState(c.index);
+                    const done = st === "done";
+                    const styles: Record<string, string> = {
+                      pending: "bg-secondary text-muted-foreground",
+                      processing: "animate-pulse bg-status-blue/25 text-status-blue ring-1 ring-status-blue/50",
+                      done: "bg-status-green/20 text-status-green hover:bg-status-green/30",
+                      failed: "bg-status-red/20 text-status-red",
+                    };
+                    return (
+                      <button
+                        key={c.index}
+                        type="button"
+                        onClick={() => done && focusChunk(c.index)}
+                        disabled={!done}
+                        title={done ? t.openChunkData : `${formatDuration(c.start)} – ${formatDuration(c.end)}`}
+                        className={`flex min-w-[64px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[8px] px-2 py-2 text-[11px] font-medium transition-colors ${styles[st]} ${
+                          done ? "cursor-pointer" : "cursor-default"
+                        } ${focusedPiece === c.index ? "ring-2 ring-primary" : ""}`}
+                      >
+                        <span className="flex items-center gap-1">
+                          {st === "done" && <Check className="h-3 w-3" />}
+                          {st === "processing" && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {st === "failed" && <CircleSlash className="h-3 w-3" />}
+                          {t.piece} {c.index + 1}
+                        </span>
+                        <span className="font-mono text-[10px] opacity-70">
+                          {formatDuration(c.start)}–{formatDuration(c.end)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </section>
           )}
@@ -1472,7 +1546,7 @@ function Index() {
                   {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noStory}</p>
                   ) : (
-                    results.map((r) => (
+                    visibleResults.map((r) => (
                       <div key={r.index}>
                         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
                           {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
@@ -1507,7 +1581,7 @@ function Index() {
                   {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noFace}</p>
                   ) : (
-                    results.map((r) => (
+                    visibleResults.map((r) => (
                       <div key={r.index}>
                         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
                           {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
@@ -1589,7 +1663,7 @@ function Index() {
                     <div>
                       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">{t.voiceWindows}</p>
                       <div className="space-y-1.5">
-                        {results.flatMap((r) =>
+                        {visibleResults.flatMap((r) =>
                           r.data.voiceData.map((w, i) => (
                             <p key={`${r.index}-${i}`} className="text-sm leading-relaxed text-foreground">
                               <span className="mr-2 font-mono text-xs text-muted-foreground">
@@ -1619,7 +1693,7 @@ function Index() {
                       ] as const
                     ).map((group) => {
                       const items = Array.from(
-                        new Set(results.flatMap((r) => r.data.subconsciousness[group.key]).filter(Boolean)),
+                        new Set(visibleResults.flatMap((r) => r.data.subconsciousness[group.key]).filter(Boolean)),
                       );
                       return (
                         <div key={group.key}>
