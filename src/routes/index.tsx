@@ -48,7 +48,7 @@ export const Route = createFileRoute("/")({
 
 type Status = "ready" | "processing" | "complete" | "error";
 type Language = "en" | "mn";
-type Tab = "knowledge" | "transcript" | "log";
+type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "log";
 
 const translations = {
   en: {
