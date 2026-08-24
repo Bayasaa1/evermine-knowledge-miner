@@ -810,6 +810,21 @@ function Index() {
   const keysRef = useRef<ApiKeyEntry[]>([]);
   const [resumeState, setResumeState] = useState<ResumeState | null>(null);
   const fileRefRef = useRef<UploadedFile | null>(null);
+  const { isAuthenticated } = useAuth();
+  const cloudVaultIdRef = useRef<string | null>(null);
+  const resultsRef = useRef<MineResult[]>([]);
+
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
+
+  useEffect(() => {
+    void idbGet<string>(STORES.SETTINGS, "cloud_vault_id").then((id) => {
+      if (id) cloudVaultIdRef.current = id;
+    });
+  }, []);
+
+
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
