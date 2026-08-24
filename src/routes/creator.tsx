@@ -797,6 +797,10 @@ function Index() {
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
   const [ownership, setOwnership] = useState<Ownership>(() => ({ ...createOwnership(), mindId: "" }));
+  const [keys, setKeys] = useState<ApiKeyEntry[]>([]);
+  const keysRef = useRef<ApiKeyEntry[]>([]);
+  const [resumeState, setResumeState] = useState<ResumeState | null>(null);
+  const fileRefRef = useRef<UploadedFile | null>(null);
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
@@ -812,14 +816,26 @@ function Index() {
 
   useEffect(() => stopTimer, [stopTimer]);
 
-  useEffect(() => {
-    loadApiKey().then((k) => {
-      if (k) {
-        setApiKey(k);
-        setKeyState("valid");
-      }
-    });
+  const commitKeys = useCallback((next: ApiKeyEntry[]) => {
+    keysRef.current = next;
+    setKeys(next);
+    void saveApiKeys(next);
   }, []);
+
+  useEffect(() => {
+    void (async () => {
+      const pool = await loadApiKeys();
+      keysRef.current = pool;
+      setKeys(pool);
+      if (pool.length > 0) setKeyState("valid");
+      const saved = await loadResume();
+      if (saved) {
+        setResumeState(saved);
+        fileRefRef.current = saved.fileRef;
+      }
+    })();
+  }, []);
+
 
   // Restore the last session from IndexedDB ('evermind' v2) — strictly client side.
   useEffect(() => {
