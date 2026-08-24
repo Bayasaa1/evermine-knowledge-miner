@@ -66,6 +66,7 @@ import {
   CircleSlash,
   Film,
   Play,
+  Music,
 } from "lucide-react";
 
 /** Inline looping preview of a short action window inside the source video. */
@@ -148,6 +149,105 @@ function TabSkeleton({ rows = 3, groups = 2 }: { rows?: number; groups?: number 
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+type AudioLabels = {
+  audioAtmosphere: string;
+  audioGenres: string;
+  audioMoods: string;
+  audioTempo: string;
+  audioSegments: string;
+  audioSkillAssets: string;
+  audioSkillHint: string;
+  noAudio: string;
+  ownComposition: string;
+};
+
+/** Music & audio atmosphere profile plus original audio skill assets. */
+function AudioAtmosphere({ results, t }: { results: MineResult[]; t: AudioLabels }) {
+  const uniq = (xs: string[]) => Array.from(new Set(xs.map((x) => (x ?? "").trim()).filter(Boolean)));
+  const genres = uniq(results.flatMap((r) => r.data.audio?.genres ?? []));
+  const moods = uniq(results.flatMap((r) => r.data.audio?.moods ?? []));
+  const tempos = uniq(results.map((r) => r.data.audio?.tempo ?? ""));
+  const atmospheres = uniq(results.map((r) => r.data.audio?.atmosphere ?? ""));
+  const assets = uniq(results.flatMap((r) => r.data.audio?.audioSkillAssets ?? []));
+  const segments = results.flatMap((r) => r.data.audio?.segments ?? []);
+  const empty =
+    genres.length + moods.length + tempos.length + atmospheres.length + assets.length + segments.length === 0;
+
+  const chips = (label: string, items: string[]) =>
+    items.length === 0 ? null : (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        {items.map((x, i) => (
+          <span
+            key={i}
+            className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-foreground"
+          >
+            {x}
+          </span>
+        ))}
+      </div>
+    );
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
+          <Music className="h-3.5 w-3.5" />
+          {t.audioAtmosphere}
+        </p>
+        {empty ? (
+          <p className="text-sm text-muted-foreground">{t.noAudio}</p>
+        ) : (
+          <div className="space-y-3 rounded-[12px] border border-border bg-card p-4">
+            {atmospheres.map((a, i) => (
+              <p key={i} className="text-sm leading-relaxed text-foreground">
+                {a}
+              </p>
+            ))}
+            {chips(t.audioGenres, genres)}
+            {chips(t.audioMoods, moods)}
+            {chips(t.audioTempo, tempos)}
+            {segments.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-xs text-muted-foreground">{t.audioSegments}</p>
+                {segments.map((m, i) => (
+                  <p key={i} className="text-sm leading-relaxed text-foreground">
+                    <span className="mr-2 font-mono text-xs text-muted-foreground">
+                      [{m.start}–{m.end}]
+                    </span>
+                    {[m.genre, m.mood, m.tempo, m.instrumentation].filter(Boolean).join(" · ")}
+                    {m.isOriginalByOwner && (
+                      <span className="ml-2 rounded-md border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        {t.ownComposition}
+                      </span>
+                    )}
+                    {m.note && <span className="ml-2 text-muted-foreground">— {m.note}</span>}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {assets.length > 0 && (
+        <div className="rounded-[12px] border border-primary/40 bg-primary/5 p-4">
+          <p className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
+            <Music className="h-3.5 w-3.5" />
+            {t.audioSkillAssets}
+          </p>
+          <p className="mb-2 text-xs text-muted-foreground">{t.audioSkillHint}</p>
+          <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+            {assets.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -259,6 +359,19 @@ const translations = {
     skills: "Skills",
     beliefs: "Beliefs & Opinions",
     decisionLogic: "Decision Logic",
+    aestheticProfile: "Aesthetic Profile & Mood Preference",
+    audioAtmosphere: "Music & Audio Atmosphere",
+    audioGenres: "Genres",
+    audioMoods: "Mood / tone",
+    audioTempo: "Tempo",
+    audioSegments: "Music segments",
+    audioSkillAssets: "Audio Skill Assets",
+    audioSkillHint: "Original music performed or composed by the Primary Owner.",
+    noAudio: "No music or audio atmosphere detected yet.",
+    musicPresent: "music in window",
+    cleanSpeech: "clean speech",
+    speechFiltered: "Background music filtered out",
+    ownComposition: "Owner's own composition",
     tone: "Emotional tone",
     timeline: "Timeline",
     gestures: "Gestures",
@@ -398,6 +511,19 @@ const translations = {
     skills: "Ур чадвар",
     beliefs: "Итгэл үнэмшил ба үзэл бодол",
     decisionLogic: "Шийдвэрийн логик",
+    aestheticProfile: "Гоо зүйн профайл ба сэтгэл санааны сонголт",
+    audioAtmosphere: "Хөгжим ба дууны уур амьсгал",
+    audioGenres: "Төрөл жанр",
+    audioMoods: "Сэтгэл хөдлөл / өнгө аяс",
+    audioTempo: "Хэмнэл",
+    audioSegments: "Хөгжмийн хэсгүүд",
+    audioSkillAssets: "Дууны ур чадварын хөрөнгө",
+    audioSkillHint: "Үндсэн эзэмшигчийн өөрийн тоглосон эсвэл зохиосон хөгжим.",
+    noAudio: "Хөгжим болон дууны уур амьсгал илрээгүй байна.",
+    musicPresent: "хөгжимтэй",
+    cleanSpeech: "цэвэр яриа",
+    speechFiltered: "Дэвсгэр хөгжмийг шүүсэн",
+    ownComposition: "Эзэмшигчийн өөрийн бүтээл",
     tone: "Сэтгэл хөдлөлийн өнгө",
     timeline: "Цаг хугацааны дараалал",
     gestures: "Дохио зангаа",
@@ -876,12 +1002,15 @@ function Index() {
   const handleExtractSample = useCallback(async () => {
     if (!file || voiceBusy) return;
     const windows = results.flatMap((r) => r.data.voiceData);
+    // Music-free windows first — the cloning sample must be clean speech.
+    const clean = windows.filter((w) => !w.musicPresent);
+    const pool = clean.length > 0 ? clean : windows;
     const best =
-      windows.find((w) => /excellent/i.test(w.quality)) ?? windows.find((w) => /good/i.test(w.quality)) ?? windows[0];
+      pool.find((w) => /excellent/i.test(w.quality)) ?? pool.find((w) => /good/i.test(w.quality)) ?? pool[0];
     const start = best ? (parseTimestamp(best.start) ?? 0) : 0;
     setVoiceBusy(true);
     setVoiceProgress(0);
-    addLog("info", `Extracting a 60s voice sample from ${formatDuration(start)} (local, no upload)...`);
+    addLog("info", `Extracting a 60s voice sample from ${formatDuration(start)} with background music filtered out (local, no upload)...`);
     try {
       const sample = await extractVoiceSample(file, start, 60, { onProgress: setVoiceProgress });
       setVoiceSample((prev) => {
@@ -889,7 +1018,7 @@ function Index() {
         return sample;
       });
       setStatusNote("noteSampleReady");
-      addLog("info", `Voice sample ready (${(sample.size / 1024).toFixed(0)} KB, ${sample.mimeType}).`);
+      addLog("info", `Voice sample ready (${(sample.size / 1024).toFixed(0)} KB, ${sample.mimeType}${sample.speechFiltered ? ", music filtered" : ""}).`);
     } catch (err) {
       setStatusNote("noteSampleFailed");
       addLog("error", `Voice sample failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -1862,6 +1991,11 @@ function Index() {
                               {t.sampleReady} · {formatDuration(voiceSample.start)} → +{Math.round(voiceSample.duration)}s ·{" "}
                               {(voiceSample.size / 1024).toFixed(0)} KB
                             </span>
+                            {voiceSample.speechFiltered && (
+                              <span className="rounded-md border border-status-green/40 bg-status-green/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-status-green">
+                                {t.speechFiltered}
+                              </span>
+                            )}
                             <button
                               onClick={() => downloadVoiceSample(voiceSample)}
                               className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
@@ -1901,6 +2035,15 @@ function Index() {
                                 [{w.start}–{w.end}]
                               </span>
                               <span className="text-status-green">{w.quality}</span>
+                              <span
+                                className={`ml-2 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                  w.musicPresent
+                                    ? "border-status-amber/40 bg-status-amber/10 text-status-amber"
+                                    : "border-status-green/40 bg-status-green/10 text-status-green"
+                                }`}
+                              >
+                                {w.musicPresent ? t.musicPresent : t.cleanSpeech}
+                              </span>
                               {w.note && <span className="ml-2 text-muted-foreground">— {w.note}</span>}
                             </p>
                           )),
@@ -1908,6 +2051,8 @@ function Index() {
                       </div>
                     </div>
                   )}
+
+                  <AudioAtmosphere results={visibleResults} t={t} />
                 </div>
               )}
 
@@ -1925,10 +2070,11 @@ function Index() {
                         { key: "skills", label: t.skills },
                         { key: "beliefs", label: t.beliefs },
                         { key: "decisionLogic", label: t.decisionLogic },
+                        { key: "aestheticProfile", label: t.aestheticProfile },
                       ] as const
                     ).map((group) => {
                       const items = Array.from(
-                        new Set(visibleResults.flatMap((r) => r.data.subconsciousness[group.key]).filter(Boolean)),
+                        new Set(visibleResults.flatMap((r) => r.data.subconsciousness[group.key] ?? []).filter(Boolean)),
                       );
                       return (
                         <div key={group.key}>
