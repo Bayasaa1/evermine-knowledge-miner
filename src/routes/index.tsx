@@ -152,6 +152,105 @@ function TabSkeleton({ rows = 3, groups = 2 }: { rows?: number; groups?: number 
   );
 }
 
+type AudioLabels = {
+  audioAtmosphere: string;
+  audioGenres: string;
+  audioMoods: string;
+  audioTempo: string;
+  audioSegments: string;
+  audioSkillAssets: string;
+  audioSkillHint: string;
+  noAudio: string;
+  ownComposition: string;
+};
+
+/** Music & audio atmosphere profile plus original audio skill assets. */
+function AudioAtmosphere({ results, t }: { results: MineResult[]; t: AudioLabels }) {
+  const uniq = (xs: string[]) => Array.from(new Set(xs.map((x) => (x ?? "").trim()).filter(Boolean)));
+  const genres = uniq(results.flatMap((r) => r.data.audio?.genres ?? []));
+  const moods = uniq(results.flatMap((r) => r.data.audio?.moods ?? []));
+  const tempos = uniq(results.map((r) => r.data.audio?.tempo ?? ""));
+  const atmospheres = uniq(results.map((r) => r.data.audio?.atmosphere ?? ""));
+  const assets = uniq(results.flatMap((r) => r.data.audio?.audioSkillAssets ?? []));
+  const segments = results.flatMap((r) => r.data.audio?.segments ?? []);
+  const empty =
+    genres.length + moods.length + tempos.length + atmospheres.length + assets.length + segments.length === 0;
+
+  const chips = (label: string, items: string[]) =>
+    items.length === 0 ? null : (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        {items.map((x, i) => (
+          <span
+            key={i}
+            className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-foreground"
+          >
+            {x}
+          </span>
+        ))}
+      </div>
+    );
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
+          <Music className="h-3.5 w-3.5" />
+          {t.audioAtmosphere}
+        </p>
+        {empty ? (
+          <p className="text-sm text-muted-foreground">{t.noAudio}</p>
+        ) : (
+          <div className="space-y-3 rounded-[12px] border border-border bg-card p-4">
+            {atmospheres.map((a, i) => (
+              <p key={i} className="text-sm leading-relaxed text-foreground">
+                {a}
+              </p>
+            ))}
+            {chips(t.audioGenres, genres)}
+            {chips(t.audioMoods, moods)}
+            {chips(t.audioTempo, tempos)}
+            {segments.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-xs text-muted-foreground">{t.audioSegments}</p>
+                {segments.map((m, i) => (
+                  <p key={i} className="text-sm leading-relaxed text-foreground">
+                    <span className="mr-2 font-mono text-xs text-muted-foreground">
+                      [{m.start}–{m.end}]
+                    </span>
+                    {[m.genre, m.mood, m.tempo, m.instrumentation].filter(Boolean).join(" · ")}
+                    {m.isOriginalByOwner && (
+                      <span className="ml-2 rounded-md border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        {t.ownComposition}
+                      </span>
+                    )}
+                    {m.note && <span className="ml-2 text-muted-foreground">— {m.note}</span>}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {assets.length > 0 && (
+        <div className="rounded-[12px] border border-primary/40 bg-primary/5 p-4">
+          <p className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
+            <Music className="h-3.5 w-3.5" />
+            {t.audioSkillAssets}
+          </p>
+          <p className="mb-2 text-xs text-muted-foreground">{t.audioSkillHint}</p>
+          <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+            {assets.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
