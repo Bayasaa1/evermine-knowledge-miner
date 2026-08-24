@@ -12,6 +12,13 @@ import {
   type MineResult,
 } from "@/lib/mine-file";
 import {
+  createOwnership,
+  normalizeOwnership,
+  isValidEmail,
+  DEFAULT_LICENSE,
+  type Ownership,
+} from "@/lib/ownership";
+import {
   extractVoiceSample,
   downloadVoiceSample,
   parseTimestamp,
@@ -299,6 +306,7 @@ function Index() {
   const [voiceSample, setVoiceSample] = useState<VoiceSample | null>(null);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
+  const [ownership, setOwnership] = useState<Ownership>(() => createOwnership());
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
@@ -329,7 +337,9 @@ function Index() {
     (async () => {
       const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
       const prefs = await idbGet<{ lang?: Language; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
+      const savedOwnership = await idbGet<unknown>(STORES.SETTINGS, "ownership");
       if (cancelled) return;
+      if (savedOwnership) setOwnership(normalizeOwnership(savedOwnership));
       if (prefs) {
         if (prefs.lang) setLang(prefs.lang);
         if (prefs.provider) setProvider(prefs.provider);
@@ -365,6 +375,13 @@ function Index() {
     void idbSet(STORES.SETTINGS, "prefs", { lang, provider, model });
   }, [hydrated, lang, provider, model]);
 
+  // Monetization / ownership metadata lives in IndexedDB next to the mind data.
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setTimeout(() => void idbSet(STORES.SETTINGS, "ownership", ownership), 400);
+    return () => clearTimeout(id);
+  }, [hydrated, ownership]);
+
   useEffect(() => {
     if (!hydrated) return;
     const id = setTimeout(() => {
@@ -374,6 +391,7 @@ function Index() {
         buildMineFile({
           source: { name: source?.name ?? "", size: source?.size ?? 0, duration },
           model,
+          ownership,
           chunks,
           results,
           log,
@@ -381,7 +399,7 @@ function Index() {
       );
     }, 400);
     return () => clearTimeout(id);
-  }, [hydrated, source, duration, model, chunks, results, log]);
+  }, [hydrated, source, duration, model, ownership, chunks, results, log]);
 
   const t = translations[lang];
 
@@ -582,6 +600,7 @@ function Index() {
     const mine = buildMineFile({
       source: { name: source?.name ?? "mine", size: source?.size ?? 0, duration },
       model,
+      ownership,
       chunks,
       results,
       log,
@@ -589,7 +608,7 @@ function Index() {
     const filename = downloadMineFile(mine);
     setStatusNote("noteExported");
     addLog("info", `Exported ${results.length} piece(s) to ${filename}`);
-  }, [source, duration, model, chunks, results, log, addLog]);
+  }, [source, duration, model, ownership, chunks, results, log, addLog]);
 
   const handleExportBrain = useCallback(async () => {
     const brain = await buildAgentBrain({
@@ -652,6 +671,7 @@ function Index() {
         setChunks(mine.chunks);
         setDuration(mine.source.duration);
         setSource({ name: mine.source.name, size: mine.source.size });
+        setOwnership(mine.ownership);
         setDonePieces(mine.results.length);
         setCurrentPiece(mine.results.length);
         setElapsed(0);
