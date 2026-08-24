@@ -45,6 +45,10 @@ import {
   Layers,
   Download,
   FolderOpen,
+  BookOpen,
+  ScanFace,
+  AudioLines,
+  Sparkles,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
