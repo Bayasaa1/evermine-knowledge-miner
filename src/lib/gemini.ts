@@ -369,6 +369,26 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     skills: strings(sc['skills']),
     beliefs: strings(sc['beliefs']),
     decisionLogic: strings(sc['decisionLogic']),
+    aestheticProfile: strings(sc['aestheticProfile']),
+  };
+  const au = (v['audio'] ?? {}) as Record<string, unknown>;
+  const audio: AudioProfile = {
+    hasMusic: au['hasMusic'] === true,
+    atmosphere: typeof au['atmosphere'] === "string" ? au['atmosphere'] : "",
+    genres: strings(au['genres']),
+    moods: strings(au['moods']),
+    tempo: typeof au['tempo'] === "string" ? au['tempo'] : "",
+    segments: arr<Record<string, unknown>>(au['segments']).map((m) => ({
+      start: String(m?.['start'] ?? ""),
+      end: String(m?.['end'] ?? ""),
+      genre: String(m?.['genre'] ?? ""),
+      mood: String(m?.['mood'] ?? ""),
+      tempo: String(m?.['tempo'] ?? ""),
+      instrumentation: String(m?.['instrumentation'] ?? ""),
+      isOriginalByOwner: m?.['isOriginalByOwner'] === true,
+      note: String(m?.['note'] ?? ""),
+    })),
+    audioSkillAssets: strings(au['audioSkillAssets']),
   };
   const knowledge = strings(v['knowledge']);
   return {
