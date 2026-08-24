@@ -91,6 +91,28 @@ const translations = {
     stopped: "Job cancelled by user.",
     pieces: "pieces",
     duration: "Duration",
+    results: "Results",
+    model: "Model",
+    keyValid: "Key validated and stored locally.",
+    keyInvalid: "Key rejected — see the App Log.",
+    keyChecking: "Validating key...",
+    saveMine: "Save Mine (.json)",
+    openMine: "Open Saved Mine",
+    localOnly: "Everything stays on this device — keys, videos and results never leave your browser.",
+    restored: "Restored your last mining session from this device.",
+    noteReady: "System ready to process video.",
+    noteKeyRejected: "API key rejected — check your Google Gemini key.",
+    noteQuota: "Quota or rate limit reached. Try again later.",
+    noteGeneric: "Something went wrong. Check the app log.",
+    noteNoKey: "Add and save your Google Gemini API key first.",
+    noteProviderOnly: "Only Google Gemini is wired up right now.",
+    noteUploading: "Uploading video to Gemini...",
+    noteMining: "Mining knowledge from your video...",
+    noteComplete: "Knowledge extraction complete.",
+    noteKeySaved: "API key saved and validated.",
+    noteExported: "Mine saved to your device.",
+    noteImported: "Saved mine loaded.",
+    noteImportFailed: "That file is not a valid Evermine mine.",
   },
   mn: {
     appName: "Evermine",
@@ -131,6 +153,28 @@ const translations = {
     stopped: "Хэрэглэгч ажлыг цуцаллаа.",
     pieces: "хэсэг",
     duration: "Үргэлжлэх хугацаа",
+    results: "Үр дүн",
+    model: "Загвар",
+    keyValid: "Түлхүүр баталгаажиж, төхөөрөмж дээр хадгалагдлаа.",
+    keyInvalid: "Түлхүүр татгалзагдлаа — Бүртгэлийг шалгана уу.",
+    keyChecking: "Түлхүүрийг шалгаж байна...",
+    saveMine: "Мэдээллийг хадгалах (.json)",
+    openMine: "Хадгалсан файл нээх",
+    localOnly: "Бүх зүйл таны төхөөрөмж дээр үлддэг — түлхүүр, видео, үр дүн хэзээ ч хөтчөөс гардаггүй.",
+    restored: "Өмнөх ажлыг энэ төхөөрөмжөөс сэргээлээ.",
+    noteReady: "Систем видео боловсруулахад бэлэн.",
+    noteKeyRejected: "API түлхүүр татгалзагдлаа — Gemini түлхүүрээ шалгана уу.",
+    noteQuota: "Хязгаарт хүрлээ. Дараа дахин оролдоно уу.",
+    noteGeneric: "Алдаа гарлаа. Бүртгэлийг шалгана уу.",
+    noteNoKey: "Эхлээд Gemini API түлхүүрээ хадгална уу.",
+    noteProviderOnly: "Одоогоор зөвхөн Google Gemini дэмжигдэнэ.",
+    noteUploading: "Видеог Gemini рүү илгээж байна...",
+    noteMining: "Видеонээс мэдлэг гаргаж байна...",
+    noteComplete: "Мэдлэг гаргах ажил дууслаа.",
+    noteKeySaved: "API түлхүүр хадгалагдаж баталгаажлаа.",
+    noteExported: "Мэдээлэл төхөөрөмж дээр хадгалагдлаа.",
+    noteImported: "Хадгалсан мэдээлэл ачаалагдлаа.",
+    noteImportFailed: "Энэ файл зөв Evermine файл биш байна.",
   },
 };
 
@@ -167,7 +211,10 @@ function Index() {
   const [donePieces, setDonePieces] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [log, setLog] = useState<string[]>([]);
-  const [results, setResults] = useState<{ index: number; chunk: Chunk; data: ChunkResult }[]>([]);
+  const [results, setResults] = useState<MineResult[]>([]);
+  const [source, setSource] = useState<{ name: string; size: number } | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -195,6 +242,66 @@ function Index() {
     });
   }, []);
 
+  // Restore the last session from IndexedDB ('evermind' v2) — strictly client side.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
+      const prefs = await idbGet<{ lang?: Language; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
+      if (cancelled) return;
+      if (prefs) {
+        if (prefs.lang) setLang(prefs.lang);
+        if (prefs.provider) setProvider(prefs.provider);
+        if (prefs.model) setModel(prefs.model);
+      }
+      if (saved) {
+        try {
+          const mine = parseMineFile(saved);
+          setResults(mine.results);
+          setChunks(mine.chunks);
+          setDuration(mine.source.duration);
+          setSource({ name: mine.source.name, size: mine.source.size });
+          setDonePieces(mine.results.length);
+          setLog(mine.log);
+          if (mine.results.length > 0) {
+            setStatus("complete");
+            setStatusNote("restored");
+            setCurrentPiece(mine.results.length);
+          }
+        } catch {
+          /* ignore malformed cache */
+        }
+      }
+      setHydrated(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    void idbSet(STORES.SETTINGS, "prefs", { lang, provider, model });
+  }, [hydrated, lang, provider, model]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setTimeout(() => {
+      void idbSet(
+        STORES.SESSION,
+        "last",
+        buildMineFile({
+          source: { name: source?.name ?? "", size: source?.size ?? 0, duration },
+          model,
+          chunks,
+          results,
+          log,
+        }),
+      );
+    }, 400);
+    return () => clearTimeout(id);
+  }, [hydrated, source, duration, model, chunks, results, log]);
+
   const t = translations[lang];
 
   const statusConfig: Record<Status, { label: string; icon: React.ElementType; color: string }> = {
@@ -217,6 +324,7 @@ function Index() {
   const acceptFile = useCallback(
     (f: File) => {
       setFile(f);
+      setSource({ name: f.name, size: f.size });
       setStatus("ready");
       setStatusNote("noteReady");
       setChunks([]);
