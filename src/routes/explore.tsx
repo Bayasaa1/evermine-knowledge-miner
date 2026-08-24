@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "@/hooks/use-auth";
+import { appendChatMessages } from "@/lib/cloud-vault.functions";
 import remarkGfm from "remark-gfm";
 import {
   Brain,
@@ -145,6 +147,7 @@ function Explore() {
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const { isAuthenticated: authed } = useAuth();
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -498,7 +501,21 @@ function Explore() {
       [selected.id]: [...(t[selected.id] ?? history), { id: uid(), role: "agent", text: reply, via, visual, clip }],
     }));
     setThinking(false);
+    // Signed-in explorers keep a private, account-scoped copy of the thread.
+    if (authed) {
+      void appendChatMessages({
+        data: {
+          mindId: selected.id,
+          lang,
+          messages: [
+            { role: "user" as const, body: text },
+            { role: "agent" as const, body: reply },
+          ],
+        },
+      }).catch(() => undefined);
+    }
     if (via === "call") speak(reply);
+
   }
 
   function toggleListening() {
