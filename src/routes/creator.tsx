@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
+import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
@@ -339,7 +340,7 @@ export const Route = createFileRoute("/creator")({
 
 type Status = "ready" | "processing" | "complete" | "error";
 type Language = "en" | "mn";
-type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "log";
+type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "cloud" | "log";
 
 const translations = {
   en: {
@@ -1811,6 +1812,7 @@ function Index() {
                   { id: "voice", label: t.tabVoice, icon: AudioLines },
                   { id: "brain", label: t.tabBrain, icon: Brain },
                   { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang], icon: Sparkles },
+                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang], icon: Cloud },
                   { id: "log", label: t.appLog, icon: Terminal },
                 ] as { id: Tab; label: string; icon: typeof Brain }[]
               ).map((tab) => (
@@ -2203,6 +2205,16 @@ function Index() {
                   onLog={(m) => addLog("info", m)}
                   onRemine={handleMine}
                   canRemine={Boolean(file) && keyState === "valid" && !isMining}
+                />
+              )}
+
+              {activeTab === "cloud" && (
+                <CloudStorageHub
+                  lang={lang}
+                  results={results}
+                  sourceName={file?.name ?? null}
+                  sourceSize={file?.size ?? null}
+                  onLog={(m) => addLog("info", m)}
                 />
               )}
 
