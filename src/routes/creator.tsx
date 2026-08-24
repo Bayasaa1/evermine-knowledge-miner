@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
+import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
@@ -338,7 +339,7 @@ export const Route = createFileRoute("/creator")({
 
 type Status = "ready" | "processing" | "complete" | "error";
 type Language = "en" | "mn";
-type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "log";
+type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "log";
 
 const translations = {
   en: {
@@ -1809,6 +1810,7 @@ function Index() {
                   { id: "face", label: t.tabFace, icon: ScanFace },
                   { id: "voice", label: t.tabVoice, icon: AudioLines },
                   { id: "brain", label: t.tabBrain, icon: Brain },
+                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang], icon: Sparkles },
                   { id: "log", label: t.appLog, icon: Terminal },
                 ] as { id: Tab; label: string; icon: typeof Brain }[]
               ).map((tab) => (
@@ -2191,6 +2193,17 @@ function Index() {
 
                   {isMining && results.length > 0 && <TabSkeleton rows={2} groups={1} />}
                 </div>
+              )}
+
+              {activeTab === "studio" && (
+                <BrainStudio
+                  lang={lang}
+                  results={results}
+                  previewUrl={previewUrl}
+                  onLog={(m) => addLog("info", m)}
+                  onRemine={handleMine}
+                  canRemine={Boolean(file) && keyState === "valid" && !isMining}
+                />
               )}
 
               {activeTab === "log" && (
