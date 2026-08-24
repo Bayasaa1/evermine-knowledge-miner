@@ -198,6 +198,14 @@ const translations = {
     lighting: "Lighting",
     faceAngle: "Face angle",
     cloneQuality: "Clone quality",
+    speakers: "Speakers detected",
+    primaryOwner: "Primary Owner",
+    secondarySpeaker: "Guest",
+    unknownSpeaker: "Unknown",
+    keyAction: "Key action",
+    actionClip: "Action replay",
+    playClip: "Play clip",
+    needVideoForClip: "Load the source video to replay this action.",
     noStory: "The narrative story will appear here after processing.",
     noFace: "Visual and face framing notes will appear here after processing.",
     noVoice: "Clean-audio windows will appear here after processing.",
@@ -329,6 +337,14 @@ const translations = {
     lighting: "Гэрэлтүүлэг",
     faceAngle: "Царайны өнцөг",
     cloneQuality: "Хуулбарлах чанар",
+    speakers: "Илэрсэн ярьж буй хүмүүс",
+    primaryOwner: "Үндсэн эзэн",
+    secondarySpeaker: "Зочин",
+    unknownSpeaker: "Тодорхойгүй",
+    keyAction: "Гол хөдөлгөөн",
+    actionClip: "Хөдөлгөөний давтан үзүүлэлт",
+    playClip: "Клип тоглуулах",
+    needVideoForClip: "Хөдөлгөөнийг үзэхийн тулд эх бичлэгээ ачаална уу.",
     noStory: "Боловсруулалтын дараа түүхэн өгүүлэмж энд харагдана.",
     noFace: "Боловсруулалтын дараа дүрс, царайны тэмдэглэл энд харагдана.",
     noVoice: "Боловсруулалтын дараа цэвэр дуутай хэсгүүд энд харагдана.",
@@ -889,10 +905,16 @@ function Index() {
   const visibleResults = focusedPiece === null ? results : results.filter((r) => r.index === focusedPiece);
 
   // ---- Transcript tab helpers ----
-  type TLine = { timestamp: string; text: string; kind: "speech" | "scene" };
+  type TLine = { timestamp: string; text: string; kind: "speech" | "scene"; speaker?: string; role?: "primary" | "secondary" | "unknown" };
   const transcriptGroups = visibleResults.map((r) => {
     const lines: TLine[] = [
-      ...r.data.transcript.map((l) => ({ timestamp: l.timestamp, text: l.speech, kind: "speech" as const })),
+      ...r.data.transcript.map((l) => ({
+        timestamp: l.timestamp,
+        text: l.speech,
+        kind: "speech" as const,
+        speaker: l.speaker,
+        role: l.role,
+      })),
       ...r.data.scenes.map((sc) => ({ timestamp: sc.timestamp, text: sc.description, kind: "scene" as const })),
     ].sort((a, b) => (parseTimestamp(a.timestamp) ?? 0) - (parseTimestamp(b.timestamp) ?? 0));
     return { index: r.index, chunk: r.chunk, lines };
@@ -900,7 +922,15 @@ function Index() {
   const query = transcriptQuery.trim().toLowerCase();
   const filteredTranscript = query
     ? transcriptGroups
-        .map((g) => ({ ...g, lines: g.lines.filter((l) => l.text.toLowerCase().includes(query) || l.timestamp.toLowerCase().includes(query)) }))
+        .map((g) => ({
+          ...g,
+          lines: g.lines.filter(
+            (l) =>
+              l.text.toLowerCase().includes(query) ||
+              l.timestamp.toLowerCase().includes(query) ||
+              (l.speaker ?? "").toLowerCase().includes(query),
+          ),
+        }))
         .filter((g) => g.lines.length > 0)
     : transcriptGroups;
 
@@ -916,7 +946,13 @@ function Index() {
   const copyAllTranscript = async () => {
     const text = transcriptGroups
       .map((g) => `# ${t.piece} ${g.index + 1} (${formatDuration(g.chunk.start)}-${formatDuration(g.chunk.end)})\n` +
-        g.lines.map((l) => `[${l.timestamp}] ${l.kind === "scene" ? `(${l.text})` : l.text}`).join('\n'))
+        g.lines
+          .map((l) =>
+            l.kind === "scene"
+              ? `[${l.timestamp}] (${l.text})`
+              : `[${l.timestamp}] ${l.speaker ? `${l.speaker}${l.role === "primary" ? " *" : ""}: ` : ""}${l.text}`,
+          )
+          .join('\n'))
       .join('\n\n');
     try {
       await navigator.clipboard.writeText(text);
@@ -1557,6 +1593,34 @@ function Index() {
                         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
                           {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
                         </p>
+                        {(results.find((x) => x.index === r.index)?.data.speakers ?? []).length > 0 && (
+                          <div className="mb-3 flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{t.speakers}:</span>
+                            {(results.find((x) => x.index === r.index)?.data.speakers ?? []).map((sp, i) => (
+                              <span
+                                key={i}
+                                title={sp.description}
+                                className={`inline-flex items-center gap-1 rounded-[6px] border px-2 py-0.5 text-xs ${
+                                  sp.role === "primary"
+                                    ? "border-primary/50 bg-primary/15 text-primary"
+                                    : sp.role === "secondary"
+                                      ? "border-status-blue/50 bg-status-blue/15 text-status-blue"
+                                      : "border-border bg-background text-muted-foreground"
+                                }`}
+                              >
+                                {sp.label}
+                                <span className="opacity-70">
+                                  ·{" "}
+                                  {sp.role === "primary"
+                                    ? t.primaryOwner
+                                    : sp.role === "secondary"
+                                      ? t.secondarySpeaker
+                                      : t.unknownSpeaker}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <div className="space-y-1.5">
                           {r.lines.map((line, i) => (
                             <p
@@ -1572,6 +1636,26 @@ function Index() {
                               >
                                 {line.timestamp}
                               </button>
+                              {line.kind === "speech" && line.speaker && (
+                                <span
+                                  className={`mr-2 inline-flex items-center rounded-[6px] border px-1.5 py-0.5 text-xs font-medium not-italic ${
+                                    line.role === "primary"
+                                      ? "border-primary/50 bg-primary/15 text-primary"
+                                      : line.role === "secondary"
+                                        ? "border-status-blue/50 bg-status-blue/15 text-status-blue"
+                                        : "border-border bg-background text-muted-foreground"
+                                  }`}
+                                  title={
+                                    line.role === "primary"
+                                      ? t.primaryOwner
+                                      : line.role === "secondary"
+                                        ? t.secondarySpeaker
+                                        : t.unknownSpeaker
+                                  }
+                                >
+                                  {line.speaker}
+                                </span>
+                              )}
                               {line.text}
                             </p>
                           ))}
@@ -1654,6 +1738,27 @@ function Index() {
                                   </div>
                                 )}
                               </dl>
+                              {f.isKeyAction && (
+                                <div className="mt-3 border-t border-border pt-3">
+                                  <p className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                                    <span className="inline-flex items-center gap-1 rounded-[6px] border border-status-amber/50 bg-status-amber/15 px-2 py-0.5 font-medium text-status-amber">
+                                      <Film className="h-3 w-3" />
+                                      {t.keyAction}
+                                    </span>
+                                    {f.actionType && <span className="text-foreground">{f.actionType}</span>}
+                                  </p>
+                                  {previewUrl ? (
+                                    <ActionClip
+                                      src={previewUrl}
+                                      start={f.clipStart || f.timestamp}
+                                      end={f.clipEnd || f.timestamp}
+                                      label={t.playClip}
+                                    />
+                                  ) : (
+                                    <p className="text-xs text-status-amber">{t.needVideoForClip}</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
