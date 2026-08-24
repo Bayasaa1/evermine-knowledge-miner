@@ -822,6 +822,47 @@ function Index() {
   const StatusIcon = statusConfig[status].icon;
 
 
+  // ---- Transcript tab helpers ----
+  type TLine = { timestamp: string; text: string; kind: "speech" | "scene" };
+  const transcriptGroups = results.map((r) => {
+    const lines: TLine[] = [
+      ...r.data.transcript.map((l) => ({ timestamp: l.timestamp, text: l.speech, kind: "speech" as const })),
+      ...r.data.scenes.map((sc) => ({ timestamp: sc.timestamp, text: sc.description, kind: "scene" as const })),
+    ].sort((a, b) => (parseTimestamp(a.timestamp) ?? 0) - (parseTimestamp(b.timestamp) ?? 0));
+    return { index: r.index, chunk: r.chunk, lines };
+  });
+  const query = transcriptQuery.trim().toLowerCase();
+  const filteredTranscript = query
+    ? transcriptGroups
+        .map((g) => ({ ...g, lines: g.lines.filter((l) => l.text.toLowerCase().includes(query) || l.timestamp.toLowerCase().includes(query)) }))
+        .filter((g) => g.lines.length > 0)
+    : transcriptGroups;
+
+  const seekToTimestamp = (ts: string) => {
+    const secs = parseTimestamp(ts);
+    const el = previewVideoRef.current;
+    if (secs === null || !el) return;
+    el.currentTime = secs;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    void el.play().catch(() => {});
+  };
+
+  const copyAllTranscript = async () => {
+    const text = transcriptGroups
+      .map((g) => `# ${t.piece} ${g.index + 1} (${formatDuration(g.chunk.start)}-${formatDuration(g.chunk.end)})\n` +
+        g.lines.map((l) => `[${l.timestamp}] ${l.kind === "scene" ? `(${l.text})` : l.text}`).join('\n'))
+      .join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedTranscript(true);
+      toast.success(t.copied);
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    } catch {
+      toast.error(t.copyFailed);
+    }
+  };
+
+
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       {/* Mobile sidebar overlay */}
