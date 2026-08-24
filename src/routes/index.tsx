@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
@@ -91,6 +92,13 @@ const translations = {
     dragDrop: "Drag and drop a video file here",
     orClick: "or click to browse",
     supported: "MP4, MOV, WebM up to 2GB",
+    dropHere: "Drop the video to load it",
+    tooLarge: "File is too large — the limit is 2GB.",
+    badType: "Unsupported format. Use MP4, MOV or WebM.",
+    preview: "Preview",
+    resolution: "Resolution",
+    fileSize: "File size",
+    reading: "Reading…",
     mineVideo: "Mine Video",
     status: "Status",
     ready: "Ready",
@@ -200,6 +208,13 @@ const translations = {
     dragDrop: "Видео файлыг энд чирнэ үү",
     orClick: "эсвэл хайхаар дарна уу",
     supported: "MP4, MOV, WebM 2GB хүртэл",
+    dropHere: "Видеог энд тавьж ачаална уу",
+    tooLarge: "Файл хэт том байна — дээд хэмжээ 2GB.",
+    badType: "Дэмжигдэхгүй формат. MP4, MOV, WebM ашиглана уу.",
+    preview: "Урьдчилан үзэх",
+    resolution: "Нягтрал",
+    fileSize: "Файлын хэмжээ",
+    reading: "Уншиж байна…",
     mineVideo: "Видео боловсруулах",
     status: "Төлөв",
     ready: "Бэлэн",
@@ -305,6 +320,21 @@ const navLinks = [
   { key: "help", icon: Globe, href: "#" },
 ];
 
+const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
+const ALLOWED_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"];
+const ALLOWED_EXT = [".mp4", ".mov", ".webm", ".m4v"];
+
+function isAllowedVideo(f: File) {
+  const name = f.name.toLowerCase();
+  if (f.type) return ALLOWED_TYPES.includes(f.type.toLowerCase());
+  return ALLOWED_EXT.some((ext) => name.endsWith(ext));
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
+}
+
 const MODELS = [
   { value: "gemini-2.5-flash", label: "gemini-2.5-flash (recommended)" },
   { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
@@ -324,6 +354,8 @@ function Index() {
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -341,7 +373,7 @@ function Index() {
   const [voiceSample, setVoiceSample] = useState<VoiceSample | null>(null);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
-  const [ownership, setOwnership] = useState<Ownership>(() => createOwnership());
+  const [ownership, setOwnership] = useState<Ownership>(() => ({ ...createOwnership(), mindId: "" }));
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
@@ -399,6 +431,7 @@ function Index() {
           /* ignore malformed cache */
         }
       }
+      setOwnership((o) => (o.mindId ? o : { ...o, mindId: newMindId() }));
       setHydrated(true);
     })();
     return () => {
@@ -453,29 +486,49 @@ function Index() {
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
     setIsDragging(false);
   }, []);
 
   const acceptFile = useCallback(
     (f: File) => {
+      if (f.size > MAX_FILE_BYTES) {
+        toast.error(t.tooLarge, { description: `${f.name} · ${formatBytes(f.size)}` });
+        addLog("error", `Rejected ${f.name}: ${formatBytes(f.size)} exceeds the 2GB limit`);
+        return;
+      }
+      if (!isAllowedVideo(f)) {
+        toast.error(t.badType, { description: `${f.name} · ${f.type || "unknown type"}` });
+        addLog("error", `Rejected ${f.name}: unsupported format (${f.type || "unknown"})`);
+        return;
+      }
+
       setFile(f);
       setSource({ name: f.name, size: f.size });
       setStatus("ready");
       setStatusNote("noteReady");
       setChunks([]);
       setDuration(null);
+      setResolution(null);
       setCurrentPiece(0);
       setDonePieces(0);
       setElapsed(0);
       setResults([]);
-      addLog("info", `Loaded ${f.name} (${(f.size / (1024 * 1024)).toFixed(2)} MB)`);
+      addLog("info", `Loaded ${f.name} (${formatBytes(f.size)})`);
 
       const url = URL.createObjectURL(f);
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
         const d = video.duration;
-        URL.revokeObjectURL(url);
+        if (video.videoWidth && video.videoHeight) {
+          setResolution({ width: video.videoWidth, height: video.videoHeight });
+        }
         if (!Number.isFinite(d) || d <= 0) {
           addLog("warn", "Could not read duration from file");
           return;
@@ -487,12 +540,12 @@ function Index() {
         addLog("info", `Split into ${parts.length} piece(s) of up to 5 minutes`);
       };
       video.onerror = () => {
-        URL.revokeObjectURL(url);
         addLog("warn", "Unsupported or unreadable video file");
+        toast.error(t.badType, { description: f.name });
       };
       video.src = url;
     },
-    [addLog],
+    [addLog, t],
   );
 
   const handleDrop = useCallback(
@@ -728,6 +781,11 @@ function Index() {
     abortRef.current?.abort();
     stopTimer();
     setFile(null);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setResolution(null);
     setStatus("ready");
     setStatusNote("noteReady");
     setChunks([]);
@@ -978,8 +1036,10 @@ function Index() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative cursor-pointer rounded-[12px] border-2 border-dashed border-border bg-muted px-6 py-10 text-center transition-colors hover:border-primary/50 hover:bg-muted/80 ${
-                  isDragging ? "border-primary bg-primary/5" : ""
+                className={`relative cursor-pointer rounded-[12px] border-2 border-dashed px-6 py-10 text-center transition-all duration-200 ${
+                  isDragging
+                    ? "scale-[1.01] border-primary bg-primary/10 ring-4 ring-primary/20"
+                    : "border-border bg-muted hover:border-primary/50 hover:bg-muted/80"
                 }`}
               >
                 <input
@@ -989,35 +1049,75 @@ function Index() {
                   onChange={handleFileSelect}
                   className="sr-only"
                 />
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
-                  <Upload className="h-6 w-6 text-primary" />
+                <div
+                  className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full transition-colors ${
+                    isDragging ? "bg-primary/20" : "bg-secondary"
+                  }`}
+                >
+                  <Upload
+                    className={`h-6 w-6 text-primary transition-transform duration-200 ${
+                      isDragging ? "-translate-y-0.5 scale-110" : ""
+                    }`}
+                  />
                 </div>
-                <p className="text-sm font-medium text-foreground">{t.dragDrop}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {isDragging ? t.dropHere : t.dragDrop}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">{t.orClick}</p>
                 <p className="mt-3 text-xs text-muted-foreground/70">{t.supported}</p>
               </div>
 
               {file && (
-                <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted px-4 py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Video className="h-4 w-4 shrink-0 text-primary" />
-                    <p className="truncate text-sm text-foreground">{file.name}</p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                    {duration !== null && (
-                      <span className="hidden text-xs text-muted-foreground whitespace-nowrap sm:inline">
-                        · {formatDuration(duration)} · {chunks.length} {t.pieces}
-                      </span>
-                    )}
+                <div className="mt-4 overflow-hidden rounded-[12px] border border-border bg-muted">
+                  {previewUrl && (
+                    <video
+                      key={previewUrl}
+                      src={previewUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="aspect-video w-full bg-black"
+                    />
+                  )}
+                  <div className="flex items-start justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Video className="h-4 w-4 shrink-0 text-primary" />
+                        <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
+                      </div>
+                      <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                        <div className="flex gap-1.5">
+                          <dt>{t.duration}:</dt>
+                          <dd className="text-foreground">
+                            {duration !== null ? formatDuration(duration) : t.reading}
+                          </dd>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <dt>{t.resolution}:</dt>
+                          <dd className="text-foreground">
+                            {resolution ? `${resolution.width} × ${resolution.height}` : t.reading}
+                          </dd>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <dt>{t.fileSize}:</dt>
+                          <dd className="text-foreground">{formatBytes(file.size)}</dd>
+                        </div>
+                        {chunks.length > 0 && (
+                          <div className="flex gap-1.5">
+                            <dt>{t.pieces}:</dt>
+                            <dd className="text-foreground">{chunks.length}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                    <button
+                      onClick={removeFile}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={t.removeFile}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={removeFile}
-                    className="ml-2 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={t.removeFile}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               )}
 
