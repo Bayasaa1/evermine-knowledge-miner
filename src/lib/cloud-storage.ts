@@ -97,7 +97,7 @@ export function vaultPath(a: CloudAccount, kind: IndexedFile["kind"], name: stri
 /** Records a file against the routed drive and updates its usage. Returns the updated hub. */
 export function placeFile(
   hub: CloudHub,
-  input: { kind: IndexedFile["kind"]; name: string; sizeBytes: number; role?: StorageRole },
+  input: { kind: IndexedFile["kind"]; name: string; sizeBytes: number; role?: StorageRole | undefined },
 ): { hub: CloudHub; file: IndexedFile | null; failedOver: boolean } {
   const role: StorageRole = input.role ?? (input.kind === "brain" ? "primary" : "media");
   const target = routeTarget(hub, role, input.sizeBytes);
@@ -136,10 +136,10 @@ export function resolveUri(hub: CloudHub, name: string): { file: IndexedFile; ac
 export function makeAccount(input: {
   provider: ProviderId;
   account: string;
-  label?: string;
-  role?: StorageRole;
-  quotaGb?: number;
-  usedGb?: number;
+  label?: string | undefined;
+  role?: StorageRole | undefined;
+  quotaGb?: number | undefined;
+  usedGb?: number | undefined;
 }): CloudAccount {
   const meta = PROVIDERS.find((p) => p.id === input.provider)!;
   const quotaGb = input.quotaGb && input.quotaGb > 0 ? input.quotaGb : meta.defaultQuotaGb;
