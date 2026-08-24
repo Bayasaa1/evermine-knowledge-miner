@@ -759,6 +759,15 @@ const MODELS = [
   { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
 ];
 
+/** Thrown when every API key in the rotation pool is out of quota. */
+class QuotaPaused extends Error {
+  constructor() {
+    super("All API keys are exhausted");
+    this.name = "QuotaPaused";
+  }
+}
+
+
 function Index() {
   const [lang, setLang] = useState<Language>("en");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -1299,7 +1308,10 @@ function Index() {
   );
 
   const handleResetKeys = useCallback(() => {
-    commitKeys(keysRef.current.map((k) => ({ ...k, state: "ok" as const, exhaustedAt: undefined })));
+    commitKeys(
+      keysRef.current.map(({ exhaustedAt: _drop, ...k }) => ({ ...k, state: "ok" as const })),
+    );
+
     if (status === "paused") {
       setStatus("ready");
       setStatusNote("noteReady");
@@ -1722,6 +1734,87 @@ function Index() {
                   )}
                 </div>
 
+                {/* Rotation pool */}
+                <div className="rounded-[12px] border border-border bg-muted/40 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {t.keyPool} {keys.length > 0 && <span className="text-muted-foreground">({keys.length})</span>}
+                    </h4>
+                    {keys.some((k) => k.state !== "ok") && (
+                      <button
+                        onClick={handleResetKeys}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                      >
+                        <RotateCw className="h-3 w-3" />
+                        {t.resetAllKeys}
+                      </button>
+                    )}
+                  </div>
+                  <p className="mb-3 text-xs text-muted-foreground">{t.keyPoolHint}</p>
+                  {keys.length === 0 ? (
+                    <p className="text-xs text-muted-foreground/80">{t.keyEmpty}</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {keys.map((k, i) => (
+                        <li
+                          key={k.id}
+                          className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
+                            {i + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+                            {maskKey(k.value)}
+                          </span>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              k.state === "ok"
+                                ? "bg-status-green/10 text-status-green"
+                                : k.state === "exhausted"
+                                  ? "bg-status-amber/10 text-status-amber"
+                                  : "bg-status-red/10 text-status-red"
+                            }`}
+                          >
+                            {k.state === "ok"
+                              ? t.keyActive
+                              : k.state === "exhausted"
+                                ? t.keyExhausted
+                                : t.keyRejected}
+                          </span>
+                          {k.state !== "ok" && (
+                            <button
+                              onClick={() =>
+                                commitKeys(
+                                  keysRef.current.map(({ exhaustedAt: _d, ...e }) =>
+                                    e.id === k.id ? { ...e, state: "ok" as const } : { ...e },
+                                  ),
+                                )
+                              }
+                              aria-label={t.keyReset}
+                              title={t.keyReset}
+                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            >
+                              <RotateCw className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveKey(k.id)}
+                            aria-label={t.keyRemove}
+                            title={t.keyRemove}
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                    <Plus className="h-3 w-3" /> {t.apiKeyPlaceholder}
+                  </p>
+                </div>
+
+
               </div>
             </section>
 
@@ -1845,7 +1938,53 @@ function Index() {
             </section>
           </div>
 
+          {/* Resume banner */}
+          {resumeState && status !== "processing" && (
+            <section
+              className={`min-w-0 rounded-[12px] border p-5 sm:p-6 ${
+                status === "paused" ? "border-status-amber/40 bg-status-amber/5" : "border-border bg-card"
+              }`}
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-amber/10 text-status-amber">
+                    <PauseCircle className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {status === "paused" ? t.pausedQuota : t.resumeReady}
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {status === "paused"
+                        ? t.pausedQuotaBody
+                        : `${t.resumeBody} ${resumeState.nextIndex + 1}/${resumeState.chunks.length} — ${resumeState.fileName}`}
+                    </p>
+                    {!file && <p className="mt-1 text-xs text-status-amber">{t.resumeNeedVideo}</p>}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={handleResume}
+                    disabled={!file && !resumeState.fileRef}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Play className="h-4 w-4" />
+                    {t.resumeMining}
+                  </button>
+                  <button
+                    onClick={handleDiscardResume}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t.discardResume}</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Live progress */}
+
           {(status === "processing" || status === "complete") && totalPieces > 0 && (
             <section className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
