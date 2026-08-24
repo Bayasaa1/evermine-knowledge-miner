@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import {
   Brain,
   KeyRound,
@@ -16,6 +17,8 @@ import {
   Menu,
   ChevronRight,
   Save,
+  Square,
+  Layers,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -65,6 +68,15 @@ const translations = {
     history: "History",
     help: "Help",
     removeFile: "Remove file",
+    progress: "Mining Progress",
+    piece: "Piece",
+    of: "of",
+    elapsed: "Elapsed",
+    remaining: "Est. remaining",
+    stop: "Stop",
+    stopped: "Job cancelled by user.",
+    pieces: "pieces",
+    duration: "Duration",
   },
   mn: {
     appName: "Evermine",
@@ -96,6 +108,15 @@ const translations = {
     history: "Түүх",
     help: "Тусламж",
     removeFile: "Файл устгах",
+    progress: "Боловсруулалтын явц",
+    piece: "Хэсэг",
+    of: "/",
+    elapsed: "Өнгөрсөн",
+    remaining: "Үлдсэн хугацаа",
+    stop: "Зогсоох",
+    stopped: "Хэрэглэгч ажлыг цуцаллаа.",
+    pieces: "хэсэг",
+    duration: "Үргэлжлэх хугацаа",
   },
 };
 
@@ -116,6 +137,24 @@ function Index() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [chunks, setChunks] = useState<Chunk[]>([]);
+  const [currentPiece, setCurrentPiece] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [log, setLog] = useState<string[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef<number>(0);
+
+  const SIM_SECONDS_PER_PIECE = 2;
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => stopTimer, [stopTimer]);
 
   const t = translations[lang];
 
@@ -136,23 +175,91 @@ function Index() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const dropped = e.dataTransfer.files?.[0];
-    if (dropped) setFile(dropped);
+  const acceptFile = useCallback((f: File) => {
+    setFile(f);
+    setStatus("ready");
+    setChunks([]);
+    setDuration(null);
+    setCurrentPiece(0);
+    setElapsed(0);
+    setLog([`[info] Loaded ${f.name}`]);
+
+    const url = URL.createObjectURL(f);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const d = video.duration;
+      URL.revokeObjectURL(url);
+      if (!Number.isFinite(d) || d <= 0) {
+        setLog((l) => [...l, "[warn] Could not read duration from file"]);
+        return;
+      }
+      const parts = splitIntoChunks(d);
+      setDuration(d);
+      setChunks(parts);
+      setLog((l) => [
+        ...l,
+        `[info] Duration ${formatDuration(d)}`,
+        `[info] Split into ${parts.length} piece(s) of up to 5 minutes`,
+      ]);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      setLog((l) => [...l, "[warn] Unsupported or unreadable video file"]);
+    };
+    video.src = url;
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) setFile(selected);
-  }, []);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const dropped = e.dataTransfer.files?.[0];
+      if (dropped) acceptFile(dropped);
+    },
+    [acceptFile],
+  );
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selected = e.target.files?.[0];
+      if (selected) acceptFile(selected);
+    },
+    [acceptFile],
+  );
 
   const handleMine = useCallback(() => {
-    if (!file) return;
+    if (!file || chunks.length === 0) return;
+    stopTimer();
     setStatus("processing");
-    setTimeout(() => setStatus("complete"), 3000);
-  }, [file]);
+    setCurrentPiece(1);
+    setElapsed(0);
+    startedAtRef.current = Date.now();
+    setLog((l) => [...l, `[info] Mining started — ${chunks.length} piece(s)`]);
+
+    const totalMs = chunks.length * SIM_SECONDS_PER_PIECE * 1000;
+    timerRef.current = setInterval(() => {
+      const ms = Date.now() - startedAtRef.current;
+      setElapsed(ms / 1000);
+      const piece = Math.min(chunks.length, Math.floor(ms / (SIM_SECONDS_PER_PIECE * 1000)) + 1);
+      setCurrentPiece(piece);
+      if (ms >= totalMs) {
+        stopTimer();
+        setCurrentPiece(chunks.length);
+        setElapsed(totalMs / 1000);
+        setStatus("complete");
+        setLog((l) => [...l, "[info] All pieces processed", "[info] Knowledge extraction complete"]);
+      }
+    }, 100);
+  }, [file, chunks, stopTimer]);
+
+  const handleStop = useCallback(() => {
+    stopTimer();
+    setStatus("ready");
+    setCurrentPiece(0);
+    setElapsed(0);
+    setLog((l) => [...l, "[warn] Job cancelled by user"]);
+  }, [stopTimer]);
 
   const handleSaveKey = useCallback(() => {
     if (!apiKey.trim()) return;
@@ -160,10 +267,22 @@ function Index() {
   }, [apiKey]);
 
   const removeFile = useCallback(() => {
+    stopTimer();
     setFile(null);
     setStatus("ready");
+    setChunks([]);
+    setDuration(null);
+    setCurrentPiece(0);
+    setElapsed(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
+  }, [stopTimer]);
+
+  const totalPieces = chunks.length;
+  const progressPct =
+    totalPieces > 0 && status !== "ready"
+      ? Math.min(100, (elapsed / (totalPieces * SIM_SECONDS_PER_PIECE)) * 100)
+      : 0;
+  const remaining = Math.max(0, totalPieces * SIM_SECONDS_PER_PIECE - elapsed);
 
   const StatusIcon = statusConfig[status].icon;
 
@@ -387,6 +506,11 @@ function Index() {
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {(file.size / (1024 * 1024)).toFixed(2)} MB
                     </span>
+                    {duration !== null && (
+                      <span className="hidden text-xs text-muted-foreground whitespace-nowrap sm:inline">
+                        · {formatDuration(duration)} · {chunks.length} {t.pieces}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={removeFile}
@@ -400,7 +524,7 @@ function Index() {
 
               <button
                 onClick={handleMine}
-                disabled={!file || status === "processing"}
+                disabled={!file || chunks.length === 0 || status === "processing"}
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {status === "processing" ? (
@@ -417,6 +541,63 @@ function Index() {
               </button>
             </section>
           </div>
+
+          {/* Live progress */}
+          {(status === "processing" || status === "complete") && totalPieces > 0 && (
+            <section className="rounded-[12px] border border-border bg-card p-6">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Layers className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">{t.progress}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {t.piece} {currentPiece} {t.of} {totalPieces}
+                    </p>
+                  </div>
+                </div>
+                {status === "processing" && (
+                  <button
+                    onClick={handleStop}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                    {t.stop}
+                  </button>
+                )}
+              </div>
+
+              <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+                <span>{progressPct.toFixed(0)}%</span>
+                <span>
+                  {t.elapsed} {formatDuration(elapsed)} · {t.remaining} {formatDuration(remaining)}
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-150 ease-linear"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-1.5">
+                {chunks.map((c) => (
+                  <span
+                    key={c.index}
+                    title={`${formatDuration(c.start)} – ${formatDuration(c.end)}`}
+                    className={`h-1.5 flex-1 min-w-[10px] rounded-full ${
+                      c.index + 1 < currentPiece || status === "complete"
+                        ? "bg-status-green"
+                        : c.index + 1 === currentPiece
+                          ? "bg-status-amber"
+                          : "bg-secondary"
+                    }`}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Results Area */}
           <section className="rounded-[12px] border border-border bg-card p-6">
@@ -494,18 +675,16 @@ function Index() {
               {activeTab === "log" && (
                 <div className="font-mono text-xs leading-relaxed text-muted-foreground">
                   <p>[system] Evermine initialized</p>
-                  <p>[system] Waiting for video input...</p>
+                  {log.length === 0 && <p>[system] Waiting for video input...</p>}
+                  {log.map((line, i) => (
+                    <p key={i} className={line.startsWith("[warn]") ? "text-status-amber" : ""}>
+                      {line}
+                    </p>
+                  ))}
                   {status === "processing" && (
-                    <>
-                      <p>[info] Upload received</p>
-                      <p>[info] Starting transcription pipeline...</p>
-                    </>
-                  )}
-                  {status === "complete" && (
-                    <>
-                      <p>[info] Transcription complete</p>
-                      <p>[info] Knowledge extraction complete</p>
-                    </>
+                    <p className="text-status-amber">
+                      [info] Processing piece {currentPiece} of {totalPieces}...
+                    </p>
                   )}
                   {status === "error" && <p className="text-status-red">[error] Processing failed</p>}
                 </div>
