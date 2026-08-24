@@ -144,8 +144,16 @@ export type AgentBrain = {
   };
   systemPrompt: string;
   narrative: { summary: string[]; tone: string[]; timeline: { timestamp: string; event: string; emotion: string }[] };
-  subconsciousness: { skills: string[]; beliefs: string[]; decisionLogic: string[] };
-  voiceCloning: { start: string; end: string; quality: string; note: string }[];
+  subconsciousness: { skills: string[]; beliefs: string[]; decisionLogic: string[]; aestheticProfile: string[] };
+  audioAtmosphere: {
+    genres: string[];
+    moods: string[];
+    tempos: string[];
+    atmosphere: string[];
+    audioSkillAssets: string[];
+    segments: { start: string; end: string; genre: string; mood: string; tempo: string; instrumentation: string; isOriginalByOwner: boolean; note: string }[];
+  };
+  voiceCloning: { start: string; end: string; quality: string; note: string; musicPresent?: boolean }[];
   faceCloning: {
     timestamp: string;
     description: string;
@@ -170,6 +178,15 @@ export async function buildAgentBrain(input: {
   const skills = uniq(ordered.flatMap((r) => r.data.subconsciousness.skills));
   const beliefs = uniq(ordered.flatMap((r) => r.data.subconsciousness.beliefs));
   const decisionLogic = uniq(ordered.flatMap((r) => r.data.subconsciousness.decisionLogic));
+  const aestheticProfile = uniq(ordered.flatMap((r) => r.data.subconsciousness.aestheticProfile ?? []));
+  const audioAtmosphere = {
+    genres: uniq(ordered.flatMap((r) => r.data.audio?.genres ?? [])),
+    moods: uniq(ordered.flatMap((r) => r.data.audio?.moods ?? [])),
+    tempos: uniq(ordered.map((r) => r.data.audio?.tempo ?? "")),
+    atmosphere: uniq(ordered.map((r) => r.data.audio?.atmosphere ?? "")),
+    audioSkillAssets: uniq(ordered.flatMap((r) => r.data.audio?.audioSkillAssets ?? [])),
+    segments: ordered.flatMap((r) => r.data.audio?.segments ?? []),
+  };
 
   const systemPrompt = [
     `You are an AI avatar of the person recorded in "${input.source.name}".`,
@@ -186,6 +203,14 @@ export async function buildAgentBrain(input: {
     ``,
     `DECISION LOGIC — how they approach problems and choose:`,
     ...decisionLogic.map((s) => `- ${s}`),
+    ``,
+    `AESTHETIC PROFILE & MOOD PREFERENCE — the sound, music and atmosphere they gravitate to:`,
+    ...aestheticProfile.map((s) => `- ${s}`),
+    ...(audioAtmosphere.genres.length ? [`- Preferred genres: ${audioAtmosphere.genres.join(", ")}`] : []),
+    ...(audioAtmosphere.moods.length ? [`- Preferred moods: ${audioAtmosphere.moods.join(", ")}`] : []),
+    ...(audioAtmosphere.audioSkillAssets.length
+      ? [``, `ORIGINAL AUDIO SKILL ASSETS — music they performed or composed themselves:`, ...audioAtmosphere.audioSkillAssets.map((s) => `- ${s}`)]
+      : []),
   ].join("\n");
 
   const persona = {
@@ -199,7 +224,7 @@ export async function buildAgentBrain(input: {
     tone: uniq(ordered.map((r) => r.data.story.tone)),
     timeline: ordered.flatMap((r) => r.data.story.beats),
   };
-  const subconsciousness = { skills, beliefs, decisionLogic };
+  const subconsciousness = { skills, beliefs, decisionLogic, aestheticProfile };
   const voiceCloning = ordered.flatMap((r) => r.data.voiceData);
   const faceCloning = ordered.flatMap((r) => r.data.faceData);
   const transcript = ordered.flatMap((r) => r.data.transcript);
@@ -212,6 +237,7 @@ export async function buildAgentBrain(input: {
     systemPrompt,
     narrative,
     subconsciousness,
+    audioAtmosphere,
     voiceCloning,
     faceCloning,
     transcript,
@@ -241,6 +267,7 @@ export async function buildAgentBrain(input: {
     systemPrompt,
     narrative,
     subconsciousness,
+    audioAtmosphere,
     voiceCloning,
     faceCloning,
     speakers,
