@@ -90,7 +90,14 @@ export async function uploadVideo(
   return { uri: info.uri, mimeType: info.mimeType ?? mimeType, name: info.name };
 }
 
-export type TranscriptLine = { timestamp: string; speech: string };
+export type SpeakerRole = "primary" | "secondary" | "unknown";
+export type TranscriptLine = {
+  timestamp: string;
+  speech: string;
+  speaker: string;
+  role: SpeakerRole;
+};
+export type SpeakerProfile = { label: string; role: SpeakerRole; description: string };
 export type SceneNote = { timestamp: string; description: string };
 export type StoryBeat = { timestamp: string; event: string; emotion: string };
 export type Story = { summary: string; tone: string; beats: StoryBeat[] };
@@ -101,6 +108,12 @@ export type FaceFrame = {
   lighting: string;
   faceAngle: string;
   cloneQuality: string;
+  /** True when the moment is a physical action that text cannot capture. */
+  isKeyAction: boolean;
+  actionType: string;
+  /** Suggested clip window for the inline video preview. */
+  clipStart: string;
+  clipEnd: string;
 };
 export type VoiceWindow = {
   start: string;
@@ -114,6 +127,7 @@ export type Subconsciousness = {
   decisionLogic: string[];
 };
 export type ChunkResult = {
+  speakers: SpeakerProfile[];
   transcript: TranscriptLine[];
   scenes: SceneNote[];
   knowledge: string[];
@@ -128,6 +142,18 @@ const strArr = { type: "array", items: { type: "string" } };
 const responseSchema = {
   type: "object",
   properties: {
+    speakers: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          label: { type: "string" },
+          role: { type: "string", enum: ["primary", "secondary", "unknown"] },
+          description: { type: "string" },
+        },
+        required: ["label", "role", "description"],
+      },
+    },
     subtitle: {
       type: "array",
       items: {
@@ -135,8 +161,10 @@ const responseSchema = {
         properties: {
           timestamp: { type: "string" },
           speech: { type: "string" },
+          speaker: { type: "string" },
+          role: { type: "string", enum: ["primary", "secondary", "unknown"] },
         },
-        required: ["timestamp", "speech"],
+        required: ["timestamp", "speech", "speaker", "role"],
       },
     },
     story: {
@@ -170,8 +198,23 @@ const responseSchema = {
           lighting: { type: "string" },
           faceAngle: { type: "string" },
           cloneQuality: { type: "string" },
+          isKeyAction: { type: "boolean" },
+          actionType: { type: "string" },
+          clipStart: { type: "string" },
+          clipEnd: { type: "string" },
         },
-        required: ["timestamp", "description", "gestures", "lighting", "faceAngle", "cloneQuality"],
+        required: [
+          "timestamp",
+          "description",
+          "gestures",
+          "lighting",
+          "faceAngle",
+          "cloneQuality",
+          "isKeyAction",
+          "actionType",
+          "clipStart",
+          "clipEnd",
+        ],
       },
     },
     voiceData: {
@@ -197,17 +240,21 @@ const responseSchema = {
       required: ["skills", "beliefs", "decisionLogic"],
     },
   },
-  required: ["subtitle", "story", "faceData", "voiceData", "subconsciousness"],
+  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "subconsciousness"],
 };
 
 const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
 Extract FIVE pillars and return JSON only.
 
-1. "subtitle": the EXACT VERBATIM transcript of everything spoken, split into short lines, each with a "timestamp" in MM:SS or HH:MM:SS relative to the START OF THE WHOLE VIDEO. NEVER translate or paraphrase. Preserve the original mix of Mongolian (Cyrillic) and English word for word, including filler words.
+0. "speakers": perform SPEAKER DIARIZATION. List every distinct voice as "Speaker A", "Speaker B", ... with a "role" of "primary" for the Primary Owner (the creator whose mind is being cloned — usually the person who speaks the most, teaches, explains, answers, or owns the camera/space), "secondary" for customers, interviewers, guests or bystanders, and "unknown" when unclear. "description" says briefly why.
+1. "subtitle": the EXACT VERBATIM transcript of everything spoken, split into short lines, each with a "timestamp" in MM:SS or HH:MM:SS relative to the START OF THE WHOLE VIDEO, plus the "speaker" label and its "role". NEVER translate or paraphrase. Preserve the original mix of Mongolian (Cyrillic) and English word for word, including filler words.
 2. "story": the narrative. "summary" = chronological account of what happens and what the person experiences in this segment; "tone" = the dominant emotional tone; "beats" = ordered events with timestamp, the event, and the emotion felt.
-3. "faceData": for video cloning. Each entry describes one clear visual frame: what is seen, "gestures" (body/hand/head movement), "lighting" (quality and direction), "faceAngle" (e.g. frontal, 3/4 left, profile, looking down), and "cloneQuality" (excellent / good / poor + why).
+3. "faceData": for video cloning AND visual action capture. Each entry describes one clear keyframe: what is seen, "gestures" (body/hand/head movement), "lighting" (quality and direction), "faceAngle" (e.g. frontal, 3/4 left, profile, looking down), and "cloneQuality" (excellent / good / poor + why).
+   Additionally tag HIGH-PRECISION PHYSICAL ACTIONS that text cannot fully capture (dance moves, speed and rhythm of motion, cooking technique, hand gestures, tool use, hardware assembly, sport form): set "isKeyAction" to true, name the movement in "actionType", and give a tight clip window "clipStart"/"clipEnd" (whole-video-relative timestamps, 2-8 seconds long) so the user can replay the movement. For ordinary talking-head frames set "isKeyAction" to false, "actionType" to "" and leave clipStart/clipEnd equal to the timestamp.
 4. "voiceData": time windows with the CLEANEST audio for voice cloning — single speaker, no music, no overlapping noise. Give "start" and "end" timestamps (whole-video relative), "quality" (excellent / good / usable) and a short "note". Prefer continuous windows of 15 seconds or more.
-5. "subconsciousness": the person's core brain, for downstream AI agents to query. Three arrays of short standalone statements written in the speaker's original language:
+5. "subconsciousness": the PRIMARY OWNER's core brain, for downstream AI agents to query.
+   CRITICAL RULE: extract skills, beliefs and decision logic ONLY from speech spoken by the Primary Owner. Secondary speakers' words may be used only as context (the question or prompt that explains the owner's answer) and must NEVER be attributed to the core brain. If the Primary Owner never states something, do not include it.
+   Three arrays of short standalone statements written in the speaker's original language:
    - "skills": what they know how to do.
    - "beliefs": what they value, advocate for, or criticise.
    - "decisionLogic": how they approach problems and make choices (if/then reasoning, priorities, rules of thumb).
@@ -219,7 +266,19 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
   const v = (raw ?? {}) as Record<string, unknown>;
   const arr = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
   const strings = (x: unknown): string[] => arr<unknown>(x).filter((s): s is string => typeof s === "string");
-  const transcript = arr<TranscriptLine>(v['subtitle'] ?? v['transcript']);
+  const role = (x: unknown): SpeakerRole =>
+    x === "primary" || x === "secondary" ? x : "unknown";
+  const speakers = arr<Record<string, unknown>>(v['speakers']).map((sp) => ({
+    label: String(sp?.['label'] ?? "Speaker"),
+    role: role(sp?.['role']),
+    description: String(sp?.['description'] ?? ""),
+  }));
+  const transcript = arr<Record<string, unknown>>(v['subtitle'] ?? v['transcript']).map((l) => ({
+    timestamp: String(l?.['timestamp'] ?? ""),
+    speech: String(l?.['speech'] ?? ""),
+    speaker: String(l?.['speaker'] ?? ""),
+    role: role(l?.['role']),
+  }));
   const faceData = arr<FaceFrame>(v['faceData'] ?? v['scenes']).map((f) => ({
     timestamp: String(f?.timestamp ?? ""),
     description: String(f?.description ?? ""),
@@ -227,6 +286,10 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     lighting: String(f?.lighting ?? ""),
     faceAngle: String(f?.faceAngle ?? ""),
     cloneQuality: String(f?.cloneQuality ?? ""),
+    isKeyAction: f?.isKeyAction === true,
+    actionType: String(f?.actionType ?? ""),
+    clipStart: String(f?.clipStart ?? f?.timestamp ?? ""),
+    clipEnd: String(f?.clipEnd ?? f?.timestamp ?? ""),
   }));
   const s = (v['story'] ?? {}) as Record<string, unknown>;
   const sc = (v['subconsciousness'] ?? {}) as Record<string, unknown>;
@@ -237,6 +300,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
   };
   const knowledge = strings(v['knowledge']);
   return {
+    speakers,
     transcript,
     scenes: faceData.map((f) => ({ timestamp: f.timestamp, description: f.description })),
     knowledge:

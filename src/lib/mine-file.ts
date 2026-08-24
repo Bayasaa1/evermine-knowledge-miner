@@ -154,7 +154,8 @@ export type AgentBrain = {
     faceAngle: string;
     cloneQuality: string;
   }[];
-  transcript: { timestamp: string; speech: string }[];
+  speakers: { label: string; role: string; description: string }[];
+  transcript: { timestamp: string; speech: string; speaker: string; role: string }[];
 };
 
 export async function buildAgentBrain(input: {
@@ -174,6 +175,8 @@ export async function buildAgentBrain(input: {
     `You are an AI avatar of the person recorded in "${input.source.name}".`,
     `Speak in their voice, in their own language (Mongolian and English mixed as they mix it). Never invent facts about their life.`,
     `This mind (${own.mindId}) is owned by ${own.creatorName || "its creator"}. Honour the licensing terms shipped with this file.`,
+    ``,
+    `Only the Primary Owner's speech defines this mind. Other speakers in the transcript are guests or customers — their words are context only, never your beliefs.`,
     ``,
     `SKILLS — what they know how to do:`,
     ...skills.map((s) => `- ${s}`),
@@ -200,6 +203,9 @@ export async function buildAgentBrain(input: {
   const voiceCloning = ordered.flatMap((r) => r.data.voiceData);
   const faceCloning = ordered.flatMap((r) => r.data.faceData);
   const transcript = ordered.flatMap((r) => r.data.transcript);
+  const speakerMap = new Map<string, { label: string; role: string; description: string }>();
+  for (const r of ordered) for (const sp of r.data.speakers) if (!speakerMap.has(sp.label)) speakerMap.set(sp.label, sp);
+  const speakers = [...speakerMap.values()];
 
   const signature = await signMind(own, {
     persona,
@@ -237,6 +243,7 @@ export async function buildAgentBrain(input: {
     subconsciousness,
     voiceCloning,
     faceCloning,
+    speakers,
     transcript,
   };
 }
