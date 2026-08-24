@@ -84,11 +84,14 @@ export async function extractVoiceSample(
   video.playsInline = true;
   video.preload = "auto";
 
+  let audioCtx: AudioContext | null = null;
+
   const cleanup = () => {
     video.pause();
     video.removeAttribute("src");
     video.load();
     URL.revokeObjectURL(url);
+    void audioCtx?.close().catch(() => {});
   };
 
   try {
@@ -112,7 +115,22 @@ export async function extractVoiceSample(
     const stream = capture();
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) throw new Error("This video has no audio track.");
-    const audioStream = new MediaStream(audioTracks);
+    let audioStream = new MediaStream(audioTracks);
+
+    // Filter background music out of the sample so voice cloning gets clean speech.
+    const isolate = opts.isolateSpeech !== false;
+    if (isolate && typeof AudioContext !== "undefined") {
+      try {
+        audioCtx = new AudioContext();
+        const src = audioCtx.createMediaStreamSource(audioStream);
+        const dest = audioCtx.createMediaStreamDestination();
+        buildSpeechIsolationChain(audioCtx, src).connect(dest);
+        audioStream = dest.stream;
+        await audioCtx.resume().catch(() => {});
+      } catch {
+        audioCtx = null; // fall back to the raw track
+      }
+    }
 
     const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(
       (m) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(m),
