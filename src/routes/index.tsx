@@ -66,6 +66,7 @@ import {
   CircleSlash,
   Film,
   Play,
+  Music,
 } from "lucide-react";
 
 /** Inline looping preview of a short action window inside the source video. */
