@@ -696,6 +696,8 @@ function Explore() {
         </div>
       </div>
 
+      {openClip && <SourceClipModal clip={openClip} onClose={() => setOpenClip(null)} />}
+
       {/* Full-screen AI video call */}
       {callOpen && (
         <div className="absolute inset-0 z-50 flex flex-col bg-black">
@@ -897,6 +899,71 @@ function Explore() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Plays the cited 5-second window from the creator's original source video. */
+function SourceClipModal({ clip, onClose }: { clip: SourceClip; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = clip.start;
+    void v.play().catch(() => undefined);
+    const onTime = () => {
+      if (v.currentTime >= clip.end || v.currentTime < clip.start - 0.1) v.currentTime = clip.start;
+    };
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [clip]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="absolute inset-0 z-[60] flex items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-label="Source clip"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-primary">Source Clip · [{clip.timestamp}]</p>
+            <p className="truncate text-sm font-medium text-foreground">{clip.label}</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close clip"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <video
+          ref={videoRef}
+          src={clip.src}
+          poster={clip.poster}
+          playsInline
+          muted
+          controls
+          className="max-h-[55dvh] w-full bg-black object-contain"
+        />
+        <blockquote className="border-t border-border px-4 py-3 text-sm italic text-muted-foreground">
+          “{clip.quote}”
+        </blockquote>
+      </div>
     </div>
   );
 }
