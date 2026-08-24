@@ -357,7 +357,7 @@ export const Route = createFileRoute("/creator")({
   component: Index,
 });
 
-type Status = "ready" | "processing" | "complete" | "error";
+type Status = "ready" | "processing" | "complete" | "error" | "paused";
 type Language = "en" | "mn";
 type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "cloud" | "log";
 
