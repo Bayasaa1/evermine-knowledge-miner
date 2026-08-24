@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
+import { idbGet, idbSet, STORES } from "@/lib/store";
+import { buildMineFile, parseMineFile, downloadMineFile, type MineResult } from "@/lib/mine-file";
 import {
   validateApiKey,
   uploadVideo,
@@ -29,6 +31,8 @@ import {
   Save,
   Square,
   Layers,
+  Download,
+  FolderOpen,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -152,7 +156,7 @@ function Index() {
   const [apiKey, setApiKey] = useState("");
   const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");
-  const [statusNote, setStatusNote] = useState<string>("System ready to process video.");
+  const [statusNote, setStatusNote] = useState<string>("noteReady");
   const [activeTab, setActiveTab] = useState<Tab>("knowledge");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -214,7 +218,7 @@ function Index() {
     (f: File) => {
       setFile(f);
       setStatus("ready");
-      setStatusNote("System ready to process video.");
+      setStatusNote("noteReady");
       setChunks([]);
       setDuration(null);
       setCurrentPiece(0);
@@ -272,11 +276,11 @@ function Index() {
       setStatus("error");
       if (err instanceof GeminiError && (err.status === 401 || err.status === 403)) {
         setKeyState("invalid");
-        setStatusNote("API key rejected — check your Google Gemini key.");
+        setStatusNote("noteKeyRejected");
       } else if (err instanceof GeminiError && err.status === 429) {
-        setStatusNote("Quota or rate limit reached. Try again later.");
+        setStatusNote("noteQuota");
       } else {
-        setStatusNote("Something went wrong. Check the app log.");
+        setStatusNote("noteGeneric");
       }
       addLog("error", message);
     },
@@ -287,13 +291,13 @@ function Index() {
     if (!file || chunks.length === 0 || status === "processing") return;
     if (!apiKey.trim()) {
       setStatus("error");
-      setStatusNote("Add and save your Google Gemini API key first.");
+      setStatusNote("noteNoKey");
       addLog("error", "No API key configured");
       return;
     }
     if (provider !== "gemini") {
       setStatus("error");
-      setStatusNote("Only Google Gemini is wired up right now.");
+      setStatusNote("noteProviderOnly");
       addLog("error", `Provider "${provider}" is not supported yet`);
       return;
     }
@@ -302,7 +306,7 @@ function Index() {
     abortRef.current = controller;
     stopTimer();
     setStatus("processing");
-    setStatusNote("Uploading video to Gemini...");
+    setStatusNote("noteUploading");
     setResults([]);
     setCurrentPiece(1);
     setDonePieces(0);
@@ -317,7 +321,7 @@ function Index() {
         onState: (s) => addLog("info", `Gemini file state: ${s}`),
       });
       addLog("info", `Upload complete: ${uploaded.uri}`);
-      setStatusNote("Mining knowledge from your video...");
+      setStatusNote("noteMining");
 
       for (const chunk of chunks) {
         if (controller.signal.aborted) break;
@@ -338,7 +342,7 @@ function Index() {
       if (!controller.signal.aborted) {
         stopTimer();
         setStatus("complete");
-        setStatusNote("Knowledge extraction complete.");
+        setStatusNote("noteComplete");
         addLog("info", "All pieces processed");
         void deleteFile(apiKey, uploaded.name);
       }
@@ -347,7 +351,7 @@ function Index() {
       if (err instanceof DOMException && err.name === "AbortError") {
         addLog("warn", "Job cancelled by user");
         setStatus("ready");
-        setStatusNote("System ready to process video.");
+        setStatusNote("noteReady");
       } else {
         handleFailure(err);
       }
@@ -362,7 +366,7 @@ function Index() {
     abortRef.current = null;
     stopTimer();
     setStatus("ready");
-    setStatusNote("System ready to process video.");
+    setStatusNote("noteReady");
     setCurrentPiece(0);
     addLog("warn", "Job cancelled by user");
   }, [stopTimer, addLog]);
@@ -377,7 +381,7 @@ function Index() {
       await saveApiKey(key);
       setKeyState("valid");
       setStatus("ready");
-      setStatusNote("API key saved and validated.");
+      setStatusNote("noteKeySaved");
       addLog("info", `API key valid — ${models.length} model(s) available. Key saved to IndexedDB.`);
     } catch (err) {
       setKeyState("invalid");
@@ -390,7 +394,7 @@ function Index() {
     stopTimer();
     setFile(null);
     setStatus("ready");
-    setStatusNote("System ready to process video.");
+    setStatusNote("noteReady");
     setChunks([]);
     setDuration(null);
     setCurrentPiece(0);
@@ -524,7 +528,7 @@ function Index() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.status}</p>
               <p className={`text-sm font-semibold ${statusConfig[status].color}`}>{statusConfig[status].label}</p>
             </div>
-            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{statusNote}</div>
+            <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{(t as Record<string, string>)[statusNote] ?? statusNote}</div>
 
           </div>
 
@@ -558,7 +562,7 @@ function Index() {
 
                 <div>
                   <label htmlFor="model" className="mb-2 block text-sm font-medium text-muted-foreground">
-                    Model
+                    {t.model}
                   </label>
                   <select
                     id="model"
@@ -614,10 +618,10 @@ function Index() {
                       }`}
                     >
                       {keyState === "valid"
-                        ? "Key validated and stored locally."
+                        ? t.keyValid
                         : keyState === "invalid"
-                          ? "Key rejected — see the App Log."
-                          : "Validating key..."}
+                          ? t.keyInvalid
+                          : t.keyChecking}
                     </p>
                   )}
                 </div>
@@ -765,7 +769,7 @@ function Index() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <FileText className="h-4 w-4" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">Results</h3>
+              <h3 className="text-lg font-semibold text-foreground">{t.results}</h3>
             </div>
 
             <div className="mb-4 inline-flex rounded-lg border border-border bg-muted p-1">
