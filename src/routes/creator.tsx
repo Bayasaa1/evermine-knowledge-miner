@@ -759,6 +759,15 @@ const MODELS = [
   { value: "gemini-1.5-pro", label: "gemini-1.5-pro" },
 ];
 
+/** Thrown when every API key in the rotation pool is out of quota. */
+class QuotaPaused extends Error {
+  constructor() {
+    super("All API keys are exhausted");
+    this.name = "QuotaPaused";
+  }
+}
+
+
 function Index() {
   const [lang, setLang] = useState<Language>("en");
   const [sidebarOpen, setSidebarOpen] = useState(false);
