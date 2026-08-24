@@ -354,6 +354,7 @@ const translations = {
     accessMarketplace: "Нээлттэй маркетплейс",
     rate: "Үнэ",
     perHour: "Цагаар",
+    rateUnit: "Тооцооны нэгж",
     perQuery: "Асуулт тус бүрээр",
     currency: "Токен / валют",
     licenseTerms: "Лицензийн нөхцөл",
@@ -1422,7 +1423,7 @@ function Index() {
                   />
                 </div>
                 <div className="col-span-2 lg:col-span-1">
-                  <label htmlFor="rateUnit" className="mb-2 block text-sm text-muted-foreground lg:before:content-['\\00a0']">{t.rateUnit}</label>
+                  <label htmlFor="rateUnit" className="mb-2 block text-sm text-muted-foreground">{t.rateUnit}</label>
                   <select
                     id="rateUnit"
                     value={ownership.rateUnit}
