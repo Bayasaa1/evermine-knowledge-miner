@@ -231,7 +231,86 @@ function Explore() {
     };
   }, []);
 
+  /* ---------- social: follows, favorites, notifications ---------- */
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const [f, fav, n] = await Promise.all([loadFollows(), loadFavorites(), loadNotifications()]);
+      if (!alive) return;
+      setFollows(f);
+      setFavorites(fav);
+      setNotifs(n);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const onFollow = useCallback(
+    async (mindId: string, shortName: string) => {
+      const next = toggleFollow(follows, mindId);
+      setFollows(next);
+      await saveFollows(next);
+      if (next.includes(mindId)) {
+        const perm = await enablePushNotifications();
+        toast.success(`Following ${shortName}`, {
+          description:
+            perm === "granted"
+              ? "You'll get a push when they post a new video or update their AI Brain."
+              : "Enable notifications to get alerts for new videos and Brain updates.",
+        });
+      } else {
+        toast(`Unfollowed ${shortName}`);
+      }
+    },
+    [follows],
+  );
+
+  const onFavorite = useCallback(
+    async (mindId: string, clipId: string) => {
+      const next = toggleFavorite(favorites, mindId, clipId);
+      setFavorites(next);
+      await saveFavorites(next);
+      toast.success(isFavorite(next, clipId) ? "Saved to Favorite Clips" : "Removed from favorites");
+    },
+    [favorites],
+  );
+
+  /* Poll followed creators for new videos / Brain updates and push them. */
+  useEffect(() => {
+    if (follows.length === 0) return;
+    let alive = true;
+    async function check() {
+      const n = await nextCreatorUpdate(follows);
+      if (!n || !alive) return;
+      setNotifs((prev) => {
+        const list = [...prev, n];
+        void saveNotifications(list);
+        return list;
+      });
+      const delivered = await pushNotification(n);
+      if (!delivered) toast(n.title, { description: n.body });
+    }
+    const t = window.setTimeout(() => void check(), 6000);
+    const iv = window.setInterval(() => void check(), 45000);
+    return () => {
+      alive = false;
+      window.clearTimeout(t);
+      window.clearInterval(iv);
+    };
+  }, [follows]);
+
+  const openNotifications = useCallback(() => {
+    setNotifOpen(true);
+    setNotifs((prev) => {
+      const list = prev.map((n) => ({ ...n, read: true }));
+      void saveNotifications(list);
+      return list;
+    });
+  }, []);
+
   const deleteOne = useCallback(
+
     async (field: VaultField, item: string) => {
       const next = removeVaultItem(vault, field, item);
       setVault(next);
