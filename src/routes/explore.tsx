@@ -743,13 +743,15 @@ function Explore() {
       {/* Full-screen AI video call */}
       {callOpen && (
         <div className="absolute inset-0 z-50 flex flex-col bg-black">
-          <img
-            src={selected.cover}
-            alt=""
-            width={640}
-            height={1152}
-            className="absolute inset-0 h-full w-full object-cover opacity-40"
-          />
+          {tier === "hd" && (
+            <img
+              src={selected.cover}
+              alt=""
+              width={640}
+              height={1152}
+              className="absolute inset-0 h-full w-full object-cover opacity-40"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/90" />
 
           <div className="relative z-10 flex items-center justify-between p-4">
@@ -772,6 +774,52 @@ function Explore() {
               {capture ? (mining ? "Mining your mind…" : "Mind Miner on") : "Mind Miner off"}
             </span>
           </div>
+
+          {/* Connectivity status + auto-fallback banner */}
+          <div className="relative z-10 mx-4 -mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 backdrop-blur-md"
+              style={{
+                borderColor: degraded ? "rgba(245,158,11,.5)" : "rgba(34,197,94,.45)",
+                color: degraded ? "hsl(38 92% 62%)" : "hsl(142 60% 62%)",
+                background: "rgba(0,0,0,.4)",
+              }}
+            >
+              {net.offline ? (
+                <SignalLow className="h-3.5 w-3.5" />
+              ) : degraded ? (
+                <SignalMedium className="h-3.5 w-3.5" />
+              ) : (
+                <SignalHigh className="h-3.5 w-3.5" />
+              )}
+              {TIER_LABEL[tier]}
+              {net.latency !== null && <span className="text-white/60">· {net.latency} ms</span>}
+            </span>
+            {degraded && !forceHd && (
+              <>
+                <span className="text-white/70">
+                  {net.offline
+                    ? "Connection lost — staying on voice."
+                    : `Latency above 200 ms — video dropped automatically.`}
+                </span>
+                <button
+                  onClick={() => setForceHd(true)}
+                  className="rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-white/85 backdrop-blur-md"
+                >
+                  Force HD
+                </button>
+              </>
+            )}
+            {forceHd && (
+              <button
+                onClick={() => setForceHd(false)}
+                className="rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-white/85 backdrop-blur-md"
+              >
+                Auto quality
+              </button>
+            )}
+          </div>
+
 
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
             {/* Lip-synced avatar: the mouth is driven by the live dubbed waveform */}
