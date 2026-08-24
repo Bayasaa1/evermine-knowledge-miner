@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   Brain,
+  Trash2,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -43,8 +44,12 @@ import {
   saveCaptureEnabled,
   saveVault,
   vaultSignals,
+  removeVaultItem,
+  deleteVault,
   type UserVault,
+  type VaultField,
 } from "@/lib/user-vault";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -131,6 +136,7 @@ function Explore() {
   const [capture, setCapture] = useState(true);
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [openClip, setOpenClip] = useState<SourceClip | null>(null);
   const callSessionRef = useRef<string | null>(null);
   const chatSessionRef = useRef<string | null>(null);
