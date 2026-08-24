@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { ModeSwitch } from "@/components/mode-switch";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
@@ -255,7 +256,7 @@ function AudioAtmosphere({ results, t }: { results: MineResult[]; t: AudioLabels
 export const Route = createFileRoute("/creator")({
   head: () => ({
     meta: [
-      { title: "Evermine — Dashboard" },
+      { title: "Evermine — Creator Dashboard" },
       { name: "description", content: "Evermine dashboard: configure your API key, upload a video, and mine structured knowledge." },
       { property: "og:title", content: "Evermine — Dashboard" },
       { property: "og:description", content: "Configure your API key, upload a video, and mine structured knowledge." },
@@ -1263,6 +1264,7 @@ function Index() {
                 <p className="truncate text-sm text-muted-foreground">{t.tagline}</p>
               </div>
             </div>
+            <ModeSwitch lang={lang} />
           </div>
         </header>
 
