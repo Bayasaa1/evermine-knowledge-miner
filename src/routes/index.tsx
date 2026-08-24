@@ -64,7 +64,74 @@ import {
   Copy,
   Check,
   CircleSlash,
+  Film,
+  Play,
 } from "lucide-react";
+
+/** Inline looping preview of a short action window inside the source video. */
+function ActionClip({ src, start, end, label }: { src: string; start: string; end: string; label: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const from = parseTimestamp(start) ?? 0;
+  const rawTo = parseTimestamp(end) ?? from + 4;
+  const to = rawTo > from ? Math.min(rawTo, from + 10) : from + 4;
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onTime = () => {
+      if (el.currentTime >= to || el.currentTime < from - 0.5) {
+        el.currentTime = from;
+      }
+    };
+    el.addEventListener("timeupdate", onTime);
+    return () => el.removeEventListener("timeupdate", onTime);
+  }, [from, to]);
+
+  const toggle = () => {
+    const el = ref.current;
+    if (!el) return;
+    if (el.paused) {
+      el.currentTime = from;
+      void el.play().then(() => setPlaying(true)).catch(() => {});
+    } else {
+      el.pause();
+      setPlaying(false);
+    }
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-[12px] border border-border bg-background">
+      <video
+        ref={ref}
+        src={src}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onLoadedMetadata={(e) => {
+          e.currentTarget.currentTime = from;
+        }}
+        className="aspect-video w-full bg-black object-contain"
+      />
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={label}
+        className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity hover:opacity-100 focus:opacity-100"
+      >
+        <span className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+          <Play className="h-3.5 w-3.5" />
+          {label}
+        </span>
+      </button>
+      <p className="border-t border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
+        {formatDuration(from)} – {formatDuration(to)}
+        {playing ? " · ▶" : ""}
+      </p>
+    </div>
+  );
+}
 
 function TabSkeleton({ rows = 3, groups = 2 }: { rows?: number; groups?: number }) {
   return (
