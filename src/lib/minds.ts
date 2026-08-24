@@ -1,4 +1,8 @@
 import horseImg from "@/assets/action-horse.jpg";
+import coverHorse from "@/assets/cover-horse.jpg";
+import coverKitchen from "@/assets/cover-kitchen.jpg";
+import coverFounder from "@/assets/cover-founder.jpg";
+import coverDance from "@/assets/cover-dance.jpg";
 import danceImg from "@/assets/action-dance.jpg";
 
 export type VisualAsset = {
@@ -31,6 +35,8 @@ export type Mind = {
   perQuery: number;
   access: "public" | "private";
   accent: string;
+  cover: string;
+  highlight: string;
   coreBrain: CoreBrain;
   visuals: VisualAsset[];
 };
@@ -48,6 +54,8 @@ export const MINDS: Mind[] = [
     perQuery: 0.5,
     access: "public",
     accent: "#e8734a",
+    cover: coverHorse,
+    highlight: "Starting a green horse without force — 40 years on the steppe.",
     coreBrain: {
       tone: "Calm, unhurried, plainspoken. Short sentences. Teaches through the animal's point of view.",
       vocabulary: ["the herd", "soft hands", "the rope tells you", "steppe", "green horse", "seat"],
@@ -93,6 +101,8 @@ export const MINDS: Mind[] = [
     perQuery: 0.35,
     access: "public",
     accent: "#d8a24a",
+    cover: coverKitchen,
+    highlight: "Airag tells you it is ready by sound, long before taste.",
     coreBrain: {
       tone: "Warm, practical, a little bossy. Uses senses (sound, smell) as measurements.",
       vocabulary: ["starter", "airag", "curd", "sour edge", "resting", "by the hand"],
@@ -126,6 +136,8 @@ export const MINDS: Mind[] = [
     perQuery: 1.2,
     access: "public",
     accent: "#5b9bd5",
+    cover: coverFounder,
+    highlight: "Cut the loudest customer's feature. Keep what the quiet users open daily.",
     coreBrain: {
       tone: "Direct, compressed, slightly contrarian. Answers with a rule, then one caveat.",
       vocabulary: ["runway", "the quiet users", "judgement roles", "cut", "signal"],
@@ -159,6 +171,8 @@ export const MINDS: Mind[] = [
     perQuery: 0.4,
     access: "private",
     accent: "#b07ad8",
+    cover: coverDance,
+    highlight: "Count the breath, not the beat. The floor gives you the arm.",
     coreBrain: {
       tone: "Poetic but exact. Talks about breath, weight and floor before steps.",
       vocabulary: ["weight", "the floor", "breath count", "release", "phrase"],
