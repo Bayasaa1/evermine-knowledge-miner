@@ -223,6 +223,7 @@ const translations = {
     accessMarketplace: "Public Marketplace",
     rate: "Rate",
     perHour: "Per hour",
+    rateUnit: "Billing unit",
     perQuery: "Per query",
     currency: "Token / currency",
     licenseTerms: "Licensing terms",
@@ -1398,7 +1399,7 @@ function Index() {
                   <option value="marketplace">{t.accessMarketplace}</option>
                 </select>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
                 <div className="col-span-1">
                   <label htmlFor="rate" className="mb-2 block text-sm text-muted-foreground">{t.rate}</label>
                   <input
@@ -1420,8 +1421,8 @@ function Index() {
                     className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
                   />
                 </div>
-                <div className="col-span-1">
-                  <label htmlFor="rateUnit" className="mb-2 block text-sm text-muted-foreground">&nbsp;</label>
+                <div className="col-span-2 lg:col-span-1">
+                  <label htmlFor="rateUnit" className="mb-2 block text-sm text-muted-foreground lg:before:content-['\\00a0']">{t.rateUnit}</label>
                   <select
                     id="rateUnit"
                     value={ownership.rateUnit}
