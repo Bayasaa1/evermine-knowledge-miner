@@ -560,7 +560,13 @@ function Explore() {
             <Phone className="h-4.5 w-4.5" />
           </button>
           <button
-            onClick={() => setChatOpen(false)}
+            onClick={() => {
+              setChatOpen(false);
+              if (chatSessionRef.current) {
+                void endSession(chatSessionRef.current);
+                chatSessionRef.current = null;
+              }
+            }}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground"
             aria-label="Close chat"
           >
