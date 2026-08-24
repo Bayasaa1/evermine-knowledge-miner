@@ -154,6 +154,74 @@ function TabSkeleton({ rows = 3, groups = 2 }: { rows?: number; groups?: number 
   );
 }
 
+type CulturalLabels = {
+  culturalVocabulary: string;
+  culturalLiteral: string;
+  culturalMeaning: string;
+  culturalUsage: string;
+};
+
+const INTENT_STYLE: Record<string, string> = {
+  blessing: "border-primary/40 bg-primary/10 text-primary",
+  "genuine-praise": "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+  "friendly-teasing": "border-amber-500/40 bg-amber-500/10 text-amber-400",
+  sarcasm: "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-400",
+  criticism: "border-red-500/40 bg-red-500/10 text-red-400",
+  neutral: "border-border bg-muted text-muted-foreground",
+};
+
+/** Idioms, proverbs, blessings and sarcasm decoded to their true cultural intent. */
+function CulturalVocabulary({ results, t }: { results: MineResult[]; t: CulturalLabels }) {
+  const map = new Map<string, (typeof results)[number]["data"]["subconsciousness"]["culturalVocabulary"][number]>();
+  for (const r of results)
+    for (const c of r.data.subconsciousness?.culturalVocabulary ?? [])
+      if (c.phrase?.trim() && !map.has(c.phrase.trim())) map.set(c.phrase.trim(), c);
+  const items = [...map.values()];
+  if (items.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
+        <Quote className="h-3.5 w-3.5" />
+        {t.culturalVocabulary}
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {items.map((c, i) => (
+          <div key={i} className="rounded-xl border border-border bg-card/60 p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${INTENT_STYLE[c.intent] ?? INTENT_STYLE['neutral']}`}
+              >
+                {c.intent}
+              </span>
+              <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                {c.kind}
+              </span>
+              {c.timestamp && <span className="text-[11px] text-muted-foreground">{c.timestamp}</span>}
+            </div>
+            <p className="text-sm font-medium leading-relaxed text-foreground">“{c.phrase}”</p>
+            {c.literal && (
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                <span className="uppercase tracking-wider">{t.culturalLiteral}:</span> {c.literal}
+              </p>
+            )}
+            {c.meaning && (
+              <p className="mt-1 text-xs leading-relaxed text-foreground">
+                <span className="uppercase tracking-wider text-primary">{t.culturalMeaning}:</span> {c.meaning}
+              </p>
+            )}
+            {c.usage && (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                <span className="uppercase tracking-wider">{t.culturalUsage}:</span> {c.usage}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type AudioLabels = {
   audioAtmosphere: string;
   audioGenres: string;
