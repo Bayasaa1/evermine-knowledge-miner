@@ -591,6 +591,49 @@ function Index() {
     addLog("info", `Exported ${results.length} piece(s) to ${filename}`);
   }, [source, duration, model, chunks, results, log, addLog]);
 
+  const handleExportBrain = useCallback(() => {
+    const brain = buildAgentBrain({ source: { name: source?.name ?? "mine", duration }, results });
+    const filename = downloadAgentBrain(brain, source?.name ?? "mine");
+    setStatusNote("noteBrainExported");
+    addLog(
+      "info",
+      `Exported agent-ready brain (${brain.subconsciousness.skills.length} skills, ${brain.subconsciousness.beliefs.length} beliefs, ${brain.subconsciousness.decisionLogic.length} decision rules) to ${filename}`,
+    );
+  }, [source, duration, results, addLog]);
+
+  const handleDeleteSample = useCallback(() => {
+    setVoiceSample((s) => {
+      if (s) URL.revokeObjectURL(s.url);
+      return null;
+    });
+    addLog("info", "Voice sample deleted from this device.");
+  }, [addLog]);
+
+  const handleExtractSample = useCallback(async () => {
+    if (!file || voiceBusy) return;
+    const windows = results.flatMap((r) => r.data.voiceData);
+    const best =
+      windows.find((w) => /excellent/i.test(w.quality)) ?? windows.find((w) => /good/i.test(w.quality)) ?? windows[0];
+    const start = best ? (parseTimestamp(best.start) ?? 0) : 0;
+    setVoiceBusy(true);
+    setVoiceProgress(0);
+    addLog("info", `Extracting a 60s voice sample from ${formatDuration(start)} (local, no upload)...`);
+    try {
+      const sample = await extractVoiceSample(file, start, 60, { onProgress: setVoiceProgress });
+      setVoiceSample((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return sample;
+      });
+      setStatusNote("noteSampleReady");
+      addLog("info", `Voice sample ready (${(sample.size / 1024).toFixed(0)} KB, ${sample.mimeType}).`);
+    } catch (err) {
+      setStatusNote("noteSampleFailed");
+      addLog("error", `Voice sample failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setVoiceBusy(false);
+    }
+  }, [file, voiceBusy, results, addLog]);
+
   const handleImport = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0];
