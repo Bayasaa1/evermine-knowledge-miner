@@ -7,13 +7,15 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * one account's data completely invisible to any other account.
  */
 
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+
 export type VaultKind = "mine" | "brain" | "user-vault";
 
 export type VaultRow = {
   id: string;
   title: string;
   kind: string;
-  payload: unknown;
+  payload: Json;
   updatedAt: string;
 };
 
@@ -30,14 +32,14 @@ export const listVaults = createServerFn({ method: "GET" })
       id: r.id,
       title: r.title,
       kind: r.kind,
-      payload: r.payload,
+      payload: r.payload as Json,
       updatedAt: r.updated_at,
     }));
   });
 
 export const upsertVault = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { id?: string; title: string; kind: VaultKind; payload: unknown }) => {
+  .inputValidator((input: { id?: string; title: string; kind: VaultKind; payload: Json }) => {
     if (!input || typeof input.title !== "string" || !input.title.trim()) {
       throw new Error("A vault title is required");
     }
