@@ -608,7 +608,7 @@ function Index() {
         setLog([...mine.log, `[${new Date().toLocaleTimeString([], { hour12: false })}] [info] Imported ${f.name}`]);
         setStatus(mine.results.length > 0 ? "complete" : "ready");
         setStatusNote("noteImported");
-        setActiveTab("knowledge");
+        setActiveTab("subtitle");
       } catch (err) {
         setStatus("error");
         setStatusNote("noteImportFailed");
