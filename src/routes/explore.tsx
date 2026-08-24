@@ -835,13 +835,15 @@ function Explore() {
                 boxShadow: `0 0 ${20 + mouth * 60}px ${selected.accent}${speaking ? "88" : "22"}`,
               }}
             >
-              <img
-                src={selected.cover}
-                alt=""
-                width={320}
-                height={320}
-                className="absolute inset-0 h-full w-full rounded-full object-cover opacity-70"
-              />
+              {tier !== "audio" && (
+                <img
+                  src={selected.cover}
+                  alt=""
+                  width={320}
+                  height={320}
+                  className="absolute inset-0 h-full w-full rounded-full object-cover opacity-70"
+                />
+              )}
               <span className="relative text-4xl font-semibold text-white drop-shadow">
                 {selected.shortName.slice(0, 2)}
               </span>
@@ -857,8 +859,16 @@ function Explore() {
               />
             </div>
             <p className="text-center text-[11px] text-white/60">
-              {selected.shortName}'s cloned voice · speaking {LANGUAGES[lang].name} · lip-sync live
+              {selected.shortName}'s cloned voice · speaking {LANGUAGES[lang].name} ·{" "}
+              {tier === "hd" ? "HD video + lip-sync" : tier === "voice" ? "audio-reactive avatar" : "voice only"}
             </p>
+            {capture && audioBytes > 0 && (
+              <p className="text-center text-[11px] text-white/45">
+                Mining audio compressed · {MINING_PROFILES[tier].label} · {formatBytes(audioBytes)} used ·{" "}
+                {formatBytes(savedBytes)} saved
+              </p>
+            )}
+
             {captions && (
               <div className="max-h-40 w-full max-w-md space-y-2 overflow-y-auto text-center">
                 {lastUser && <p className="text-xs text-white/60">You: {lastUser.text}</p>}
