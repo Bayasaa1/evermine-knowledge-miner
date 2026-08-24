@@ -1,6 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Hammer } from "lucide-react";
 
+import { AccountMenu } from "@/components/account-menu";
+
+
 export type AppRole = "creator" | "explorer";
 
 export const ROLE_KEY = "evermine.role";
