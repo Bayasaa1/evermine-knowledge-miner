@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
+import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ApiMindChatRoute = ApiMindChatRouteImport.update({
   path: '/api/mind-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUserMineRoute = ApiUserMineRouteImport.update({
+  id: '/api/user-mine',
+  path: '/api/user-mine',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/api/mind-chat': typeof ApiMindChatRoute
+  '/api/user-mine': typeof ApiUserMineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/api/mind-chat': typeof ApiMindChatRoute
+  '/api/user-mine': typeof ApiUserMineRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,20 @@ export interface FileRoutesById {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/api/mind-chat': typeof ApiMindChatRoute
+  '/api/user-mine': typeof ApiUserMineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/creator' | '/explore' | '/api/mind-chat'
+  fullPaths: '/' | '/creator' | '/explore' | '/api/mind-chat' | '/api/user-mine'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/creator' | '/explore' | '/api/mind-chat'
-  id: '__root__' | '/' | '/creator' | '/explore' | '/api/mind-chat'
+  to: '/' | '/creator' | '/explore' | '/api/mind-chat' | '/api/user-mine'
+  id:
+    | '__root__'
+    | '/'
+    | '/creator'
+    | '/explore'
+    | '/api/mind-chat'
+    | '/api/user-mine'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +82,7 @@ export interface RootRouteChildren {
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
+  ApiUserMineRoute: typeof ApiUserMineRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMindChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/user-mine': {
+      id: '/api/user-mine'
+      path: '/api/user-mine'
+      fullPath: '/api/user-mine'
+      preLoaderRoute: typeof ApiUserMineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +130,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
   ApiMindChatRoute: ApiMindChatRoute,
+  ApiUserMineRoute: ApiUserMineRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
