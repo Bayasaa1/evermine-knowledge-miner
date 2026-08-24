@@ -22,12 +22,17 @@ import {
   Captions,
   CaptionsOff,
   PlayCircle,
+  SignalHigh,
+  SignalMedium,
+  SignalLow,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
+import { useNetworkQuality, TIER_LABEL, type StreamTier } from "@/lib/network-quality";
+import { startMiningCapture, MINING_PROFILES, formatBytes, type MiningRecorderHandle } from "@/lib/mining-audio";
 import {
   applyDelta,
   emptyVault,
@@ -136,6 +141,46 @@ function Explore() {
   const pendingRef = useRef<string[]>([]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const dubRef = useRef<DubHandle | null>(null);
+  const minerAudioRef = useRef<MiningRecorderHandle | null>(null);
+
+  /* ---------- adaptive streaming ---------- */
+  const net = useNetworkQuality(callOpen);
+  const [forceHd, setForceHd] = useState(false);
+  const tier: StreamTier = forceHd ? "hd" : net.tier;
+  const tierRef = useRef<StreamTier>(tier);
+  tierRef.current = tier;
+  const degraded = tier !== "hd";
+  const [audioBytes, setAudioBytes] = useState(0);
+  const [savedBytes, setSavedBytes] = useState(0);
+
+  useEffect(() => {
+    if (!callOpen) setForceHd(false);
+  }, [callOpen]);
+
+  /* ---------- compressed background mining capture ---------- */
+  useEffect(() => {
+    if (!callOpen || !capture) return;
+    let handle: MiningRecorderHandle | null = null;
+    let alive = true;
+    void (async () => {
+      handle = await startMiningCapture({
+        getTier: () => tierRef.current,
+        onBytes: (total, saved) => {
+          setAudioBytes(total);
+          setSavedBytes(saved);
+        },
+      });
+      if (!alive) handle?.stop();
+      else minerAudioRef.current = handle;
+    })();
+    return () => {
+      alive = false;
+      handle?.stop();
+      minerAudioRef.current?.stop();
+      minerAudioRef.current = null;
+    };
+  }, [callOpen, capture]);
+
 
   const selected = MINDS[index] ?? MINDS[0]!;
   const messages = threads[selected.id] ?? [greeting(selected)];
@@ -701,13 +746,15 @@ function Explore() {
       {/* Full-screen AI video call */}
       {callOpen && (
         <div className="absolute inset-0 z-50 flex flex-col bg-black">
-          <img
-            src={selected.cover}
-            alt=""
-            width={640}
-            height={1152}
-            className="absolute inset-0 h-full w-full object-cover opacity-40"
-          />
+          {tier === "hd" && (
+            <img
+              src={selected.cover}
+              alt=""
+              width={640}
+              height={1152}
+              className="absolute inset-0 h-full w-full object-cover opacity-40"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/40 to-black/90" />
 
           <div className="relative z-10 flex items-center justify-between p-4">
@@ -731,6 +778,52 @@ function Explore() {
             </span>
           </div>
 
+          {/* Connectivity status + auto-fallback banner */}
+          <div className="relative z-10 mx-4 -mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 backdrop-blur-md"
+              style={{
+                borderColor: degraded ? "rgba(245,158,11,.5)" : "rgba(34,197,94,.45)",
+                color: degraded ? "hsl(38 92% 62%)" : "hsl(142 60% 62%)",
+                background: "rgba(0,0,0,.4)",
+              }}
+            >
+              {net.offline ? (
+                <SignalLow className="h-3.5 w-3.5" />
+              ) : degraded ? (
+                <SignalMedium className="h-3.5 w-3.5" />
+              ) : (
+                <SignalHigh className="h-3.5 w-3.5" />
+              )}
+              {TIER_LABEL[tier]}
+              {net.latency !== null && <span className="text-white/60">· {net.latency} ms</span>}
+            </span>
+            {degraded && !forceHd && (
+              <>
+                <span className="text-white/70">
+                  {net.offline
+                    ? "Connection lost — staying on voice."
+                    : `Latency above 200 ms — video dropped automatically.`}
+                </span>
+                <button
+                  onClick={() => setForceHd(true)}
+                  className="rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-white/85 backdrop-blur-md"
+                >
+                  Force HD
+                </button>
+              </>
+            )}
+            {forceHd && (
+              <button
+                onClick={() => setForceHd(false)}
+                className="rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-white/85 backdrop-blur-md"
+              >
+                Auto quality
+              </button>
+            )}
+          </div>
+
+
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
             {/* Lip-synced avatar: the mouth is driven by the live dubbed waveform */}
             <div
@@ -742,13 +835,15 @@ function Explore() {
                 boxShadow: `0 0 ${20 + mouth * 60}px ${selected.accent}${speaking ? "88" : "22"}`,
               }}
             >
-              <img
-                src={selected.cover}
-                alt=""
-                width={320}
-                height={320}
-                className="absolute inset-0 h-full w-full rounded-full object-cover opacity-70"
-              />
+              {tier !== "audio" && (
+                <img
+                  src={selected.cover}
+                  alt=""
+                  width={320}
+                  height={320}
+                  className="absolute inset-0 h-full w-full rounded-full object-cover opacity-70"
+                />
+              )}
               <span className="relative text-4xl font-semibold text-white drop-shadow">
                 {selected.shortName.slice(0, 2)}
               </span>
@@ -764,8 +859,16 @@ function Explore() {
               />
             </div>
             <p className="text-center text-[11px] text-white/60">
-              {selected.shortName}'s cloned voice · speaking {LANGUAGES[lang].name} · lip-sync live
+              {selected.shortName}'s cloned voice · speaking {LANGUAGES[lang].name} ·{" "}
+              {tier === "hd" ? "HD video + lip-sync" : tier === "voice" ? "audio-reactive avatar" : "voice only"}
             </p>
+            {capture && audioBytes > 0 && (
+              <p className="text-center text-[11px] text-white/45">
+                Mining audio compressed · {MINING_PROFILES[tier].label} · {formatBytes(audioBytes)} used ·{" "}
+                {formatBytes(savedBytes)} saved
+              </p>
+            )}
+
             {captions && (
               <div className="max-h-40 w-full max-w-md space-y-2 overflow-y-auto text-center">
                 {lastUser && <p className="text-xs text-white/60">You: {lastUser.text}</p>}
