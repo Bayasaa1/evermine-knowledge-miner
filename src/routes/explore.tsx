@@ -104,6 +104,8 @@ function Explore() {
   const [capture, setCapture] = useState(true);
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
+  const callSessionRef = useRef<string | null>(null);
+  const chatSessionRef = useRef<string | null>(null);
 
   const feedRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -250,6 +252,12 @@ function Explore() {
     setThreads((t) => ({ ...t, [selected.id]: history }));
     setThinking(true);
 
+    void (async () => {
+      const ref = via === "call" ? callSessionRef : chatSessionRef;
+      if (!ref.current) ref.current = await startSession(via === "call" ? "call" : "chat", selected.id);
+      await recordQuery(ref.current);
+    })();
+
     if (capture) {
       pendingRef.current.push(text);
       void flushMiner(true);
@@ -322,6 +330,10 @@ function Explore() {
     setListening(false);
     stopSpeaking();
     setCallOpen(false);
+    if (callSessionRef.current) {
+      void endSession(callSessionRef.current);
+      callSessionRef.current = null;
+    }
     void flushMiner(true);
   }
 
