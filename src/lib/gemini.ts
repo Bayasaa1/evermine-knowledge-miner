@@ -120,11 +120,36 @@ export type VoiceWindow = {
   end: string;
   quality: string;
   note: string;
+  /** True when background music or other non-speech audio overlaps this window. */
+  musicPresent: boolean;
+};
+export type MusicSegment = {
+  start: string;
+  end: string;
+  genre: string;
+  mood: string;
+  tempo: string;
+  instrumentation: string;
+  /** True when the Primary Owner performed/composed the music themselves. */
+  isOriginalByOwner: boolean;
+  note: string;
+};
+export type AudioProfile = {
+  hasMusic: boolean;
+  atmosphere: string;
+  genres: string[];
+  moods: string[];
+  tempo: string;
+  segments: MusicSegment[];
+  /** Original musical performance, composition or custom audio theme by the owner. */
+  audioSkillAssets: string[];
 };
 export type Subconsciousness = {
   skills: string[];
   beliefs: string[];
   decisionLogic: string[];
+  /** Aesthetic taste and mood preference inferred from the owner's audio choices. */
+  aestheticProfile: string[];
 };
 export type ChunkResult = {
   speakers: SpeakerProfile[];
@@ -134,6 +159,7 @@ export type ChunkResult = {
   story: Story;
   faceData: FaceFrame[];
   voiceData: VoiceWindow[];
+  audio: AudioProfile;
   subconsciousness: Subconsciousness;
 };
 
