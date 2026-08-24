@@ -319,6 +319,21 @@ const navLinks = [
   { key: "help", icon: Globe, href: "#" },
 ];
 
+const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
+const ALLOWED_TYPES = ["video/mp4", "video/quicktime", "video/webm", "video/x-m4v"];
+const ALLOWED_EXT = [".mp4", ".mov", ".webm", ".m4v"];
+
+function isAllowedVideo(f: File) {
+  const name = f.name.toLowerCase();
+  if (f.type) return ALLOWED_TYPES.includes(f.type.toLowerCase());
+  return ALLOWED_EXT.some((ext) => name.endsWith(ext));
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(2)} MB`;
+}
+
 const MODELS = [
   { value: "gemini-2.5-flash", label: "gemini-2.5-flash (recommended)" },
   { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
