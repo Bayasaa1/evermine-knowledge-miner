@@ -22,6 +22,9 @@ import {
   Captions,
   CaptionsOff,
   PlayCircle,
+  SignalHigh,
+  SignalMedium,
+  SignalLow,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
