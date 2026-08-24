@@ -1446,7 +1446,7 @@ function Index() {
           </section>
 
           {/* Results Area */}
-          <section className="rounded-[12px] border border-border bg-card p-6">
+          <section ref={resultsRef} id="results" className="rounded-[12px] border border-border bg-card p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <FileText className="h-4 w-4" />
@@ -1479,6 +1479,21 @@ function Index() {
                 </button>
               ))}
             </div>
+
+            {focusedPiece !== null && (
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-[12px] border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs text-foreground">
+                <span>
+                  {t.showingPiece} {focusedPiece + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFocusedPiece(null)}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {t.showAllPieces}
+                </button>
+              </div>
+            )}
 
             <div className="min-h-[220px] rounded-[12px] border border-border bg-muted p-5">
               {activeTab === "subtitle" && (

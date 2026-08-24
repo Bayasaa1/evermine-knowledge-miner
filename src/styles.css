@@ -50,6 +50,7 @@
   --color-status-green: #22c55e;
   --color-status-amber: #f59e0b;
   --color-status-red: #ef4444;
+  --color-status-blue: #3b82f6;
 
   --font-sans: "Noto Sans", "Noto Sans Mongolian", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
