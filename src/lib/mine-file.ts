@@ -1,5 +1,5 @@
 import type { Chunk } from "./chunking";
-import { normalizeChunkResult, type ChunkResult } from "./gemini";
+import { normalizeChunkResult, type ChunkResult, type CulturalExpression } from "./gemini";
 import {
   normalizeOwnership,
   signMind,
@@ -144,7 +144,14 @@ export type AgentBrain = {
   };
   systemPrompt: string;
   narrative: { summary: string[]; tone: string[]; timeline: { timestamp: string; event: string; emotion: string }[] };
-  subconsciousness: { skills: string[]; beliefs: string[]; decisionLogic: string[]; aestheticProfile: string[] };
+  subconsciousness: {
+    skills: string[];
+    beliefs: string[];
+    decisionLogic: string[];
+    aestheticProfile: string[];
+    expressiveStyle: string[];
+    culturalVocabulary: CulturalExpression[];
+  };
   audioAtmosphere: {
     genres: string[];
     moods: string[];
@@ -179,6 +186,12 @@ export async function buildAgentBrain(input: {
   const beliefs = uniq(ordered.flatMap((r) => r.data.subconsciousness.beliefs));
   const decisionLogic = uniq(ordered.flatMap((r) => r.data.subconsciousness.decisionLogic));
   const aestheticProfile = uniq(ordered.flatMap((r) => r.data.subconsciousness.aestheticProfile ?? []));
+  const expressiveStyle = uniq(ordered.flatMap((r) => r.data.subconsciousness.expressiveStyle ?? []));
+  const culturalMap = new Map<string, CulturalExpression>();
+  for (const r of ordered)
+    for (const c of r.data.subconsciousness.culturalVocabulary ?? [])
+      if (c.phrase && !culturalMap.has(c.phrase.trim())) culturalMap.set(c.phrase.trim(), c);
+  const culturalVocabulary = [...culturalMap.values()];
   const audioAtmosphere = {
     genres: uniq(ordered.flatMap((r) => r.data.audio?.genres ?? [])),
     moods: uniq(ordered.flatMap((r) => r.data.audio?.moods ?? [])),
@@ -211,6 +224,19 @@ export async function buildAgentBrain(input: {
     ...(audioAtmosphere.audioSkillAssets.length
       ? [``, `ORIGINAL AUDIO SKILL ASSETS — music they performed or composed themselves:`, ...audioAtmosphere.audioSkillAssets.map((s) => `- ${s}`)]
       : []),
+    ...(expressiveStyle.length
+      ? [``, `EXPRESSIVE STYLE — how they talk (imitate this):`, ...expressiveStyle.map((s) => `- ${s}`)]
+      : []),
+    ...(culturalVocabulary.length
+      ? [
+          ``,
+          `CULTURAL VOCABULARY — idioms, proverbs, blessings and sarcasm they use. Reuse these phrases naturally, and always with the intent given, never the literal wording:`,
+          ...culturalVocabulary.map(
+            (c) => `- "${c.phrase}" (${c.kind}, ${c.intent}, ${c.sentiment}) → means: ${c.meaning}${c.usage ? ` | use when: ${c.usage}` : ""}`,
+          ),
+          `When a user speaks in idiom, metaphor or sarcasm, read their true intent the same way — never literally.`,
+        ]
+      : []),
   ].join("\n");
 
   const persona = {
@@ -224,7 +250,7 @@ export async function buildAgentBrain(input: {
     tone: uniq(ordered.map((r) => r.data.story.tone)),
     timeline: ordered.flatMap((r) => r.data.story.beats),
   };
-  const subconsciousness = { skills, beliefs, decisionLogic, aestheticProfile };
+  const subconsciousness = { skills, beliefs, decisionLogic, aestheticProfile, expressiveStyle, culturalVocabulary };
   const voiceCloning = ordered.flatMap((r) => r.data.voiceData);
   const faceCloning = ordered.flatMap((r) => r.data.faceData);
   const transcript = ordered.flatMap((r) => r.data.transcript);
