@@ -49,7 +49,7 @@ export async function uploadVideo(
   const mimeType = file.type || "video/mp4";
   const startRes = await fetch(`${BASE}/upload/v1beta/files?key=${encodeURIComponent(key)}`, {
     method: "POST",
-    signal: opts.signal,
+    signal: opts.signal ?? null,
     headers: {
       "X-Goog-Upload-Protocol": "resumable",
       "X-Goog-Upload-Command": "start",
@@ -65,7 +65,7 @@ export async function uploadVideo(
 
   const uploadRes = await fetch(uploadUrl, {
     method: "POST",
-    signal: opts.signal,
+    signal: opts.signal ?? null,
     headers: {
       "Content-Length": String(file.size),
       "X-Goog-Upload-Offset": "0",
@@ -81,7 +81,7 @@ export async function uploadVideo(
     opts.onState?.(info.state);
     await new Promise((r) => setTimeout(r, 3000));
     if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const pollRes = await fetch(`${BASE}/v1beta/${info.name}?key=${encodeURIComponent(key)}`, { signal: opts.signal });
+    const pollRes = await fetch(`${BASE}/v1beta/${info.name}?key=${encodeURIComponent(key)}`, { signal: opts.signal ?? null });
     if (!pollRes.ok) throw await readError(pollRes);
     info = await pollRes.json();
   }
@@ -149,7 +149,7 @@ export async function mineChunk(
     `${BASE}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
-      signal,
+      signal: signal ?? null,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [
