@@ -124,6 +124,21 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  // Single app-wide auth subscriber: keeps the router/cache and the local data
+  // scope in sync with the signed-in account.
+  useEffect(() => {
+    setLocalScope(null);
+    void supabase.auth.getSession().then(({ data }) => setLocalScope(data.session?.user.id ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      setLocalScope(session?.user.id ?? null);
+      router.invalidate();
+      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [router, queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -132,3 +147,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+
