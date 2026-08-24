@@ -96,7 +96,7 @@ function Explore() {
 
   const feedRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const pendingRef = useRef<string[]>([]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -251,7 +251,7 @@ function Explore() {
   function toggleListening() {
     const SR =
       typeof window !== "undefined"
-        ? window.SpeechRecognition ?? window.webkitSpeechRecognition
+        ? ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition)
         : undefined;
     if (!SR) {
       setError("Voice input isn't supported in this browser — type instead.");
@@ -262,10 +262,10 @@ function Explore() {
       setListening(false);
       return;
     }
-    const rec: SpeechRecognition = new SR();
+    const rec = new SR();
     rec.lang = "en-US";
     rec.interimResults = false;
-    rec.onresult = (ev) => {
+    rec.onresult = (ev: any) => {
       const said = ev.results[0]?.[0]?.transcript ?? "";
       if (said) void send(said, "call");
     };
