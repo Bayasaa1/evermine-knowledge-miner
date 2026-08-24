@@ -1189,8 +1189,10 @@ function Index() {
           addLog("info", "All pieces processed");
           await clearResume();
           setResumeState(null);
+          void syncMinedToCloud();
           const active = keysRef.current.find((k) => k.state === "ok");
           if (active) void deleteFile(active.value, uploaded.name);
+
         }
       } catch (err) {
         stopTimer();
