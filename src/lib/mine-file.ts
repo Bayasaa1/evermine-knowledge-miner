@@ -1,5 +1,13 @@
 import type { Chunk } from "./chunking";
 import { normalizeChunkResult, type ChunkResult } from "./gemini";
+import {
+  normalizeOwnership,
+  signMind,
+  type AccessLevel,
+  type DigitalSignature,
+  type Ownership,
+  type RateUnit,
+} from "./ownership";
 
 export const MINE_FORMAT = "evermine.mine";
 export const MINE_VERSION = 2;
@@ -12,6 +20,7 @@ export type MineFile = {
   savedAt: string;
   source: { name: string; size: number; duration: number | null };
   model: string;
+  ownership: Ownership;
   chunks: Chunk[];
   results: MineResult[];
   log: string[];
@@ -20,6 +29,7 @@ export type MineFile = {
 export function buildMineFile(input: {
   source: { name: string; size: number; duration: number | null };
   model: string;
+  ownership: Ownership;
   chunks: Chunk[];
   results: MineResult[];
   log: string[];
@@ -74,8 +84,14 @@ export function parseMineFile(raw: unknown): MineFile {
     results.push({ index: r['index'], chunk: r['chunk'], data: normalizeChunkResult(r['data']) });
   }
   if (!Array.isArray(raw['log']) || !raw['log'].every(isStr)) throw new Error('Invalid "log" section.');
+  if (raw['ownership'] !== undefined && !isObj(raw['ownership'])) throw new Error('Invalid "ownership" section.');
 
-  return { ...(raw as unknown as MineFile), results, version: MINE_VERSION };
+  return {
+    ...(raw as unknown as MineFile),
+    results,
+    ownership: normalizeOwnership(raw['ownership']),
+    version: MINE_VERSION,
+  };
 }
 
 function safeBase(name: string, fallback: string) {
@@ -102,8 +118,24 @@ export function downloadMineFile(mine: MineFile): string {
 /** Lightweight brain bundle meant to be dropped into an AI agent as system context. */
 export type AgentBrain = {
   format: "evermine.agent-brain";
-  version: 1;
+  version: 2;
   createdAt: string;
+  mindId: string;
+  ownership: {
+    creatorName: string;
+    creatorEmail: string;
+    accessLevel: AccessLevel;
+    signature: DigitalSignature;
+  };
+  monetization: {
+    accessLevel: AccessLevel;
+    rate: number;
+    currency: string;
+    unit: RateUnit;
+    priceLabel: string;
+    listedOnMarketplace: boolean;
+    licenseTerms: string;
+  };
   persona: {
     source: string;
     videoDuration: number | null;
@@ -125,12 +157,14 @@ export type AgentBrain = {
   transcript: { timestamp: string; speech: string }[];
 };
 
-export function buildAgentBrain(input: {
+export async function buildAgentBrain(input: {
   source: { name: string; duration: number | null };
   results: MineResult[];
-}): AgentBrain {
+  ownership: Ownership;
+}): Promise<AgentBrain> {
   const ordered = [...input.results].sort((a, b) => a.index - b.index);
   const uniq = (xs: string[]) => Array.from(new Set(xs.map((s) => s.trim()).filter(Boolean)));
+  const own = input.ownership;
 
   const skills = uniq(ordered.flatMap((r) => r.data.subconsciousness.skills));
   const beliefs = uniq(ordered.flatMap((r) => r.data.subconsciousness.beliefs));
@@ -139,6 +173,7 @@ export function buildAgentBrain(input: {
   const systemPrompt = [
     `You are an AI avatar of the person recorded in "${input.source.name}".`,
     `Speak in their voice, in their own language (Mongolian and English mixed as they mix it). Never invent facts about their life.`,
+    `This mind (${own.mindId}) is owned by ${own.creatorName || "its creator"}. Honour the licensing terms shipped with this file.`,
     ``,
     `SKILLS — what they know how to do:`,
     ...skills.map((s) => `- ${s}`),
@@ -150,28 +185,62 @@ export function buildAgentBrain(input: {
     ...decisionLogic.map((s) => `- ${s}`),
   ].join("\n");
 
+  const persona = {
+    source: input.source.name,
+    videoDuration: input.source.duration,
+    segments: ordered.length,
+    languageNote: "Verbatim source language preserved (Mongolian / English mix). Do not translate.",
+  };
+  const narrative = {
+    summary: ordered.map((r) => r.data.story.summary).filter(Boolean),
+    tone: uniq(ordered.map((r) => r.data.story.tone)),
+    timeline: ordered.flatMap((r) => r.data.story.beats),
+  };
+  const subconsciousness = { skills, beliefs, decisionLogic };
+  const voiceCloning = ordered.flatMap((r) => r.data.voiceData);
+  const faceCloning = ordered.flatMap((r) => r.data.faceData);
+  const transcript = ordered.flatMap((r) => r.data.transcript);
+
+  const signature = await signMind(own, {
+    persona,
+    systemPrompt,
+    narrative,
+    subconsciousness,
+    voiceCloning,
+    faceCloning,
+    transcript,
+  });
+
   return {
     format: "evermine.agent-brain",
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
-    persona: {
-      source: input.source.name,
-      videoDuration: input.source.duration,
-      segments: ordered.length,
-      languageNote: "Verbatim source language preserved (Mongolian / English mix). Do not translate.",
+    mindId: own.mindId,
+    ownership: {
+      creatorName: own.creatorName,
+      creatorEmail: own.creatorEmail,
+      accessLevel: own.accessLevel,
+      signature,
     },
+    monetization: {
+      accessLevel: own.accessLevel,
+      rate: own.rate,
+      currency: own.currency,
+      unit: own.rateUnit,
+      priceLabel: `${own.rate} ${own.currency} / ${own.rateUnit}`,
+      listedOnMarketplace: own.accessLevel === "marketplace",
+      licenseTerms: own.licenseTerms,
+    },
+    persona,
     systemPrompt,
-    narrative: {
-      summary: ordered.map((r) => r.data.story.summary).filter(Boolean),
-      tone: uniq(ordered.map((r) => r.data.story.tone)),
-      timeline: ordered.flatMap((r) => r.data.story.beats),
-    },
-    subconsciousness: { skills, beliefs, decisionLogic },
-    voiceCloning: ordered.flatMap((r) => r.data.voiceData),
-    faceCloning: ordered.flatMap((r) => r.data.faceData),
-    transcript: ordered.flatMap((r) => r.data.transcript),
+    narrative,
+    subconsciousness,
+    voiceCloning,
+    faceCloning,
+    transcript,
   };
 }
+
 
 export function downloadAgentBrain(brain: AgentBrain, sourceName: string): string {
   return downloadJson(brain, `${safeBase(sourceName, "brain")}.agent-brain.json`);

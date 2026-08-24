@@ -12,6 +12,14 @@ import {
   type MineResult,
 } from "@/lib/mine-file";
 import {
+  createOwnership,
+  normalizeOwnership,
+  newMindId,
+  isValidEmail,
+  DEFAULT_LICENSE,
+  type Ownership,
+} from "@/lib/ownership";
+import {
   extractVoiceSample,
   downloadVoiceSample,
   parseTimestamp,
@@ -45,6 +53,8 @@ import {
   Layers,
   Download,
   FolderOpen,
+  BadgeDollarSign,
+  Fingerprint,
   BookOpen,
   ScanFace,
   AudioLines,
@@ -160,6 +170,22 @@ const translations = {
     noteSampleReady: "60-second voice sample extracted.",
     noteSampleFailed: "Could not extract a voice sample from this file.",
     needVideoForSample: "Load the original video file to extract a voice sample.",
+    commercial: "Commercial / Marketplace Settings",
+    creatorName: "Mind Creator name",
+    creatorEmail: "Contact email",
+    accessLevel: "Access level",
+    accessPrivate: "Private",
+    accessMarketplace: "Public Marketplace",
+    rate: "Rate",
+    perHour: "Per hour",
+    perQuery: "Per query",
+    currency: "Token / currency",
+    licenseTerms: "Licensing terms",
+    mindId: "Mind unique ID",
+    regenerateId: "New ID",
+    invalidEmail: "Enter a valid contact email.",
+    commercialHint: "Stored only in this browser and bundled into your agent-ready export.",
+    noteOwnershipSaved: "Marketplace settings saved on this device.",
   },
   mn: {
     appName: "Evermine",
@@ -253,6 +279,22 @@ const translations = {
     noteSampleReady: "60 секундын дуу хоолойны дээж бэлэн боллоо.",
     noteSampleFailed: "Энэ файлаас дуу хоолойны дээж авч чадсангүй.",
     needVideoForSample: "Дээж авахын тулд эх видео файлаа ачаална уу.",
+    commercial: "Арилжаа / Маркетплейс тохиргоо",
+    creatorName: "Оюуны эзэмшигчийн нэр",
+    creatorEmail: "Холбоо барих и-мэйл",
+    accessLevel: "Хандах түвшин",
+    accessPrivate: "Хувийн",
+    accessMarketplace: "Нээлттэй маркетплейс",
+    rate: "Үнэ",
+    perHour: "Цагаар",
+    perQuery: "Асуулт тус бүрээр",
+    currency: "Токен / валют",
+    licenseTerms: "Лицензийн нөхцөл",
+    mindId: "Оюуны давтагдашгүй ID",
+    regenerateId: "Шинэ ID",
+    invalidEmail: "Зөв и-мэйл хаяг оруулна уу.",
+    commercialHint: "Зөвхөн энэ хөтөч дээр хадгалагдаж, агент-бэлэн экспортод багтана.",
+    noteOwnershipSaved: "Маркетплейс тохиргоо төхөөрөмж дээр хадгалагдлаа.",
   },
 };
 
@@ -299,6 +341,7 @@ function Index() {
   const [voiceSample, setVoiceSample] = useState<VoiceSample | null>(null);
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [voiceProgress, setVoiceProgress] = useState(0);
+  const [ownership, setOwnership] = useState<Ownership>(() => createOwnership());
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
@@ -329,7 +372,9 @@ function Index() {
     (async () => {
       const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
       const prefs = await idbGet<{ lang?: Language; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
+      const savedOwnership = await idbGet<unknown>(STORES.SETTINGS, "ownership");
       if (cancelled) return;
+      if (savedOwnership) setOwnership(normalizeOwnership(savedOwnership));
       if (prefs) {
         if (prefs.lang) setLang(prefs.lang);
         if (prefs.provider) setProvider(prefs.provider);
@@ -342,6 +387,7 @@ function Index() {
           setChunks(mine.chunks);
           setDuration(mine.source.duration);
           setSource({ name: mine.source.name, size: mine.source.size });
+          if (!savedOwnership) setOwnership(mine.ownership);
           setDonePieces(mine.results.length);
           setLog(mine.log);
           if (mine.results.length > 0) {
@@ -365,6 +411,13 @@ function Index() {
     void idbSet(STORES.SETTINGS, "prefs", { lang, provider, model });
   }, [hydrated, lang, provider, model]);
 
+  // Monetization / ownership metadata lives in IndexedDB next to the mind data.
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setTimeout(() => void idbSet(STORES.SETTINGS, "ownership", ownership), 400);
+    return () => clearTimeout(id);
+  }, [hydrated, ownership]);
+
   useEffect(() => {
     if (!hydrated) return;
     const id = setTimeout(() => {
@@ -374,6 +427,7 @@ function Index() {
         buildMineFile({
           source: { name: source?.name ?? "", size: source?.size ?? 0, duration },
           model,
+          ownership,
           chunks,
           results,
           log,
@@ -381,7 +435,7 @@ function Index() {
       );
     }, 400);
     return () => clearTimeout(id);
-  }, [hydrated, source, duration, model, chunks, results, log]);
+  }, [hydrated, source, duration, model, ownership, chunks, results, log]);
 
   const t = translations[lang];
 
@@ -582,6 +636,7 @@ function Index() {
     const mine = buildMineFile({
       source: { name: source?.name ?? "mine", size: source?.size ?? 0, duration },
       model,
+      ownership,
       chunks,
       results,
       log,
@@ -589,17 +644,21 @@ function Index() {
     const filename = downloadMineFile(mine);
     setStatusNote("noteExported");
     addLog("info", `Exported ${results.length} piece(s) to ${filename}`);
-  }, [source, duration, model, chunks, results, log, addLog]);
+  }, [source, duration, model, ownership, chunks, results, log, addLog]);
 
-  const handleExportBrain = useCallback(() => {
-    const brain = buildAgentBrain({ source: { name: source?.name ?? "mine", duration }, results });
+  const handleExportBrain = useCallback(async () => {
+    const brain = await buildAgentBrain({
+      source: { name: source?.name ?? "mine", duration },
+      results,
+      ownership,
+    });
     const filename = downloadAgentBrain(brain, source?.name ?? "mine");
     setStatusNote("noteBrainExported");
     addLog(
       "info",
-      `Exported agent-ready brain (${brain.subconsciousness.skills.length} skills, ${brain.subconsciousness.beliefs.length} beliefs, ${brain.subconsciousness.decisionLogic.length} decision rules) to ${filename}`,
+      `Exported agent-ready brain ${brain.mindId} (${brain.subconsciousness.skills.length} skills, ${brain.subconsciousness.beliefs.length} beliefs, ${brain.subconsciousness.decisionLogic.length} decision rules, ${brain.monetization.priceLabel}, signature ${brain.ownership.signature.signature.slice(0, 12)}…) to ${filename}`,
     );
-  }, [source, duration, results, addLog]);
+  }, [source, duration, results, ownership, addLog]);
 
   const handleDeleteSample = useCallback(() => {
     setVoiceSample((s) => {
@@ -648,6 +707,7 @@ function Index() {
         setChunks(mine.chunks);
         setDuration(mine.source.duration);
         setSource({ name: mine.source.name, size: mine.source.size });
+        setOwnership(mine.ownership);
         setDonePieces(mine.results.length);
         setCurrentPiece(mine.results.length);
         setElapsed(0);
@@ -1037,6 +1097,119 @@ function Index() {
               </div>
             </section>
           )}
+
+          {/* Commercial / Marketplace Settings */}
+          <section id="commercial" className="rounded-[12px] border border-border bg-card p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <BadgeDollarSign className="h-4 w-4" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">{t.commercial}</h3>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="creatorName" className="mb-2 block text-sm text-muted-foreground">{t.creatorName}</label>
+                <input
+                  id="creatorName"
+                  value={ownership.creatorName}
+                  onChange={(e) => setOwnership((o) => ({ ...o, creatorName: e.target.value }))}
+                  className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                />
+              </div>
+              <div>
+                <label htmlFor="creatorEmail" className="mb-2 block text-sm text-muted-foreground">{t.creatorEmail}</label>
+                <input
+                  id="creatorEmail"
+                  type="email"
+                  value={ownership.creatorEmail}
+                  onChange={(e) => setOwnership((o) => ({ ...o, creatorEmail: e.target.value }))}
+                  className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                />
+                {ownership.creatorEmail && !isValidEmail(ownership.creatorEmail) && (
+                  <p className="mt-1.5 text-xs text-status-red">{t.invalidEmail}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="accessLevel" className="mb-2 block text-sm text-muted-foreground">{t.accessLevel}</label>
+                <select
+                  id="accessLevel"
+                  value={ownership.accessLevel}
+                  onChange={(e) =>
+                    setOwnership((o) => ({ ...o, accessLevel: e.target.value as Ownership["accessLevel"] }))
+                  }
+                  className="w-full rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                >
+                  <option value="private">{t.accessPrivate}</option>
+                  <option value="marketplace">{t.accessMarketplace}</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <label htmlFor="rate" className="mb-2 block text-sm text-muted-foreground">{t.rate}</label>
+                  <input
+                    id="rate"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={ownership.rate}
+                    onChange={(e) => setOwnership((o) => ({ ...o, rate: Math.max(0, Number(e.target.value) || 0) }))}
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label htmlFor="currency" className="mb-2 block text-sm text-muted-foreground">{t.currency}</label>
+                  <input
+                    id="currency"
+                    value={ownership.currency}
+                    onChange={(e) => setOwnership((o) => ({ ...o, currency: e.target.value }))}
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+                <div className="col-span-1">
+                  <label htmlFor="rateUnit" className="mb-2 block text-sm text-muted-foreground">&nbsp;</label>
+                  <select
+                    id="rateUnit"
+                    value={ownership.rateUnit}
+                    onChange={(e) =>
+                      setOwnership((o) => ({ ...o, rateUnit: e.target.value as Ownership["rateUnit"] }))
+                    }
+                    className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                  >
+                    <option value="query">{t.perQuery}</option>
+                    <option value="hour">{t.perHour}</option>
+                  </select>
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="license" className="mb-2 block text-sm text-muted-foreground">{t.licenseTerms}</label>
+                <textarea
+                  id="license"
+                  rows={3}
+                  value={ownership.licenseTerms}
+                  onChange={(e) => setOwnership((o) => ({ ...o, licenseTerms: e.target.value || DEFAULT_LICENSE }))}
+                  className="w-full resize-y rounded-lg border border-border bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">{t.mindId}</span>
+              <code className="rounded-md bg-muted px-2.5 py-1 font-mono text-xs text-primary">{ownership.mindId}</code>
+              <button
+                onClick={() => {
+                  const mindId = newMindId();
+                  setOwnership((o) => ({ ...o, mindId }));
+                  addLog("info", `New mind ID generated: ${mindId}`);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                <Fingerprint className="h-3.5 w-3.5" />
+                {t.regenerateId}
+              </button>
+              <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-[320px]">{t.commercialHint}</p>
+            </div>
+          </section>
 
           {/* Results Area */}
           <section className="rounded-[12px] border border-border bg-card p-6">
