@@ -24,14 +24,58 @@ export function parseTimestamp(ts: string): number | null {
 type CaptureVideo = HTMLVideoElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream };
 
 /**
+ * Speech-isolation chain: strips sub-bass and cymbal/hiss music energy that sits
+ * outside the human voice band, notches typical bass-line frequencies, lifts the
+ * consonant range, and levels the result so the cloning sample stays clean speech.
+ */
+function buildSpeechIsolationChain(ctx: AudioContext, source: AudioNode): AudioNode {
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = 90; // drop music sub-bass / rumble
+  highpass.Q.value = 0.7;
+
+  const lowBassCut = ctx.createBiquadFilter();
+  lowBassCut.type = "peaking";
+  lowBassCut.frequency.value = 180; // typical bass-line / kick body
+  lowBassCut.Q.value = 1.1;
+  lowBassCut.gain.value = -8;
+
+  const presence = ctx.createBiquadFilter();
+  presence.type = "peaking";
+  presence.frequency.value = 2600; // speech consonants
+  presence.Q.value = 0.9;
+  presence.gain.value = 4;
+
+  const lowpass = ctx.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = 7800; // drop cymbals / synth shimmer
+  lowpass.Q.value = 0.7;
+
+  const compressor = ctx.createDynamicsCompressor();
+  compressor.threshold.value = -26;
+  compressor.knee.value = 24;
+  compressor.ratio.value = 3;
+  compressor.attack.value = 0.004;
+  compressor.release.value = 0.22;
+
+  source.connect(highpass);
+  highpass.connect(lowBassCut);
+  lowBassCut.connect(presence);
+  presence.connect(lowpass);
+  lowpass.connect(compressor);
+  return compressor;
+}
+
+/**
  * Records `length` seconds of audio from `file`, starting at `start` seconds.
  * Runs in real time in the browser; nothing is uploaded anywhere.
+ * Background music is filtered out by default so the sample is clean speech.
  */
 export async function extractVoiceSample(
   file: File,
   start: number,
   length = 60,
-  opts: { signal?: AbortSignal; onProgress?: (seconds: number) => void } = {},
+  opts: { signal?: AbortSignal; onProgress?: (seconds: number) => void; isolateSpeech?: boolean } = {},
 ): Promise<VoiceSample> {
   const url = URL.createObjectURL(file);
   const video = document.createElement("video") as CaptureVideo;
