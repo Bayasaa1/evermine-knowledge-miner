@@ -279,7 +279,7 @@ function Index() {
   const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");
   const [statusNote, setStatusNote] = useState<string>("noteReady");
-  const [activeTab, setActiveTab] = useState<Tab>("knowledge");
+  const [activeTab, setActiveTab] = useState<Tab>("subtitle");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
