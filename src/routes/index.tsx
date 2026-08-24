@@ -767,28 +767,56 @@ function Index() {
 
             <div className="min-h-[220px] rounded-[12px] border border-border bg-muted p-5">
               {activeTab === "knowledge" && (
-                <div className="space-y-3">
-                  {status === "complete" ? (
-                    <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
-                      <li>Extracted the core narrative arc from the uploaded video.</li>
-                      <li>Identified three recurring themes and linked them to prior entries.</li>
-                      <li>Generated memory anchors ready for review and recall.</li>
-                    </ul>
-                  ) : (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noResults}</p>
+                  ) : (
+                    results.map((r) => (
+                      <div key={r.index}>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
+                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
+                        </p>
+                        {r.data.knowledge.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">—</p>
+                        ) : (
+                          <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+                            {r.data.knowledge.map((k, i) => (
+                              <li key={i}>{k}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))
                   )}
                 </div>
               )}
 
               {activeTab === "transcript" && (
-                <div>
-                  {status === "complete" ? (
-                    <p className="text-sm leading-relaxed text-foreground">
-                      Transcript text will be shown here. [00:00] Introduction begins. [00:42] Main topic introduced.
-                      [02:15] Key insight discussed. [05:30] Conclusion and next steps.
-                    </p>
-                  ) : (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noTranscript}</p>
+                  ) : (
+                    results.map((r) => (
+                      <div key={r.index}>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
+                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
+                        </p>
+                        <div className="space-y-1.5">
+                          {r.data.transcript.map((line, i) => (
+                            <p key={`t${i}`} className="text-sm leading-relaxed text-foreground">
+                              <span className="mr-2 font-mono text-xs text-muted-foreground">[{line.timestamp}]</span>
+                              {line.speech}
+                            </p>
+                          ))}
+                          {r.data.scenes.map((s, i) => (
+                            <p key={`s${i}`} className="text-sm italic leading-relaxed text-muted-foreground">
+                              <span className="mr-2 font-mono text-xs not-italic">[{s.timestamp}]</span>
+                              {s.description}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
@@ -798,7 +826,16 @@ function Index() {
                   <p>[system] Evermine initialized</p>
                   {log.length === 0 && <p>[system] Waiting for video input...</p>}
                   {log.map((line, i) => (
-                    <p key={i} className={line.startsWith("[warn]") ? "text-status-amber" : ""}>
+                    <p
+                      key={i}
+                      className={
+                        line.includes("[error]")
+                          ? "text-status-red"
+                          : line.includes("[warn]")
+                            ? "text-status-amber"
+                            : ""
+                      }
+                    >
                       {line}
                     </p>
                   ))}
@@ -807,10 +844,10 @@ function Index() {
                       [info] Processing piece {currentPiece} of {totalPieces}...
                     </p>
                   )}
-                  {status === "error" && <p className="text-status-red">[error] Processing failed</p>}
                 </div>
               )}
             </div>
+
           </section>
         </div>
       </main>
