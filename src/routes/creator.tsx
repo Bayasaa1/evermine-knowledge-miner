@@ -1734,6 +1734,87 @@ function Index() {
                   )}
                 </div>
 
+                {/* Rotation pool */}
+                <div className="rounded-[12px] border border-border bg-muted/40 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {t.keyPool} {keys.length > 0 && <span className="text-muted-foreground">({keys.length})</span>}
+                    </h4>
+                    {keys.some((k) => k.state !== "ok") && (
+                      <button
+                        onClick={handleResetKeys}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                      >
+                        <RotateCw className="h-3 w-3" />
+                        {t.resetAllKeys}
+                      </button>
+                    )}
+                  </div>
+                  <p className="mb-3 text-xs text-muted-foreground">{t.keyPoolHint}</p>
+                  {keys.length === 0 ? (
+                    <p className="text-xs text-muted-foreground/80">{t.keyEmpty}</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {keys.map((k, i) => (
+                        <li
+                          key={k.id}
+                          className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-semibold text-primary">
+                            {i + 1}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+                            {maskKey(k.value)}
+                          </span>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                              k.state === "ok"
+                                ? "bg-status-green/10 text-status-green"
+                                : k.state === "exhausted"
+                                  ? "bg-status-amber/10 text-status-amber"
+                                  : "bg-status-red/10 text-status-red"
+                            }`}
+                          >
+                            {k.state === "ok"
+                              ? t.keyActive
+                              : k.state === "exhausted"
+                                ? t.keyExhausted
+                                : t.keyRejected}
+                          </span>
+                          {k.state !== "ok" && (
+                            <button
+                              onClick={() =>
+                                commitKeys(
+                                  keysRef.current.map(({ exhaustedAt: _d, ...e }) =>
+                                    e.id === k.id ? { ...e, state: "ok" as const } : { ...e },
+                                  ),
+                                )
+                              }
+                              aria-label={t.keyReset}
+                              title={t.keyReset}
+                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            >
+                              <RotateCw className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveKey(k.id)}
+                            aria-label={t.keyRemove}
+                            title={t.keyRemove}
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                    <Plus className="h-3 w-3" /> {t.apiKeyPlaceholder}
+                  </p>
+                </div>
+
+
               </div>
             </section>
 
