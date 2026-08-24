@@ -1938,7 +1938,53 @@ function Index() {
             </section>
           </div>
 
+          {/* Resume banner */}
+          {resumeState && status !== "processing" && (
+            <section
+              className={`min-w-0 rounded-[12px] border p-5 sm:p-6 ${
+                status === "paused" ? "border-status-amber/40 bg-status-amber/5" : "border-border bg-card"
+              }`}
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-status-amber/10 text-status-amber">
+                    <PauseCircle className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {status === "paused" ? t.pausedQuota : t.resumeReady}
+                    </h3>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {status === "paused"
+                        ? t.pausedQuotaBody
+                        : `${t.resumeBody} ${resumeState.nextIndex + 1}/${resumeState.chunks.length} — ${resumeState.fileName}`}
+                    </p>
+                    {!file && <p className="mt-1 text-xs text-status-amber">{t.resumeNeedVideo}</p>}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    onClick={handleResume}
+                    disabled={!file && !resumeState.fileRef}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Play className="h-4 w-4" />
+                    {t.resumeMining}
+                  </button>
+                  <button
+                    onClick={handleDiscardResume}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">{t.discardResume}</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Live progress */}
+
           {(status === "processing" || status === "complete") && totalPieces > 0 && (
             <section className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
