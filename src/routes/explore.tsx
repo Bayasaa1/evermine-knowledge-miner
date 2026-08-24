@@ -215,7 +215,7 @@ function Explore() {
 
     if (capture) {
       pendingRef.current.push(text);
-      void flushMiner();
+      void flushMiner(true);
     }
 
     let reply = "";
