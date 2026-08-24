@@ -347,7 +347,38 @@ function Explore() {
             <p className="text-[11px] text-white/60">Swipe up for the next Mind</p>
           </div>
         </div>
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto relative flex items-center gap-2">
+          <button
+            onClick={() => setLangOpen((o) => !o)}
+            aria-label="Choose your native language"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 text-xs font-medium text-white backdrop-blur-md"
+          >
+            <Languages className="h-4 w-4 text-primary" />
+            {LANGUAGES[lang].native}
+          </button>
+          {langOpen && (
+            <div className="absolute right-0 top-12 z-40 w-56 overflow-hidden rounded-[12px] border border-border bg-card/95 shadow-xl backdrop-blur-xl">
+              <p className="border-b border-border px-3 py-2 text-[11px] text-muted-foreground">
+                Native voice dubbing — no subtitles
+              </p>
+              {LANG_LIST.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => {
+                    stopSpeaking();
+                    setLang(l.code);
+                    setLangOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between px-3 py-2.5 text-left text-sm ${
+                    l.code === lang ? "bg-primary/15 text-primary" : "text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span>{l.native}</span>
+                  <span className="text-[11px] text-muted-foreground">{l.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => setVaultOpen(true)}
             className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 text-xs font-medium text-white backdrop-blur-md"
@@ -505,7 +536,7 @@ function Explore() {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{selected.shortName}</p>
             <p className="truncate text-[11px] text-muted-foreground">
-              {capture ? "Mind Miner is capturing your side" : "Mind Miner off"}
+              {LANGUAGES[lang].native} voice · {capture ? "Mind Miner on" : "Mind Miner off"}
             </p>
           </div>
           <button
@@ -616,7 +647,15 @@ function Explore() {
             <div>
               <p className="text-sm font-semibold text-white">{selected.name}</p>
               <p className="text-[11px] text-white/70">
-                {speaking ? "Speaking…" : thinking ? "Thinking…" : listening ? "Listening…" : "Connected"}
+                {dubbing
+                  ? `Dubbing in ${LANGUAGES[lang].native}…`
+                  : speaking
+                    ? `Speaking ${LANGUAGES[lang].native}`
+                    : thinking
+                      ? "Thinking…"
+                      : listening
+                        ? "Listening…"
+                        : `Connected · ${LANGUAGES[lang].native} voice`}
               </p>
             </div>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[11px] text-white/80 backdrop-blur-md">
@@ -626,22 +665,50 @@ function Explore() {
           </div>
 
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 px-6">
+            {/* Lip-synced avatar: the mouth is driven by the live dubbed waveform */}
             <div
-              className={`flex h-36 w-36 items-center justify-center rounded-full border-4 text-4xl font-semibold text-white transition-transform ${
-                speaking ? "scale-105 animate-pulse" : ""
-              }`}
-              style={{ borderColor: selected.accent, background: `${selected.accent}33` }}
+              className="relative flex h-40 w-40 items-center justify-center rounded-full border-4 transition-transform duration-75"
+              style={{
+                borderColor: selected.accent,
+                background: `${selected.accent}33`,
+                transform: `scale(${1 + mouth * 0.06})`,
+                boxShadow: `0 0 ${20 + mouth * 60}px ${selected.accent}${speaking ? "88" : "22"}`,
+              }}
             >
-              {selected.shortName.slice(0, 2)}
+              <img
+                src={selected.cover}
+                alt=""
+                width={320}
+                height={320}
+                className="absolute inset-0 h-full w-full rounded-full object-cover opacity-70"
+              />
+              <span className="relative text-4xl font-semibold text-white drop-shadow">
+                {selected.shortName.slice(0, 2)}
+              </span>
+              {/* mouth */}
+              <span
+                aria-hidden
+                className="absolute bottom-9 left-1/2 -translate-x-1/2 rounded-full bg-black/70 transition-[height,width] duration-75"
+                style={{
+                  width: `${34 + mouth * 16}px`,
+                  height: `${3 + mouth * 26}px`,
+                  opacity: speaking ? 0.85 : 0.25,
+                }}
+              />
             </div>
-            <div className="max-h-40 w-full max-w-md space-y-2 overflow-y-auto text-center">
-              {lastUser && <p className="text-xs text-white/60">You: {lastUser.text}</p>}
-              {lastAgent && (
-                <p className="text-base leading-relaxed text-white">
-                  {lastAgent.text.replace(/[*_`#>[\]()]/g, "")}
-                </p>
-              )}
-            </div>
+            <p className="text-center text-[11px] text-white/60">
+              {selected.shortName}'s cloned voice · speaking {LANGUAGES[lang].name} · lip-sync live
+            </p>
+            {captions && (
+              <div className="max-h-40 w-full max-w-md space-y-2 overflow-y-auto text-center">
+                {lastUser && <p className="text-xs text-white/60">You: {lastUser.text}</p>}
+                {lastAgent && (
+                  <p className="text-base leading-relaxed text-white">
+                    {lastAgent.text.replace(/[*_`#>[\]()]/g, "")}
+                  </p>
+                )}
+              </div>
+            )}
             {error && <p className="text-xs text-status-red">{error}</p>}
           </div>
 
@@ -656,6 +723,13 @@ function Explore() {
               />
             </label>
             <div className="flex items-center justify-center gap-5">
+              <button
+                onClick={() => setCaptions((c) => !c)}
+                aria-label={captions ? "Hide captions" : "Show captions"}
+                className="flex h-14 w-14 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white backdrop-blur-md active:scale-95"
+              >
+                {captions ? <Captions className="h-6 w-6" /> : <CaptionsOff className="h-6 w-6 text-white/60" />}
+              </button>
               <button
                 onClick={() => setChatOpen(true)}
                 aria-label="Open chat"
@@ -682,7 +756,8 @@ function Explore() {
               </button>
             </div>
             <p className="text-center text-[11px] text-white/50">
-              Tap the mic, speak, and the clone answers out loud.
+              Tap the mic and speak — {selected.shortName} answers out loud in{" "}
+              {LANGUAGES[lang].native}, in their own cloned voice. Captions off by default.
             </p>
           </div>
         </div>
