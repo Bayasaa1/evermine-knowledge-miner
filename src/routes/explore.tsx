@@ -49,10 +49,10 @@ type Msg = {
   visual?: VisualAsset | null;
 };
 
-const MODES: { id: Mode; label: string; emoji: string; icon: typeof MessageSquare }[] = [
-  { id: "text", label: "Text Chat", emoji: "💬", icon: MessageSquare },
-  { id: "voice", label: "Voice Talk", emoji: "🎙️", icon: Mic },
-  { id: "video", label: "Video Avatar", emoji: "📹", icon: Video },
+const MODES: { id: Mode; label: string; icon: typeof MessageSquare }[] = [
+  { id: "text", label: "Text Chat", icon: MessageSquare },
+  { id: "voice", label: "Voice Talk", icon: Mic },
+  { id: "video", label: "Video Avatar", icon: Video },
 ];
 
 function uid() {
@@ -343,9 +343,8 @@ function Explore() {
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <span aria-hidden="true">{m.emoji}</span>
                       <Icon className="h-4 w-4" />
-                      <span className="hidden sm:inline">{m.label}</span>
+                      <span>{m.label}</span>
                     </button>
                   );
                 })}
