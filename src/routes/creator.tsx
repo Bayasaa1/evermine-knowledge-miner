@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
+import { AnalyticsPanel } from "@/components/analytics-panel";
+import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
 import { loadApiKey, saveApiKey } from "@/lib/keystore";
@@ -342,6 +344,7 @@ const translations = {
   en: {
     appName: "Evermine",
     tagline: "A life becomes a mind.",
+    analytics: "Analytics & Earnings",
     language: "Language",
     quickLinks: "Quick Links",
     apiKey: "API Key",
@@ -499,6 +502,7 @@ const translations = {
   mn: {
     appName: "Evermine",
     tagline: "Амьдрал оюун болдог.",
+    analytics: "Аналитик ба орлого",
     language: "Хэл",
     quickLinks: "Түлхүүр холбоос",
     apiKey: "API түлхүүр",
@@ -657,6 +661,7 @@ const translations = {
 
 const navLinks = [
   { key: "dashboard", icon: Brain, href: "#" },
+  { key: "analytics", icon: ScrollText, href: "#analytics" },
   { key: "history", icon: ScrollText, href: "#" },
   { key: "settings", icon: KeyRound, href: "#" },
   { key: "help", icon: Globe, href: "#" },
@@ -990,6 +995,11 @@ function Index() {
           `Response ← piece ${chunk.index + 1}: ${data.transcript.length} transcript line(s), ${data.scenes.length} scene note(s), ${data.knowledge.length} knowledge point(s)`,
         );
         setResults((r) => [...r, { index: chunk.index, chunk, data }]);
+        void recordGrowth({
+          beliefs: data.subconsciousness.beliefs.length,
+          memories: data.story.beats.length,
+          skills: data.subconsciousness.skills.length,
+        });
         setDonePieces(chunk.index + 1);
       }
 
@@ -1781,6 +1791,8 @@ function Index() {
           </section>
 
           {/* Results Area */}
+          <AnalyticsPanel lang={lang} ownership={ownership} />
+
           <section ref={resultsRef} id="results" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
