@@ -92,13 +92,13 @@
   --secondary: oklch(0.24 0.02 260);
   --secondary-foreground: oklch(0.9 0.01 260);
   --muted: oklch(0.24 0.02 260);
-  --muted-foreground: oklch(0.65 0.02 260);
+  --muted-foreground: oklch(0.74 0.02 260);
   --accent: oklch(0.24 0.02 260);
   --accent-foreground: oklch(0.9 0.01 260);
   --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.99 0.005 25);
-  --border: oklch(1 0 0 / 0.08);
-  --input: oklch(1 0 0 / 0.12);
+  --border: oklch(1 0 0 / 0.14);
+  --input: oklch(1 0 0 / 0.18);
   --ring: oklch(0.65 0.16 45);
 }
 
@@ -136,4 +136,26 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: oklch(1 0 0 / 0.25);
+}
+
+
+@utility skeleton-line {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-foreground) 8%, transparent) 25%,
+    color-mix(in oklab, var(--color-foreground) 16%, transparent) 50%,
+    color-mix(in oklab, var(--color-foreground) 8%, transparent) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+html, body {
+  overflow-x: hidden;
 }
