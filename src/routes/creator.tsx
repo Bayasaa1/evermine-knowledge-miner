@@ -252,7 +252,7 @@ function AudioAtmosphere({ results, t }: { results: MineResult[]; t: AudioLabels
   );
 }
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/creator")({
   head: () => ({
     meta: [
       { title: "Evermine — Dashboard" },
