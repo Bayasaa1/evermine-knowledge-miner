@@ -953,69 +953,34 @@ function Index() {
               <h3 className="text-lg font-semibold text-foreground">{t.results}</h3>
             </div>
 
-            <div className="mb-4 inline-flex rounded-lg border border-border bg-muted p-1">
-              <button
-                onClick={() => setActiveTab("knowledge")}
-                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "knowledge"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Brain className="h-4 w-4" />
-                {t.structuredKnowledge}
-              </button>
-              <button
-                onClick={() => setActiveTab("transcript")}
-                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "transcript"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <ScrollText className="h-4 w-4" />
-                {t.transcript}
-              </button>
-              <button
-                onClick={() => setActiveTab("log")}
-                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === "log"
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Terminal className="h-4 w-4" />
-                {t.appLog}
-              </button>
+            <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-border bg-muted p-1">
+              {(
+                [
+                  { id: "subtitle", label: t.tabSubtitle, icon: ScrollText },
+                  { id: "story", label: t.tabStory, icon: BookOpen },
+                  { id: "face", label: t.tabFace, icon: ScanFace },
+                  { id: "voice", label: t.tabVoice, icon: AudioLines },
+                  { id: "brain", label: t.tabBrain, icon: Brain },
+                  { id: "log", label: t.appLog, icon: Terminal },
+                ] as { id: Tab; label: string; icon: typeof Brain }[]
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "bg-card text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <tab.icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
             <div className="min-h-[220px] rounded-[12px] border border-border bg-muted p-5">
-              {activeTab === "knowledge" && (
-                <div className="space-y-5">
-                  {results.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t.noResults}</p>
-                  ) : (
-                    results.map((r) => (
-                      <div key={r.index}>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
-                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
-                        </p>
-                        {r.data.knowledge.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">—</p>
-                        ) : (
-                          <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
-                            {r.data.knowledge.map((k, i) => (
-                              <li key={i}>{k}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {activeTab === "transcript" && (
+              {activeTab === "subtitle" && (
                 <div className="space-y-5">
                   {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noTranscript}</p>
@@ -1041,6 +1006,179 @@ function Index() {
                         </div>
                       </div>
                     ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "story" && (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noStory}</p>
+                  ) : (
+                    results.map((r) => (
+                      <div key={r.index}>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
+                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
+                        </p>
+                        {r.data.story.summary && (
+                          <p className="text-sm leading-relaxed text-foreground">{r.data.story.summary}</p>
+                        )}
+                        {r.data.story.tone && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {t.tone}: <span className="text-status-amber">{r.data.story.tone}</span>
+                          </p>
+                        )}
+                        {r.data.story.beats.length > 0 && (
+                          <div className="mt-3 space-y-1.5 border-l border-border pl-4">
+                            {r.data.story.beats.map((b, i) => (
+                              <p key={i} className="text-sm leading-relaxed text-foreground">
+                                <span className="mr-2 font-mono text-xs text-muted-foreground">[{b.timestamp}]</span>
+                                {b.event}
+                                {b.emotion && <span className="ml-2 text-xs italic text-muted-foreground">({b.emotion})</span>}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "face" && (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noFace}</p>
+                  ) : (
+                    results.map((r) => (
+                      <div key={r.index}>
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
+                          {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {r.data.faceData.map((f, i) => (
+                            <div key={i} className="rounded-[12px] border border-border bg-card p-4">
+                              <p className="font-mono text-xs text-muted-foreground">[{f.timestamp}]</p>
+                              <p className="mt-1 text-sm italic leading-relaxed text-foreground">{f.description}</p>
+                              <dl className="mt-3 space-y-1 text-xs text-muted-foreground">
+                                {f.gestures && <div>{t.gestures}: <span className="text-foreground">{f.gestures}</span></div>}
+                                {f.lighting && <div>{t.lighting}: <span className="text-foreground">{f.lighting}</span></div>}
+                                {f.faceAngle && <div>{t.faceAngle}: <span className="text-foreground">{f.faceAngle}</span></div>}
+                                {f.cloneQuality && (
+                                  <div>
+                                    {t.cloneQuality}: <span className="text-status-green">{f.cloneQuality}</span>
+                                  </div>
+                                )}
+                              </dl>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "voice" && (
+                <div className="space-y-5">
+                  <div className="rounded-[12px] border border-border bg-card p-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={handleExtractSample}
+                        disabled={!file || voiceBusy}
+                        className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {voiceBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <AudioLines className="h-4 w-4" />}
+                        {voiceBusy ? `${t.extracting} ${Math.round(voiceProgress)}s` : t.extractSample}
+                      </button>
+                      {!file && <p className="text-xs text-status-amber">{t.needVideoForSample}</p>}
+                      <p className="text-xs text-muted-foreground sm:ml-auto">{t.voiceHint}</p>
+                    </div>
+
+                    <div className="mt-4">
+                      {voiceSample ? (
+                        <div className="space-y-3">
+                          <audio controls src={voiceSample.url} className="w-full" />
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              {t.sampleReady} · {formatDuration(voiceSample.start)} → +{Math.round(voiceSample.duration)}s ·{" "}
+                              {(voiceSample.size / 1024).toFixed(0)} KB
+                            </span>
+                            <button
+                              onClick={() => downloadVoiceSample(voiceSample)}
+                              className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              {t.downloadSample}
+                            </button>
+                            <button
+                              onClick={handleDeleteSample}
+                              className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-status-red transition-colors hover:border-status-red/50"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              {t.deleteSample}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t.noSample}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {results.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noVoice}</p>
+                  ) : (
+                    <div>
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">{t.voiceWindows}</p>
+                      <div className="space-y-1.5">
+                        {results.flatMap((r) =>
+                          r.data.voiceData.map((w, i) => (
+                            <p key={`${r.index}-${i}`} className="text-sm leading-relaxed text-foreground">
+                              <span className="mr-2 font-mono text-xs text-muted-foreground">
+                                [{w.start}–{w.end}]
+                              </span>
+                              <span className="text-status-green">{w.quality}</span>
+                              {w.note && <span className="ml-2 text-muted-foreground">— {w.note}</span>}
+                            </p>
+                          )),
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "brain" && (
+                <div className="space-y-5">
+                  {results.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noBrain}</p>
+                  ) : (
+                    (
+                      [
+                        { key: "skills", label: t.skills },
+                        { key: "beliefs", label: t.beliefs },
+                        { key: "decisionLogic", label: t.decisionLogic },
+                      ] as const
+                    ).map((group) => {
+                      const items = Array.from(
+                        new Set(results.flatMap((r) => r.data.subconsciousness[group.key]).filter(Boolean)),
+                      );
+                      return (
+                        <div key={group.key}>
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">{group.label}</p>
+                          {items.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">—</p>
+                          ) : (
+                            <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-foreground">
+                              {items.map((s, i) => (
+                                <li key={i}>{s}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -1082,6 +1220,14 @@ function Index() {
                 {t.saveMine}
               </button>
               <button
+                onClick={handleExportBrain}
+                disabled={results.length === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Sparkles className="h-4 w-4" />
+                {t.exportBrain}
+              </button>
+              <button
                 onClick={() => importInputRef.current?.click()}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
               >
@@ -1098,6 +1244,7 @@ function Index() {
               <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-[320px]">{t.localOnly}</p>
             </div>
           </section>
+
         </div>
       </main>
     </div>
