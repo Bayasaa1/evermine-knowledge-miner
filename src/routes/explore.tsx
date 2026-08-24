@@ -5,6 +5,10 @@ import remarkGfm from "remark-gfm";
 import {
   Brain,
   Trash2,
+  Heart,
+  Bell,
+  UserPlus,
+  UserCheck,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -50,6 +54,24 @@ import {
   type VaultField,
 } from "@/lib/user-vault";
 import { toast } from "sonner";
+import {
+  loadFollows,
+  saveFollows,
+  toggleFollow,
+  loadFavorites,
+  saveFavorites,
+  toggleFavorite,
+  isFavorite,
+  resolveFavorite,
+  loadNotifications,
+  saveNotifications,
+  unreadCount,
+  enablePushNotifications,
+  pushNotification,
+  nextCreatorUpdate,
+  type FavoriteClip,
+  type CreatorNotification,
+} from "@/lib/social";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -137,6 +159,10 @@ function Explore() {
   const [vault, setVault] = useState<UserVault>(() => emptyVault());
   const [mining, setMining] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [follows, setFollows] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteClip[]>([]);
+  const [notifs, setNotifs] = useState<CreatorNotification[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [openClip, setOpenClip] = useState<SourceClip | null>(null);
   const callSessionRef = useRef<string | null>(null);
   const chatSessionRef = useRef<string | null>(null);
@@ -205,7 +231,86 @@ function Explore() {
     };
   }, []);
 
+  /* ---------- social: follows, favorites, notifications ---------- */
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const [f, fav, n] = await Promise.all([loadFollows(), loadFavorites(), loadNotifications()]);
+      if (!alive) return;
+      setFollows(f);
+      setFavorites(fav);
+      setNotifs(n);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const onFollow = useCallback(
+    async (mindId: string, shortName: string) => {
+      const next = toggleFollow(follows, mindId);
+      setFollows(next);
+      await saveFollows(next);
+      if (next.includes(mindId)) {
+        const perm = await enablePushNotifications();
+        toast.success(`Following ${shortName}`, {
+          description:
+            perm === "granted"
+              ? "You'll get a push when they post a new video or update their AI Brain."
+              : "Enable notifications to get alerts for new videos and Brain updates.",
+        });
+      } else {
+        toast(`Unfollowed ${shortName}`);
+      }
+    },
+    [follows],
+  );
+
+  const onFavorite = useCallback(
+    async (mindId: string, clipId: string) => {
+      const next = toggleFavorite(favorites, mindId, clipId);
+      setFavorites(next);
+      await saveFavorites(next);
+      toast.success(isFavorite(next, clipId) ? "Saved to Favorite Clips" : "Removed from favorites");
+    },
+    [favorites],
+  );
+
+  /* Poll followed creators for new videos / Brain updates and push them. */
+  useEffect(() => {
+    if (follows.length === 0) return;
+    let alive = true;
+    async function check() {
+      const n = await nextCreatorUpdate(follows);
+      if (!n || !alive) return;
+      setNotifs((prev) => {
+        const list = [...prev, n];
+        void saveNotifications(list);
+        return list;
+      });
+      const delivered = await pushNotification(n);
+      if (!delivered) toast(n.title, { description: n.body });
+    }
+    const t = window.setTimeout(() => void check(), 6000);
+    const iv = window.setInterval(() => void check(), 45000);
+    return () => {
+      alive = false;
+      window.clearTimeout(t);
+      window.clearInterval(iv);
+    };
+  }, [follows]);
+
+  const openNotifications = useCallback(() => {
+    setNotifOpen(true);
+    setNotifs((prev) => {
+      const list = prev.map((n) => ({ ...n, read: true }));
+      void saveNotifications(list);
+      return list;
+    });
+  }, []);
+
   const deleteOne = useCallback(
+
     async (field: VaultField, item: string) => {
       const next = removeVaultItem(vault, field, item);
       setVault(next);
@@ -494,6 +599,18 @@ function Explore() {
             </div>
           )}
           <button
+            onClick={openNotifications}
+            aria-label="Creator updates"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/40 text-white backdrop-blur-md"
+          >
+            <Bell className="h-4.5 w-4.5" />
+            {unreadCount(notifs) > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                {unreadCount(notifs)}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setVaultOpen(true)}
             className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 text-xs font-medium text-white backdrop-blur-md"
           >
@@ -538,10 +655,29 @@ function Explore() {
                 >
                   {mind.shortName.slice(0, 2)}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-base font-semibold text-white">{mind.name}</p>
                   <p className="truncate text-xs text-white/70">{mind.domain}</p>
                 </div>
+                <button
+                  onClick={() => void onFollow(mind.id, mind.shortName)}
+                  aria-pressed={follows.includes(mind.id)}
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${
+                    follows.includes(mind.id)
+                      ? "border border-white/25 bg-black/40 text-white backdrop-blur-md"
+                      : "bg-primary text-primary-foreground"
+                  }`}
+                >
+                  {follows.includes(mind.id) ? (
+                    <>
+                      <UserCheck className="h-4 w-4" /> Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" /> Follow Mind
+                    </>
+                  )}
+                </button>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-white/90">{mind.highlight}</p>
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -557,6 +693,55 @@ function Explore() {
                   ${mind.perQuery.toFixed(2)}/query
                 </span>
               </div>
+
+              {mind.clips.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-white/60">
+                    Favorite Clips
+                  </p>
+                  <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {mind.clips.map((clip) => (
+                      <div
+                        key={clip.id}
+                        className="relative w-32 shrink-0 overflow-hidden rounded-[12px] border border-white/15 bg-black/40 backdrop-blur-md"
+                      >
+                        <button
+                          onClick={() => setOpenClip(clip)}
+                          className="block w-full text-left"
+                          aria-label={`Play ${clip.label}`}
+                        >
+                          <img
+                            src={clip.poster}
+                            alt={clip.label}
+                            loading="lazy"
+                            className="h-16 w-full object-cover"
+                          />
+                          <p className="line-clamp-2 px-2 py-1.5 text-[10px] leading-snug text-white/85">
+                            {clip.label}
+                          </p>
+                        </button>
+                        <button
+                          onClick={() => void onFavorite(mind.id, clip.id)}
+                          aria-label={
+                            isFavorite(favorites, clip.id)
+                              ? `Remove ${clip.label} from favorites`
+                              : `Favorite ${clip.label}`
+                          }
+                          className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm"
+                        >
+                          <Heart
+                            className={`h-3.5 w-3.5 ${
+                              isFavorite(favorites, clip.id)
+                                ? "fill-primary text-primary"
+                                : "text-white/80"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right action rail */}
@@ -770,7 +955,104 @@ function Explore() {
         </div>
       </div>
 
-      {openClip && <SourceClipModal clip={openClip} onClose={() => setOpenClip(null)} />}
+      {/* Creator updates from Minds you follow */}
+      {notifOpen && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-xl">
+          <div className="flex items-center gap-3 border-b border-border p-4">
+            <Bell className="h-5 w-5 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Creator updates</p>
+              <p className="text-[11px] text-muted-foreground">
+                {follows.length} Mind{follows.length === 1 ? "" : "s"} followed
+              </p>
+            </div>
+            <button
+              onClick={() => setNotifOpen(false)}
+              aria-label="Close notifications"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            {typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission !== "granted" && (
+                <button
+                  onClick={() => void enablePushNotifications()}
+                  className="w-full rounded-[12px] bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
+                >
+                  Enable push notifications
+                </button>
+              )}
+            {notifs.length === 0 ? (
+              <p className="pt-6 text-center text-sm text-muted-foreground">
+                Follow a Mind and you'll be notified here when they upload a new video or update
+                their AI Brain.
+              </p>
+            ) : (
+              [...notifs].reverse().map((n) => (
+                <div key={n.id} className="rounded-[12px] border border-border bg-card p-4">
+                  <p className="text-sm font-medium text-foreground">{n.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>
+                  <p className="mt-2 text-[11px] uppercase tracking-wider text-primary">
+                    {n.kind === "video" ? "New video" : "Brain update"}
+                  </p>
+                </div>
+              ))
+            )}
+            {favorites.length > 0 && (
+              <div className="rounded-[12px] border border-border bg-card p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  My Favorite Clips
+                </p>
+                <div className="mt-3 space-y-2">
+                  {favorites.map((f) => {
+                    const r = resolveFavorite(f);
+                    if (!r) return null;
+                    return (
+                      <button
+                        key={f.clipId}
+                        onClick={() => {
+                          setNotifOpen(false);
+                          setOpenClip(r.clip);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-[12px] border border-border p-2 text-left"
+                      >
+                        <img
+                          src={r.clip.poster}
+                          alt=""
+                          className="h-12 w-16 shrink-0 rounded-lg object-cover"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-foreground">
+                            {r.clip.label}
+                          </span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {r.mind.shortName} · [{r.clip.timestamp}]
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {openClip && (
+        <SourceClipModal
+          clip={openClip}
+          favorited={isFavorite(favorites, openClip.id)}
+          onFavorite={() => {
+            const owner = MINDS.find((m) => m.clips.some((c) => c.id === openClip.id));
+            if (owner) void onFavorite(owner.id, openClip.id);
+          }}
+          onClose={() => setOpenClip(null)}
+        />
+      )}
 
       {/* Full-screen AI video call */}
       {callOpen && (
@@ -1071,7 +1353,17 @@ function Explore() {
 }
 
 /** Plays the cited 5-second window from the creator's original source video. */
-function SourceClipModal({ clip, onClose }: { clip: SourceClip; onClose: () => void }) {
+function SourceClipModal({
+  clip,
+  onClose,
+  favorited,
+  onFavorite,
+}: {
+  clip: SourceClip;
+  onClose: () => void;
+  favorited?: boolean;
+  onFavorite?: () => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -1110,6 +1402,15 @@ function SourceClipModal({ clip, onClose }: { clip: SourceClip; onClose: () => v
             <p className="text-xs font-semibold text-primary">Source Clip · [{clip.timestamp}]</p>
             <p className="truncate text-sm font-medium text-foreground">{clip.label}</p>
           </div>
+          {onFavorite && (
+            <button
+              onClick={onFavorite}
+              aria-label={favorited ? "Remove from favorites" : "Add to Favorite Clips"}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted"
+            >
+              <Heart className={`h-4 w-4 ${favorited ? "fill-primary text-primary" : "text-foreground"}`} />
+            </button>
+          )}
           <button
             onClick={onClose}
             aria-label="Close clip"
