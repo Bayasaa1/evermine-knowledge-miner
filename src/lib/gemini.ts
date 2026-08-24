@@ -144,10 +144,31 @@ export type AudioProfile = {
   /** Original musical performance, composition or custom audio theme by the owner. */
   audioSkillAssets: string[];
 };
+export type CulturalExpression = {
+  /** The phrase exactly as spoken. */
+  phrase: string;
+  timestamp: string;
+  /** proverb | blessing | idiom | metaphor | sarcasm | teasing | praise | slang */
+  kind: string;
+  /** What the words say if read literally (never the real meaning). */
+  literal: string;
+  /** The true cultural intent behind the phrase. */
+  meaning: string;
+  /** genuine-praise | friendly-teasing | blessing | sarcasm | criticism | neutral */
+  intent: string;
+  /** positive | negative | mixed | neutral */
+  sentiment: string;
+  /** When and how the owner uses it, so the avatar can reuse it correctly. */
+  usage: string;
+};
 export type Subconsciousness = {
   skills: string[];
   beliefs: string[];
   decisionLogic: string[];
+  /** Idioms, proverbs, blessings, metaphors and sarcasm decoded to true intent. */
+  culturalVocabulary: CulturalExpression[];
+  /** How the owner speaks: humour, directness, formality, rhetorical habits. */
+  expressiveStyle: string[];
   /** Aesthetic taste and mood preference inferred from the owner's audio choices. */
   aestheticProfile: string[];
 };
@@ -302,8 +323,39 @@ const responseSchema = {
         beliefs: strArr,
         decisionLogic: strArr,
         aestheticProfile: strArr,
+        expressiveStyle: strArr,
+        culturalVocabulary: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              phrase: { type: "string" },
+              timestamp: { type: "string" },
+              kind: {
+                type: "string",
+                enum: ["proverb", "blessing", "idiom", "metaphor", "sarcasm", "teasing", "praise", "slang"],
+              },
+              literal: { type: "string" },
+              meaning: { type: "string" },
+              intent: {
+                type: "string",
+                enum: ["genuine-praise", "friendly-teasing", "blessing", "sarcasm", "criticism", "neutral"],
+              },
+              sentiment: { type: "string", enum: ["positive", "negative", "mixed", "neutral"] },
+              usage: { type: "string" },
+            },
+            required: ["phrase", "timestamp", "kind", "literal", "meaning", "intent", "sentiment", "usage"],
+          },
+        },
       },
-      required: ["skills", "beliefs", "decisionLogic", "aestheticProfile"],
+      required: [
+        "skills",
+        "beliefs",
+        "decisionLogic",
+        "aestheticProfile",
+        "expressiveStyle",
+        "culturalVocabulary",
+      ],
     },
   },
   required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness"],
@@ -324,6 +376,12 @@ Extract the pillars below and return JSON only.
    - "beliefs": what they value, advocate for, or criticise.
    - "decisionLogic": how they approach problems and make choices (if/then reasoning, priorities, rules of thumb).
    - "aestheticProfile": the owner's AESTHETIC TASTE AND MOOD PREFERENCE, derived from the audio and music atmosphere of "audio" (chosen genres, moods, tempo, instrumentation, and how they talk about music/sound) combined with their visual styling. Short statements such as "Prefers calm acoustic backdrops while teaching". Only include preferences that plausibly belong to the Primary Owner.
+   - "expressiveStyle": how the Primary Owner SPEAKS — humour, directness, formality, honorifics, rhetorical habits, how they praise, tease, bless, scold or joke. Short statements the avatar can imitate.
+   - "culturalVocabulary": CULTURAL METAPHOR, IDIOM & SARCASM PARSING. Scan every line of the Primary Owner\'s speech for traditional proverbs (\u0437\u04af\u0439\u0440 \u04af\u0433), blessings (\u0431\u044d\u043b\u044d\u0433 \u0434\u044d\u043c\u0431\u044d\u0440\u044d\u043b / \u044e\u0440\u04e9\u04e9\u043b), local idioms, poetic metaphors, satire, irony, teasing and slang.
+     NEVER take an idiom, blessing or sarcastic remark at literal value. For each entry give the "phrase" verbatim, its "timestamp", the "kind", the "literal" surface reading, the "meaning" (its true cultural intent in plain words), the "intent", the "sentiment", and a short "usage" note on when the owner says it.
+     Example: "\u0430\u044f\u0433\u0430 \u043d\u044c \u0445\u0430\u0433\u0430\u0440\u0445\u0430\u0439, \u0443\u0443\u0440\u0433\u0430 \u043d\u044c \u0445\u0443\u0433\u0430\u0440\u0445\u0430\u0439" is literally "may his bowl be cracked and his lasso pole broken" but is a traditional blessing wishing abundance so great it breaks the vessels \u2014 intent "blessing", sentiment "positive", NOT a curse.
+     Judge intent from tone of voice, laughter, rhythm and surrounding context: separate genuine praise from friendly teasing, ritual blessing and cutting sarcasm. When a phrase is sarcastic, "meaning" must state what the owner ACTUALLY means, not the words.
+     Use these decoded meanings when writing "beliefs" and "decisionLogic" \u2014 record the real intent, never the literal wording.
 
 6. "audio": MUSIC & AUDIO ATMOSPHERE PROFILING of the audio layer.
    - "hasMusic": whether any background music or musical performance is audible.
@@ -370,6 +428,17 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     beliefs: strings(sc['beliefs']),
     decisionLogic: strings(sc['decisionLogic']),
     aestheticProfile: strings(sc['aestheticProfile']),
+    expressiveStyle: strings(sc['expressiveStyle']),
+    culturalVocabulary: arr<Record<string, unknown>>(sc['culturalVocabulary']).map((c) => ({
+      phrase: String(c?.['phrase'] ?? ""),
+      timestamp: String(c?.['timestamp'] ?? ""),
+      kind: String(c?.['kind'] ?? "idiom"),
+      literal: String(c?.['literal'] ?? ""),
+      meaning: String(c?.['meaning'] ?? ""),
+      intent: String(c?.['intent'] ?? "neutral"),
+      sentiment: String(c?.['sentiment'] ?? "neutral"),
+      usage: String(c?.['usage'] ?? ""),
+    })).filter((c) => c.phrase),
   };
   const au = (v['audio'] ?? {}) as Record<string, unknown>;
   const audio: AudioProfile = {
