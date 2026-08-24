@@ -955,6 +955,93 @@ function Explore() {
         </div>
       </div>
 
+      {/* Creator updates from Minds you follow */}
+      {notifOpen && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-xl">
+          <div className="flex items-center gap-3 border-b border-border p-4">
+            <Bell className="h-5 w-5 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Creator updates</p>
+              <p className="text-[11px] text-muted-foreground">
+                {follows.length} Mind{follows.length === 1 ? "" : "s"} followed
+              </p>
+            </div>
+            <button
+              onClick={() => setNotifOpen(false)}
+              aria-label="Close notifications"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            {typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission !== "granted" && (
+                <button
+                  onClick={() => void enablePushNotifications()}
+                  className="w-full rounded-[12px] bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
+                >
+                  Enable push notifications
+                </button>
+              )}
+            {notifs.length === 0 ? (
+              <p className="pt-6 text-center text-sm text-muted-foreground">
+                Follow a Mind and you'll be notified here when they upload a new video or update
+                their AI Brain.
+              </p>
+            ) : (
+              [...notifs].reverse().map((n) => (
+                <div key={n.id} className="rounded-[12px] border border-border bg-card p-4">
+                  <p className="text-sm font-medium text-foreground">{n.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{n.body}</p>
+                  <p className="mt-2 text-[11px] uppercase tracking-wider text-primary">
+                    {n.kind === "video" ? "New video" : "Brain update"}
+                  </p>
+                </div>
+              ))
+            )}
+            {favorites.length > 0 && (
+              <div className="rounded-[12px] border border-border bg-card p-4">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  My Favorite Clips
+                </p>
+                <div className="mt-3 space-y-2">
+                  {favorites.map((f) => {
+                    const r = resolveFavorite(f);
+                    if (!r) return null;
+                    return (
+                      <button
+                        key={f.clipId}
+                        onClick={() => {
+                          setNotifOpen(false);
+                          setOpenClip(r.clip);
+                        }}
+                        className="flex w-full items-center gap-3 rounded-[12px] border border-border p-2 text-left"
+                      >
+                        <img
+                          src={r.clip.poster}
+                          alt=""
+                          className="h-12 w-16 shrink-0 rounded-lg object-cover"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-foreground">
+                            {r.clip.label}
+                          </span>
+                          <span className="block truncate text-[11px] text-muted-foreground">
+                            {r.mind.shortName} · [{r.clip.timestamp}]
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {openClip && (
         <SourceClipModal
           clip={openClip}
