@@ -60,6 +60,9 @@ import {
   ScanFace,
   AudioLines,
   Sparkles,
+  Search,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -110,6 +113,12 @@ const translations = {
     appLog: "App Log",
     noResults: "Results will appear here after mining begins.",
     noTranscript: "Transcript will appear here after processing.",
+    searchTranscript: "Search transcript…",
+    noMatches: "No transcript lines match your search.",
+    copyAll: "Copy All Transcript",
+    copied: "Transcript copied to clipboard",
+    copyFailed: "Could not copy transcript",
+    jumpTo: "Jump to this moment in the video",
     noLog: "Application logs will appear here.",
     dashboard: "Dashboard",
     settings: "Settings",
@@ -226,6 +235,12 @@ const translations = {
     appLog: "Аппликэйшн бүртгэл",
     noResults: "Боловсруулалт эхэлсний дараа энд харуулна.",
     noTranscript: "Боловсруулалт дууссаны дараа ярианы бичлэг энд харуулна.",
+    searchTranscript: "Ярианы бичлэгээс хайх…",
+    noMatches: "Хайлтад тохирох мөр олдсонгүй.",
+    copyAll: "Бүх бичлэгийг хуулах",
+    copied: "Ярианы бичлэгийг хууллаа",
+    copyFailed: "Хуулж чадсангүй",
+    jumpTo: "Видеоны энэ хэсэг рүү очих",
     noLog: "Аппликэйшн бүртгэл энд харуулна.",
     dashboard: "Хяналтын самбар",
     settings: "Тохиргоо",
@@ -355,6 +370,9 @@ function Index() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [transcriptQuery, setTranscriptQuery] = useState("");
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
   const [resolution, setResolution] = useState<{ width: number; height: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -804,6 +822,47 @@ function Index() {
   const StatusIcon = statusConfig[status].icon;
 
 
+  // ---- Transcript tab helpers ----
+  type TLine = { timestamp: string; text: string; kind: "speech" | "scene" };
+  const transcriptGroups = results.map((r) => {
+    const lines: TLine[] = [
+      ...r.data.transcript.map((l) => ({ timestamp: l.timestamp, text: l.speech, kind: "speech" as const })),
+      ...r.data.scenes.map((sc) => ({ timestamp: sc.timestamp, text: sc.description, kind: "scene" as const })),
+    ].sort((a, b) => (parseTimestamp(a.timestamp) ?? 0) - (parseTimestamp(b.timestamp) ?? 0));
+    return { index: r.index, chunk: r.chunk, lines };
+  });
+  const query = transcriptQuery.trim().toLowerCase();
+  const filteredTranscript = query
+    ? transcriptGroups
+        .map((g) => ({ ...g, lines: g.lines.filter((l) => l.text.toLowerCase().includes(query) || l.timestamp.toLowerCase().includes(query)) }))
+        .filter((g) => g.lines.length > 0)
+    : transcriptGroups;
+
+  const seekToTimestamp = (ts: string) => {
+    const secs = parseTimestamp(ts);
+    const el = previewVideoRef.current;
+    if (secs === null || !el) return;
+    el.currentTime = secs;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    void el.play().catch(() => {});
+  };
+
+  const copyAllTranscript = async () => {
+    const text = transcriptGroups
+      .map((g) => `# ${t.piece} ${g.index + 1} (${formatDuration(g.chunk.start)}-${formatDuration(g.chunk.end)})\n` +
+        g.lines.map((l) => `[${l.timestamp}] ${l.kind === "scene" ? `(${l.text})` : l.text}`).join('\n'))
+      .join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedTranscript(true);
+      toast.success(t.copied);
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    } catch {
+      toast.error(t.copyFailed);
+    }
+  };
+
+
   return (
     <div className="dark min-h-screen bg-background text-foreground">
       {/* Mobile sidebar overlay */}
@@ -1072,6 +1131,7 @@ function Index() {
                   {previewUrl && (
                     <video
                       key={previewUrl}
+                      ref={previewVideoRef}
                       src={previewUrl}
                       controls
                       playsInline
@@ -1349,25 +1409,55 @@ function Index() {
             <div className="min-h-[220px] rounded-[12px] border border-border bg-muted p-5">
               {activeTab === "subtitle" && (
                 <div className="space-y-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative w-full sm:max-w-xs">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="search"
+                        value={transcriptQuery}
+                        onChange={(e) => setTranscriptQuery(e.target.value)}
+                        placeholder={t.searchTranscript}
+                        aria-label={t.searchTranscript}
+                        className="w-full rounded-[12px] border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copyAllTranscript}
+                      disabled={results.length === 0}
+                      className="inline-flex items-center justify-center gap-2 rounded-[12px] border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {copiedTranscript ? <Check className="h-4 w-4 text-status-green" /> : <Copy className="h-4 w-4" />}
+                      {t.copyAll}
+                    </button>
+                  </div>
+
                   {results.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noTranscript}</p>
+                  ) : filteredTranscript.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t.noMatches}</p>
                   ) : (
-                    results.map((r) => (
+                    filteredTranscript.map((r) => (
                       <div key={r.index}>
                         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">
                           {t.piece} {r.index + 1} · {formatDuration(r.chunk.start)}–{formatDuration(r.chunk.end)}
                         </p>
                         <div className="space-y-1.5">
-                          {r.data.transcript.map((line, i) => (
-                            <p key={`t${i}`} className="text-sm leading-relaxed text-foreground">
-                              <span className="mr-2 font-mono text-xs text-muted-foreground">[{line.timestamp}]</span>
-                              {line.speech}
-                            </p>
-                          ))}
-                          {r.data.scenes.map((s, i) => (
-                            <p key={`s${i}`} className="text-sm italic leading-relaxed text-muted-foreground">
-                              <span className="mr-2 font-mono text-xs not-italic">[{s.timestamp}]</span>
-                              {s.description}
+                          {r.lines.map((line, i) => (
+                            <p
+                              key={`t${i}`}
+                              className={`text-sm leading-relaxed ${line.kind === "scene" ? "italic text-muted-foreground" : "text-foreground"}`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => seekToTimestamp(line.timestamp)}
+                                title={t.jumpTo}
+                                className="mr-2 inline-flex items-center rounded-[6px] border border-border bg-background px-1.5 py-0.5 font-mono text-xs not-italic text-muted-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                                disabled={!previewUrl}
+                              >
+                                {line.timestamp}
+                              </button>
+                              {line.text}
                             </p>
                           ))}
                         </div>
