@@ -159,3 +159,26 @@
 html, body {
   overflow-x: hidden;
 }
+
+.markdown-chat p { margin: 0; }
+.markdown-chat p + p { margin-top: 0.5rem; }
+.markdown-chat ul,
+.markdown-chat ol { margin: 0.25rem 0 0 1.1rem; list-style: disc; }
+.markdown-chat ol { list-style: decimal; }
+.markdown-chat li { margin-top: 0.15rem; }
+.markdown-chat strong { font-weight: 600; }
+.markdown-chat a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.markdown-chat code {
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  padding: 0.1rem 0.3rem;
+  font-size: 0.85em;
+}
+.markdown-chat pre {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  padding: 0.75rem;
+}
+.markdown-chat pre code { background: transparent; padding: 0; }

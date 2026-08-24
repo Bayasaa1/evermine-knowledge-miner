@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Brain,
   Compass,
@@ -10,8 +12,14 @@ import {
   Clock,
   MessageSquare,
   ShieldCheck,
+  Mic,
+  MicOff,
+  Video,
+  Volume2,
+  Square,
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
+import { MINDS, pickVisual, type Mind, type VisualAsset } from "@/lib/minds";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -20,103 +28,60 @@ export const Route = createFileRoute("/explore")({
       {
         name: "description",
         content:
-          "Browse Evermine Mind Vaults and test a conversation with an AI Clone built from a creator's mined knowledge.",
+          "Browse Evermine Mind Vaults and talk with an AI Clone by text, voice or video avatar — grounded in the creator's mined Core Brain.",
       },
       { property: "og:title", content: "Evermine — Mind Marketplace" },
       {
         property: "og:description",
-        content: "Browse Mind Vaults and talk with AI Clones built from real expertise.",
+        content: "Browse Mind Vaults and talk with AI Clones by text, voice or video.",
       },
     ],
   }),
   component: Explore,
 });
 
-type Mind = {
+type Mode = "text" | "voice" | "video";
+type Msg = {
   id: string;
-  name: string;
-  domain: string;
-  bio: string;
-  tags: string[];
-  rating: number;
-  hourly: number;
-  perQuery: number;
-  access: "public" | "private";
-  sample: string[];
+  role: "user" | "agent";
+  text: string;
+  via: Mode;
+  visual?: VisualAsset | null;
 };
 
-const MINDS: Mind[] = [
-  {
-    id: "mind_horsemaster",
-    name: "Batbold — Horseman's Mind",
-    domain: "Traditional horsemanship",
-    bio: "Forty years of steppe riding, training and breeding distilled into decision logic and beliefs.",
-    tags: ["Horses", "Training", "Nomadic craft"],
-    rating: 4.9,
-    hourly: 40,
-    perQuery: 0.5,
-    access: "public",
-    sample: [
-      "A nervous horse is never corrected with speed — you slow yourself first, then it follows.",
-      "Pick the saddle for the ride ahead, not for the horse you had last year.",
-    ],
-  },
-  {
-    id: "mind_chef",
-    name: "Saraa — Kitchen Mind",
-    domain: "Fermentation & steppe cuisine",
-    bio: "Recipes, timing intuition and taste-memory captured from 300 hours of kitchen video.",
-    tags: ["Cooking", "Fermentation", "Dairy"],
-    rating: 4.7,
-    hourly: 28,
-    perQuery: 0.35,
-    access: "public",
-    sample: [
-      "Airag tells you it is ready by sound before it tells you by taste.",
-      "If the room is cold, give it a day. Never give it more starter.",
-    ],
-  },
-  {
-    id: "mind_founder",
-    name: "Erdene — Founder Mind",
-    domain: "Early-stage startups",
-    bio: "Fundraising, hiring and product-cut decisions from a decade of building companies.",
-    tags: ["Startups", "Fundraising", "Hiring"],
-    rating: 4.8,
-    hourly: 120,
-    perQuery: 1.2,
-    access: "public",
-    sample: [
-      "Cut the feature that only the loudest customer wants; keep the one the quiet ones use daily.",
-      "Hire slow for judgement roles, fast for craft roles.",
-    ],
-  },
-  {
-    id: "mind_dancer",
-    name: "Nomin — Movement Mind",
-    domain: "Contemporary dance",
-    bio: "Choreography logic, body mechanics and rehearsal method with tagged keyframe motion.",
-    tags: ["Dance", "Choreography", "Motion"],
-    rating: 4.6,
-    hourly: 35,
-    perQuery: 0.4,
-    access: "private",
-    sample: [
-      "Count the breath, not the beat — the beat is where the audience is, the breath is where you are.",
-      "Learn the ending first; the middle then has somewhere to go.",
-    ],
-  },
+const MODES: { id: Mode; label: string; icon: typeof MessageSquare }[] = [
+  { id: "text", label: "Text Chat", icon: MessageSquare },
+  { id: "voice", label: "Voice Talk", icon: Mic },
+  { id: "video", label: "Video Avatar", icon: Video },
 ];
 
-type Msg = { role: "user" | "agent"; text: string };
+function uid() {
+  return Math.random().toString(36).slice(2);
+}
+
+function greeting(mind: Mind): Msg {
+  return {
+    id: uid(),
+    role: "agent",
+    via: "text",
+    text: `You're talking with **${mind.name}**, a preview clone built from this Mind Vault's Core Brain. Ask me about ${mind.domain.toLowerCase()} — I answer in my own words, from my own beliefs.`,
+  };
+}
 
 function Explore() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Mind>(MINDS[0]!);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [mode, setMode] = useState<Mode>("text");
+  const [messages, setMessages] = useState<Msg[]>(() => [greeting(MINDS[0]!)]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -127,41 +92,115 @@ function Explore() {
   }, [query]);
 
   useEffect(() => {
-    setMessages([
-      {
-        role: "agent",
-        text: `You're talking with a preview of ${selected.name}. Ask about ${selected.domain.toLowerCase()} — answers are drawn from this Mind Vault's mined knowledge.`,
-      },
-    ]);
+    setMessages([greeting(selected)]);
+    setError(null);
+    stopSpeaking();
   }, [selected]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, thinking]);
 
-  const send = () => {
-    const text = input.trim();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSpeechSupported("speechSynthesis" in window);
+  }, []);
+
+  useEffect(() => {
+    if (mode === "text") textareaRef.current?.focus();
+  }, [mode, thinking]);
+
+  function stopSpeaking() {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  }
+
+  function speak(text: string) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text.replace(/[*_`#>\[\]()]/g, ""));
+    utter.rate = 1;
+    utter.onend = () => setSpeaking(false);
+    utter.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utter);
+  }
+
+  async function send(rawText: string, via: Mode) {
+    const text = rawText.trim();
     if (!text || thinking) return;
+    setError(null);
     setInput("");
-    setMessages((m) => [...m, { role: "user", text }]);
+    const userMsg: Msg = { id: uid(), role: "user", text, via };
+    const history = [...messages, userMsg];
+    setMessages(history);
     setThinking(true);
-    const line = selected.sample[messages.length % selected.sample.length] ?? selected.sample[0]!;
-    window.setTimeout(() => {
-      setMessages((m) => [
-        ...m,
-        {
-          role: "agent",
-          text: `${line}\n\n(Preview response — full sessions unlock at $${selected.perQuery.toFixed(2)} per query.)`,
-        },
-      ]);
-      setThinking(false);
-    }, 700);
-  };
+
+    let reply = "";
+    try {
+      const res = await fetch("/api/mind-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mindId: selected.id,
+          messages: history.map((m) => ({ role: m.role, text: m.text })),
+        }),
+      });
+      const data = (await res.json()) as { text?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "This mind could not answer right now.");
+      reply = (data.text ?? "").trim();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "This mind could not answer right now.";
+      setError(message);
+      reply =
+        selected.coreBrain.sampleLines[history.length % selected.coreBrain.sampleLines.length] ??
+        selected.coreBrain.sampleLines[0]!;
+    }
+
+    if (!reply) reply = "I don't have that in my mined brain yet.";
+    const visual = pickVisual(selected, `${text} ${reply}`);
+    setMessages((m) => [...m, { id: uid(), role: "agent", text: reply, via, visual }]);
+    setThinking(false);
+    if (via !== "text") speak(reply);
+  }
+
+  function toggleListening() {
+    const SR =
+      typeof window !== "undefined" &&
+      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) {
+      setError("Voice input isn't supported in this browser — type your message instead.");
+      return;
+    }
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.interimResults = false;
+    rec.onresult = (ev: any) => {
+      const said = ev.results[0]?.[0]?.transcript ?? "";
+      if (said) void send(said, mode);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => {
+      setListening(false);
+      setError("Couldn't hear that — check microphone permission.");
+    };
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  }
+
+  const lastAgent = [...messages].reverse().find((m) => m.role === "agent");
 
   return (
     <div className="dark min-h-screen overflow-x-hidden bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 px-4 py-4 backdrop-blur-md sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl min-w-0 items-center justify-between gap-4">
+        <div className="mx-auto flex min-w-0 max-w-7xl items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Brain className="h-5 w-5" />
@@ -198,7 +237,8 @@ function Explore() {
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[1.25fr_1fr]">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_1.05fr]">
+          {/* Marketplace list */}
           <section className="min-w-0 space-y-4">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -222,7 +262,9 @@ function Explore() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="truncate text-base font-semibold text-foreground">{m.name}</h3>
+                        <h3 className="truncate text-base font-semibold text-foreground">
+                          {m.name}
+                        </h3>
                         <p className="truncate text-xs text-muted-foreground">{m.domain}</p>
                       </div>
                       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-1 text-xs text-foreground">
@@ -267,57 +309,205 @@ function Explore() {
             </div>
           </section>
 
+          {/* Mind interaction */}
           <section className="flex min-w-0 flex-col rounded-[12px] border border-border bg-card">
-            <div className="flex items-center gap-3 border-b border-border p-5">
+            <div className="flex flex-wrap items-center gap-3 border-b border-border p-5">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Sparkles className="h-4 w-4" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h3 className="truncate text-base font-semibold text-foreground">{selected.name}</h3>
                 <p className="truncate text-xs text-muted-foreground">
-                  Preview agent · {selected.access === "public" ? "Public vault" : "Private vault"}
+                  Preview clone · {selected.access === "public" ? "Public vault" : "Private vault"} ·
+                  ${selected.perQuery.toFixed(2)}/query
                 </p>
               </div>
             </div>
 
-            <div ref={scrollRef} className="min-h-[280px] flex-1 space-y-3 overflow-y-auto p-5">
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`max-w-[85%] whitespace-pre-wrap rounded-[12px] px-3.5 py-2.5 text-sm ${
-                    m.role === "user"
-                      ? "ml-auto bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground"
-                  }`}
-                >
-                  {m.text}
+            {/* Mode switcher */}
+            <div className="border-b border-border p-4">
+              <div className="flex gap-1 overflow-x-auto rounded-lg border border-border bg-muted p-1">
+                {MODES.map((m) => {
+                  const Icon = m.icon;
+                  const active = mode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setMode(m.id);
+                        if (m.id === "text") stopSpeaking();
+                      }}
+                      className={`inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Switch modes anytime — the conversation stays the same.
+              </p>
+            </div>
+
+            {/* Video avatar stage */}
+            {mode === "video" && (
+              <div className="border-b border-border p-5">
+                <div className="relative flex h-44 items-center justify-center overflow-hidden rounded-[12px] border border-border bg-gradient-to-b from-muted to-background">
+                  <div
+                    className={`flex h-20 w-20 items-center justify-center rounded-full border-2 text-2xl font-semibold text-foreground transition-transform ${
+                      speaking ? "animate-pulse scale-105" : ""
+                    }`}
+                    style={{ borderColor: selected.accent, background: `${selected.accent}22` }}
+                  >
+                    {selected.shortName.slice(0, 2)}
+                  </div>
+                  <span className="absolute bottom-3 left-3 rounded-full bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground">
+                    {speaking ? "Speaking…" : thinking ? "Thinking…" : "Avatar idle"}
+                  </span>
+                  {speaking && (
+                    <button
+                      onClick={stopSpeaking}
+                      className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-[11px] text-foreground"
+                    >
+                      <Square className="h-3 w-3" /> Stop
+                    </button>
+                  )}
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Video avatar preview drives the mined voice profile; photoreal rendering unlocks
+                  with a full vault license.
+                </p>
+              </div>
+            )}
+
+            {/* Transcript (shared across all modes) */}
+            <div ref={scrollRef} className="min-h-[300px] flex-1 space-y-3 overflow-y-auto p-5">
+              {messages.map((m) => (
+                <div key={m.id} className={m.role === "user" ? "flex justify-end" : ""}>
+                  <div
+                    className={`max-w-[88%] rounded-[12px] px-3.5 py-2.5 text-sm ${
+                      m.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground"
+                    }`}
+                  >
+                    {m.via !== "text" && (
+                      <span className="mb-1 flex items-center gap-1 text-[10px] uppercase tracking-wider opacity-70">
+                        {m.via === "voice" ? <Mic className="h-3 w-3" /> : <Video className="h-3 w-3" />}
+                        {m.via}
+                      </span>
+                    )}
+                    {m.role === "agent" ? (
+                      <div className="markdown-chat space-y-2 leading-relaxed">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{m.text}</p>
+                    )}
+                    {m.visual && (
+                      <figure className="mt-3 overflow-hidden rounded-lg border border-border">
+                        <img
+                          src={m.visual.src}
+                          alt={m.visual.label}
+                          loading="lazy"
+                          width={768}
+                          height={512}
+                          className="h-auto w-full"
+                        />
+                        <figcaption className="bg-card px-2.5 py-1.5 text-[11px] text-muted-foreground">
+                          Visual Data · {m.visual.label} · [{m.visual.timestamp}]
+                        </figcaption>
+                      </figure>
+                    )}
+                    {m.role === "agent" && (
+                      <button
+                        onClick={() => (speaking ? stopSpeaking() : speak(m.text))}
+                        disabled={!speechSupported}
+                        className="mt-2 inline-flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+                      >
+                        <Volume2 className="h-3 w-3" />
+                        {speaking ? "Stop" : "Play voice"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
               {thinking && (
-                <div className="max-w-[85%] rounded-[12px] bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
-                  Thinking…
+                <div className="max-w-[85%] animate-pulse rounded-[12px] bg-muted px-3.5 py-2.5 text-sm text-muted-foreground">
+                  {selected.shortName} is thinking…
                 </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2 border-t border-border p-4">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") send();
-                }}
-                placeholder="Ask this mind something…"
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
-              />
-              <button
-                onClick={send}
-                disabled={!input.trim() || thinking}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-                Send
-              </button>
+            {error && (
+              <p className="border-t border-border px-5 py-2 text-xs text-status-red">{error}</p>
+            )}
+
+            {/* Composer */}
+            <div className="border-t border-border p-4">
+              {mode === "text" ? (
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    rows={1}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void send(input, "text");
+                      }
+                    }}
+                    placeholder={`Ask ${selected.shortName} something…`}
+                    className="max-h-32 min-w-0 flex-1 resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                  <button
+                    onClick={() => void send(input, "text")}
+                    disabled={!input.trim() || thinking}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    aria-label="Send message"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={toggleListening}
+                    disabled={thinking}
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+                      listening
+                        ? "bg-status-red/15 text-status-red"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                    }`}
+                  >
+                    {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {listening ? "Listening — tap to stop" : "Hold a conversation"}
+                  </button>
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void send(input, mode);
+                    }}
+                    placeholder="…or type instead"
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                  />
+                  <button
+                    onClick={() => void send(input, mode)}
+                    disabled={!input.trim() || thinking}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    aria-label="Send message"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </section>
         </div>
