@@ -591,15 +591,19 @@ function Index() {
     addLog("info", `Exported ${results.length} piece(s) to ${filename}`);
   }, [source, duration, model, chunks, results, log, addLog]);
 
-  const handleExportBrain = useCallback(() => {
-    const brain = buildAgentBrain({ source: { name: source?.name ?? "mine", duration }, results });
+  const handleExportBrain = useCallback(async () => {
+    const brain = await buildAgentBrain({
+      source: { name: source?.name ?? "mine", duration },
+      results,
+      ownership,
+    });
     const filename = downloadAgentBrain(brain, source?.name ?? "mine");
     setStatusNote("noteBrainExported");
     addLog(
       "info",
-      `Exported agent-ready brain (${brain.subconsciousness.skills.length} skills, ${brain.subconsciousness.beliefs.length} beliefs, ${brain.subconsciousness.decisionLogic.length} decision rules) to ${filename}`,
+      `Exported agent-ready brain ${brain.mindId} (${brain.subconsciousness.skills.length} skills, ${brain.subconsciousness.beliefs.length} beliefs, ${brain.subconsciousness.decisionLogic.length} decision rules, ${brain.monetization.priceLabel}, signature ${brain.ownership.signature.signature.slice(0, 12)}…) to ${filename}`,
     );
-  }, [source, duration, results, addLog]);
+  }, [source, duration, results, ownership, addLog]);
 
   const handleDeleteSample = useCallback(() => {
     setVoiceSample((s) => {
