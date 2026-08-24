@@ -64,6 +64,7 @@ import {
   BookOpen,
   ScanFace,
   AudioLines,
+  Cloud,
   Sparkles,
   Search,
   Copy,
