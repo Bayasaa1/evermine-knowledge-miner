@@ -1034,8 +1034,10 @@ function Index() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative cursor-pointer rounded-[12px] border-2 border-dashed border-border bg-muted px-6 py-10 text-center transition-colors hover:border-primary/50 hover:bg-muted/80 ${
-                  isDragging ? "border-primary bg-primary/5" : ""
+                className={`relative cursor-pointer rounded-[12px] border-2 border-dashed px-6 py-10 text-center transition-all duration-200 ${
+                  isDragging
+                    ? "scale-[1.01] border-primary bg-primary/10 ring-4 ring-primary/20"
+                    : "border-border bg-muted hover:border-primary/50 hover:bg-muted/80"
                 }`}
               >
                 <input
@@ -1045,35 +1047,75 @@ function Index() {
                   onChange={handleFileSelect}
                   className="sr-only"
                 />
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
-                  <Upload className="h-6 w-6 text-primary" />
+                <div
+                  className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full transition-colors ${
+                    isDragging ? "bg-primary/20" : "bg-secondary"
+                  }`}
+                >
+                  <Upload
+                    className={`h-6 w-6 text-primary transition-transform duration-200 ${
+                      isDragging ? "-translate-y-0.5 scale-110" : ""
+                    }`}
+                  />
                 </div>
-                <p className="text-sm font-medium text-foreground">{t.dragDrop}</p>
+                <p className="text-sm font-medium text-foreground">
+                  {isDragging ? t.dropHere : t.dragDrop}
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">{t.orClick}</p>
                 <p className="mt-3 text-xs text-muted-foreground/70">{t.supported}</p>
               </div>
 
               {file && (
-                <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted px-4 py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Video className="h-4 w-4 shrink-0 text-primary" />
-                    <p className="truncate text-sm text-foreground">{file.name}</p>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {(file.size / (1024 * 1024)).toFixed(2)} MB
-                    </span>
-                    {duration !== null && (
-                      <span className="hidden text-xs text-muted-foreground whitespace-nowrap sm:inline">
-                        · {formatDuration(duration)} · {chunks.length} {t.pieces}
-                      </span>
-                    )}
+                <div className="mt-4 overflow-hidden rounded-[12px] border border-border bg-muted">
+                  {previewUrl && (
+                    <video
+                      key={previewUrl}
+                      src={previewUrl}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="aspect-video w-full bg-black"
+                    />
+                  )}
+                  <div className="flex items-start justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Video className="h-4 w-4 shrink-0 text-primary" />
+                        <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
+                      </div>
+                      <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                        <div className="flex gap-1.5">
+                          <dt>{t.duration}:</dt>
+                          <dd className="text-foreground">
+                            {duration !== null ? formatDuration(duration) : t.reading}
+                          </dd>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <dt>{t.resolution}:</dt>
+                          <dd className="text-foreground">
+                            {resolution ? `${resolution.width} × ${resolution.height}` : t.reading}
+                          </dd>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <dt>{t.fileSize}:</dt>
+                          <dd className="text-foreground">{formatBytes(file.size)}</dd>
+                        </div>
+                        {chunks.length > 0 && (
+                          <div className="flex gap-1.5">
+                            <dt>{t.pieces}:</dt>
+                            <dd className="text-foreground">{chunks.length}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </div>
+                    <button
+                      onClick={removeFile}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={t.removeFile}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
-                  <button
-                    onClick={removeFile}
-                    className="ml-2 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    aria-label={t.removeFile}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
                 </div>
               )}
 
