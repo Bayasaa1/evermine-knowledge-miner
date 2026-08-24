@@ -1,5 +1,13 @@
 import type { Chunk } from "./chunking";
 import { normalizeChunkResult, type ChunkResult } from "./gemini";
+import {
+  normalizeOwnership,
+  signMind,
+  type AccessLevel,
+  type DigitalSignature,
+  type Ownership,
+  type RateUnit,
+} from "./ownership";
 
 export const MINE_FORMAT = "evermine.mine";
 export const MINE_VERSION = 2;
@@ -12,6 +20,7 @@ export type MineFile = {
   savedAt: string;
   source: { name: string; size: number; duration: number | null };
   model: string;
+  ownership: Ownership;
   chunks: Chunk[];
   results: MineResult[];
   log: string[];
@@ -20,6 +29,7 @@ export type MineFile = {
 export function buildMineFile(input: {
   source: { name: string; size: number; duration: number | null };
   model: string;
+  ownership: Ownership;
   chunks: Chunk[];
   results: MineResult[];
   log: string[];
