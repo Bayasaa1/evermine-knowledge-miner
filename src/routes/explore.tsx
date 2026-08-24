@@ -108,6 +108,7 @@ function Explore() {
     let alive = true;
     void (async () => {
       const [v, c] = await Promise.all([loadVault(), loadCaptureEnabled()]);
+      console.log("[miner] boot", JSON.stringify(v), c);
       if (!alive) return;
       setVault(v);
       setCapture(c);
