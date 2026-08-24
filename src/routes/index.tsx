@@ -928,7 +928,7 @@ function Index() {
 
 
   return (
-    <div className="dark min-h-screen bg-background text-foreground">
+    <div className="dark min-h-screen overflow-x-hidden bg-background text-foreground">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -1012,11 +1012,11 @@ function Index() {
       </aside>
 
       {/* Main workspace */}
-      <main className="min-h-screen lg:pl-[260px]">
+      <main className="min-h-screen min-w-0 lg:pl-[260px]">
         {/* Header */}
-        <header className="sticky top-0 z-30 border-b border-border bg-background/80 px-6 py-5 backdrop-blur-md lg:px-10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 border-b border-border bg-background/80 px-4 py-4 backdrop-blur-md sm:px-6 sm:py-5 lg:px-8 xl:px-10">
+          <div className="flex min-w-0 items-center justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-muted lg:hidden"
@@ -1024,17 +1024,17 @@ function Index() {
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <div>
-                <h2 className="text-2xl font-semibold tracking-tight text-foreground">{t.dashboard}</h2>
-                <p className="text-sm text-muted-foreground">{t.tagline}</p>
+              <div className="min-w-0">
+                <h2 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t.dashboard}</h2>
+                <p className="truncate text-sm text-muted-foreground">{t.tagline}</p>
               </div>
             </div>
           </div>
         </header>
 
-        <div className="space-y-6 p-6 lg:p-10">
+        <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8 xl:p-10">
           {/* Status banner */}
-          <div className="flex items-center gap-4 rounded-[12px] border border-border bg-card px-5 py-4">
+          <div className="flex min-w-0 items-center gap-4 rounded-[12px] border border-border bg-card px-4 py-4 sm:px-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
               <StatusIcon
                 className={`h-5 w-5 ${statusConfig[status].color} ${status === "processing" ? "animate-spin" : ""}`}
@@ -1049,9 +1049,9 @@ function Index() {
           </div>
 
           {/* Main grid */}
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             {/* API Key Card */}
-            <section className="rounded-[12px] border border-border bg-card p-6">
+            <section className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
               <div className="mb-5 flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <KeyRound className="h-4 w-4" />
@@ -1146,7 +1146,7 @@ function Index() {
             </section>
 
             {/* Video Upload Card */}
-            <section className="rounded-[12px] border border-border bg-card p-6">
+            <section className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
               <div className="mb-5 flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Video className="h-4 w-4" />
@@ -1267,7 +1267,7 @@ function Index() {
 
           {/* Live progress */}
           {(status === "processing" || status === "complete") && totalPieces > 0 && (
-            <section className="rounded-[12px] border border-border bg-card p-6">
+            <section className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -1353,7 +1353,7 @@ function Index() {
           )}
 
           {/* Commercial / Marketplace Settings */}
-          <section id="commercial" className="rounded-[12px] border border-border bg-card p-6">
+          <section id="commercial" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <BadgeDollarSign className="h-4 w-4" />
@@ -1466,7 +1466,7 @@ function Index() {
           </section>
 
           {/* Results Area */}
-          <section ref={resultsRef} id="results" className="rounded-[12px] border border-border bg-card p-6">
+          <section ref={resultsRef} id="results" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <FileText className="h-4 w-4" />
@@ -1474,7 +1474,7 @@ function Index() {
               <h3 className="text-lg font-semibold text-foreground">{t.results}</h3>
             </div>
 
-            <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-border bg-muted p-1">
+            <div className="mb-4 flex w-full min-w-0 flex-wrap gap-1 rounded-lg border border-border bg-muted p-1">
               {(
                 [
                   { id: "subtitle", label: t.tabSubtitle, icon: ScrollText },
@@ -1488,7 +1488,7 @@ function Index() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors ${
+                  className={`inline-flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-xs font-medium transition-colors sm:text-sm ${
                     activeTab === tab.id
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
@@ -1515,7 +1515,7 @@ function Index() {
               </div>
             )}
 
-            <div className="min-h-[220px] rounded-[12px] border border-border bg-muted p-5">
+            <div className="min-h-[220px] min-w-0 break-words rounded-[12px] border border-border bg-muted p-4 sm:p-5">
               {activeTab === "subtitle" && (
                 <div className="space-y-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
