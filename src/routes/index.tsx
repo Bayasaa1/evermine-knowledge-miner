@@ -557,6 +557,24 @@ function Index() {
                 </div>
 
                 <div>
+                  <label htmlFor="model" className="mb-2 block text-sm font-medium text-muted-foreground">
+                    Model
+                  </label>
+                  <select
+                    id="model"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    className="w-full appearance-none rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
+                  >
+                    {MODELS.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label htmlFor="api-key" className="mb-2 block text-sm font-medium text-muted-foreground">
                     {t.apiKey}
                   </label>
@@ -565,20 +583,45 @@ function Index() {
                       id="api-key"
                       type="password"
                       value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
+                      onChange={(e) => {
+                        setApiKey(e.target.value);
+                        setKeyState("none");
+                      }}
                       placeholder={t.apiKeyPlaceholder}
                       className="flex-1 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <button
                       onClick={handleSaveKey}
-                      disabled={!apiKey.trim()}
+                      disabled={!apiKey.trim() || keyState === "checking"}
                       className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <Save className="h-4 w-4" />
+                      {keyState === "checking" ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
                       <span className="hidden sm:inline">{t.saveKey}</span>
                     </button>
                   </div>
+                  {keyState !== "none" && (
+                    <p
+                      className={`mt-2 text-xs font-medium ${
+                        keyState === "valid"
+                          ? "text-status-green"
+                          : keyState === "invalid"
+                            ? "text-status-red"
+                            : "text-status-amber"
+                      }`}
+                    >
+                      {keyState === "valid"
+                        ? "Key validated and stored locally."
+                        : keyState === "invalid"
+                          ? "Key rejected — see the App Log."
+                          : "Validating key..."}
+                    </p>
+                  )}
                 </div>
+
               </div>
             </section>
 
