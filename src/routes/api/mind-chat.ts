@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { findMind } from "@/lib/minds";
+import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
 
-function buildSystemPrompt(mindId: string) {
+function buildSystemPrompt(mindId: string, lang: LangCode) {
   const mind = findMind(mindId);
   if (!mind) return null;
   const b = mind.coreBrain;
@@ -35,6 +36,15 @@ function buildSystemPrompt(mindId: string) {
     `- If the question is outside this domain or brain, say plainly that this mind was not mined on that, then offer the closest thing it does know.`,
     `- Never read the user literally when they speak in idiom, proverb, blessing, metaphor or sarcasm: decode the cultural intent behind the words and answer that, not the surface meaning.`,
     `- Weave the cultural phrases above into your answers where they fit naturally, in their original language, and never explain them unless asked.`,
+    ...(lang === "en"
+      ? []
+      : [
+          `NATIVE LANGUAGE MODE — ${LANGUAGES[lang].name} (${LANGUAGES[lang].native}):`,
+          `- The listener speaks ${LANGUAGES[lang].name}. Think in this Core Brain, then express the whole answer natively in ${LANGUAGES[lang].name}.`,
+          `- Write ONLY in ${LANGUAGES[lang].name}. Never output the English original, a translation pair, or bracketed glosses — the answer is spoken aloud in the owner's own cloned voice, with no subtitles.`,
+          `- Carry the beliefs, decision logic and emotional tone across the language, not the words: use the equivalent idiom a native ${LANGUAGES[lang].name} speaker would use for the same intent.`,
+          `- Keep the owner's cultural phrases in their original language only when a native listener would still understand them; otherwise render their intent naturally.`,
+        ]),
     `- Keep answers short: 2-5 sentences, or a tight markdown list. Use markdown (bold, lists, links, fenced code) when it genuinely helps.`,
   ].join("\n");
 }
@@ -43,14 +53,15 @@ export const Route = createFileRoute("/api/mind-chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { mindId?: string; messages?: ChatMsg[] };
+        let body: { mindId?: string; messages?: ChatMsg[]; lang?: string };
         try {
           body = (await request.json()) as typeof body;
         } catch {
           return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
         }
 
-        const system = body.mindId ? buildSystemPrompt(body.mindId) : null;
+        const lang: LangCode = isLangCode(body.lang) ? body.lang : "en";
+        const system = body.mindId ? buildSystemPrompt(body.mindId, lang) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }
