@@ -1002,12 +1002,15 @@ function Index() {
   const handleExtractSample = useCallback(async () => {
     if (!file || voiceBusy) return;
     const windows = results.flatMap((r) => r.data.voiceData);
+    // Music-free windows first — the cloning sample must be clean speech.
+    const clean = windows.filter((w) => !w.musicPresent);
+    const pool = clean.length > 0 ? clean : windows;
     const best =
-      windows.find((w) => /excellent/i.test(w.quality)) ?? windows.find((w) => /good/i.test(w.quality)) ?? windows[0];
+      pool.find((w) => /excellent/i.test(w.quality)) ?? pool.find((w) => /good/i.test(w.quality)) ?? pool[0];
     const start = best ? (parseTimestamp(best.start) ?? 0) : 0;
     setVoiceBusy(true);
     setVoiceProgress(0);
-    addLog("info", `Extracting a 60s voice sample from ${formatDuration(start)} (local, no upload)...`);
+    addLog("info", `Extracting a 60s voice sample from ${formatDuration(start)} with background music filtered out (local, no upload)...`);
     try {
       const sample = await extractVoiceSample(file, start, 60, { onProgress: setVoiceProgress });
       setVoiceSample((prev) => {
@@ -1015,7 +1018,7 @@ function Index() {
         return sample;
       });
       setStatusNote("noteSampleReady");
-      addLog("info", `Voice sample ready (${(sample.size / 1024).toFixed(0)} KB, ${sample.mimeType}).`);
+      addLog("info", `Voice sample ready (${(sample.size / 1024).toFixed(0)} KB, ${sample.mimeType}${sample.speechFiltered ? ", music filtered" : ""}).`);
     } catch (err) {
       setStatusNote("noteSampleFailed");
       addLog("error", `Voice sample failed: ${err instanceof Error ? err.message : String(err)}`);
