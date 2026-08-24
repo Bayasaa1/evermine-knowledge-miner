@@ -11,7 +11,6 @@ import {
   deleteFile,
   describeError,
   GeminiError,
-  type ChunkResult,
 } from "@/lib/gemini";
 import {
   Brain,
@@ -496,6 +495,49 @@ function Index() {
       handleFailure(err);
     }
   }, [apiKey, addLog, handleFailure]);
+
+  const handleExport = useCallback(() => {
+    const mine = buildMineFile({
+      source: { name: source?.name ?? "mine", size: source?.size ?? 0, duration },
+      model,
+      chunks,
+      results,
+      log,
+    });
+    const filename = downloadMineFile(mine);
+    setStatusNote("noteExported");
+    addLog("info", `Exported ${results.length} piece(s) to ${filename}`);
+  }, [source, duration, model, chunks, results, log, addLog]);
+
+  const handleImport = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const f = e.target.files?.[0];
+      if (importInputRef.current) importInputRef.current.value = "";
+      if (!f) return;
+      try {
+        const mine = parseMineFile(JSON.parse(await f.text()));
+        abortRef.current?.abort();
+        stopTimer();
+        setFile(null);
+        setResults(mine.results);
+        setChunks(mine.chunks);
+        setDuration(mine.source.duration);
+        setSource({ name: mine.source.name, size: mine.source.size });
+        setDonePieces(mine.results.length);
+        setCurrentPiece(mine.results.length);
+        setElapsed(0);
+        setLog([...mine.log, `[${new Date().toLocaleTimeString([], { hour12: false })}] [info] Imported ${f.name}`]);
+        setStatus(mine.results.length > 0 ? "complete" : "ready");
+        setStatusNote("noteImported");
+        setActiveTab("knowledge");
+      } catch (err) {
+        setStatus("error");
+        setStatusNote("noteImportFailed");
+        addLog("error", `Import rejected: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [addLog, stopTimer],
+  );
 
   const removeFile = useCallback(() => {
     abortRef.current?.abort();
@@ -999,6 +1041,31 @@ function Index() {
               )}
             </div>
 
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                onClick={handleExport}
+                disabled={results.length === 0}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                {t.saveMine}
+              </button>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-muted px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                <FolderOpen className="h-4 w-4" />
+                {t.openMine}
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImport}
+                className="sr-only"
+              />
+              <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-[320px]">{t.localOnly}</p>
+            </div>
           </section>
         </div>
       </main>
