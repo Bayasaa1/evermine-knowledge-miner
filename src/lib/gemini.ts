@@ -20,6 +20,17 @@ export function describeError(err: unknown): string {
   return String(err);
 }
 
+/** True for 429 rate-limit / quota-exhausted responses, which key rotation can retry. */
+export function isQuotaError(err: unknown): boolean {
+  return err instanceof GeminiError && (err.status === 429 || /quota|exhaust|rate limit/i.test(err.message));
+}
+
+/** True when the key itself is rejected — rotating to another key is worth trying. */
+export function isKeyRejected(err: unknown): boolean {
+  return err instanceof GeminiError && (err.status === 401 || err.status === 403);
+}
+
+
 async function readError(res: Response): Promise<GeminiError> {
   let msg = res.statusText || "Unknown error";
   try {
