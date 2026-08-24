@@ -17,6 +17,8 @@ import {
 import { saveResume, loadResume, clearResume, type ResumeState } from "@/lib/resume";
 
 import { idbGet, idbSet, STORES } from "@/lib/store";
+import { useAuth } from "@/hooks/use-auth";
+import { upsertVault, type Json } from "@/lib/cloud-vault.functions";
 import {
   buildMineFile,
   parseMineFile,
@@ -812,10 +814,10 @@ function Index() {
   const fileRefRef = useRef<UploadedFile | null>(null);
   const { isAuthenticated } = useAuth();
   const cloudVaultIdRef = useRef<string | null>(null);
-  const resultsRef = useRef<MineResult[]>([]);
+  const minedRef = useRef<MineResult[]>([]);
 
   useEffect(() => {
-    resultsRef.current = results;
+    minedRef.current = results;
   }, [results]);
 
   useEffect(() => {
@@ -1091,7 +1093,7 @@ function Index() {
         model,
         ownership,
         chunks,
-        results: resultsRef.current,
+        results: minedRef.current,
         log: [],
       });
       const { id } = await upsertVault({
