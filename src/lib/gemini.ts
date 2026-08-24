@@ -92,16 +92,43 @@ export async function uploadVideo(
 
 export type TranscriptLine = { timestamp: string; speech: string };
 export type SceneNote = { timestamp: string; description: string };
+export type StoryBeat = { timestamp: string; event: string; emotion: string };
+export type Story = { summary: string; tone: string; beats: StoryBeat[] };
+export type FaceFrame = {
+  timestamp: string;
+  description: string;
+  gestures: string;
+  lighting: string;
+  faceAngle: string;
+  cloneQuality: string;
+};
+export type VoiceWindow = {
+  start: string;
+  end: string;
+  quality: string;
+  note: string;
+};
+export type Subconsciousness = {
+  skills: string[];
+  beliefs: string[];
+  decisionLogic: string[];
+};
 export type ChunkResult = {
   transcript: TranscriptLine[];
   scenes: SceneNote[];
   knowledge: string[];
+  story: Story;
+  faceData: FaceFrame[];
+  voiceData: VoiceWindow[];
+  subconsciousness: Subconsciousness;
 };
+
+const strArr = { type: "array", items: { type: "string" } };
 
 const responseSchema = {
   type: "object",
   properties: {
-    transcript: {
+    subtitle: {
       type: "array",
       items: {
         type: "object",
@@ -112,30 +139,129 @@ const responseSchema = {
         required: ["timestamp", "speech"],
       },
     },
-    scenes: {
+    story: {
+      type: "object",
+      properties: {
+        summary: { type: "string" },
+        tone: { type: "string" },
+        beats: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              event: { type: "string" },
+              emotion: { type: "string" },
+            },
+            required: ["timestamp", "event", "emotion"],
+          },
+        },
+      },
+      required: ["summary", "tone", "beats"],
+    },
+    faceData: {
       type: "array",
       items: {
         type: "object",
         properties: {
           timestamp: { type: "string" },
           description: { type: "string" },
+          gestures: { type: "string" },
+          lighting: { type: "string" },
+          faceAngle: { type: "string" },
+          cloneQuality: { type: "string" },
         },
-        required: ["timestamp", "description"],
+        required: ["timestamp", "description", "gestures", "lighting", "faceAngle", "cloneQuality"],
       },
     },
-    knowledge: { type: "array", items: { type: "string" } },
+    voiceData: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          start: { type: "string" },
+          end: { type: "string" },
+          quality: { type: "string" },
+          note: { type: "string" },
+        },
+        required: ["start", "end", "quality", "note"],
+      },
+    },
+    subconsciousness: {
+      type: "object",
+      properties: {
+        skills: strArr,
+        beliefs: strArr,
+        decisionLogic: strArr,
+      },
+      required: ["skills", "beliefs", "decisionLogic"],
+    },
   },
-  required: ["transcript", "scenes", "knowledge"],
+  required: ["subtitle", "story", "faceData", "voiceData", "subconsciousness"],
 };
 
-const PROMPT = `You are analysing one segment of a personal-archive video.
+const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
+Extract FIVE pillars and return JSON only.
 
-Return JSON with three fields:
-1. "transcript": the EXACT VERBATIM transcript of everything spoken, split into short lines, each with a "timestamp" in MM:SS or HH:MM:SS form relative to the start of the whole video. NEVER translate or paraphrase. Keep the original language exactly as spoken, preserving any mix of Mongolian (Cyrillic) and English word for word, including filler words.
-2. "scenes": what can be SEEN on screen, as short visual descriptions with timestamps (people, place, objects, actions, on-screen text).
-3. "knowledge": short bulleted factual statements of what the speaker knows or believes (facts, opinions, values, memories, skills). One idea per bullet, written in the speaker's original language.
+1. "subtitle": the EXACT VERBATIM transcript of everything spoken, split into short lines, each with a "timestamp" in MM:SS or HH:MM:SS relative to the START OF THE WHOLE VIDEO. NEVER translate or paraphrase. Preserve the original mix of Mongolian (Cyrillic) and English word for word, including filler words.
+2. "story": the narrative. "summary" = chronological account of what happens and what the person experiences in this segment; "tone" = the dominant emotional tone; "beats" = ordered events with timestamp, the event, and the emotion felt.
+3. "faceData": for video cloning. Each entry describes one clear visual frame: what is seen, "gestures" (body/hand/head movement), "lighting" (quality and direction), "faceAngle" (e.g. frontal, 3/4 left, profile, looking down), and "cloneQuality" (excellent / good / poor + why).
+4. "voiceData": time windows with the CLEANEST audio for voice cloning — single speaker, no music, no overlapping noise. Give "start" and "end" timestamps (whole-video relative), "quality" (excellent / good / usable) and a short "note". Prefer continuous windows of 15 seconds or more.
+5. "subconsciousness": the person's core brain, for downstream AI agents to query. Three arrays of short standalone statements written in the speaker's original language:
+   - "skills": what they know how to do.
+   - "beliefs": what they value, advocate for, or criticise.
+   - "decisionLogic": how they approach problems and make choices (if/then reasoning, priorities, rules of thumb).
 
 Only cover the requested time range. Output JSON only.`;
+
+/** Fills missing pillars so older files and partial model output stay usable. */
+export function normalizeChunkResult(raw: unknown): ChunkResult {
+  const v = (raw ?? {}) as Record<string, unknown>;
+  const arr = <T,>(x: unknown): T[] => (Array.isArray(x) ? (x as T[]) : []);
+  const strings = (x: unknown): string[] => arr<unknown>(x).filter((s): s is string => typeof s === "string");
+  const transcript = arr<TranscriptLine>(v['subtitle'] ?? v['transcript']);
+  const faceData = arr<FaceFrame>(v['faceData'] ?? v['scenes']).map((f) => ({
+    timestamp: String(f?.timestamp ?? ""),
+    description: String(f?.description ?? ""),
+    gestures: String(f?.gestures ?? ""),
+    lighting: String(f?.lighting ?? ""),
+    faceAngle: String(f?.faceAngle ?? ""),
+    cloneQuality: String(f?.cloneQuality ?? ""),
+  }));
+  const s = (v['story'] ?? {}) as Record<string, unknown>;
+  const sc = (v['subconsciousness'] ?? {}) as Record<string, unknown>;
+  const subconsciousness: Subconsciousness = {
+    skills: strings(sc['skills']),
+    beliefs: strings(sc['beliefs']),
+    decisionLogic: strings(sc['decisionLogic']),
+  };
+  const knowledge = strings(v['knowledge']);
+  return {
+    transcript,
+    scenes: faceData.map((f) => ({ timestamp: f.timestamp, description: f.description })),
+    knowledge:
+      knowledge.length > 0
+        ? knowledge
+        : [...subconsciousness.skills, ...subconsciousness.beliefs, ...subconsciousness.decisionLogic],
+    story: {
+      summary: typeof s['summary'] === "string" ? s['summary'] : "",
+      tone: typeof s['tone'] === "string" ? s['tone'] : "",
+      beats: arr<StoryBeat>(s['beats']).map((b) => ({
+        timestamp: String(b?.timestamp ?? ""),
+        event: String(b?.event ?? ""),
+        emotion: String(b?.emotion ?? ""),
+      })),
+    },
+    faceData,
+    voiceData: arr<VoiceWindow>(v['voiceData']).map((w) => ({
+      start: String(w?.start ?? ""),
+      end: String(w?.end ?? ""),
+      quality: String(w?.quality ?? ""),
+      note: String(w?.note ?? ""),
+    })),
+    subconsciousness,
+  };
+}
 
 export async function mineChunk(
   key: string,
@@ -182,18 +308,15 @@ export async function mineChunk(
   const text: string =
     data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   if (!text.trim()) throw new GeminiError("Gemini returned an empty response for this piece", 500);
-  let parsed: ChunkResult;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
     throw new GeminiError("Could not parse JSON returned by Gemini", 500);
   }
-  return {
-    transcript: Array.isArray(parsed.transcript) ? parsed.transcript : [],
-    scenes: Array.isArray(parsed.scenes) ? parsed.scenes : [],
-    knowledge: Array.isArray(parsed.knowledge) ? parsed.knowledge : [],
-  };
+  return normalizeChunkResult(parsed);
 }
+
 
 export async function deleteFile(key: string, name: string): Promise<void> {
   try {

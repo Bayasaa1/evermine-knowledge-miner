@@ -1,8 +1,8 @@
 import type { Chunk } from "./chunking";
-import type { ChunkResult } from "./gemini";
+import { normalizeChunkResult, type ChunkResult } from "./gemini";
 
 export const MINE_FORMAT = "evermine.mine";
-export const MINE_VERSION = 1;
+export const MINE_VERSION = 2;
 
 export type MineResult = { index: number; chunk: Chunk; data: ChunkResult };
 
@@ -40,17 +40,17 @@ function isChunk(v: unknown): v is Chunk {
   return isObj(v) && isNum(v['index']) && isNum(v['start']) && isNum(v['end']) && isNum(v['duration']);
 }
 
-function isChunkResult(v: unknown): v is ChunkResult {
+/** Every pillar is optional on disk; `normalizeChunkResult` fills the gaps (v1 files included). */
+function isChunkResultish(v: unknown): boolean {
   if (!isObj(v)) return false;
-  const transcript = v['transcript'], scenes = v['scenes'], knowledge = v['knowledge'];
-  return (
-    Array.isArray(transcript) &&
-    transcript.every((l) => isObj(l) && isStr(l['timestamp']) && isStr(l['speech'])) &&
-    Array.isArray(scenes) &&
-    scenes.every((s) => isObj(s) && isStr(s['timestamp']) && isStr(s['description'])) &&
-    Array.isArray(knowledge) &&
-    knowledge.every(isStr)
-  );
+  const subtitle = v['subtitle'] ?? v['transcript'];
+  if (subtitle !== undefined && !Array.isArray(subtitle)) return false;
+  const face = v['faceData'] ?? v['scenes'];
+  if (face !== undefined && !Array.isArray(face)) return false;
+  if (v['voiceData'] !== undefined && !Array.isArray(v['voiceData'])) return false;
+  if (v['story'] !== undefined && !isObj(v['story'])) return false;
+  if (v['subconsciousness'] !== undefined && !isObj(v['subconsciousness'])) return false;
+  return true;
 }
 
 /** Strictly validates a parsed .evermine.json payload. Throws with a readable reason. */
@@ -67,19 +67,23 @@ export function parseMineFile(raw: unknown): MineFile {
 
   if (!Array.isArray(raw['chunks']) || !raw['chunks'].every(isChunk)) throw new Error('Invalid "chunks" section.');
   if (!Array.isArray(raw['results'])) throw new Error('Invalid "results" section.');
+  const results: MineResult[] = [];
   for (const r of raw['results']) {
-    if (!isObj(r) || !isNum(r['index']) || !isChunk(r['chunk']) || !isChunkResult(r['data']))
+    if (!isObj(r) || !isNum(r['index']) || !isChunk(r['chunk']) || !isChunkResultish(r['data']))
       throw new Error('Invalid entry in "results".');
+    results.push({ index: r['index'], chunk: r['chunk'], data: normalizeChunkResult(r['data']) });
   }
   if (!Array.isArray(raw['log']) || !raw['log'].every(isStr)) throw new Error('Invalid "log" section.');
 
-  return raw as unknown as MineFile;
+  return { ...(raw as unknown as MineFile), results, version: MINE_VERSION };
 }
 
-export function downloadMineFile(mine: MineFile): string {
-  const base = (mine.source['name'] || "mine").replace(/\.[^.]+$/, "").replace(/[^\w-]+/g, "_") || "mine";
-  const filename = `${base}.evermine.json`;
-  const blob = new Blob([JSON.stringify(mine, null, 2)], { type: "application/json" });
+function safeBase(name: string, fallback: string) {
+  return (name || fallback).replace(/\.[^.]+$/, "").replace(/[^\w-]+/g, "_") || fallback;
+}
+
+function downloadJson(data: unknown, filename: string): string {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -89,4 +93,86 @@ export function downloadMineFile(mine: MineFile): string {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return filename;
+}
+
+export function downloadMineFile(mine: MineFile): string {
+  return downloadJson(mine, `${safeBase(mine.source.name, "mine")}.evermine.json`);
+}
+
+/** Lightweight brain bundle meant to be dropped into an AI agent as system context. */
+export type AgentBrain = {
+  format: "evermine.agent-brain";
+  version: 1;
+  createdAt: string;
+  persona: {
+    source: string;
+    videoDuration: number | null;
+    segments: number;
+    languageNote: string;
+  };
+  systemPrompt: string;
+  narrative: { summary: string[]; tone: string[]; timeline: { timestamp: string; event: string; emotion: string }[] };
+  subconsciousness: { skills: string[]; beliefs: string[]; decisionLogic: string[] };
+  voiceCloning: { start: string; end: string; quality: string; note: string }[];
+  faceCloning: {
+    timestamp: string;
+    description: string;
+    gestures: string;
+    lighting: string;
+    faceAngle: string;
+    cloneQuality: string;
+  }[];
+  transcript: { timestamp: string; speech: string }[];
+};
+
+export function buildAgentBrain(input: {
+  source: { name: string; duration: number | null };
+  results: MineResult[];
+}): AgentBrain {
+  const ordered = [...input.results].sort((a, b) => a.index - b.index);
+  const uniq = (xs: string[]) => Array.from(new Set(xs.map((s) => s.trim()).filter(Boolean)));
+
+  const skills = uniq(ordered.flatMap((r) => r.data.subconsciousness.skills));
+  const beliefs = uniq(ordered.flatMap((r) => r.data.subconsciousness.beliefs));
+  const decisionLogic = uniq(ordered.flatMap((r) => r.data.subconsciousness.decisionLogic));
+
+  const systemPrompt = [
+    `You are an AI avatar of the person recorded in "${input.source.name}".`,
+    `Speak in their voice, in their own language (Mongolian and English mixed as they mix it). Never invent facts about their life.`,
+    ``,
+    `SKILLS — what they know how to do:`,
+    ...skills.map((s) => `- ${s}`),
+    ``,
+    `BELIEFS & OPINIONS — what they value, advocate or criticise:`,
+    ...beliefs.map((s) => `- ${s}`),
+    ``,
+    `DECISION LOGIC — how they approach problems and choose:`,
+    ...decisionLogic.map((s) => `- ${s}`),
+  ].join("\n");
+
+  return {
+    format: "evermine.agent-brain",
+    version: 1,
+    createdAt: new Date().toISOString(),
+    persona: {
+      source: input.source.name,
+      videoDuration: input.source.duration,
+      segments: ordered.length,
+      languageNote: "Verbatim source language preserved (Mongolian / English mix). Do not translate.",
+    },
+    systemPrompt,
+    narrative: {
+      summary: ordered.map((r) => r.data.story.summary).filter(Boolean),
+      tone: uniq(ordered.map((r) => r.data.story.tone)),
+      timeline: ordered.flatMap((r) => r.data.story.beats),
+    },
+    subconsciousness: { skills, beliefs, decisionLogic },
+    voiceCloning: ordered.flatMap((r) => r.data.voiceData),
+    faceCloning: ordered.flatMap((r) => r.data.faceData),
+    transcript: ordered.flatMap((r) => r.data.transcript),
+  };
+}
+
+export function downloadAgentBrain(brain: AgentBrain, sourceName: string): string {
+  return downloadJson(brain, `${safeBase(sourceName, "brain")}.agent-brain.json`);
 }
