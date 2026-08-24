@@ -883,6 +883,7 @@ function Index() {
     setFocusedPiece((cur) => (cur === index ? null : index));
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  const isMining = status === "processing";
   const visibleResults = focusedPiece === null ? results : results.filter((r) => r.index === focusedPiece);
 
   // ---- Transcript tab helpers ----
@@ -1541,7 +1542,11 @@ function Index() {
                   </div>
 
                   {results.length === 0 ? (
+                    isMining ? (
+                    <TabSkeleton rows={4} />
+                  ) : (
                     <p className="text-sm text-muted-foreground">{t.noTranscript}</p>
+                  )
                   ) : filteredTranscript.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t.noMatches}</p>
                   ) : (
@@ -1572,13 +1577,19 @@ function Index() {
                       </div>
                     ))
                   )}
+
+                  {isMining && results.length > 0 && <TabSkeleton rows={4} groups={1} />}
                 </div>
               )}
 
               {activeTab === "story" && (
                 <div className="space-y-5">
                   {results.length === 0 ? (
+                    isMining ? (
+                    <TabSkeleton rows={3} />
+                  ) : (
                     <p className="text-sm text-muted-foreground">{t.noStory}</p>
+                  )
                   ) : (
                     visibleResults.map((r) => (
                       <div key={r.index}>
@@ -1607,13 +1618,19 @@ function Index() {
                       </div>
                     ))
                   )}
+
+                  {isMining && results.length > 0 && <TabSkeleton rows={3} groups={1} />}
                 </div>
               )}
 
               {activeTab === "face" && (
                 <div className="space-y-5">
                   {results.length === 0 ? (
+                    isMining ? (
+                    <TabSkeleton rows={3} />
+                  ) : (
                     <p className="text-sm text-muted-foreground">{t.noFace}</p>
+                  )
                   ) : (
                     visibleResults.map((r) => (
                       <div key={r.index}>
@@ -1641,6 +1658,8 @@ function Index() {
                       </div>
                     ))
                   )}
+
+                  {isMining && results.length > 0 && <TabSkeleton rows={3} groups={1} />}
                 </div>
               )}
 
@@ -1692,7 +1711,11 @@ function Index() {
                   </div>
 
                   {results.length === 0 ? (
+                    isMining ? (
+                    <TabSkeleton rows={2} groups={1} />
+                  ) : (
                     <p className="text-sm text-muted-foreground">{t.noVoice}</p>
+                  )
                   ) : (
                     <div>
                       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">{t.voiceWindows}</p>
@@ -1717,7 +1740,11 @@ function Index() {
               {activeTab === "brain" && (
                 <div className="space-y-5">
                   {results.length === 0 ? (
+                    isMining ? (
+                    <TabSkeleton rows={3} groups={3} />
+                  ) : (
                     <p className="text-sm text-muted-foreground">{t.noBrain}</p>
+                  )
                   ) : (
                     (
                       [
@@ -1745,6 +1772,8 @@ function Index() {
                       );
                     })
                   )}
+
+                  {isMining && results.length > 0 && <TabSkeleton rows={2} groups={1} />}
                 </div>
               )}
 
