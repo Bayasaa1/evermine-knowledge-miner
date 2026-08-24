@@ -296,6 +296,9 @@ function Index() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number>(0);
   const abortRef = useRef<AbortController | null>(null);
+  const [voiceSample, setVoiceSample] = useState<VoiceSample | null>(null);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const [voiceProgress, setVoiceProgress] = useState(0);
 
   const addLog = useCallback((level: "info" | "warn" | "error", message: string) => {
     const ts = new Date().toLocaleTimeString([], { hour12: false });
