@@ -916,6 +916,8 @@ function Index() {
     processing: { label: t.processing, icon: Loader2, color: "text-status-amber" },
     complete: { label: t.complete, icon: CheckCircle2, color: "text-status-green" },
     error: { label: t.error, icon: AlertCircle, color: "text-status-red" },
+    paused: { label: t.paused, icon: PauseCircle, color: "text-status-amber" },
+
   };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
