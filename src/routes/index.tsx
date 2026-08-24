@@ -1888,6 +1888,11 @@ function Index() {
                               {t.sampleReady} · {formatDuration(voiceSample.start)} → +{Math.round(voiceSample.duration)}s ·{" "}
                               {(voiceSample.size / 1024).toFixed(0)} KB
                             </span>
+                            {voiceSample.speechFiltered && (
+                              <span className="rounded-md border border-status-green/40 bg-status-green/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-status-green">
+                                {t.speechFiltered}
+                              </span>
+                            )}
                             <button
                               onClick={() => downloadVoiceSample(voiceSample)}
                               className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground transition-colors hover:border-primary/50 hover:text-primary"
@@ -1927,6 +1932,15 @@ function Index() {
                                 [{w.start}–{w.end}]
                               </span>
                               <span className="text-status-green">{w.quality}</span>
+                              <span
+                                className={`ml-2 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                  w.musicPresent
+                                    ? "border-status-amber/40 bg-status-amber/10 text-status-amber"
+                                    : "border-status-green/40 bg-status-green/10 text-status-green"
+                                }`}
+                              >
+                                {w.musicPresent ? t.musicPresent : t.cleanSpeech}
+                              </span>
                               {w.note && <span className="ml-2 text-muted-foreground">— {w.note}</span>}
                             </p>
                           )),
@@ -1934,6 +1948,8 @@ function Index() {
                       </div>
                     </div>
                   )}
+
+                  <AudioAtmosphere results={visibleResults} t={t} />
                 </div>
               )}
 
@@ -1951,10 +1967,11 @@ function Index() {
                         { key: "skills", label: t.skills },
                         { key: "beliefs", label: t.beliefs },
                         { key: "decisionLogic", label: t.decisionLogic },
+                        { key: "aestheticProfile", label: t.aestheticProfile },
                       ] as const
                     ).map((group) => {
                       const items = Array.from(
-                        new Set(visibleResults.flatMap((r) => r.data.subconsciousness[group.key]).filter(Boolean)),
+                        new Set(visibleResults.flatMap((r) => r.data.subconsciousness[group.key] ?? []).filter(Boolean)),
                       );
                       return (
                         <div key={group.key}>
