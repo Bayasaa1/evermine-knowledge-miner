@@ -1476,7 +1476,7 @@ function Index() {
               <h3 className="text-lg font-semibold text-foreground">{t.results}</h3>
             </div>
 
-            <div className="mb-4 flex w-full min-w-0 flex-wrap gap-1 rounded-lg border border-border bg-muted p-1">
+            <div className="mb-4 flex w-full min-w-0 gap-1 overflow-x-auto rounded-lg border border-border bg-muted p-1 [scrollbar-width:thin]">
               {(
                 [
                   { id: "subtitle", label: t.tabSubtitle, icon: ScrollText },
@@ -1490,7 +1490,7 @@ function Index() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-xs font-medium transition-colors sm:text-sm ${
+                  className={`inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-xs font-medium transition-colors sm:text-sm ${
                     activeTab === tab.id
                       ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
