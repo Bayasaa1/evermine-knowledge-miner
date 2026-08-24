@@ -7,6 +7,8 @@ export type VoiceSample = {
   start: number;
   duration: number;
   filename: string;
+  /** True when background music was filtered out of the recording. */
+  speechFiltered: boolean;
 };
 
 /** Parses "MM:SS" / "HH:MM:SS" (or a bare seconds string) into seconds. */
@@ -176,6 +178,7 @@ export async function extractVoiceSample(
       start: begin,
       duration: dur,
       filename: `${base}_voice_sample.${ext}`,
+      speechFiltered: audioCtx !== null,
     };
   } finally {
     cleanup();
