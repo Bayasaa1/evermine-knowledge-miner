@@ -149,7 +149,7 @@ export function mergeBrainDoc(existing: BrainDoc | null, fresh: BrainDoc): Brain
 
   out.actions = fresh.actions.filter((a) => !deleted.has(a.id));
   out.updatedAt = new Date().toISOString();
-  return out;
+  return resolveConflicts(out);
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
