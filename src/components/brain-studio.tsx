@@ -327,21 +327,43 @@ export function BrainStudio({
         </li>
       );
 
+    const archived = e.status === "archived";
     return (
-      <li key={e.id} className="group flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-        <p className="min-w-0 flex-1 break-words text-sm leading-relaxed text-foreground">
-          {e.text}
-          {e.source === "custom" && (
-            <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-              {t.custom}
+      <li
+        key={e.id}
+        className={`group flex items-start gap-3 rounded-lg border bg-background p-3 ${
+          archived ? "border-status-amber/40 opacity-75" : "border-border"
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm leading-relaxed text-foreground">
+            {e.text}
+            {e.source === "custom" && (
+              <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {t.custom}
+              </span>
+            )}
+            {e.edited && (
+              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {t.edited}
+              </span>
+            )}
+          </p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span
+              className={`rounded-full px-2 py-0.5 font-semibold ${
+                archived
+                  ? "bg-status-amber/15 text-status-amber"
+                  : "bg-status-green/15 text-status-green"
+              }`}
+            >
+              {archived ? `🟡 ${t.archivedBadge}` : `🟢 ${t.activeBadge}`}
             </span>
-          )}
-          {e.edited && (
-            <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {t.edited}
+            <span className="rounded-full bg-muted px-2 py-0.5 font-mono">
+              {t.recordedAt}: {new Date(e.updatedAt).toLocaleString(lang === "mn" ? "mn-MN" : "en-US", { dateStyle: "short", timeStyle: "short" })}
             </span>
-          )}
-        </p>
+          </p>
+        </div>
         <div className="flex shrink-0 gap-1">
           <button
             type="button"
