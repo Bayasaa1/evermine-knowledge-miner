@@ -10,8 +10,10 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { supabase } from "@/integrations/supabase/client";
 import { setLocalScope } from "@/lib/user-scope";
+import { installGlobalErrorInterceptors } from "@/lib/error-capture";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -129,6 +131,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
 
+  // Global error interception feeding the System Diagnostic Assistant widget.
+  useEffect(() => installGlobalErrorInterceptors(), []);
+
   // Single app-wide auth subscriber: keeps the router/cache and the local data
   // scope in sync with the signed-in account.
   useEffect(() => {
@@ -147,6 +152,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      <DiagnosticChat />
     </QueryClientProvider>
   );
 }

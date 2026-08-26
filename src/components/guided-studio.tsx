@@ -33,7 +33,7 @@ import {
   type ImportSource,
 } from "@/lib/import-sources";
 import { loadApiKeys, makeKeyEntry, saveApiKeys } from "@/lib/keystore";
-import { diagnoseError, type Diagnosis } from "@/lib/diagnose";
+import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
@@ -142,8 +142,6 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
-  const [diagnosing, setDiagnosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
@@ -167,24 +165,14 @@ function StepUpload({ lang }: { lang: Lang }) {
     return check.source;
   }, [tab, url, file]);
 
-  const explain = useCallback(
-    async (err: unknown, context: string, key: string | undefined) => {
-      const errorKey = errorKeyFor(err);
-      setErrorKey(errorKey);
-      setDiagnosing(true);
-      try {
-        const diag = await diagnoseError({ error: err, errorKey, lang, apiKey: key, context });
-        setDiagnosis(diag);
-      } finally {
-        setDiagnosing(false);
-      }
-    },
-    [lang],
-  );
+  const explain = useCallback((err: unknown, context: string) => {
+    setErrorKey(errorKeyFor(err));
+    // Feed the floating System Diagnostic Assistant with the raw failure.
+    reportFailure("analysis", err, { url: context });
+  }, []);
 
   const run = useCallback(async () => {
     setErrorKey(null);
-    setDiagnosis(null);
     setResult(null);
     const source = resolveSource();
     if (!source) return;
@@ -228,7 +216,7 @@ function StepUpload({ lang }: { lang: Lang }) {
       if ((err as Error)?.name === "AbortError") {
         setProgress(0);
       } else {
-        await explain(err, `${source.kind} import — ${source.label}`, key);
+        explain(err, `${source.kind} import — ${source.label}`);
       }
     } finally {
       window.clearInterval(tick);
@@ -292,7 +280,6 @@ function StepUpload({ lang }: { lang: Lang }) {
               value={url}
               onChange={(e) => {
                 setErrorKey(null);
-                setDiagnosis(null);
                 setUrl(e.target.value);
               }}
               onBlur={() => {
@@ -350,39 +337,19 @@ function StepUpload({ lang }: { lang: Lang }) {
       </div>
 
       {errorKey && (
-        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
-          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-destructive">
-            <AlertCircle className="h-3.5 w-3.5" /> {t("diagTitle")}
-          </p>
-
-          {diagnosing ? (
-            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> {t("diagThinking")}
-            </p>
-          ) : (
-            <div className="mt-3 space-y-3">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("diagProblem")}</p>
-                <p className="mt-1 text-sm text-foreground">{diagnosis?.problem ?? t(errorKey)}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("diagFix")}</p>
-                <ol className="mt-1 list-decimal space-y-1 pl-5 text-sm text-foreground">
-                  {(diagnosis?.steps ?? [t("diagFallbackStep")]).map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ol>
-              </div>
-            </div>
-          )}
-
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 ring-1 ring-amber-500/30">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{t(errorKey)}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t("errAssistantHint")}</p>
+          </div>
           <button
             type="button"
             onClick={() => void run()}
-            disabled={busy || diagnosing}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            disabled={busy}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            <Sparkles className="h-4 w-4" /> {t("diagTryAgain")}
+            <Sparkles className="h-3.5 w-3.5" /> {t("diagTryAgain")}
           </button>
         </div>
       )}
