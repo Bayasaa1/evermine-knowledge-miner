@@ -291,7 +291,13 @@ function StepUpload({ lang }: { lang: Lang }) {
               value={url}
               onChange={(e) => {
                 setErrorKey(null);
+                setDiagnosis(null);
                 setUrl(e.target.value);
+              }}
+              onBlur={() => {
+                if (tab !== "youtube") return;
+                const fixed = normalizeYoutubeUrl(url);
+                if (fixed && fixed !== url.trim()) setUrl(fixed);
               }}
               placeholder={tab === "youtube" ? t("urlPlaceholder") : t("drivePlaceholder")}
               className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
