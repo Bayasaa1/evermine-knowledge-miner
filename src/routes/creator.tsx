@@ -8,6 +8,7 @@ import { GuidedStudio } from "@/components/guided-studio";
 import { tr } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
+import { MindManager } from "@/components/mind-manager";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -2685,9 +2686,18 @@ function Index() {
               )}
 
               {activeTab === "studio" && (
-                <BrainStudio
-                  lang={lang}
-                  results={results}
+                <div className="space-y-5">
+                  <MindManager
+                    lang={lang}
+                    onChange={(m) => {
+                      setActiveMindId(m.id);
+                      addLog("info", `Active Mind Vault: ${m.title}`);
+                    }}
+                  />
+                  <BrainStudio
+                    lang={lang}
+                    results={results}
+                    mindId={activeMindId}
                   previewUrl={previewUrl}
                   onLog={(m) => addLog("info", m)}
                   onRemine={handleMine}
