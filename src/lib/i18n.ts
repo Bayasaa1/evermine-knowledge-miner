@@ -23,12 +23,12 @@ const en: Dict = {
   back: "Back",
   done: "Finish",
 
-  step1Title: "Upload knowledge",
-  step1Sub: "Paste a YouTube link or a Google Drive video. We analyse it directly — no converting, no splitting.",
-  step2Title: "Select AI engine",
-  step2Sub: "Start free, or plug in premium voice and avatar engines at the provider's own price.",
-  step3Title: "Set subscription price",
-  step3Sub: "Charge a monthly price for full access to your AI clone. You keep 80%.",
+  step1Title: "Sign in with Google",
+  step1Sub: "One tap links your Google account's free Gemini API — no API keys, no copy-pasting, no setup.",
+  step2Title: "Paste your link",
+  step2Sub: "Paste a YouTube link or a Google Drive video. We analyse it directly — no converting, no splitting.",
+  step3Title: "Monetization control",
+  step3Sub: "Keep your AI clone free for everyone, or charge a monthly subscription — switch any time. You keep 80%.",
 
   sourceYoutube: "YouTube link",
   sourceDrive: "Google Drive link",
@@ -46,8 +46,8 @@ const en: Dict = {
   limitLangs: "Languages: native recognition for English, Mongolian and all global languages.",
 
   tipSource: "Tip: an unlisted link works fine — it just cannot be private.",
-  tipEngine: "Tip: the free stack costs nothing and works everywhere. Upgrade any time.",
-  tipPrice: "Tip: most creators start at $15/month and raise the price as their mind grows.",
+  tipGoogle: "Tip: signing in with Google automatically gives Evermine access to your free-tier Gemini API. You can revoke it any time from your Google account.",
+  tipPrice: "Tip: most creators start free to grow an audience, then switch on a $5–$20/month subscription.",
 
   errFileSize: "File size exceeds limit (Max 2GB). Please upload a smaller video.",
   errFileType: "Unsupported format. Please upload an MP4 or MOV video.",
@@ -59,7 +59,7 @@ const en: Dict = {
   errKey: "Your API key was rejected. Please check it and try again.",
   errQuota: "Your AI quota is used up. Add another key or wait for the reset.",
   errGeneric: "Something went wrong while analysing this video. Please try again.",
-  errNoKey: "Add a Gemini API key first so we can analyse your video.",
+  errNoKey: "Sign in with Google (Step 1) first — it links your Gemini API automatically.",
   retry: "Retry",
 
   diagTitle: "AI Assistant Diagnostics",
@@ -102,12 +102,12 @@ const mn: Dict = {
   back: "Буцах",
   done: "Дуусгах",
 
-  step1Title: "Мэдлэгээ оруулах",
-  step1Sub: "YouTube линк эсвэл Google Drive бичлэгээ буулгана уу. Хөрвүүлэх, хуваах шаардлагагүй.",
-  step2Title: "AI хөдөлгүүр сонгох",
-  step2Sub: "Үнэгүй хувилбараар эхлэх эсвэл нийлүүлэгчийн үнээр премиум хоолой, аватар холбоно.",
-  step3Title: "Захиалгын үнэ тогтоох",
-  step3Sub: "AI клоны бүрэн эрхийг сараар зарна. Танд 80% ноогдоно.",
+  step1Title: "Google-ээр нэвтрэх",
+  step1Sub: "Нэг товшилтоор Google бүртгэлийн үнэгүй Gemini API автоматаар холбогдоно — API түлхүүр, тохиргоо огт шаардлагагүй.",
+  step2Title: "Линкээ буулгах",
+  step2Sub: "YouTube линк эсвэл Google Drive бичлэгээ буулгана уу. Хөрвүүлэх, хуваах шаардлагагүй.",
+  step3Title: "Орлогын удирдлага",
+  step3Sub: "AI клоноо бүхэнд үнэгүй болгох эсвэл сарын захиалга тогтоох — хүссэн үедээ сольж болно. Танд 80% ноогдоно.",
 
   sourceYoutube: "YouTube линк",
   sourceDrive: "Google Drive линк",
@@ -125,8 +125,8 @@ const mn: Dict = {
   limitLangs: "Хэл: Англи, Монгол болон дэлхийн бүх хэлийг төрөлх байдлаар таньдаг.",
 
   tipSource: "Зөвлөгөө: Unlisted линк тохирно — зөвхөн Private байж болохгүй.",
-  tipEngine: "Зөвлөгөө: Үнэгүй багц ямар ч зардалгүй ажиллана. Хүссэн үедээ сайжруулж болно.",
-  tipPrice: "Зөвлөгөө: Ихэнх бүтээгч сард $15-оос эхэлж, оюун ухаан нь өсөх тусам үнээ нэмдэг.",
+  tipGoogle: "Зөвлөгөө: Google-ээр нэвтрэхэд таны үнэгүй Gemini API Evermine-д автоматаар холбогдоно. Google бүртгэлээсээ хүссэн үедээ хүчингүй болгож болно.",
+  tipPrice: "Зөвлөгөө: Ихэнх бүтээгч эхлээд үнэгүй эхэлж, дараа нь сард $5–$20 захиалга нэмдэг.",
 
   errFileSize: "Бичлэгийн хэмжээ хэтэрсэн байна (Дээд тал нь 2GB). Багахан бичлэг оруулна уу.",
   errFileType: "Дэмжигдэхгүй формат. MP4 эсвэл MOV бичлэг оруулна уу.",
@@ -138,7 +138,7 @@ const mn: Dict = {
   errKey: "API түлхүүр татгалзагдлаа. Шалгаад дахин оролдоно уу.",
   errQuota: "AI хязгаар дууслаа. Өөр түлхүүр нэмэх эсвэл сэргэхийг хүлээнэ үү.",
   errGeneric: "Бичлэгийг задлах үед алдаа гарлаа. Дахин оролдоно уу.",
-  errNoKey: "Эхлээд Gemini API түлхүүрээ нэмнэ үү.",
+  errNoKey: "Эхлээд 1-р алхамд Google-ээр нэвтэрнэ үү — Gemini API автоматаар холбогдоно.",
   retry: "Дахин оролдох",
 
   diagTitle: "AI туслахын оношилгоо",

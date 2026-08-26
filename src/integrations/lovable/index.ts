@@ -7,6 +7,8 @@ const lovableAuth = createLovableAuth();
 type SignInOptions = {
   redirect_uri?: string;
   extraParams?: Record<string, string>;
+  /** Extra OAuth scopes to request from the provider (e.g. the Gemini API scope). */
+  scopes?: string;
 };
 
 export const lovable = {

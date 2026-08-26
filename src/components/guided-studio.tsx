@@ -1,8 +1,8 @@
 /**
- * Ultra-minimalist, fully localized 3-step creator flow:
- *   1. Upload knowledge (YouTube link, Google Drive link, or file)
- *   2. Select AI engine
- *   3. Set subscription price
+ * Zero-tech creator flow — three steps, no API keys anywhere:
+ *   1. Sign in with Google (auto-links the creator's free-tier Gemini API)
+ *   2. Paste a YouTube / Google Drive link (direct knowledge ingestion)
+ *   3. Monetization control (Free mode or Paid subscription, switchable any time)
  * Every limit is stated up front and every failure surfaces as a plain-language
  * banner with a Retry button — never a raw log line.
  */
@@ -19,8 +19,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
-import { EngineHub } from "@/components/engine-hub";
+import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
 import { tr, type Lang } from "@/lib/i18n";
 import {
@@ -32,15 +33,60 @@ import {
   normalizeYoutubeUrl,
   type ImportSource,
 } from "@/lib/import-sources";
-import { loadApiKeys, makeKeyEntry, saveApiKeys } from "@/lib/keystore";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
+import { getGeminiAccessToken, hasGeminiOauth, GEMINI_SCOPE } from "@/lib/google-gemini-auth";
+import { lovable } from "@/integrations/lovable/index";
+import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 
 const MODEL = "gemini-2.5-flash";
 
 type Tab = "youtube" | "drive" | "file";
+
+const googleCopy = {
+  en: {
+    linked: "Gemini API auto-linked",
+    linkedBody: "Your Google account powers the AI mining on its free tier. Nothing else to set up — ever.",
+    signedNoScope: "You're signed in, but Gemini access isn't linked yet.",
+    relink: "Link Gemini API access",
+    signIn: "Sign in with Google",
+    connecting: "Connecting…",
+    free: "Free tier · No API key · No maintenance",
+    failed: "Google sign-in failed",
+  },
+  mn: {
+    linked: "Gemini API автоматаар холбогдсон",
+    linkedBody: "Таны Google бүртгэл AI шинжилгээг үнэгүй түвшиндээ хангана. Өөр ямар ч тохиргоо байхгүй.",
+    signedNoScope: "Та нэвтэрсэн боловч Gemini хандалт хараахан холбогдоогүй байна.",
+    relink: "Gemini API хандалт холбох",
+    signIn: "Google-ээр нэвтрэх",
+    connecting: "Холбож байна…",
+    free: "Үнэгүй түвшин · API түлхүүргүй · Засвар үйлчилгээгүй",
+    failed: "Google нэвтрэлт амжилтгүй боллоо",
+  },
+} as const;
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"
+      />
+      <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1z" />
+      <path
+        fill="#EA4335"
+        d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"
+      />
+    </svg>
+  );
+}
 
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
@@ -74,12 +120,12 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         {t("step")} {step} {t("of")} 3
       </p>
 
-      {step === 1 && <StepUpload lang={lang} />}
-      {step === 2 && (
-        <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipEngine")}>
-          <EngineHub lang={lang} />
+      {step === 1 && (
+        <StepShell title={t("step1Title")} sub={t("step1Sub")} tip={t("tipGoogle")}>
+          <StepGoogle lang={lang} />
         </StepShell>
       )}
+      {step === 2 && <StepUpload lang={lang} />}
       {step === 3 && (
         <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
           <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
@@ -134,13 +180,88 @@ function StepShell({
   );
 }
 
+/** Step 1 — Google sign-in that auto-links the creator's free-tier Gemini API. */
+function StepGoogle({ lang }: { lang: Lang }) {
+  const t = googleCopy[lang];
+  const { isAuthenticated, profile } = useAuth();
+  const [linked, setLinked] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      setLinked(await hasGeminiOauth());
+      setChecking(false);
+    })();
+  }, [isAuthenticated]);
+
+  const connect = useCallback(async () => {
+    setBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+        scopes: `openid email profile ${GEMINI_SCOPE}`,
+      });
+      if (result.error) {
+        toast.error(t.failed, { description: result.error.message });
+        return;
+      }
+      if (result.redirected) return; // Browser is heading to Google.
+      setLinked(await hasGeminiOauth());
+    } catch (err) {
+      toast.error(t.failed, { description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  }, [t]);
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      {checking ? (
+        <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> {t.connecting}
+        </div>
+      ) : linked ? (
+        <div className="space-y-3">
+          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {t.linked}
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{t.linkedBody}</p>
+          {profile && (
+            <p className="text-xs text-muted-foreground">
+              {profile.displayName} · {profile.email}
+            </p>
+          )}
+          <p className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-500">
+            <KeyRound className="h-3.5 w-3.5" /> {t.free}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {isAuthenticated && <p className="text-sm text-muted-foreground">{t.signedNoScope}</p>}
+          <button
+            type="button"
+            onClick={() => void connect()}
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-muted px-4 py-3.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-muted/70 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleMark />}
+            {busy ? t.connecting : isAuthenticated ? t.relink : t.signIn}
+          </button>
+          <p className="text-center text-xs text-muted-foreground">{t.free}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Step 2 — paste a YouTube/Drive link (or drop a file) and mine it directly. */
 function StepUpload({ lang }: { lang: Lang }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const [tab, setTab] = useState<Tab>("youtube");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [apiKey, setApiKey] = useState("");
-  const [hasKey, setHasKey] = useState(false);
+  const [hasAuth, setHasAuth] = useState(true);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -149,7 +270,7 @@ function StepUpload({ lang }: { lang: Lang }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void loadApiKeys().then((keys) => setHasKey(keys.length > 0));
+    void hasGeminiOauth().then(setHasAuth);
   }, []);
 
   const resolveSource = useCallback((): ImportSource | null => {
@@ -177,17 +298,14 @@ function StepUpload({ lang }: { lang: Lang }) {
     const source = resolveSource();
     if (!source) return;
 
-    let keys = await loadApiKeys();
-    if (keys.length === 0 && apiKey.trim()) {
-      keys = [makeKeyEntry(apiKey.trim(), "Key 1")];
-      await saveApiKeys(keys);
-      setHasKey(true);
-    }
-    const key = keys[0]?.value;
-    if (!key) {
+    // OAuth token from Google sign-in authorizes the call; the empty string is
+    // only a placeholder for the legacy API-key fallback.
+    const token = await getGeminiAccessToken();
+    if (!token) {
       setErrorKey("errNoKey");
       return;
     }
+    const key = "";
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -223,10 +341,10 @@ function StepUpload({ lang }: { lang: Lang }) {
       setBusy(false);
       abortRef.current = null;
     }
-  }, [apiKey, resolveSource, explain]);
+  }, [resolveSource, explain]);
 
   return (
-    <StepShell title={t("step1Title")} sub={t("step1Sub")} tip={t("tipSource")}>
+    <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
       <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(
@@ -293,14 +411,10 @@ function StepUpload({ lang }: { lang: Lang }) {
           </label>
         )}
 
-        {!hasKey && (
-          <input
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            type="password"
-            placeholder="Gemini API key"
-            className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-          />
+        {!hasAuth && (
+          <p className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-500">
+            <AlertCircle className="h-4 w-4 shrink-0" /> {t("errNoKey")}
+          </p>
         )}
 
         <div className="mt-4 flex items-center gap-2">

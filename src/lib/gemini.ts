@@ -1,4 +1,23 @@
+import { getGeminiAccessToken } from "./google-gemini-auth";
+
 const BASE = "https://generativelanguage.googleapis.com";
+
+/**
+ * Authed Gemini request: when the creator signed in with Google, their OAuth
+ * access token authorizes the call (Bearer header — zero API keys). Otherwise
+ * it falls back to the classic `?key=` API-key parameter.
+ */
+async function geminiRequest(url: string, key: string, init: RequestInit = {}): Promise<Response> {
+  const token = await getGeminiAccessToken();
+  const headers = new Headers(init.headers);
+  let finalUrl = url;
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  } else {
+    finalUrl = `${url}${url.includes("?") ? "&" : "?"}key=${encodeURIComponent(key)}`;
+  }
+  return fetch(finalUrl, { ...init, headers });
+}
 
 export class GeminiError extends Error {
   status: number;
@@ -43,7 +62,7 @@ async function readError(res: Response): Promise<GeminiError> {
 }
 
 export async function validateApiKey(key: string): Promise<string[]> {
-  const res = await fetch(`${BASE}/v1/models?pageSize=50&key=${encodeURIComponent(key)}`);
+  const res = await geminiRequest(`${BASE}/v1/models?pageSize=50`, key);
   if (!res.ok) throw await readError(res);
   const data = await res.json();
   return (data.models ?? []).map((m: { name: string }) => m.name);
@@ -58,7 +77,7 @@ export async function uploadVideo(
   opts: { signal?: AbortSignal; onState?: (state: string) => void } = {},
 ): Promise<UploadedFile> {
   const mimeType = file.type || "video/mp4";
-  const startRes = await fetch(`${BASE}/upload/v1beta/files?key=${encodeURIComponent(key)}`, {
+  const startRes = await geminiRequest(`${BASE}/upload/v1beta/files`, key, {
     method: "POST",
     signal: opts.signal ?? null,
     headers: {
@@ -92,7 +111,7 @@ export async function uploadVideo(
     opts.onState?.(info.state);
     await new Promise((r) => setTimeout(r, 3000));
     if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const pollRes = await fetch(`${BASE}/v1beta/${info.name}?key=${encodeURIComponent(key)}`, { signal: opts.signal ?? null });
+    const pollRes = await geminiRequest(`${BASE}/v1beta/${info.name}`, key, { signal: opts.signal ?? null });
     if (!pollRes.ok) throw await readError(pollRes);
     info = await pollRes.json();
   }
@@ -509,8 +528,9 @@ export async function mineChunk(
   endSec: number,
   signal?: AbortSignal,
 ): Promise<ChunkResult> {
-  const res = await fetch(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+  const res = await geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+    key,
     {
       method: "POST",
       signal: signal ?? null,
@@ -558,7 +578,7 @@ export async function mineChunk(
 
 export async function deleteFile(key: string, name: string): Promise<void> {
   try {
-    await fetch(`${BASE}/v1beta/${name}?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+    await geminiRequest(`${BASE}/v1beta/${name}`, key, { method: "DELETE" });
   } catch {
     /* ignore */
   }
@@ -576,8 +596,9 @@ export async function mineUrlSegment(
   endSec: number,
   signal?: AbortSignal,
 ): Promise<ChunkResult> {
-  const res = await fetch(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+  const res = await geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+    key,
     {
       method: "POST",
       signal: signal ?? null,
