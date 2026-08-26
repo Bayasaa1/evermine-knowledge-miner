@@ -2765,7 +2765,8 @@ function Index() {
           </section>
 
         </div>
-      </main>
+        )}
+
     </div>
   );
 }
