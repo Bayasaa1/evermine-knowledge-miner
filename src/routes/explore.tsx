@@ -40,6 +40,7 @@ import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
 import { useNetworkQuality, TIER_LABEL, type StreamTier } from "@/lib/network-quality";
 import { startMiningCapture, MINING_PROFILES, formatBytes, type MiningRecorderHandle } from "@/lib/mining-audio";
+import { brainEngineRoute, loadStack } from "@/lib/engines";
 import {
   applyDelta,
   emptyVault,
@@ -470,6 +471,10 @@ function Explore() {
 
     let reply = "";
     try {
+      // Route the reply through the creator-selected brain engine when one is
+      // configured (BYO key on this device, else a backend secret); otherwise the
+      // server falls back to the platform default model.
+      const brain = brainEngineRoute(await loadStack());
       const res = await fetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -477,6 +482,9 @@ function Explore() {
           mindId: selected.id,
           lang,
           messages: history.map((m) => ({ role: m.role, text: m.text })),
+          ...(brain
+            ? { provider: brain.provider, model: brain.model, ...(brain.apiKey ? { apiKey: brain.apiKey } : {}) }
+            : {}),
         }),
       });
       const data = (await res.json()) as { text?: string; error?: string };
