@@ -227,14 +227,14 @@ function StepUpload({ lang }: { lang: Lang }) {
       if ((err as Error)?.name === "AbortError") {
         setProgress(0);
       } else {
-        setErrorKey(errorKeyFor(err));
+        await explain(err, `${source.kind} import — ${source.label}`, key);
       }
     } finally {
       window.clearInterval(tick);
       setBusy(false);
       abortRef.current = null;
     }
-  }, [apiKey, resolveSource]);
+  }, [apiKey, resolveSource, explain]);
 
   return (
     <StepShell title={t("step1Title")} sub={t("step1Sub")} tip={t("tipSource")}>
