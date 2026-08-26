@@ -21,7 +21,14 @@ export type BrainEntry = {
   text: string;
   source: "mined" | "custom";
   edited: boolean;
+  /** When this statement entered the brain. */
   createdAt: string;
+  /** When this statement last changed. Drives the "Latest Wins" rule. */
+  updatedAt: string;
+  /** Active statements are the ground truth; archived ones live in the history timeline. */
+  status: "active" | "archived";
+  /** Id of the newer entry that replaced this one, if any. */
+  supersededBy: string | null;
 };
 
 export type CulturalEntry = CulturalExpression & { id: string; source: "mined" | "custom"; edited: boolean };
