@@ -161,6 +161,7 @@ export function BrainStudio({
   onLog,
   onRemine,
   canRemine,
+  mindId,
 }: {
   lang: Lang;
   results: MineResult[];
@@ -168,6 +169,8 @@ export function BrainStudio({
   onLog?: (message: string) => void;
   onRemine?: () => void;
   canRemine?: boolean;
+  /** Isolates this Core Brain to a specific Mind Vault. */
+  mindId?: string | null;
 }) {
   const t = L[lang];
   const [doc, setDoc] = useState<BrainDoc>(() => emptyBrainDoc());
@@ -179,8 +182,9 @@ export function BrainStudio({
 
   useEffect(() => {
     let alive = true;
+    setReady(false);
     void (async () => {
-      const stored = await loadBrainDoc();
+      const stored = await loadBrainDoc(mindId);
       if (!alive) return;
       setDoc(mergeBrainDoc(stored, deriveBrainDoc(results)));
       setReady(true);
@@ -189,7 +193,7 @@ export function BrainStudio({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mindId]);
 
   // Absorb newly mined material without discarding manual edits.
   useEffect(() => {
