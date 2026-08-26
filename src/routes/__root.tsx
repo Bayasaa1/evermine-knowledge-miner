@@ -10,8 +10,10 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { supabase } from "@/integrations/supabase/client";
 import { setLocalScope } from "@/lib/user-scope";
+import { installGlobalErrorInterceptors } from "@/lib/error-capture";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
