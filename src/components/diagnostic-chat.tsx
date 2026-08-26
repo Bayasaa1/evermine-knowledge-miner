@@ -22,7 +22,7 @@ import {
 } from "@/lib/error-capture";
 import { loadApiKeys } from "@/lib/keystore";
 
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.5-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com";
 
 type ChatMsg = { role: "user" | "model"; text: string };
@@ -58,7 +58,7 @@ function systemPrompt(lang: "en" | "mn", errors: CapturedError[]): string {
 }
 
 async function askGemini(apiKey: string, lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
-  const res = await fetch(`${GEMINI_BASE}/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+  const res = await fetch(`${GEMINI_BASE}/v1/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
     body: JSON.stringify({

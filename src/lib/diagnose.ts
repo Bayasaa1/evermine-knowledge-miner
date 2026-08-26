@@ -9,7 +9,7 @@ import { describeError } from "@/lib/gemini";
 import { tr, type Lang } from "@/lib/i18n";
 
 const BASE = "https://generativelanguage.googleapis.com";
-const DIAG_MODEL = "gemini-1.5-flash";
+const DIAG_MODEL = "gemini-2.5-flash";
 
 export type Diagnosis = {
   problem: string;
@@ -51,7 +51,7 @@ export async function diagnoseError(opts: {
 
   try {
     const res = await fetch(
-      `${BASE}/v1beta/models/${DIAG_MODEL}:generateContent?key=${encodeURIComponent(opts.apiKey)}`,
+      `${BASE}/v1/models/${DIAG_MODEL}:generateContent?key=${encodeURIComponent(opts.apiKey)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
