@@ -218,8 +218,90 @@ export function parseBrainDoc(raw: unknown): BrainDoc {
   return doc;
 }
 
-export async function loadBrainDoc(): Promise<BrainDoc | null> {
-  const raw = await idbGet<unknown>(STORES.SETTINGS, BRAIN_KEY);
+/** Storage key for a mind's brain — each Mind Vault keeps a fully isolated Core Brain. */
+export function brainKeyFor(mindId?: string | null): string {
+  return mindId ? `${BRAIN_KEY}:${mindId}` : BRAIN_KEY;
+}
+
+const STOPWORDS = new Set(["the", "a", "an", "and", "or", "of", "to", "in", "is", "are", "was", "were", "be", "never", "not", "you", "it", "that", "this", "with", "for", "on", "at", "by", "as", "if", "when", "your"]);
+
+function tokens(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOPWORDS.has(w)),
+  );
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let shared = 0;
+  for (const w of a) if (b.has(w)) shared += 1;
+  return shared / (a.size + b.size - shared);
+}
+
+/**
+ * "Latest Wins" conflict resolution: two active statements in the same category
+ * that talk about the same subject (high word overlap) but say different things
+ * are treated as a conflict. The one with the most recent timestamp stays active;
+ * the older is archived into the history timeline (never deleted).
+ */
+export function resolveConflicts(doc: BrainDoc): BrainDoc {
+  const next: BrainDoc = { ...doc, entries: { ...doc.entries } };
+  for (const cat of BRAIN_CATEGORIES) {
+    const list = doc.entries[cat];
+    const active = list.filter((e) => e.status === "active");
+    const archivedIds = new Map<string, string>(); // loser id -> winner id
+    for (let i = 0; i < active.length; i += 1) {
+      for (let j = i + 1; j < active.length; j += 1) {
+        const a = active[i]!;
+        const b = active[j]!;
+        if (a.text.trim().toLowerCase() === b.text.trim().toLowerCase()) continue;
+        if (jaccard(tokens(a.text), tokens(b.text)) < 0.45) continue;
+        const [winner, loser] = a.updatedAt >= b.updatedAt ? [a, b] : [b, a];
+        archivedIds.set(loser.id, winner.id);
+      }
+    }
+    if (archivedIds.size === 0) continue;
+    next.entries[cat] = list.map((e) =>
+      archivedIds.has(e.id) ? { ...e, status: "archived" as const, supersededBy: archivedIds.get(e.id)! } : e,
+    );
+  }
+  return next;
+}
+
+/** Creator override: make a specific version active. Its conflict rivals are archived. */
+export function setEntryActive(doc: BrainDoc, cat: BrainCategory, id: string, active: boolean): BrainDoc {
+  const list = doc.entries[cat];
+  const target = list.find((e) => e.id === id);
+  if (!target) return doc;
+  const now = new Date().toISOString();
+  let out = list.map((e) =>
+    e.id === id
+      ? { ...e, status: (active ? "active" : "archived") as "active" | "archived", updatedAt: now, supersededBy: active ? null : e.supersededBy }
+      : e,
+  );
+  if (active) {
+    // Archive any active sibling that conflicts with the re-activated statement.
+    const ref = tokens(target.text);
+    out = out.map((e) =>
+      e.id !== id && e.status === "active" && e.text.trim().toLowerCase() !== target.text.trim().toLowerCase() && jaccard(ref, tokens(e.text)) >= 0.45
+        ? { ...e, status: "archived" as const, supersededBy: id }
+        : e,
+    );
+  }
+  return { ...doc, entries: { ...doc.entries, [cat]: out } };
+}
+
+/** Active (ground-truth) entries per category — what the chat/voice engines should query. */
+export function activeEntries(doc: BrainDoc, cat: BrainCategory): BrainEntry[] {
+  return doc.entries[cat].filter((e) => e.status === "active");
+}
+
+export async function loadBrainDoc(mindId?: string | null): Promise<BrainDoc | null> {
+  const raw = await idbGet<unknown>(STORES.SETTINGS, brainKeyFor(mindId));
   if (!raw) return null;
   try {
     return parseBrainDoc(raw);
@@ -228,8 +310,8 @@ export async function loadBrainDoc(): Promise<BrainDoc | null> {
   }
 }
 
-export async function saveBrainDoc(doc: BrainDoc): Promise<void> {
-  await idbSet(STORES.SETTINGS, BRAIN_KEY, doc);
+export async function saveBrainDoc(doc: BrainDoc, mindId?: string | null): Promise<void> {
+  await idbSet(STORES.SETTINGS, brainKeyFor(mindId), doc);
 }
 
 export function downloadBrainDoc(doc: BrainDoc, baseName = "core-brain"): string {
