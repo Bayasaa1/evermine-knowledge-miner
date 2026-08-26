@@ -71,6 +71,11 @@ export function findProvider(id: string | undefined): BrainProvider | undefined 
   return BRAIN_PROVIDERS.find((p) => p.id === id);
 }
 
+/** Maps an engine key field (e.g. OPENAI_API_KEY) back to its brain provider. */
+export function providerForKeyField(keyField: string): BrainProvider | undefined {
+  return BRAIN_PROVIDERS.find((p) => p.keyField === keyField);
+}
+
 export class ProviderError extends Error {
   status: number;
   constructor(status: number, message: string) {

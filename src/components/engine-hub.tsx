@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Cpu, KeyRound, Zap, Gift, Check } from "lucide-react";
+import { Cpu, KeyRound, Zap, Gift, Check, Loader2, FlaskConical } from "lucide-react";
 import {
   SLOT_ORDER,
   enginesFor,
@@ -15,6 +15,7 @@ import {
   type EngineSlot,
   type EngineStack,
 } from "@/lib/engines";
+import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
 
 const copy = {
   en: {
