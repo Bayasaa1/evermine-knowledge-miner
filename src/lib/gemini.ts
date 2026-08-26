@@ -1,4 +1,23 @@
+import { getGeminiAccessToken } from "./google-gemini-auth";
+
 const BASE = "https://generativelanguage.googleapis.com";
+
+/**
+ * Authed Gemini request: when the creator signed in with Google, their OAuth
+ * access token authorizes the call (Bearer header — zero API keys). Otherwise
+ * it falls back to the classic `?key=` API-key parameter.
+ */
+async function geminiRequest(url: string, key: string, init: RequestInit = {}): Promise<Response> {
+  const token = await getGeminiAccessToken();
+  const headers = new Headers(init.headers);
+  let finalUrl = url;
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  } else {
+    finalUrl = `${url}${url.includes("?") ? "&" : "?"}key=${encodeURIComponent(key)}`;
+  }
+  return fetch(finalUrl, { ...init, headers });
+}
 
 export class GeminiError extends Error {
   status: number;
@@ -43,7 +62,7 @@ async function readError(res: Response): Promise<GeminiError> {
 }
 
 export async function validateApiKey(key: string): Promise<string[]> {
-  const res = await fetch(`${BASE}/v1/models?pageSize=50&key=${encodeURIComponent(key)}`);
+  const res = await geminiRequest(`${BASE}/v1/models?pageSize=50`, key);
   if (!res.ok) throw await readError(res);
   const data = await res.json();
   return (data.models ?? []).map((m: { name: string }) => m.name);
