@@ -197,8 +197,13 @@ export type EngineStack = {
   keys: Record<string, string>;
 };
 
+/**
+ * Default stack for newly onboarded creators: Gemini 2.5 Flash on the free tier.
+ * With no BYO key the chat API automatically falls back to the central
+ * GEMINI_API_KEY backend secret, so creators hit zero paywalls and zero key setup.
+ */
 export function freeStack(): EngineStack {
-  return { llm: "oss-llama", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {} };
+  return { llm: "gemini-flash", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {} };
 }
 
 export function normalizeStack(raw: unknown): EngineStack {
