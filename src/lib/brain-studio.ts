@@ -78,12 +78,16 @@ const uniq = (xs: string[]) => Array.from(new Set(xs.map((s) => s.trim()).filter
 export function deriveBrainDoc(results: MineResult[]): BrainDoc {
   const doc = emptyBrainDoc();
   for (const cat of BRAIN_CATEGORIES) {
+    const now = new Date().toISOString();
     doc.entries[cat] = uniq(results.flatMap((r) => r.data.subconsciousness?.[cat] ?? [])).map((text) => ({
       id: brainId(cat, text),
       text,
       source: "mined" as const,
       edited: false,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      status: "active" as const,
+      supersededBy: null,
     }));
   }
   const seenPhrase = new Set<string>();
