@@ -42,14 +42,74 @@ export const ENGINES: Engine[] = [
   {
     id: "gemini-flash",
     slot: "llm",
-    name: "Gemini 1.5 Flash",
+    name: "Gemini 2.5 Flash",
     vendor: "Google",
     tier: "premium",
-    rawPrice: "$0.075 / 1M input tokens",
-    unitCost: 0.000075,
+    rawPrice: "$0.30 / 1M input tokens",
+    unitCost: 0.0003,
     unitLabel: "per 1K tokens",
-    note: "Mining-grade quality. Uses your own Gemini key from the rotation pool.",
+    note: "Fast, free-tier compatible. The only engine that mines video files directly.",
     keyField: "GEMINI_API_KEY",
+  },
+  {
+    id: "openai-gpt4o",
+    slot: "llm",
+    name: "OpenAI GPT-4o",
+    vendor: "OpenAI",
+    tier: "premium",
+    rawPrice: "$2.50 / 1M input tokens",
+    unitCost: 0.0025,
+    unitLabel: "per 1K tokens",
+    note: "Industry standard flagship. Highly reliable answers and extraction.",
+    keyField: "OPENAI_API_KEY",
+  },
+  {
+    id: "openai-gpt4o-mini",
+    slot: "llm",
+    name: "OpenAI GPT-4o mini",
+    vendor: "OpenAI",
+    tier: "premium",
+    rawPrice: "$0.15 / 1M input tokens",
+    unitCost: 0.00015,
+    unitLabel: "per 1K tokens",
+    note: "The cheap workhorse of the GPT line. Great default for high-volume chat.",
+    keyField: "OPENAI_API_KEY",
+  },
+  {
+    id: "claude-sonnet",
+    slot: "llm",
+    name: "Claude 3.5 Sonnet",
+    vendor: "Anthropic",
+    tier: "premium",
+    rawPrice: "$3.00 / 1M input tokens",
+    unitCost: 0.003,
+    unitLabel: "per 1K tokens",
+    note: "Advanced reasoning and nuanced knowledge extraction.",
+    keyField: "ANTHROPIC_API_KEY",
+  },
+  {
+    id: "deepseek-v3",
+    slot: "llm",
+    name: "DeepSeek-V3",
+    vendor: "DeepSeek",
+    tier: "premium",
+    rawPrice: "$0.27 / 1M input tokens",
+    unitCost: 0.00027,
+    unitLabel: "per 1K tokens",
+    note: "Ultra low-cost with near-flagship performance.",
+    keyField: "DEEPSEEK_API_KEY",
+  },
+  {
+    id: "deepseek-r1",
+    slot: "llm",
+    name: "DeepSeek-R1",
+    vendor: "DeepSeek",
+    tier: "premium",
+    rawPrice: "$0.55 / 1M input tokens",
+    unitCost: 0.00055,
+    unitLabel: "per 1K tokens",
+    note: "Reasoning model that thinks step-by-step before answering.",
+    keyField: "DEEPSEEK_API_KEY",
   },
   {
     id: "higgsfield-brain",
@@ -188,6 +248,31 @@ export function estimateHourlyCost(stack: EngineStack): CostEstimate {
   }));
   const hourly = Math.round(lines.reduce((sum, l) => sum + l.cost, 0) * 100) / 100;
   return { hourly, free: hourly === 0, lines };
+}
+
+/** Maps an LLM engine id to the provider + concrete model it routes to. */
+export const ENGINE_BRAIN_MAP: Record<string, { provider: "gemini" | "openai" | "anthropic" | "deepseek"; model: string }> = {
+  "gemini-flash": { provider: "gemini", model: "gemini-2.5-flash" },
+  "openai-gpt4o": { provider: "openai", model: "gpt-4o" },
+  "openai-gpt4o-mini": { provider: "openai", model: "gpt-4o-mini" },
+  "claude-sonnet": { provider: "anthropic", model: "claude-3-5-sonnet-latest" },
+  "deepseek-v3": { provider: "deepseek", model: "deepseek-chat" },
+  "deepseek-r1": { provider: "deepseek", model: "deepseek-reasoner" },
+};
+
+export type BrainRoute = { provider: "gemini" | "openai" | "anthropic" | "deepseek"; model: string; apiKey: string } | null;
+
+/**
+ * Resolves the brain engine selected in the stack to a concrete provider route.
+ * Returns null for engines without a direct provider route (free/shared tiers),
+ * meaning "use the platform default backend".
+ */
+export function brainEngineRoute(stack: EngineStack): BrainRoute {
+  const route = ENGINE_BRAIN_MAP[stack.llm];
+  if (!route) return null;
+  const engine = findEngine(stack.llm);
+  const apiKey = engine?.keyField ? (stack.keys[engine.keyField] ?? "") : "";
+  return { ...route, apiKey };
 }
 
 const STACK_KEY = "engine-stack";

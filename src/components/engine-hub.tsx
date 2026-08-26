@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Cpu, KeyRound, Zap, Gift, Check } from "lucide-react";
+import { Cpu, KeyRound, Zap, Gift, Check, Loader2, FlaskConical } from "lucide-react";
 import {
   SLOT_ORDER,
   enginesFor,
@@ -15,12 +15,14 @@ import {
   type EngineSlot,
   type EngineStack,
 } from "@/lib/engines";
+import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
 
 const copy = {
   en: {
     title: "API engine stack",
     hint: "Pick the engines that power your clone. Free engines cost nothing; premium engines run on your own key or are billed at the provider's raw price with no platform markup.",
     slots: { llm: "Brain (LLM)", tts: "Voice (TTS)", avatar: "Avatar" } as Record<EngineSlot, string>,
+    llmNote: "The brain engine answers chats and extracts knowledge. Video file mining always runs on Gemini — the only engine with native video input — so keep Google linked or a Gemini key saved.",
     free: "Free",
     premium: "Premium",
     billing: "Billing",
@@ -35,11 +37,16 @@ const copy = {
     noMarkup: "Raw provider prices. Evermine adds 0%.",
     reset: "Reset to free stack",
     saved: "Engine stack saved.",
+    test: "Test",
+    testing: "Testing…",
+    testOk: "Key works — engine is ready.",
+    testFail: "Key test failed",
   },
   mn: {
     title: "API хөдөлгүүрийн багц",
     hint: "Хуулбараа ажиллуулах хөдөлгүүрээ сонго. Үнэгүй нь зардалгүй; premium нь таны түлхүүрээр эсвэл нийлүүлэгчийн жинхэнэ үнээр, нэмэлт шимтгэлгүй ажиллана.",
     slots: { llm: "Тархи (LLM)", tts: "Дуу хоолой (TTS)", avatar: "Аватар" } as Record<EngineSlot, string>,
+    llmNote: "Тархины хөдөлгүүр чат болон мэдлэгийн асуултад хариулна. Видео файлыг зөвхөн Gemini шууд уншдаг тул олборлолт үргэлж Gemini дээр ажиллана — Google холбоотой байгаарай эсвэл Gemini түлхүүр хадгалаарай.",
     free: "Үнэгүй",
     premium: "Премиум",
     billing: "Төлбөр",
@@ -54,6 +61,10 @@ const copy = {
     noMarkup: "Нийлүүлэгчийн жинхэнэ үнэ. Evermine 0% нэмнэ.",
     reset: "Үнэгүй багц руу буцаах",
     saved: "Хөдөлгүүрийн багц хадгалагдлаа.",
+    test: "Шалгах",
+    testing: "Шалгаж байна…",
+    testOk: "Түлхүүр ажиллаж байна — хөдөлгүүр бэлэн.",
+    testFail: "Түлхүүр шалгах амжилтгүй",
   },
 } as const;
 
@@ -61,6 +72,25 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
   const t = copy[lang];
   const [stack, setStack] = useState<EngineStack>(freeStack);
   const [hydrated, setHydrated] = useState(false);
+  const [testingKey, setTestingKey] = useState<string | null>(null);
+
+  const runKeyTest = useCallback(
+    async (keyField: string) => {
+      const provider = providerForKeyField(keyField);
+      const key = stack.keys[keyField]?.trim();
+      if (!provider || !key) return;
+      setTestingKey(keyField);
+      try {
+        await testProviderKey(provider.id, key);
+        toast.success(t.testOk);
+      } catch (err) {
+        toast.error(t.testFail, { description: err instanceof Error ? err.message : String(err) });
+      } finally {
+        setTestingKey(null);
+      }
+    },
+    [stack.keys, t],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -145,6 +175,10 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
         ))}
       </div>
 
+      <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        {t.llmNote}
+      </p>
+
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-[12px] border border-border bg-muted/40 p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -187,24 +221,44 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
             <p className="text-xs text-muted-foreground/80">{t.zero}</p>
           ) : (
             <div className="space-y-3">
-              {keyEngines.map((e) => (
+              {keyEngines.map((e) => {
+                const testable = !!providerForKeyField(e.keyField) && !!(stack.keys[e.keyField] ?? "").trim();
+                return (
                 <div key={e.id}>
                   <label htmlFor={`key-${e.id}`} className="mb-1.5 block text-xs text-muted-foreground">
                     {e.vendor} · <span className="font-mono">{e.keyField}</span>
                   </label>
-                  <input
-                    id={`key-${e.id}`}
-                    type="password"
-                    autoComplete="off"
-                    placeholder={t.keyPlaceholder}
-                    value={stack.keys[e.keyField] ?? ""}
-                    onChange={(ev) =>
-                      setStack((s) => ({ ...s, keys: { ...s.keys, [e.keyField]: ev.target.value } }))
-                    }
-                    className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none transition-colors focus:border-primary"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={`key-${e.id}`}
+                      type="password"
+                      autoComplete="off"
+                      placeholder={t.keyPlaceholder}
+                      value={stack.keys[e.keyField] ?? ""}
+                      onChange={(ev) =>
+                        setStack((s) => ({ ...s, keys: { ...s.keys, [e.keyField]: ev.target.value } }))
+                      }
+                      className="w-full min-w-0 rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                    {testable && (
+                      <button
+                        type="button"
+                        onClick={() => void runKeyTest(e.keyField)}
+                        disabled={testingKey !== null}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary disabled:opacity-50"
+                      >
+                        {testingKey === e.keyField ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <FlaskConical className="h-3.5 w-3.5" />
+                        )}
+                        {testingKey === e.keyField ? t.testing : t.test}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
               {needsKeys.length > 0 && (
                 <p className="text-xs font-medium text-status-amber">{t.missing(needsKeys.length)}</p>
               )}
