@@ -2698,11 +2698,12 @@ function Index() {
                     lang={lang}
                     results={results}
                     mindId={activeMindId}
-                  previewUrl={previewUrl}
-                  onLog={(m) => addLog("info", m)}
-                  onRemine={handleMine}
-                  canRemine={Boolean(file) && keyState === "valid" && !isMining}
-                />
+                    previewUrl={previewUrl}
+                    onLog={(m) => addLog("info", m)}
+                    onRemine={handleMine}
+                    canRemine={Boolean(file) && keyState === "valid" && !isMining}
+                  />
+                </div>
               )}
 
               {activeTab === "cloud" && (
