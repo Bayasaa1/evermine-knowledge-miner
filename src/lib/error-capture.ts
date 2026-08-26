@@ -6,6 +6,9 @@
  * Gemini, server functions, or any fetch), and uncaught runtime errors.
  * The floating chat widget reads this buffer and hands it to Gemini as
  * diagnostic context, so the assistant always knows what just broke.
+ *
+ * Also keeps the template's SSR contract: `consumeLastCapturedError` lets
+ * src/server.ts attribute swallowed 500s to the underlying error.
  */
 
 export type CapturedError = {
@@ -17,17 +20,18 @@ export type CapturedError = {
   /** Short human summary (usually the thrown message). */
   message: string;
   /** Stack trace or response-body snippet, when available. */
-  detail?: string;
+  detail?: string | undefined;
   /** HTTP status for network failures. */
-  status?: number;
+  status?: number | undefined;
   /** Request URL for network failures. */
-  url?: string;
+  url?: string | undefined;
 };
 
 const MAX_ERRORS = 25;
 const SNIPPET = 600;
 
 let errors: CapturedError[] = [];
+let lastCaptured: Error | null = null;
 const listeners = new Set<(entry: CapturedError) => void>();
 let seq = 0;
 
@@ -50,18 +54,29 @@ export function describeThrowable(err: unknown): string {
   return typeof err === "string" ? err : JSON.stringify(err);
 }
 
+/** Returns (and clears) the most recent captured error as an Error object. */
+export function consumeLastCapturedError(): Error | null {
+  const err = lastCaptured;
+  lastCaptured = null;
+  return err;
+}
+
 /** Explicitly record a failure (uploads, URL checks, mining, server fns). */
 export function reportFailure(
   source: string,
   err: unknown,
-  extra?: { status?: number; url?: string },
+  extra?: { status?: number; url?: string; detail?: string },
 ): CapturedError {
+  const asError = err instanceof Error ? err : new Error(describeThrowable(err));
+  lastCaptured = asError;
   const entry: CapturedError = {
     id: `err_${Date.now().toString(36)}_${(seq += 1)}`,
     at: new Date().toISOString(),
     source,
     message: describeThrowable(err).slice(0, 300),
-    detail: err instanceof Error && err.stack ? err.stack.slice(0, SNIPPET) : undefined,
+    detail:
+      extra?.detail ??
+      (err instanceof Error && err.stack ? err.stack.slice(0, SNIPPET) : undefined),
     status: extra?.status,
     url: extra?.url,
   };
@@ -109,14 +124,8 @@ export function installGlobalErrorInterceptors(): () => void {
       reportFailure("network", new Error(`HTTP ${res.status} ${res.statusText}`.trim()), {
         status: res.status,
         url,
-        ...(snippet ? {} : {}),
+        ...(snippet ? { detail: snippet } : {}),
       });
-      // Attach the response body as detail via a second entry update is overkill;
-      // fold it into the latest entry instead.
-      if (snippet) {
-        const last = errors[errors.length - 1];
-        if (last) last.detail = snippet;
-      }
     } catch {
       /* capture must never break requests */
     }
