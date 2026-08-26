@@ -62,6 +62,13 @@ const en: Dict = {
   errNoKey: "Add a Gemini API key first so we can analyse your video.",
   retry: "Retry",
 
+  diagTitle: "AI Assistant Diagnostics",
+  diagThinking: "Working out what happened…",
+  diagProblem: "Problem",
+  diagFix: "Fix",
+  diagTryAgain: "Try again",
+  diagFallbackStep: "Check your link or file, then start the analysis again.",
+
   ready: "Ready",
   complete: "Complete",
   successTitle: "Your mind is growing",
@@ -119,6 +126,13 @@ const mn: Dict = {
   errGeneric: "Бичлэгийг задлах үед алдаа гарлаа. Дахин оролдоно уу.",
   errNoKey: "Эхлээд Gemini API түлхүүрээ нэмнэ үү.",
   retry: "Дахин оролдох",
+
+  diagTitle: "AI туслахын оношилгоо",
+  diagThinking: "Юу болсныг тодруулж байна…",
+  diagProblem: "Асуудал",
+  diagFix: "Шийдэл",
+  diagTryAgain: "Дахин оролдох",
+  diagFallbackStep: "Линк эсвэл файлаа шалгаад дахин задлах товчийг дарна уу.",
 
   ready: "Бэлэн",
   complete: "Дууссан",
