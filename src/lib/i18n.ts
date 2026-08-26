@@ -127,6 +127,13 @@ const mn: Dict = {
   errNoKey: "Эхлээд Gemini API түлхүүрээ нэмнэ үү.",
   retry: "Дахин оролдох",
 
+  diagTitle: "AI туслахын оношилгоо",
+  diagThinking: "Юу болсныг тодруулж байна…",
+  diagProblem: "Асуудал",
+  diagFix: "Шийдэл",
+  diagTryAgain: "Дахин оролдох",
+  diagFallbackStep: "Линк эсвэл файлаа шалгаад дахин задлах товчийг дарна уу.",
+
   ready: "Бэлэн",
   complete: "Дууссан",
   successTitle: "Таны оюун ухаан өсч байна",
