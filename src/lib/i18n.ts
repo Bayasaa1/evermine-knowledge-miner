@@ -62,6 +62,13 @@ const en: Dict = {
   errNoKey: "Add a Gemini API key first so we can analyse your video.",
   retry: "Retry",
 
+  diagTitle: "AI Assistant Diagnostics",
+  diagThinking: "Working out what happened…",
+  diagProblem: "Problem",
+  diagFix: "Fix",
+  diagTryAgain: "Try again",
+  diagFallbackStep: "Check your link or file, then start the analysis again.",
+
   ready: "Ready",
   complete: "Complete",
   successTitle: "Your mind is growing",
