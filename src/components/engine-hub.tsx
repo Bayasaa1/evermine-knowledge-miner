@@ -72,6 +72,25 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
   const t = copy[lang];
   const [stack, setStack] = useState<EngineStack>(freeStack);
   const [hydrated, setHydrated] = useState(false);
+  const [testingKey, setTestingKey] = useState<string | null>(null);
+
+  const runKeyTest = useCallback(
+    async (keyField: string) => {
+      const provider = providerForKeyField(keyField);
+      const key = stack.keys[keyField]?.trim();
+      if (!provider || !key) return;
+      setTestingKey(keyField);
+      try {
+        await testProviderKey(provider.id, key);
+        toast.success(t.testOk);
+      } catch (err) {
+        toast.error(t.testFail, { description: err instanceof Error ? err.message : String(err) });
+      } finally {
+        setTestingKey(null);
+      }
+    },
+    [stack.keys, t],
+  );
 
   useEffect(() => {
     void (async () => {
@@ -202,24 +221,44 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
             <p className="text-xs text-muted-foreground/80">{t.zero}</p>
           ) : (
             <div className="space-y-3">
-              {keyEngines.map((e) => (
+              {keyEngines.map((e) => {
+                const testable = !!providerForKeyField(e.keyField) && !!(stack.keys[e.keyField] ?? "").trim();
+                return (
                 <div key={e.id}>
                   <label htmlFor={`key-${e.id}`} className="mb-1.5 block text-xs text-muted-foreground">
                     {e.vendor} · <span className="font-mono">{e.keyField}</span>
                   </label>
-                  <input
-                    id={`key-${e.id}`}
-                    type="password"
-                    autoComplete="off"
-                    placeholder={t.keyPlaceholder}
-                    value={stack.keys[e.keyField] ?? ""}
-                    onChange={(ev) =>
-                      setStack((s) => ({ ...s, keys: { ...s.keys, [e.keyField]: ev.target.value } }))
-                    }
-                    className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none transition-colors focus:border-primary"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={`key-${e.id}`}
+                      type="password"
+                      autoComplete="off"
+                      placeholder={t.keyPlaceholder}
+                      value={stack.keys[e.keyField] ?? ""}
+                      onChange={(ev) =>
+                        setStack((s) => ({ ...s, keys: { ...s.keys, [e.keyField]: ev.target.value } }))
+                      }
+                      className="w-full min-w-0 rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                    {testable && (
+                      <button
+                        type="button"
+                        onClick={() => void runKeyTest(e.keyField)}
+                        disabled={testingKey !== null}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary disabled:opacity-50"
+                      >
+                        {testingKey === e.keyField ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <FlaskConical className="h-3.5 w-3.5" />
+                        )}
+                        {testingKey === e.keyField ? t.testing : t.test}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
               {needsKeys.length > 0 && (
                 <p className="text-xs font-medium text-status-amber">{t.missing(needsKeys.length)}</p>
               )}
