@@ -7,7 +7,7 @@ import { idbGet, idbSet, STORES } from "./store";
 
 export const PLATFORM_COMMISSION = 0.2;
 
-export const PRICE_PRESETS = [5, 15, 50] as const;
+export const PRICE_PRESETS = [5, 10, 20] as const;
 
 export type SubscriptionPlan = {
   /** Whether the mind is offered as a monthly subscription. */

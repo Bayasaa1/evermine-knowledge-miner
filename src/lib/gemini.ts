@@ -596,8 +596,9 @@ export async function mineUrlSegment(
   endSec: number,
   signal?: AbortSignal,
 ): Promise<ChunkResult> {
-  const res = await fetch(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+  const res = await geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+    key,
     {
       method: "POST",
       signal: signal ?? null,
