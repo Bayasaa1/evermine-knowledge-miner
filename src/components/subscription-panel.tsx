@@ -237,6 +237,8 @@ export function SubscriptionPanel({ lang, creatorEmail }: { lang: "en" | "mn"; c
           )}
         </div>
       </div>
+        </>
+      )}
     </section>
   );
 }
