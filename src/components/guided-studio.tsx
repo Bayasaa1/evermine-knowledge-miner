@@ -32,6 +32,7 @@ import {
   type ImportSource,
 } from "@/lib/import-sources";
 import { loadApiKeys, makeKeyEntry, saveApiKeys } from "@/lib/keystore";
+import { diagnoseError, type Diagnosis } from "@/lib/diagnose";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
