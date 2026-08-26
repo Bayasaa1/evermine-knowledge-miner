@@ -216,7 +216,7 @@ function StepUpload({ lang }: { lang: Lang }) {
       if ((err as Error)?.name === "AbortError") {
         setProgress(0);
       } else {
-        await explain(err, `${source.kind} import — ${source.label}`, key);
+        explain(err, `${source.kind} import — ${source.label}`);
       }
     } finally {
       window.clearInterval(tick);
@@ -280,7 +280,6 @@ function StepUpload({ lang }: { lang: Lang }) {
               value={url}
               onChange={(e) => {
                 setErrorKey(null);
-                setDiagnosis(null);
                 setUrl(e.target.value);
               }}
               onBlur={() => {
