@@ -842,7 +842,48 @@ function Explore() {
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <div className="mx-auto h-1 w-10 rounded-full bg-muted" />
         </div>
-        <div className="flex items-center gap-3 px-4 pb-3">
+
+        {/* Select Persona / Specialization — chat and calls only ever query the
+            selected Mind Vault's Core Brain, keeping tone and logic isolated. */}
+        <div className="border-b border-border px-4 pb-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Select Persona / Specialization
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {MINDS.map((m, i) => {
+              const active = m.id === selected.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setIndex(i)}
+                  aria-pressed={active}
+                  className={`flex w-36 shrink-0 items-center gap-2 rounded-[12px] border p-2 text-left transition-colors ${
+                    active
+                      ? "border-primary/60 bg-primary/10"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
+                >
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold"
+                    style={{ borderColor: m.accent, background: `${m.accent}22` }}
+                  >
+                    {m.shortName.slice(0, 2)}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-xs font-semibold text-foreground">
+                      {m.shortName}
+                    </span>
+                    <span className="block truncate text-[10px] text-muted-foreground">
+                      {m.domain}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 px-4 py-3">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold"
             style={{ borderColor: selected.accent, background: `${selected.accent}22` }}
