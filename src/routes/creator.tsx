@@ -8,6 +8,7 @@ import { GuidedStudio } from "@/components/guided-studio";
 import { tr } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
+import { MindManager } from "@/components/mind-manager";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -792,6 +793,7 @@ function Index() {
   const [status, setStatus] = useState<Status>("ready");
   const [statusNote, setStatusNote] = useState<string>("noteReady");
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
+  const [activeMindId, setActiveMindId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -2685,14 +2687,24 @@ function Index() {
               )}
 
               {activeTab === "studio" && (
-                <BrainStudio
-                  lang={lang}
-                  results={results}
-                  previewUrl={previewUrl}
-                  onLog={(m) => addLog("info", m)}
-                  onRemine={handleMine}
-                  canRemine={Boolean(file) && keyState === "valid" && !isMining}
-                />
+                <div className="space-y-5">
+                  <MindManager
+                    lang={lang}
+                    onChange={(m) => {
+                      setActiveMindId(m.id);
+                      addLog("info", `Active Mind Vault: ${m.title}`);
+                    }}
+                  />
+                  <BrainStudio
+                    lang={lang}
+                    results={results}
+                    mindId={activeMindId}
+                    previewUrl={previewUrl}
+                    onLog={(m) => addLog("info", m)}
+                    onRemine={handleMine}
+                    canRemine={Boolean(file) && keyState === "valid" && !isMining}
+                  />
+                </div>
               )}
 
               {activeTab === "cloud" && (

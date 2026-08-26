@@ -9,6 +9,7 @@ import {
   mergeBrainDoc,
   parseBrainDoc,
   saveBrainDoc,
+  setEntryActive,
   brainId,
   type BrainCategory,
   type BrainDoc,
@@ -66,6 +67,13 @@ const L = {
     meaning: "True meaning",
     noVideo: "Load the source video to preview this action.",
     entries: "entries",
+    activeBadge: "Active / Latest View",
+    archivedBadge: "Archived / Old View",
+    makeActive: "Set Active",
+    archive: "Archive",
+    recordedAt: "Recorded",
+    historyTimeline: "Historical Memory Timeline",
+    conflicts: "conflicts resolved (latest wins)",
   },
   mn: {
     tab: "🧠 Үндсэн Тархи Студи",
@@ -100,6 +108,13 @@ const L = {
     meaning: "Жинхэнэ утга",
     noVideo: "Энэ үйлдлийг үзэхийн тулд эх видеог ачаална уу.",
     entries: "бичлэг",
+    activeBadge: "Идэвхтэй / Сүүлийн үзэл",
+    archivedBadge: "Архив / Хуучин үзэл",
+    makeActive: "Идэвхжүүлэх",
+    archive: "Архивлах",
+    recordedAt: "Бүртгэсэн",
+    historyTimeline: "Санах ойн түүхэн хуанли",
+    conflicts: "зөрчил шийдэгдсэн (шинэ нь давна)",
   },
 } as const;
 
@@ -146,6 +161,7 @@ export function BrainStudio({
   onLog,
   onRemine,
   canRemine,
+  mindId,
 }: {
   lang: Lang;
   results: MineResult[];
@@ -153,6 +169,8 @@ export function BrainStudio({
   onLog?: (message: string) => void;
   onRemine?: () => void;
   canRemine?: boolean;
+  /** Isolates this Core Brain to a specific Mind Vault. */
+  mindId?: string | null;
 }) {
   const t = L[lang];
   const [doc, setDoc] = useState<BrainDoc>(() => emptyBrainDoc());
@@ -164,8 +182,9 @@ export function BrainStudio({
 
   useEffect(() => {
     let alive = true;
+    setReady(false);
     void (async () => {
-      const stored = await loadBrainDoc();
+      const stored = await loadBrainDoc(mindId);
       if (!alive) return;
       setDoc(mergeBrainDoc(stored, deriveBrainDoc(results)));
       setReady(true);
@@ -174,7 +193,7 @@ export function BrainStudio({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mindId]);
 
   // Absorb newly mined material without discarding manual edits.
   useEffect(() => {
@@ -186,13 +205,13 @@ export function BrainStudio({
     (next: BrainDoc, message?: string) => {
       const stamped = { ...next, updatedAt: new Date().toISOString() };
       setDoc(stamped);
-      void saveBrainDoc(stamped);
+      void saveBrainDoc(stamped, mindId);
       if (message) {
         toast.success(message);
         onLog?.(message);
       }
     },
-    [onLog],
+    [onLog, mindId],
   );
 
   const updateEntry = (cat: BrainCategory, id: string, text: string) =>
@@ -201,7 +220,9 @@ export function BrainStudio({
         ...doc,
         entries: {
           ...doc.entries,
-          [cat]: doc.entries[cat].map((e) => (e.id === id ? { ...e, text, edited: true } : e)),
+          [cat]: doc.entries[cat].map((e) =>
+            e.id === id ? { ...e, text, edited: true, updatedAt: new Date().toISOString() } : e,
+          ),
         },
       },
       t.saved,
@@ -218,15 +239,22 @@ export function BrainStudio({
     );
 
   const addEntry = (cat: BrainCategory, text: string) => {
+    const now = new Date().toISOString();
     const entry: BrainEntry = {
       id: brainId("custom", `${cat}:${text}:${Date.now()}`),
       text,
       source: "custom",
       edited: false,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      status: "active",
+      supersededBy: null,
     };
     commit({ ...doc, entries: { ...doc.entries, [cat]: [...doc.entries[cat], entry] } }, t.added);
   };
+
+  const toggleActive = (cat: BrainCategory, id: string, active: boolean) =>
+    commit(setEntryActive(doc, cat, id, active), t.saved);
 
   const updateCultural = (id: string, meaning: string) =>
     commit(
@@ -262,6 +290,10 @@ export function BrainStudio({
 
   const total =
     BRAIN_CATEGORIES.reduce((n, c) => n + doc.entries[c].length, 0) + doc.cultural.length + doc.actions.length;
+  const archivedCount = BRAIN_CATEGORIES.reduce(
+    (n, c) => n + doc.entries[c].filter((e) => e.status === "archived").length,
+    0,
+  );
 
   const renderEntry = (cat: BrainCategory, e: BrainEntry) => {
     const key = `${cat}:${e.id}`;
@@ -299,22 +331,57 @@ export function BrainStudio({
         </li>
       );
 
+    const archived = e.status === "archived";
     return (
-      <li key={e.id} className="group flex items-start gap-3 rounded-lg border border-border bg-background p-3">
-        <p className="min-w-0 flex-1 break-words text-sm leading-relaxed text-foreground">
-          {e.text}
-          {e.source === "custom" && (
-            <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-              {t.custom}
+      <li
+        key={e.id}
+        className={`group flex items-start gap-3 rounded-lg border bg-background p-3 ${
+          archived ? "border-status-amber/40 opacity-75" : "border-border"
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm leading-relaxed text-foreground">
+            {e.text}
+            {e.source === "custom" && (
+              <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {t.custom}
+              </span>
+            )}
+            {e.edited && (
+              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {t.edited}
+              </span>
+            )}
+          </p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span
+              className={`rounded-full px-2 py-0.5 font-semibold ${
+                archived
+                  ? "bg-status-amber/15 text-status-amber"
+                  : "bg-status-green/15 text-status-green"
+              }`}
+            >
+              {archived ? `🟡 ${t.archivedBadge}` : `🟢 ${t.activeBadge}`}
             </span>
-          )}
-          {e.edited && (
-            <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {t.edited}
+            <span className="rounded-full bg-muted px-2 py-0.5 font-mono">
+              {t.recordedAt}: {new Date(e.updatedAt).toLocaleString(lang === "mn" ? "mn-MN" : "en-US", { dateStyle: "short", timeStyle: "short" })}
             </span>
-          )}
-        </p>
+          </p>
+        </div>
         <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            aria-label={archived ? t.makeActive : t.archive}
+            title={archived ? t.makeActive : t.archive}
+            onClick={() => toggleActive(cat, e.id, archived)}
+            className={`rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${
+              archived
+                ? "text-status-green hover:bg-status-green/15"
+                : "text-status-amber hover:bg-status-amber/15"
+            }`}
+          >
+            {archived ? t.makeActive : t.archive}
+          </button>
           <button
             type="button"
             aria-label={t.edit}
@@ -353,8 +420,13 @@ export function BrainStudio({
             <p className="text-xs text-muted-foreground">{t.subtitle}</p>
           </div>
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="shrink-0 text-right text-xs text-muted-foreground">
           {total} {t.entries}
+          {archivedCount > 0 && (
+            <span className="block text-status-amber">
+              {archivedCount} {t.conflicts}
+            </span>
+          )}
         </span>
       </div>
 
