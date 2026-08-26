@@ -147,6 +147,10 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
         ))}
       </div>
 
+      <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        {t.llmNote}
+      </p>
+
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="rounded-[12px] border border-border bg-muted/40 p-4">
           <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
