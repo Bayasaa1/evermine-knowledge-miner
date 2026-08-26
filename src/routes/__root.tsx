@@ -131,6 +131,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
 
+  // Global error interception feeding the System Diagnostic Assistant widget.
+  useEffect(() => installGlobalErrorInterceptors(), []);
+
   // Single app-wide auth subscriber: keeps the router/cache and the local data
   // scope in sync with the signed-in account.
   useEffect(() => {
