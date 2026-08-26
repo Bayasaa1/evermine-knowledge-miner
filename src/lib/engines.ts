@@ -1,0 +1,201 @@
+/**
+ * Flexible API engine routing. Users and creators pick the engine stack that powers
+ * their clone (brain / voice / avatar). Free-tier engines cost nothing; premium
+ * engines are billed at the provider's raw list price with no platform markup, or
+ * run entirely on the user's own API key (BYO).
+ */
+import { idbGet, idbSet, STORES } from "./store";
+
+export type EngineSlot = "llm" | "tts" | "avatar";
+export type EngineTier = "free" | "premium";
+
+export type Engine = {
+  id: string;
+  slot: EngineSlot;
+  name: string;
+  vendor: string;
+  tier: EngineTier;
+  /** What the provider charges. Passed through at cost — the platform adds nothing. */
+  rawPrice: string;
+  /** Unit price used for the cost estimator, in USD. */
+  unitCost: number;
+  unitLabel: string;
+  note: string;
+  /** Provider key name when running BYO. Empty for free engines that need no key. */
+  keyField: string;
+};
+
+export const ENGINES: Engine[] = [
+  // Brain
+  {
+    id: "oss-llama",
+    slot: "llm",
+    name: "Open-source LLM (Llama 3.1 8B)",
+    vendor: "Community",
+    tier: "free",
+    rawPrice: "$0.00",
+    unitCost: 0,
+    unitLabel: "per 1K tokens",
+    note: "Runs on the shared free tier. Good enough for chat, slower on long reasoning.",
+    keyField: "",
+  },
+  {
+    id: "gemini-flash",
+    slot: "llm",
+    name: "Gemini 1.5 Flash",
+    vendor: "Google",
+    tier: "premium",
+    rawPrice: "$0.075 / 1M input tokens",
+    unitCost: 0.000075,
+    unitLabel: "per 1K tokens",
+    note: "Mining-grade quality. Uses your own Gemini key from the rotation pool.",
+    keyField: "GEMINI_API_KEY",
+  },
+  {
+    id: "higgsfield-brain",
+    slot: "llm",
+    name: "Higgsfield Persona",
+    vendor: "Higgsfield",
+    tier: "premium",
+    rawPrice: "$0.02 / 1K tokens",
+    unitCost: 0.02,
+    unitLabel: "per 1K tokens",
+    note: "Persona-tuned generation for cinematic clone behaviour.",
+    keyField: "HIGGSFIELD_API_KEY",
+  },
+  // Voice
+  {
+    id: "edge-tts",
+    slot: "tts",
+    name: "Edge TTS",
+    vendor: "Microsoft Edge",
+    tier: "free",
+    rawPrice: "$0.00",
+    unitCost: 0,
+    unitLabel: "per 1K characters",
+    note: "Browser-native neural voices. No key, no cost, no cloning.",
+    keyField: "",
+  },
+  {
+    id: "elevenlabs",
+    slot: "tts",
+    name: "ElevenLabs Voice Clone",
+    vendor: "ElevenLabs",
+    tier: "premium",
+    rawPrice: "$0.18 / 1K characters",
+    unitCost: 0.18,
+    unitLabel: "per 1K characters",
+    note: "True voice cloning with the owner's timbre and accent across languages.",
+    keyField: "ELEVENLABS_API_KEY",
+  },
+  // Avatar
+  {
+    id: "webgl-avatar",
+    slot: "avatar",
+    name: "WebGL audio-reactive avatar",
+    vendor: "Evermine",
+    tier: "free",
+    rawPrice: "$0.00",
+    unitCost: 0,
+    unitLabel: "per call minute",
+    note: "Renders on device from the live waveform. Zero bandwidth cost.",
+    keyField: "",
+  },
+  {
+    id: "tavus",
+    slot: "avatar",
+    name: "Tavus Video Avatar",
+    vendor: "Tavus",
+    tier: "premium",
+    rawPrice: "$0.35 / call minute",
+    unitCost: 0.35,
+    unitLabel: "per call minute",
+    note: "Photoreal video clone with real-time lip-sync.",
+    keyField: "TAVUS_API_KEY",
+  },
+];
+
+export const SLOT_ORDER: EngineSlot[] = ["llm", "tts", "avatar"];
+
+export function enginesFor(slot: EngineSlot): Engine[] {
+  return ENGINES.filter((e) => e.slot === slot);
+}
+
+export function findEngine(id: string): Engine | undefined {
+  return ENGINES.find((e) => e.id === id);
+}
+
+/** "byo" = the user's own provider key; "passthrough" = billed at raw provider cost. */
+export type BillingMode = "byo" | "passthrough";
+
+export type EngineStack = {
+  llm: string;
+  tts: string;
+  avatar: string;
+  billing: BillingMode;
+  /** Provider keys, stored on this device only and never uploaded. */
+  keys: Record<string, string>;
+};
+
+export function freeStack(): EngineStack {
+  return { llm: "oss-llama", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {} };
+}
+
+export function normalizeStack(raw: unknown): EngineStack {
+  const base = freeStack();
+  if (typeof raw !== "object" || raw === null) return base;
+  const v = raw as Record<string, unknown>;
+  const pick = (slot: EngineSlot, fallback: string) => {
+    const id = v[slot];
+    return typeof id === "string" && findEngine(id)?.slot === slot ? id : fallback;
+  };
+  const keys: Record<string, string> = {};
+  if (typeof v['keys'] === "object" && v['keys'] !== null) {
+    for (const [k, val] of Object.entries(v['keys'] as Record<string, unknown>)) {
+      if (typeof val === "string" && val.trim()) keys[k] = val.trim();
+    }
+  }
+  return {
+    llm: pick("llm", base.llm),
+    tts: pick("tts", base.tts),
+    avatar: pick("avatar", base.avatar),
+    billing: v['billing'] === "passthrough" ? "passthrough" : "byo",
+    keys,
+  };
+}
+
+export function stackEngines(stack: EngineStack): Engine[] {
+  return SLOT_ORDER.map((s) => findEngine(stack[s])).filter((e): e is Engine => !!e);
+}
+
+/** Premium engines in the stack that still need a key when running BYO. */
+export function missingKeys(stack: EngineStack): Engine[] {
+  if (stack.billing !== "byo") return [];
+  return stackEngines(stack).filter((e) => e.keyField && !stack.keys[e.keyField]);
+}
+
+export type CostEstimate = { hourly: number; free: boolean; lines: { engine: Engine; cost: number }[] };
+
+/**
+ * Raw provider cost of one hour of conversation, at pass-through prices.
+ * Assumes ~9K tokens, ~6K spoken characters and 60 avatar minutes per hour.
+ */
+export function estimateHourlyCost(stack: EngineStack): CostEstimate {
+  const usage: Record<EngineSlot, number> = { llm: 9, tts: 6, avatar: 60 };
+  const lines = stackEngines(stack).map((engine) => ({
+    engine,
+    cost: Math.round(engine.unitCost * usage[engine.slot] * 100) / 100,
+  }));
+  const hourly = Math.round(lines.reduce((sum, l) => sum + l.cost, 0) * 100) / 100;
+  return { hourly, free: hourly === 0, lines };
+}
+
+const STACK_KEY = "engine-stack";
+
+export async function loadStack(): Promise<EngineStack> {
+  return normalizeStack(await idbGet<unknown>(STORES.SETTINGS, STACK_KEY));
+}
+
+export async function saveStack(stack: EngineStack): Promise<void> {
+  await idbSet(STORES.SETTINGS, STACK_KEY, stack);
+}
