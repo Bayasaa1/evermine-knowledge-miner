@@ -43,7 +43,7 @@ async function readError(res: Response): Promise<GeminiError> {
 }
 
 export async function validateApiKey(key: string): Promise<string[]> {
-  const res = await fetch(`${BASE}/v1beta/models?pageSize=50&key=${encodeURIComponent(key)}`);
+  const res = await fetch(`${BASE}/v1/models?pageSize=50&key=${encodeURIComponent(key)}`);
   if (!res.ok) throw await readError(res);
   const data = await res.json();
   return (data.models ?? []).map((m: { name: string }) => m.name);
@@ -510,7 +510,7 @@ export async function mineChunk(
   signal?: AbortSignal,
 ): Promise<ChunkResult> {
   const res = await fetch(
-    `${BASE}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
       signal: signal ?? null,
@@ -577,7 +577,7 @@ export async function mineUrlSegment(
   signal?: AbortSignal,
 ): Promise<ChunkResult> {
   const res = await fetch(
-    `${BASE}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
       signal: signal ?? null,

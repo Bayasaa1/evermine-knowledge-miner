@@ -38,7 +38,7 @@ import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-2.5-flash";
 
 type Tab = "youtube" | "drive" | "file";
 
