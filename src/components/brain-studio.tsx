@@ -290,6 +290,10 @@ export function BrainStudio({
 
   const total =
     BRAIN_CATEGORIES.reduce((n, c) => n + doc.entries[c].length, 0) + doc.cultural.length + doc.actions.length;
+  const archivedCount = BRAIN_CATEGORIES.reduce(
+    (n, c) => n + doc.entries[c].filter((e) => e.status === "archived").length,
+    0,
+  );
 
   const renderEntry = (cat: BrainCategory, e: BrainEntry) => {
     const key = `${cat}:${e.id}`;
@@ -416,8 +420,13 @@ export function BrainStudio({
             <p className="text-xs text-muted-foreground">{t.subtitle}</p>
           </div>
         </div>
-        <span className="shrink-0 text-xs text-muted-foreground">
+        <span className="shrink-0 text-right text-xs text-muted-foreground">
           {total} {t.entries}
+          {archivedCount > 0 && (
+            <span className="block text-status-amber">
+              {archivedCount} {t.conflicts}
+            </span>
+          )}
         </span>
       </div>
 
