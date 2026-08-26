@@ -205,13 +205,13 @@ export function BrainStudio({
     (next: BrainDoc, message?: string) => {
       const stamped = { ...next, updatedAt: new Date().toISOString() };
       setDoc(stamped);
-      void saveBrainDoc(stamped);
+      void saveBrainDoc(stamped, mindId);
       if (message) {
         toast.success(message);
         onLog?.(message);
       }
     },
-    [onLog],
+    [onLog, mindId],
   );
 
   const updateEntry = (cat: BrainCategory, id: string, text: string) =>
@@ -220,7 +220,9 @@ export function BrainStudio({
         ...doc,
         entries: {
           ...doc.entries,
-          [cat]: doc.entries[cat].map((e) => (e.id === id ? { ...e, text, edited: true } : e)),
+          [cat]: doc.entries[cat].map((e) =>
+            e.id === id ? { ...e, text, edited: true, updatedAt: new Date().toISOString() } : e,
+          ),
         },
       },
       t.saved,
@@ -237,15 +239,22 @@ export function BrainStudio({
     );
 
   const addEntry = (cat: BrainCategory, text: string) => {
+    const now = new Date().toISOString();
     const entry: BrainEntry = {
       id: brainId("custom", `${cat}:${text}:${Date.now()}`),
       text,
       source: "custom",
       edited: false,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      status: "active",
+      supersededBy: null,
     };
     commit({ ...doc, entries: { ...doc.entries, [cat]: [...doc.entries[cat], entry] } }, t.added);
   };
+
+  const toggleActive = (cat: BrainCategory, id: string, active: boolean) =>
+    commit(setEntryActive(doc, cat, id, active), t.saved);
 
   const updateCultural = (id: string, meaning: string) =>
     commit(
