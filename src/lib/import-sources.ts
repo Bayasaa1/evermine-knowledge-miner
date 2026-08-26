@@ -24,22 +24,36 @@ export type ImportCheck = { ok: true; source: ImportSource } | { ok: false; erro
 
 const YT_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be"];
 
+/**
+ * Extracts the video id from any YouTube form: watch, youtu.be short links,
+ * shorts, embeds and live streams — with or without a scheme, and with any
+ * tracking or timestamp query parameters attached.
+ */
 export function youtubeId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
   let u: URL;
   try {
-    u = new URL(raw.trim());
+    u = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`);
   } catch {
     return null;
   }
-  if (!YT_HOSTS.includes(u.hostname)) return null;
-  if (u.hostname.endsWith("youtu.be")) {
-    const id = u.pathname.slice(1);
-    return id.length >= 6 ? id : null;
+  const host = u.hostname.toLowerCase().replace(/^m\./, "");
+  if (!YT_HOSTS.includes(u.hostname.toLowerCase()) && !YT_HOSTS.includes(host)) return null;
+  if (host.endsWith("youtu.be")) {
+    const id = u.pathname.slice(1).split("/")[0] ?? "";
+    return /^[\w-]{6,}$/.test(id) ? id : null;
   }
   const v = u.searchParams.get("v");
-  if (v && v.length >= 6) return v;
-  const m = u.pathname.match(/\/(shorts|embed|live)\/([\w-]{6,})/);
+  if (v && /^[\w-]{6,}$/.test(v)) return v;
+  const m = u.pathname.match(/\/(shorts|embed|live|v)\/([\w-]{6,})/);
   return m?.[2] ?? null;
+}
+
+/** Canonical watch URL for any YouTube link form, or null when unrecognisable. */
+export function normalizeYoutubeUrl(raw: string): string | null {
+  const id = youtubeId(raw);
+  return id ? `https://www.youtube.com/watch?v=${id}` : null;
 }
 
 export function driveFileId(raw: string): string | null {
