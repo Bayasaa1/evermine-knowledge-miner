@@ -1684,7 +1684,34 @@ function Index() {
           </div>
         </header>
 
+        <div className="flex justify-center border-b border-border bg-background/60 px-4 py-3">
+          <div className="flex rounded-xl border border-border bg-muted p-1">
+            <button
+              onClick={() => setView("guided")}
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                view === "guided" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tr(lang, "guided")}
+            </button>
+            <button
+              onClick={() => setView("advanced")}
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                view === "advanced" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tr(lang, "advanced")}
+            </button>
+          </div>
+        </div>
+
+        {view === "guided" ? (
+          <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
+            <GuidedStudio lang={lang} creatorEmail={ownership.creatorEmail} />
+          </div>
+        ) : (
         <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8 xl:p-10">
+
           {/* Status banner */}
           <div className="flex min-w-0 items-center gap-4 rounded-[12px] border border-border bg-card px-4 py-4 sm:px-5">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary">
