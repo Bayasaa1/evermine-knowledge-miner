@@ -4,6 +4,8 @@ import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { SubscriptionPanel } from "@/components/subscription-panel";
 import { EngineHub } from "@/components/engine-hub";
+import { GuidedStudio } from "@/components/guided-studio";
+import { tr } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
@@ -781,6 +783,7 @@ class QuotaPaused extends Error {
 
 function Index() {
   const [lang, setLang] = useState<Language>("en");
+  const [view, setView] = useState<"guided" | "advanced">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-2.5-flash");
