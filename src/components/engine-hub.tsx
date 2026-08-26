@@ -37,6 +37,10 @@ const copy = {
     noMarkup: "Raw provider prices. Evermine adds 0%.",
     reset: "Reset to free stack",
     saved: "Engine stack saved.",
+    test: "Test",
+    testing: "Testing…",
+    testOk: "Key works — engine is ready.",
+    testFail: "Key test failed",
   },
   mn: {
     title: "API хөдөлгүүрийн багц",
@@ -57,6 +61,10 @@ const copy = {
     noMarkup: "Нийлүүлэгчийн жинхэнэ үнэ. Evermine 0% нэмнэ.",
     reset: "Үнэгүй багц руу буцаах",
     saved: "Хөдөлгүүрийн багц хадгалагдлаа.",
+    test: "Шалгах",
+    testing: "Шалгаж байна…",
+    testOk: "Түлхүүр ажиллаж байна — хөдөлгүүр бэлэн.",
+    testFail: "Түлхүүр шалгах амжилтгүй",
   },
 } as const;
 
