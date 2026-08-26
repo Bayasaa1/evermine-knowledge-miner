@@ -563,3 +563,55 @@ export async function deleteFile(key: string, name: string): Promise<void> {
     /* ignore */
   }
 }
+
+/**
+ * Mines a segment directly from a public media URI (e.g. a YouTube link) without
+ * uploading anything. Gemini fetches and analyses the video itself.
+ */
+export async function mineUrlSegment(
+  key: string,
+  model: string,
+  url: string,
+  startSec: number,
+  endSec: number,
+  signal?: AbortSignal,
+): Promise<ChunkResult> {
+  const res = await fetch(
+    `${BASE}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
+    {
+      method: "POST",
+      signal: signal ?? null,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                fileData: { fileUri: url },
+                videoMetadata: {
+                  startOffset: `${Math.floor(startSec)}s`,
+                  endOffset: `${Math.ceil(endSec)}s`,
+                },
+              },
+              { text: `${PROMPT}\n\nTime range for this segment: ${Math.floor(startSec)}s to ${Math.ceil(endSec)}s of the video.` },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema },
+      }),
+    },
+  );
+  if (!res.ok) throw await readError(res);
+  const data = await res.json();
+  const text: string =
+    data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
+  if (!text.trim()) throw new GeminiError("Gemini returned an empty response for this video", 500);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new GeminiError("Could not parse JSON returned by Gemini", 500);
+  }
+  return normalizeChunkResult(parsed);
+}
