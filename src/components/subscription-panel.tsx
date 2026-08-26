@@ -15,9 +15,11 @@ import {
 
 const copy = {
   en: {
-    title: "Monthly subscription",
+    title: "Monetization",
     hint: "Fans pay a flat monthly price for full access to your AI clone — chat, voice and video calls.",
-    enable: "Sell monthly access",
+    freeMode: "Free",
+    paidMode: "Paid",
+    freeNote: "Free mode is on — anyone can chat with your AI clone for free. Switch to Paid any time.",
     price: "Monthly price",
     currency: "Currency",
     perks: "What subscribers get",
@@ -36,9 +38,11 @@ const copy = {
     saved: "Subscription settings saved on this device.",
   },
   mn: {
-    title: "Сарын захиалга",
+    title: "Орлого",
     hint: "Дэмжигчид таны AI хуулбартай чат, дуу, видео дуудлагаар бүрэн харилцах сарын төлбөр төлнө.",
-    enable: "Сарын хандалт зарах",
+    freeMode: "Үнэгүй",
+    paidMode: "Төлбөртэй",
+    freeNote: "Үнэгүй горим идэвхтэй — хэн ч таны AI клонтой үнэгүй чатлаж чадна. Хүссэн үедээ Төлбөртэй болгож сольж болно.",
     price: "Сарын үнэ",
     currency: "Валют",
     perks: "Захиалагч юу авах вэ",
@@ -101,15 +105,26 @@ export function SubscriptionPanel({ lang, creatorEmail }: { lang: "en" | "mn"; c
           <CreditCard className="h-4 w-4" />
         </div>
         <h3 className="text-lg font-semibold text-foreground">{t.title}</h3>
-        <label className="ml-auto inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={plan.enabled}
-            onChange={(e) => setPlan((p) => ({ ...p, enabled: e.target.checked }))}
-            className="h-4 w-4 accent-[hsl(var(--primary))]"
-          />
-          {t.enable}
-        </label>
+        <div className="ml-auto flex items-center gap-2 rounded-full border border-border bg-muted/50 p-1">
+          {([false, true] as const).map((paid) => (
+            <button
+              key={String(paid)}
+              type="button"
+              role="switch"
+              aria-checked={plan.enabled === paid}
+              onClick={() => setPlan((p) => ({ ...p, enabled: paid }))}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                plan.enabled === paid
+                  ? paid
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {paid ? t.paidMode : t.freeMode}
+            </button>
+          ))}
+        </div>
       </div>
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
 
