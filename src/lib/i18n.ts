@@ -69,6 +69,20 @@ const en: Dict = {
   diagTryAgain: "Try again",
   diagFallbackStep: "Check your link or file, then start the analysis again.",
 
+  errAssistantHint: "Analysis failed. Click the AI Assistant in the bottom-left for instant diagnosis.",
+
+  botFab: "AI Assistant",
+  botTitle: "System Diagnostic Assistant",
+  botSubtitle: "Ask about any error — I'll explain it and how to fix it.",
+  botPlaceholder: "Why did my video fail?…",
+  botEmpty: "No errors captured yet. Ask me anything about the app.",
+  botNewError: "captured — ask me what went wrong.",
+  botThinking: "Diagnosing…",
+  botNoKey: "Add a Gemini API key first (Step 1) so I can run diagnostics.",
+  botClear: "Clear captured errors",
+  botClose: "Close",
+  botErrorContext: "Recent errors I can see",
+
   ready: "Ready",
   complete: "Complete",
   successTitle: "Your mind is growing",
@@ -133,6 +147,20 @@ const mn: Dict = {
   diagFix: "Шийдэл",
   diagTryAgain: "Дахин оролдох",
   diagFallbackStep: "Линк эсвэл файлаа шалгаад дахин задлах товчийг дарна уу.",
+
+  errAssistantHint: "Задалгаа амжилтгүй боллоо. Зүүн доод булан дахь AI туслахаас шууд оношлогоо аваарай.",
+
+  botFab: "AI туслах",
+  botTitle: "Системийн оношлогооны туслах",
+  botSubtitle: "Алдааны талаар асуугаарай — шалтгаан, засах аргыг тайлбарлая.",
+  botPlaceholder: "Яагаад бичлэг амжилтгүй болсон бэ?…",
+  botEmpty: "Одоогоор алдаа бүртгэгдээгүй байна. Аппын талаар юу ч асууж болно.",
+  botNewError: "бүртгэгдлээ — юу болсныг асуугаарай.",
+  botThinking: "Оношилж байна…",
+  botNoKey: "Оношилгоо ажиллуулахын тулд эхлээд Gemini API түлхүүрээ нэмнэ үү (1-р алхам).",
+  botClear: "Алдааны түүхийг цэвэрлэх",
+  botClose: "Хаах",
+  botErrorContext: "Миний харж буй сүүлийн алдаанууд",
 
   ready: "Бэлэн",
   complete: "Дууссан",
