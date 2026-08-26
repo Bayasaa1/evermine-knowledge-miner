@@ -250,6 +250,31 @@ export function estimateHourlyCost(stack: EngineStack): CostEstimate {
   return { hourly, free: hourly === 0, lines };
 }
 
+/** Maps an LLM engine id to the provider + concrete model it routes to. */
+export const ENGINE_BRAIN_MAP: Record<string, { provider: "gemini" | "openai" | "anthropic" | "deepseek"; model: string }> = {
+  "gemini-flash": { provider: "gemini", model: "gemini-2.5-flash" },
+  "openai-gpt4o": { provider: "openai", model: "gpt-4o" },
+  "openai-gpt4o-mini": { provider: "openai", model: "gpt-4o-mini" },
+  "claude-sonnet": { provider: "anthropic", model: "claude-3-5-sonnet-latest" },
+  "deepseek-v3": { provider: "deepseek", model: "deepseek-chat" },
+  "deepseek-r1": { provider: "deepseek", model: "deepseek-reasoner" },
+};
+
+export type BrainRoute = { provider: "gemini" | "openai" | "anthropic" | "deepseek"; model: string; apiKey: string } | null;
+
+/**
+ * Resolves the brain engine selected in the stack to a concrete provider route.
+ * Returns null for engines without a direct provider route (free/shared tiers),
+ * meaning "use the platform default backend".
+ */
+export function brainEngineRoute(stack: EngineStack): BrainRoute {
+  const route = ENGINE_BRAIN_MAP[stack.llm];
+  if (!route) return null;
+  const engine = findEngine(stack.llm);
+  const apiKey = engine?.keyField ? (stack.keys[engine.keyField] ?? "") : "";
+  return { ...route, apiKey };
+}
+
 const STACK_KEY = "engine-stack";
 
 export async function loadStack(): Promise<EngineStack> {
