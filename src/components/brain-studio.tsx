@@ -367,6 +367,19 @@ export function BrainStudio({
         <div className="flex shrink-0 gap-1">
           <button
             type="button"
+            aria-label={archived ? t.makeActive : t.archive}
+            title={archived ? t.makeActive : t.archive}
+            onClick={() => toggleActive(cat, e.id, archived)}
+            className={`rounded-md px-2 py-1.5 text-[10px] font-semibold transition-colors ${
+              archived
+                ? "text-status-green hover:bg-status-green/15"
+                : "text-status-amber hover:bg-status-amber/15"
+            }`}
+          >
+            {archived ? t.makeActive : t.archive}
+          </button>
+          <button
+            type="button"
             aria-label={t.edit}
             title={t.edit}
             onClick={() => {
