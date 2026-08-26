@@ -128,6 +128,12 @@ export function SubscriptionPanel({ lang, creatorEmail }: { lang: "en" | "mn"; c
       </div>
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
 
+      {!plan.enabled ? (
+        <p className="flex items-center gap-2 rounded-[12px] border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-foreground">
+          <Check className="h-4 w-4 shrink-0 text-status-green" /> {t.freeNote}
+        </p>
+      ) : (
+        <>
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label htmlFor="subPrice" className="mb-2 block text-sm text-muted-foreground">{t.price}</label>
