@@ -58,11 +58,109 @@ function buildSystemPrompt(mindId: string, lang: LangCode) {
   ].join("\n");
 }
 
+type ProviderId = "gemini" | "openai" | "anthropic" | "deepseek";
+const PROVIDER_SECRET: Record<ProviderId, string> = {
+  gemini: "GEMINI_API_KEY",
+  openai: "OPENAI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
+};
+const DEFAULT_MODEL: Record<ProviderId, string> = {
+  gemini: "gemini-2.5-flash",
+  openai: "gpt-4o-mini",
+  anthropic: "claude-3-5-sonnet-latest",
+  deepseek: "deepseek-chat",
+};
+
+function isProvider(v: unknown): v is ProviderId {
+  return v === "gemini" || v === "openai" || v === "anthropic" || v === "deepseek";
+}
+
+/** Direct call to a BYO / backend-secret provider key. Returns null when no key exists. */
+async function callProvider(
+  provider: ProviderId,
+  model: string,
+  apiKey: string,
+  system: string,
+  history: ChatMsg[],
+): Promise<Response | null> {
+  const messages = history.map((m) => ({
+    role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+    content: m.text,
+  }));
+  try {
+    if (provider === "openai" || provider === "deepseek") {
+      const base = provider === "openai" ? "https://api.openai.com/v1" : "https://api.deepseek.com/v1";
+      const res = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          max_tokens: 1024,
+          messages: [{ role: "system", content: system }, ...messages],
+        }),
+      });
+      if (!res.ok) return new Response(JSON.stringify({ error: `${provider} request failed (${res.status}).` }), { status: res.status });
+      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      return jsonReply((data.choices?.[0]?.message?.content ?? "").trim());
+    }
+    if (provider === "anthropic") {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({ model, max_tokens: 1024, system, messages }),
+      });
+      if (!res.ok) return new Response(JSON.stringify({ error: `Anthropic request failed (${res.status}).` }), { status: res.status });
+      const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+      return jsonReply((data.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join("").trim());
+    }
+    // gemini via backend secret key
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: system }] },
+          contents: messages.map((m) => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }],
+          })),
+          generationConfig: { maxOutputTokens: 1024 },
+        }),
+      },
+    );
+    if (!res.ok) return new Response(JSON.stringify({ error: `Gemini request failed (${res.status}).` }), { status: res.status });
+    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    return jsonReply((data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim());
+  } catch {
+    return new Response(JSON.stringify({ error: `Could not reach the ${provider} API.` }), { status: 502 });
+  }
+}
+
+function jsonReply(text: string): Response {
+  return new Response(JSON.stringify({ text }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export const Route = createFileRoute("/api/mind-chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { mindId?: string; messages?: ChatMsg[]; lang?: string };
+        let body: {
+          mindId?: string;
+          messages?: ChatMsg[];
+          lang?: string;
+          provider?: string;
+          model?: string;
+          apiKey?: string;
+        };
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -77,6 +175,20 @@ export const Route = createFileRoute("/api/mind-chat")({
         const history = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
         if (history.length === 0) {
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
+        }
+
+        // Flexible routing: a selected brain engine (BYO key from the client or a
+        // backend secret) wins; otherwise fall back to the platform default below.
+        if (isProvider(body.provider)) {
+          const provider = body.provider;
+          const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL[provider];
+          const key =
+            (typeof body.apiKey === "string" && body.apiKey.trim()) ||
+            (process.env[PROVIDER_SECRET[provider]] ?? "").trim();
+          if (key) {
+            const routed = await callProvider(provider, model, key, system, history);
+            if (routed) return routed;
+          }
         }
 
         const apiKey = process.env["LOVABLE_API_KEY"];
