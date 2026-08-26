@@ -793,6 +793,7 @@ function Index() {
   const [status, setStatus] = useState<Status>("ready");
   const [statusNote, setStatusNote] = useState<string>("noteReady");
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
+  const [activeMindId, setActiveMindId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
