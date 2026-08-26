@@ -166,8 +166,24 @@ function StepUpload({ lang }: { lang: Lang }) {
     return check.source;
   }, [tab, url, file]);
 
+  const explain = useCallback(
+    async (err: unknown, context: string, key: string | undefined) => {
+      const errorKey = errorKeyFor(err);
+      setErrorKey(errorKey);
+      setDiagnosing(true);
+      try {
+        const diag = await diagnoseError({ error: err, errorKey, lang, apiKey: key, context });
+        setDiagnosis(diag);
+      } finally {
+        setDiagnosing(false);
+      }
+    },
+    [lang],
+  );
+
   const run = useCallback(async () => {
     setErrorKey(null);
+    setDiagnosis(null);
     setResult(null);
     const source = resolveSource();
     if (!source) return;
