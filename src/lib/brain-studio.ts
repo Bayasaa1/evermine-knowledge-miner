@@ -157,12 +157,16 @@ const isStr = (v: unknown): v is string => typeof v === "string";
 
 function normEntry(v: unknown, cat: string): BrainEntry | null {
   if (!isObj(v) || !isStr(v['text']) || !v['text'].trim()) return null;
+  const now = new Date().toISOString();
   return {
     id: isStr(v['id']) && v['id'] ? v['id'] : brainId(cat, v['text']),
     text: v['text'],
     source: v['source'] === "custom" ? "custom" : "mined",
     edited: v['edited'] === true,
-    createdAt: isStr(v['createdAt']) ? v['createdAt'] : new Date().toISOString(),
+    createdAt: isStr(v['createdAt']) ? v['createdAt'] : now,
+    updatedAt: isStr(v['updatedAt']) ? v['updatedAt'] : isStr(v['createdAt']) ? v['createdAt'] : now,
+    status: v['status'] === "archived" ? "archived" : "active",
+    supersededBy: isStr(v['supersededBy']) ? v['supersededBy'] : null,
   };
 }
 
