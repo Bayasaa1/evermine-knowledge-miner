@@ -140,6 +140,8 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [diagnosis, setDiagnosis] = useState<Diagnosis | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
