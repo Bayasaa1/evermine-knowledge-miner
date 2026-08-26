@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
+import { SubscriptionPanel } from "@/components/subscription-panel";
+import { EngineHub } from "@/components/engine-hub";
+
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
@@ -2236,7 +2239,12 @@ function Index() {
           </section>
 
           {/* Results Area */}
+          <SubscriptionPanel lang={lang} creatorEmail={ownership.creatorEmail} />
+
+          <EngineHub lang={lang} />
+
           <AnalyticsPanel lang={lang} ownership={ownership} />
+
 
           <section ref={resultsRef} id="results" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
