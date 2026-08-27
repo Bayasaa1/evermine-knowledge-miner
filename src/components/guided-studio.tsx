@@ -43,6 +43,16 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
+import { useQueryClient } from "@tanstack/react-query";
+import { upsertVault } from "@/lib/cloud-vault.functions";
+import { publishToFeed } from "@/lib/feed";
+import { ensureActiveCreatorMind } from "@/lib/mind-registry";
+import {
+  backupMindToDrive,
+  DRIVE_FOLDER_NAME,
+  isDriveSyncEnabled,
+  setDriveSyncEnabled,
+} from "@/lib/drive-backup";
 
 const MODEL = "gemini-2.5-flash";
 
