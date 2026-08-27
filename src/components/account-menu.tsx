@@ -4,6 +4,7 @@ import { LogIn, LogOut, Settings, ShieldCheck, User as UserIcon } from "lucide-r
 
 import { initials, useAuth } from "@/hooks/use-auth";
 import { clearUserScopedLocalData } from "@/lib/user-scope";
+import { clearActiveKeyVault } from "@/lib/key-vault";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
   const handleSignOut = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
+    await clearActiveKeyVault(); // wipe this account's API keys + cached tokens
     clearUserScopedLocalData();
     await signOut();
     void navigate({ to: "/auth", replace: true });

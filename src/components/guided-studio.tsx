@@ -184,13 +184,16 @@ function StepShell({
 function StepGoogle({ lang }: { lang: Lang }) {
   const t = googleCopy[lang];
   const { isAuthenticated, profile } = useAuth();
-  const [linked, setLinked] = useState(false);
+  // Signing in is enough: when the Google session carries no Gemini scope the app
+  // falls back to the backend/platform engine, so onboarding never loops here.
+  const [oauthLinked, setOauthLinked] = useState(false);
   const [checking, setChecking] = useState(true);
+  const linked = oauthLinked || isAuthenticated;
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void (async () => {
-      setLinked(await hasGeminiOauth());
+      setOauthLinked(await hasGeminiOauth());
       setChecking(false);
     })();
   }, [isAuthenticated]);
@@ -207,7 +210,7 @@ function StepGoogle({ lang }: { lang: Lang }) {
         return;
       }
       if (result.redirected) return; // Browser is heading to Google.
-      setLinked(await hasGeminiOauth());
+      setOauthLinked(await hasGeminiOauth());
     } catch (err) {
       toast.error(t.failed, { description: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -238,7 +241,6 @@ function StepGoogle({ lang }: { lang: Lang }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {isAuthenticated && <p className="text-sm text-muted-foreground">{t.signedNoScope}</p>}
           <button
             type="button"
             onClick={() => void connect()}
@@ -262,6 +264,7 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [hasAuth, setHasAuth] = useState(true);
+  const { isAuthenticated: signedIn } = useAuth();
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -270,8 +273,8 @@ function StepUpload({ lang }: { lang: Lang }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    void hasGeminiOauth().then(setHasAuth);
-  }, []);
+    void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
+  }, [signedIn]);
 
   const resolveSource = useCallback((): ImportSource | null => {
     const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;

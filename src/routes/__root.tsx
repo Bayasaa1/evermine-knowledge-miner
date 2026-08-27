@@ -12,7 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { supabase } from "@/integrations/supabase/client";
-import { setLocalScope } from "@/lib/user-scope";
+import { setLocalScope, getLocalScope } from "@/lib/user-scope";
+import { purgeLegacyKeyVaults, resetKeyCaches } from "@/lib/key-vault";
 import { installGlobalErrorInterceptors } from "@/lib/error-capture";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -138,10 +139,15 @@ function RootComponent() {
   // scope in sync with the signed-in account.
   useEffect(() => {
     setLocalScope(null);
+    // Remove the pre-isolation shared key vault that used to be visible to every
+    // account on this device.
+    void purgeLegacyKeyVaults();
     void supabase.auth.getSession().then(({ data }) => setLocalScope(data.session?.user.id ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      setLocalScope(session?.user.id ?? null);
+      const nextId = session?.user.id ?? null;
+      if (nextId !== getLocalScope()) resetKeyCaches(); // account switch → drop cached tokens
+      setLocalScope(nextId);
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });

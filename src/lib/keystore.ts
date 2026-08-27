@@ -1,7 +1,12 @@
 import { idbGet, idbSet, idbDelete, STORES } from "./store";
+import { scopedKey } from "./user-scope";
 
-const KEY_ID = "gemini-api-key";
-const KEYS_ID = "gemini-api-keys";
+// API keys are stored per signed-in account. Switching accounts switches vaults;
+// no account ever reads another's keys.
+const KEY_ID = () => scopedKey("gemini-api-key");
+const KEYS_ID = () => scopedKey("gemini-api-keys");
+const LEGACY_KEY_ID = "gemini-api-key";
+const LEGACY_KEYS_ID = "gemini-api-keys";
 
 export type ApiKeyEntry = {
   id: string;
@@ -47,11 +52,11 @@ function normalize(raw: unknown): ApiKeyEntry[] {
     .filter((k): k is ApiKeyEntry => k !== null);
 }
 
-/** Loads the key pool, migrating a legacy single key when present. */
+/** Loads the signed-in account's key pool. Never falls back to another account's keys. */
 export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
-  const list = normalize(await idbGet<unknown>(STORES.SETTINGS, KEYS_ID));
+  const list = normalize(await idbGet<unknown>(STORES.SETTINGS, KEYS_ID()));
   if (list.length > 0) return list;
-  const legacy = await idbGet<string>(STORES.SETTINGS, KEY_ID);
+  const legacy = await idbGet<string>(STORES.SETTINGS, KEY_ID());
   if (legacy) {
     const migrated = [makeKeyEntry(legacy, "Key 1")];
     await saveApiKeys(migrated);
@@ -61,19 +66,25 @@ export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
 }
 
 export async function saveApiKeys(keys: ApiKeyEntry[]): Promise<void> {
-  await idbSet(STORES.SETTINGS, KEYS_ID, keys);
-  await idbSet(STORES.SETTINGS, KEY_ID, keys[0]?.value ?? "");
+  await idbSet(STORES.SETTINGS, KEYS_ID(), keys);
+  await idbSet(STORES.SETTINGS, KEY_ID(), keys[0]?.value ?? "");
 }
 
 export async function saveApiKey(key: string): Promise<void> {
-  await idbSet(STORES.SETTINGS, KEY_ID, key);
+  await idbSet(STORES.SETTINGS, KEY_ID(), key);
 }
 
 export async function loadApiKey(): Promise<string | null> {
-  return await idbGet<string>(STORES.SETTINGS, KEY_ID);
+  return await idbGet<string>(STORES.SETTINGS, KEY_ID());
 }
 
 export async function clearApiKey(): Promise<void> {
-  await idbDelete(STORES.SETTINGS, KEY_ID);
-  await idbDelete(STORES.SETTINGS, KEYS_ID);
+  await idbDelete(STORES.SETTINGS, KEY_ID());
+  await idbDelete(STORES.SETTINGS, KEYS_ID());
+}
+
+/** Purges the pre-isolation shared key records that leaked across accounts. */
+export async function purgeLegacyApiKeys(): Promise<void> {
+  await idbDelete(STORES.SETTINGS, LEGACY_KEY_ID);
+  await idbDelete(STORES.SETTINGS, LEGACY_KEYS_ID);
 }
