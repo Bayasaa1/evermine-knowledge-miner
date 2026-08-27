@@ -7,6 +7,9 @@ import type { ChunkResult } from "@/lib/gemini";
 import { buildRobotPackage, deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
 import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/robot-deploy.functions";
 import { loadEmbodiedSettings } from "@/lib/embodied";
+import { publishToFeed } from "@/lib/feed";
+import { getCreationCategory } from "@/lib/creation-category";
+import coverFounder from "@/assets/cover-founder.jpg";
 
 const copy = {
   en: {
@@ -115,6 +118,22 @@ export function RobotDeploymentStudio({
     try {
       const next = await pushDeployment({ data: { mindId, title: mindTitle, pkg } });
       setDeployment(next);
+      // Publishing a mind renders it straight onto the global Home Feed.
+      await publishToFeed({
+        id: `local:${mindId}`,
+        mindId: null,
+        creator: mindTitle || "My Mind",
+        handle: "@you",
+        title: mindTitle || "My Mind",
+        description: t.stats(pkg.stats.nodes, pkg.stats.trajectories, pkg.stats.spatial_actions),
+        category: getCreationCategory(),
+        src: null,
+        poster: coverFounder,
+        tags: ["Robot Brain", "VLA", "ROS 2"],
+        price: 0,
+        currency: "USD",
+        deployToken: next.token,
+      }).catch(() => undefined);
       toast.success(t.published);
     } catch (e) {
       toast.error(`${t.failed}: ${e instanceof Error ? e.message : String(e)}`);

@@ -1,3 +1,4 @@
+import { BottomNav } from "@/components/bottom-nav";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
