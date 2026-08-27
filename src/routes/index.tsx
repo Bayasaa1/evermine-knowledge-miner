@@ -85,13 +85,7 @@ function HomeFeed() {
     }
     const key = mindKey(item);
     setBuying(key);
-    const { error } = await purchaseMind({
-      userId: user.id,
-      mindId: key,
-      category: item.category,
-      price: item.price,
-      currency: item.currency,
-    });
+    const { error } = await purchaseMind({ mindId: key, category: item.category });
     setBuying(null);
     if (error) {
       toast.error(`Purchase failed: ${error}`);
