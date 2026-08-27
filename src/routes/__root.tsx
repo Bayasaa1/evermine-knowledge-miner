@@ -14,7 +14,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { BottomNav } from "@/components/bottom-nav";
 import { supabase } from "@/integrations/supabase/client";
-import { setLocalScope, getLocalScope } from "@/lib/user-scope";
+import {
+  setLocalScope,
+  getLocalScope,
+  clearUserScopedLocalData,
+  migrateLegacyBrandKeys,
+} from "@/lib/user-scope";
 import { purgeLegacyKeyVaults, resetKeyCaches } from "@/lib/key-vault";
 import { installGlobalErrorInterceptors } from "@/lib/error-capture";
 import appCss from "../styles.css?url";
