@@ -3,6 +3,7 @@
  * verified reviews are all gated on a row existing here.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { claimMind } from "./purchases.functions";
 import type { CreationCategory } from "./creation-category";
 
 export type Purchase = {
@@ -20,22 +21,19 @@ export async function listPurchases(): Promise<Purchase[]> {
   return (data as Purchase[] | null) ?? [];
 }
 
+/**
+ * Requests access to a mind. The server verifies the catalogue price and only
+ * grants free minds; paid unlocks need a confirmed payment. The browser can no
+ * longer write purchase rows itself.
+ */
 export async function purchaseMind(input: {
-  userId: string;
   mindId: string;
   category: CreationCategory;
-  price: number;
-  currency: string;
 }): Promise<{ error: string | null }> {
-  const { error } = await supabase.from("mind_purchases").upsert(
-    {
-      user_id: input.userId,
-      mind_id: input.mindId,
-      category: input.category,
-      price: input.price,
-      currency: input.currency,
-    },
-    { onConflict: "user_id,mind_id" },
-  );
-  return { error: error?.message ?? null };
+  try {
+    const res = await claimMind({ data: { mindId: input.mindId, category: input.category } });
+    return { error: res.ok ? null : (res.error ?? "Purchase failed") };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Purchase failed" };
+  }
 }
