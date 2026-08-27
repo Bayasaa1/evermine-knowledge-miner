@@ -39,11 +39,9 @@ export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")(
           },
         });
 
+        // Token-scoped RPC: never exposes deploy_token or other creators' rows.
         const { data, error } = await supabase
-          .from("robot_packages")
-          .select("mind_id, title, package, updated_at")
-          .eq("deploy_token", token)
-          .eq("published", true)
+          .rpc("get_published_mind_package", { _token: token })
           .maybeSingle();
 
         if (error) {

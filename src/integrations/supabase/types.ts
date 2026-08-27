@@ -244,7 +244,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_published_mind_package: {
+        Args: { _token: string }
+        Returns: {
+          mind_id: string
+          package: Json
+          title: string
+          updated_at: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
