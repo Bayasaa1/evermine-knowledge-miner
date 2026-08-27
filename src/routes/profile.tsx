@@ -28,11 +28,11 @@ function ProfilePage() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
-            {isAuthenticated && profile ? initials(profile.name ?? profile.email ?? "E") : "EV"}
+            {isAuthenticated && profile ? initials(profile.displayName) : "EV"}
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-semibold">
-              {isAuthenticated && profile ? (profile.name ?? profile.email) : "Guest"}
+              {isAuthenticated && profile ? profile.displayName : "Guest"}
             </h1>
             <p className="text-xs text-muted-foreground">A life becomes a mind.</p>
           </div>
