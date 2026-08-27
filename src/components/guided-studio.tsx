@@ -35,6 +35,7 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
+import { getCreationCategory } from "@/lib/creation-category";
 import { hasGeminiOauth } from "@/lib/google-gemini-auth";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
 import { lovable } from "@/integrations/lovable/index";
@@ -322,9 +323,9 @@ function StepUpload({ lang }: { lang: Lang }) {
       } else if (source.kind === "file") {
         const ref = await uploadVideo(key, source.file, { signal: controller.signal });
         setProgress((p) => Math.max(p, 55));
-        mined = await mineChunk(key, MODEL, ref, 0, MAX_DURATION_SEC, controller.signal);
+        mined = await mineChunk(key, MODEL, ref, 0, MAX_DURATION_SEC, controller.signal, getCreationCategory());
       } else {
-        mined = await mineUrlSegment(key, MODEL, source.url, 0, MAX_DURATION_SEC, controller.signal);
+        mined = await mineUrlSegment(key, MODEL, source.url, 0, MAX_DURATION_SEC, controller.signal, getCreationCategory());
       }
       setProgress(100);
       setResult(mined);
