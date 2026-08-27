@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Loader2, Send, Star, Video } from "lucide-react";
+import { BadgeCheck, Loader2, Lock, Send, Star, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -160,6 +160,7 @@ export function MindReviews({
         </div>
         {!user && <p className="mt-2 text-[11px] text-muted-foreground">{t.signIn}</p>}
       </div>
+      )}
 
       {reviews.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t.none}</p>
