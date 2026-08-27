@@ -121,6 +121,11 @@ export function MindReviews({
         </span>
       </div>
 
+      {!purchased ? (
+        <p className="mb-5 flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
+          <Lock className="h-3.5 w-3.5 shrink-0" /> {t.locked}
+        </p>
+      ) : (
       <div className="mb-5 rounded-xl border border-border bg-muted/40 p-3">
         <div className="mb-2 flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
