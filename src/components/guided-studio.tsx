@@ -276,6 +276,8 @@ function StepGoogle({ lang }: { lang: Lang }) {
 /** Step 2 — paste a YouTube/Drive link (or drop a file) and mine it directly. */
 function StepUpload({ lang }: { lang: Lang }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("youtube");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -285,12 +287,21 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
+  const [savedTitle, setSavedTitle] = useState<string | null>(null);
+  const [driveSync, setDriveSync] = useState(false);
+  const [driveNote, setDriveNote] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
+    void isDriveSyncEnabled().then(setDriveSync);
   }, [signedIn]);
+
+  const toggleDrive = useCallback(async (on: boolean) => {
+    setDriveSync(on);
+    await setDriveSyncEnabled(on);
+  }, []);
 
   const resolveSource = useCallback((): ImportSource | null => {
     const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;
@@ -311,9 +322,62 @@ function StepUpload({ lang }: { lang: Lang }) {
     reportFailure("analysis", err, { url: context });
   }, []);
 
+  /** Persists the mined result to the account's cloud vault, feed and Drive. */
+  const persist = useCallback(
+    async (mined: ChunkResult, source: ImportSource) => {
+      const category = getCreationCategory();
+      const title = mined.story.summary?.slice(0, 60) || source.label || "New Mind";
+      const payload = {
+        source: { kind: source.kind, label: source.label },
+        category,
+        minedAt: new Date().toISOString(),
+        result: mined,
+      };
+
+      try {
+        const vault = await ensureActiveCreatorMind();
+        const saved = await upsertVault({
+          data: { title, kind: "mine", payload: payload as never },
+        });
+        await publishToFeed({
+          id: `pub_${saved.id}`,
+          mindId: vault.id,
+          creator: vault.title,
+          handle: `@${vault.title.toLowerCase().replace(/\s+/g, "")}`,
+          title,
+          description: mined.story.summary ?? "",
+          category,
+          src: null,
+          poster: "",
+          tags: mined.subconsciousness.skills.slice(0, 4),
+          price: 0,
+          currency: "USD",
+        });
+        setSavedTitle(title);
+        await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      } catch (err) {
+        toast.error(lang === "mn" ? "Үүлэн санд хадгалж чадсангүй" : "Could not save to your cloud vault", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      if (await isDriveSyncEnabled()) {
+        const backup = await backupMindToDrive(title, payload);
+        setDriveNote(
+          backup.ok
+            ? `${DRIVE_FOLDER_NAME} / ${backup.fileName}`
+            : (lang === "mn" ? "Drive нөөцлөлт амжилтгүй: " : "Drive backup failed: ") + backup.reason,
+        );
+      }
+    },
+    [lang, queryClient],
+  );
+
   const run = useCallback(async () => {
     setErrorKey(null);
     setResult(null);
+    setSavedTitle(null);
+    setDriveNote(null);
     const source = resolveSource();
     if (!source) return;
 
@@ -350,6 +414,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         skills: mined.subconsciousness.skills.length,
         memories: mined.transcript.length,
       });
+      await persist(mined, source);
     } catch (err) {
       if ((err as Error)?.name === "AbortError") {
         setProgress(0);
@@ -361,7 +426,7 @@ function StepUpload({ lang }: { lang: Lang }) {
       setBusy(false);
       abortRef.current = null;
     }
-  }, [resolveSource, explain, signedIn]);
+  }, [resolveSource, explain, signedIn, persist]);
 
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
