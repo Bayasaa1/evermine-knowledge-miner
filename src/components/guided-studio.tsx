@@ -544,7 +544,24 @@ function StepUpload({ lang }: { lang: Lang }) {
           </div>
         )}
 
-        <p className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={driveSync}
+            onChange={(e) => void toggleDrive(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
+          />
+          <span className="text-xs leading-relaxed text-muted-foreground">
+            <span className="block font-medium text-foreground">
+              {lang === "mn" ? "Оюуны нөөцлөлтийг Google Drive-д хадгалах" : "Sync Mind Backup to Google Drive"}
+            </span>
+            {lang === "mn"
+              ? `Таны Google бүртгэл дэх "${DRIVE_FOLDER_NAME}" хавтсанд .mind.json файл автоматаар үүснэ.`
+              : `Writes a .mind.json file straight into an "${DRIVE_FOLDER_NAME}" folder in your Drive — no links to paste.`}
+          </span>
+        </label>
+
+        <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           {t("termsNotice")}
         </p>
       </div>
