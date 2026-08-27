@@ -13,7 +13,11 @@ Analyze only the requested time range and return JSON only with these keys:
 
 Only attribute skills, beliefs, decision logic, cultural vocabulary, and expressive style to the primary owner. Decode idioms, metaphors, blessings, teasing, and sarcasm according to their real cultural intent, not their literal wording. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent information that is not present in the video.`;
 
+const SAFETY_MESSAGE =
+  "SAFETY_BLOCKED: Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments.";
+
 function gatewayMessage(status: number, detail: string): string {
+  if (/safety|blocked|prohibited content|harm_category/i.test(detail)) return SAFETY_MESSAGE;
   if (status === 402) return detail || "AI credits are exhausted for this workspace.";
   if (status === 403) return detail || "AI access is blocked for this workspace.";
   if (status === 429) return detail || "Video analysis is busy. Please try again shortly.";
@@ -68,8 +72,14 @@ export async function analyzeYoutubeVideo(input: {
     throw Object.assign(new Error(gatewayMessage(response.status, detail)), { status: response.status });
   }
 
-  const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-  const text = body.choices?.[0]?.message?.content?.trim();
+  const body = (await response.json()) as {
+    choices?: { message?: { content?: string }; finish_reason?: string }[];
+  };
+  const choice = body.choices?.[0];
+  if (choice?.finish_reason && /safety|content_filter/i.test(choice.finish_reason)) {
+    throw new Error(SAFETY_MESSAGE);
+  }
+  const text = choice?.message?.content?.trim();
   if (!text) throw new Error("AI returned an empty video analysis.");
 
   try {

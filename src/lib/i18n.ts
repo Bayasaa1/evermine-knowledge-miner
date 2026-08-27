@@ -60,7 +60,13 @@ const en: Dict = {
   errQuota: "Your AI quota is used up. Add another key or wait for the reset.",
   errGeneric: "Something went wrong while analysing this video. Please try again.",
   errNoKey: "Sign in with Google (Step 1) first — it links your Gemini API automatically.",
+  errSafety:
+    "Google's AI safety filters stopped this analysis. Pick another clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.",
   retry: "Retry",
+
+  termsNotice:
+    "Free tier notice: analysis runs on Google Gemini. On the free tier Google may review submitted content to improve their models, so avoid private or confidential footage.",
+  termsLink: "Terms & Privacy",
 
   diagTitle: "AI Assistant Diagnostics",
   diagThinking: "Working out what happened…",

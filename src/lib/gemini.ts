@@ -28,7 +28,24 @@ export class GeminiError extends Error {
   }
 }
 
+/**
+ * True when Google's AI safety filters blocked the content rather than the
+ * request failing technically. Retrying the same video will not help.
+ */
+export function isSafetyBlocked(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /SAFETY_BLOCKED|safety|blocked|prohibited content|harm_category/i.test(msg);
+}
+
+/** Friendly, non-technical explanation for a safety-blocked analysis. */
+export function safetyMessage(lang: "en" | "mn" = "en"): string {
+  return lang === "mn"
+    ? "Google-ийн AI аюулгүй байдлын шүүлтүүр энэ видеог шинжлэхийг зогсоолоо. Хүчирхийлэл, насанд хүрэгчдийн болон эмзэг агуулгагүй хэсгийг сонгож дахин оролдоно уу."
+    : "Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.";
+}
+
 export function describeError(err: unknown): string {
+  if (isSafetyBlocked(err)) return safetyMessage("en");
   if (err instanceof GeminiError) {
     if (err.status === 401 || err.status === 403) return `Invalid or unauthorized API key (${err.status}): ${err.message}`;
     if (err.status === 429) return `Quota / rate limit reached (429): ${err.message}`;

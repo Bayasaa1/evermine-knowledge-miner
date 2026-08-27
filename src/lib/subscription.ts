@@ -7,7 +7,11 @@ import { idbGet, idbSet, STORES } from "./store";
 
 export const PLATFORM_COMMISSION = 0.2;
 
-export const PRICE_PRESETS = [5, 10, 20] as const;
+/**
+ * No price caps: creators type any monthly price they want. 0 means free access.
+ * These are purely optional one-tap hints, never a limit.
+ */
+export const PRICE_HINTS = [0, 5, 25, 100] as const;
 
 export type SubscriptionPlan = {
   /** Whether the mind is offered as a monthly subscription. */

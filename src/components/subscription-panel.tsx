@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
-import { CreditCard, Check, Link2, Loader2, Percent } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CreditCard, Check, Percent, Wallet } from "lucide-react";
 import {
   PLATFORM_COMMISSION,
-  PRICE_PRESETS,
-  connectStripeAccount,
+  PRICE_HINTS,
   createPlan,
   formatMoney,
   loadPlan,
@@ -20,22 +18,20 @@ const copy = {
     freeMode: "Free",
     paidMode: "Paid",
     freeNote: "Free mode is on — anyone can chat with your AI clone for free. Switch to Paid any time.",
-    price: "Monthly price",
+    price: "Monthly price — set any amount you want",
+    priceHint: "No caps, no fixed tiers. Type $1, $250 or anything in between. 0 means free access.",
     currency: "Currency",
     perks: "What subscribers get",
-    presets: "Quick prices",
+    hints: "Quick fill (optional)",
+    freeChip: "Free",
     split: "Revenue split",
     gross: "Subscriber pays",
     fee: `Platform commission (${Math.round(PLATFORM_COMMISSION * 100)}%)`,
     net: "You receive",
     per100: "At 100 subscribers",
-    connect: "Stripe Connect",
-    connectHint: "Payouts land in your own Stripe account. Commission is taken automatically at checkout.",
-    connectBtn: "Connect Stripe account",
-    connected: "Stripe account connected",
-    connecting: "Connecting…",
-    needEmail: "Add your creator email in Mind Ownership first.",
-    saved: "Subscription settings saved on this device.",
+    payoutLater: "Payouts later",
+    payoutLaterHint:
+      "You don't need a wallet or bank details to publish. Earnings collect as Unclaimed Earnings — connect a payout method only when you decide to withdraw.",
   },
   mn: {
     title: "Орлого",
@@ -43,34 +39,34 @@ const copy = {
     freeMode: "Үнэгүй",
     paidMode: "Төлбөртэй",
     freeNote: "Үнэгүй горим идэвхтэй — хэн ч таны AI клонтой үнэгүй чатлаж чадна. Хүссэн үедээ Төлбөртэй болгож сольж болно.",
-    price: "Сарын үнэ",
+    price: "Сарын үнэ — дурын дүн тавь",
+    priceHint: "Хязгаар, тогтсон багц байхгүй. $1, $250 эсвэл дурын дүн бичиж болно. 0 бол үнэгүй.",
     currency: "Валют",
     perks: "Захиалагч юу авах вэ",
-    presets: "Түргэн үнэ",
+    hints: "Түргэн бөглөх (заавал биш)",
+    freeChip: "Үнэгүй",
     split: "Орлогын хуваарилалт",
     gross: "Захиалагчийн төлбөр",
     fee: `Платформын шимтгэл (${Math.round(PLATFORM_COMMISSION * 100)}%)`,
     net: "Танд ногдох",
     per100: "100 захиалагчтай үед",
-    connect: "Stripe Connect",
-    connectHint: "Төлбөр таны Stripe данс руу шууд ороно. Шимтгэл автоматаар суутгагдана.",
-    connectBtn: "Stripe данс холбох",
-    connected: "Stripe данс холбогдсон",
-    connecting: "Холбож байна…",
-    needEmail: "Эхлээд Mind Ownership хэсэгт бүтээгчийн имэйлээ оруулна уу.",
-    saved: "Захиалгын тохиргоо төхөөрөмж дээр хадгалагдлаа.",
+    payoutLater: "Төлбөрөө дараа холбоно",
+    payoutLaterHint:
+      "Нийтлэхэд хэтэвч, дансны мэдээлэл шаардлагагүй. Орлого “Аваагүй орлого” болж хуримтлагдана — та мөнгөө авахаар шийдсэн үедээ л төлбөрийн суваг холбоно.",
   },
 } as const;
 
-export function SubscriptionPanel({ lang, creatorEmail }: { lang: "en" | "mn"; creatorEmail: string }) {
+export function SubscriptionPanel({ lang }: { lang: "en" | "mn"; creatorEmail?: string }) {
   const t = copy[lang];
   const [plan, setPlan] = useState<SubscriptionPlan>(createPlan);
   const [hydrated, setHydrated] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [priceText, setPriceText] = useState("");
 
   useEffect(() => {
     void (async () => {
-      setPlan(await loadPlan());
+      const next = await loadPlan();
+      setPlan(next);
+      setPriceText(String(next.monthlyPrice));
       setHydrated(true);
     })();
   }, []);
@@ -81,19 +77,10 @@ export function SubscriptionPanel({ lang, creatorEmail }: { lang: "en" | "mn"; c
     return () => clearTimeout(id);
   }, [hydrated, plan]);
 
-  const handleConnect = useCallback(() => {
-    const email = creatorEmail.trim() || plan.connect.email;
-    if (!email) {
-      toast.error(t.needEmail);
-      return;
-    }
-    setConnecting(true);
-    setTimeout(() => {
-      setPlan((p) => ({ ...p, connect: connectStripeAccount(email) }));
-      setConnecting(false);
-      toast.success(t.connected);
-    }, 900);
-  }, [creatorEmail, plan.connect.email, t]);
+  const setPrice = (value: number) => {
+    setPriceText(String(value));
+    setPlan((p) => ({ ...p, monthlyPrice: value }));
+  };
 
   const one = splitRevenue(plan.monthlyPrice);
   const hundred = splitRevenue(plan.monthlyPrice, 100);
@@ -134,109 +121,99 @@ export function SubscriptionPanel({ lang, creatorEmail }: { lang: "en" | "mn"; c
         </p>
       ) : (
         <>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div>
-          <label htmlFor="subPrice" className="mb-2 block text-sm text-muted-foreground">{t.price}</label>
-          <input
-            id="subPrice"
-            type="number"
-            min={0}
-            step="1"
-            value={plan.monthlyPrice}
-            onChange={(e) => setPlan((p) => ({ ...p, monthlyPrice: Math.max(0, Number(e.target.value) || 0) }))}
-            className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
-          />
-        </div>
-        <div>
-          <label htmlFor="subCurrency" className="mb-2 block text-sm text-muted-foreground">{t.currency}</label>
-          <input
-            id="subCurrency"
-            value={plan.currency}
-            onChange={(e) => setPlan((p) => ({ ...p, currency: e.target.value.toUpperCase().slice(0, 4) }))}
-            className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
-          />
-        </div>
-        <div>
-          <span className="mb-2 block text-sm text-muted-foreground">{t.presets}</span>
-          <div className="flex gap-2">
-            {PRICE_PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPlan((s) => ({ ...s, monthlyPrice: p }))}
-                className={`flex-1 rounded-lg border px-2 py-2.5 text-sm font-semibold transition-colors ${
-                  plan.monthlyPrice === p
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-muted text-muted-foreground hover:border-primary/50 hover:text-primary"
-                }`}
-              >
-                ${p}
-              </button>
-            ))}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <label htmlFor="subPrice" className="mb-2 block text-sm text-muted-foreground">{t.price}</label>
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 focus-within:border-primary">
+                <span className="text-sm text-muted-foreground">{plan.currency}</span>
+                <input
+                  id="subPrice"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  value={priceText}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setPriceText(raw);
+                    const n = Number(raw);
+                    setPlan((p) => ({ ...p, monthlyPrice: Number.isFinite(n) && n > 0 ? n : 0 }));
+                  }}
+                  onBlur={() => setPriceText(String(plan.monthlyPrice))}
+                  className="w-full bg-transparent py-2.5 text-sm text-foreground outline-none"
+                />
+                <span className="text-xs text-muted-foreground">/mo</span>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">{t.priceHint}</p>
+            </div>
+            <div>
+              <label htmlFor="subCurrency" className="mb-2 block text-sm text-muted-foreground">{t.currency}</label>
+              <input
+                id="subCurrency"
+                value={plan.currency}
+                onChange={(e) => setPlan((p) => ({ ...p, currency: e.target.value.toUpperCase().slice(0, 4) }))}
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <span className="mb-2 block text-sm text-muted-foreground">{t.hints}</span>
+              <div className="flex flex-wrap gap-2">
+                {PRICE_HINTS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPrice(p)}
+                    className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                  >
+                    {p === 0 ? t.freeChip : `$${p}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="sm:col-span-3">
+              <label htmlFor="subPerks" className="mb-2 block text-sm text-muted-foreground">{t.perks}</label>
+              <textarea
+                id="subPerks"
+                rows={2}
+                value={plan.perks}
+                onChange={(e) => setPlan((p) => ({ ...p, perks: e.target.value }))}
+                className="w-full resize-y rounded-lg border border-border bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-primary"
+              />
+            </div>
           </div>
-        </div>
-        <div className="sm:col-span-3">
-          <label htmlFor="subPerks" className="mb-2 block text-sm text-muted-foreground">{t.perks}</label>
-          <textarea
-            id="subPerks"
-            rows={2}
-            value={plan.perks}
-            onChange={(e) => setPlan((p) => ({ ...p, perks: e.target.value }))}
-            className="w-full resize-y rounded-lg border border-border bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-primary"
-          />
-        </div>
-      </div>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-[12px] border border-border bg-muted/40 p-4">
-          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Percent className="h-4 w-4 text-primary" /> {t.split}
-          </div>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">{t.gross}</dt>
-              <dd className="font-mono text-foreground">{formatMoney(one.gross, plan.currency)}/mo</dd>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-[12px] border border-border bg-muted/40 p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Percent className="h-4 w-4 text-primary" /> {t.split}
+              </div>
+              <dl className="space-y-2 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">{t.gross}</dt>
+                  <dd className="font-mono text-foreground">{formatMoney(one.gross, plan.currency)}/mo</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">{t.fee}</dt>
+                  <dd className="font-mono text-status-amber">−{formatMoney(one.commission, plan.currency)}</dd>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-border pt-2">
+                  <dt className="font-medium text-foreground">{t.net}</dt>
+                  <dd className="font-mono font-semibold text-status-green">{formatMoney(one.net, plan.currency)}</dd>
+                </div>
+                <div className="flex justify-between gap-3 text-xs">
+                  <dt className="text-muted-foreground">{t.per100}</dt>
+                  <dd className="font-mono text-muted-foreground">{formatMoney(hundred.net, plan.currency)}/mo</dd>
+                </div>
+              </dl>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">{t.fee}</dt>
-              <dd className="font-mono text-status-amber">−{formatMoney(one.commission, plan.currency)}</dd>
-            </div>
-            <div className="flex justify-between gap-3 border-t border-border pt-2">
-              <dt className="font-medium text-foreground">{t.net}</dt>
-              <dd className="font-mono font-semibold text-status-green">{formatMoney(one.net, plan.currency)}</dd>
-            </div>
-            <div className="flex justify-between gap-3 text-xs">
-              <dt className="text-muted-foreground">{t.per100}</dt>
-              <dd className="font-mono text-muted-foreground">{formatMoney(hundred.net, plan.currency)}/mo</dd>
-            </div>
-          </dl>
-        </div>
 
-        <div className="rounded-[12px] border border-border bg-muted/40 p-4">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Link2 className="h-4 w-4 text-primary" /> {t.connect}
-          </div>
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t.connectHint}</p>
-          {plan.connect.status === "connected" ? (
-            <div className="space-y-1.5">
-              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-status-green">
-                <Check className="h-4 w-4" /> {t.connected}
-              </p>
-              <p className="font-mono text-xs text-muted-foreground">{plan.connect.accountId}</p>
-              <p className="truncate text-xs text-muted-foreground">{plan.connect.email}</p>
+            <div className="rounded-[12px] border border-border bg-muted/40 p-4">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Wallet className="h-4 w-4 text-primary" /> {t.payoutLater}
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">{t.payoutLaterHint}</p>
             </div>
-          ) : (
-            <button
-              onClick={handleConnect}
-              disabled={connecting}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:opacity-60"
-            >
-              {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              {connecting ? t.connecting : t.connectBtn}
-            </button>
-          )}
-        </div>
-      </div>
+          </div>
         </>
       )}
     </section>

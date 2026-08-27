@@ -10,6 +10,13 @@ import {
   type AnalyticsSummary,
 } from "@/lib/analytics";
 import type { Ownership } from "@/lib/ownership";
+import { PayoutSetup } from "@/components/payout-setup";
+import {
+  emptyPayoutSettings,
+  loadPayoutSettings,
+  maskDestination,
+  type PayoutSettings,
+} from "@/lib/payouts";
 
 const copy = {
   en: {
@@ -35,6 +42,11 @@ const copy = {
     payoutDone: (v: string) => `Payout requested for ${v}. We'll process it within 3 business days.`,
     payoutEmpty: "Nothing to pay out yet.",
     rateHint: "Rates come from your Mind Ownership settings.",
+    unclaimed: "Unclaimed earnings",
+    connectPrompt: "Connect payout method to withdraw",
+    payoutVia: "Paid out via",
+    change: "Change method",
+    channelNames: { stripe: "Stripe", paypal: "PayPal", crypto: "Crypto wallet", bank: "Bank transfer" },
   },
   mn: {
     title: "Аналитик ба орлого",
@@ -59,6 +71,11 @@ const copy = {
     payoutDone: (v: string) => `${v} төлбөрийн хүсэлт илгээгдлээ. 3 ажлын өдөрт шийдвэрлэнэ.`,
     payoutEmpty: "Одоогоор олгох мөнгө алга.",
     rateHint: "Ханшийг Mind Ownership тохиргооноос авдаг.",
+    unclaimed: "Аваагүй орлого",
+    connectPrompt: "Мөнгөө авахын тулд төлбөрийн суваг холбоно уу",
+    payoutVia: "Төлбөрийн суваг",
+    change: "Суваг солих",
+    channelNames: { stripe: "Stripe", paypal: "PayPal", crypto: "Крипто хэтэвч", bank: "Банк шилжүүлэг" },
   },
 };
 
@@ -71,6 +88,13 @@ export function AnalyticsPanel({ lang, ownership }: { lang: "en" | "mn"; ownersh
   const [data, setData] = useState<Analytics>(() => emptyAnalytics());
   const [now, setNow] = useState(() => Date.now());
   const [paying, setPaying] = useState(false);
+  // Payout details are collected lazily — only when the creator withdraws.
+  const [payout, setPayout] = useState<PayoutSettings>(() => emptyPayoutSettings());
+  const [setupOpen, setSetupOpen] = useState(false);
+
+  useEffect(() => {
+    void (async () => setPayout(await loadPayoutSettings()))();
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -95,12 +119,16 @@ export function AnalyticsPanel({ lang, ownership }: { lang: "en" | "mn"; ownersh
       toast.error(t.payoutEmpty);
       return;
     }
+    if (!payout.method) {
+      setSetupOpen(true);
+      return;
+    }
     setPaying(true);
     const next = await requestPayout(s.available, s.currency);
     setData(next);
     setPaying(false);
     toast.success(t.payoutDone(money(s.available, s.currency)));
-  }, [s.available, s.currency, t]);
+  }, [payout.method, s.available, s.currency, t]);
 
   const stats = [
     { key: "calls", icon: Video, label: t.calls, value: String(s.totalCalls), note: `${s.activeCalls} ${t.inCall}` },
@@ -194,18 +222,46 @@ export function AnalyticsPanel({ lang, ownership }: { lang: "en" | "mn"; ownersh
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3">
           <div>
-            <p className="text-xs text-muted-foreground">{t.available}</p>
+            <p className="text-xs text-muted-foreground">{t.unclaimed}</p>
             <p className="text-2xl font-semibold tabular-nums text-foreground">{money(s.available, s.currency)}</p>
+            {payout.method && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t.payoutVia}: {t.channelNames[payout.method.channel]} · {maskDestination(payout.method.destination)}
+              </p>
+            )}
           </div>
-          <button
-            onClick={() => void onPayout()}
-            disabled={paying || s.available <= 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-            {t.payout}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {payout.method && (
+              <button
+                type="button"
+                onClick={() => setSetupOpen((v) => !v)}
+                className="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                {t.change}
+              </button>
+            )}
+            <button
+              onClick={() => void onPayout()}
+              disabled={paying || s.available <= 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+              {payout.method ? t.payout : t.connectPrompt}
+            </button>
+          </div>
         </div>
+        {setupOpen && (
+          <div className="mt-3">
+            <PayoutSetup
+              lang={lang}
+              defaultEmail={ownership.creatorEmail ?? ""}
+              onConnected={(next) => {
+                setPayout(next);
+                setSetupOpen(false);
+              }}
+            />
+          </div>
+        )}
         <p className="mt-2 text-xs text-muted-foreground">{t.rateHint}</p>
       </div>
     </section>
