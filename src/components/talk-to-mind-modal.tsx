@@ -60,7 +60,7 @@ export function TalkToMindModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+    <div className="dark fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
       <div className="flex h-[80vh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card sm:h-[70vh] sm:rounded-2xl">
         <div className="flex items-center gap-3 border-b border-border p-4">
           <Sparkles className="h-4 w-4 text-primary" />
