@@ -178,17 +178,37 @@ export async function uploadVideo(
   });
   if (!uploadRes.ok) throw await readError(uploadRes);
   const uploaded = await uploadRes.json();
-  let info = uploaded.file as { uri: string; name: string; state: string; mimeType?: string };
+  let info = uploaded.file as {
+    uri: string;
+    name: string;
+    state: string;
+    mimeType?: string;
+    error?: { message?: string };
+  };
 
+  const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
   while (info.state === "PROCESSING") {
     opts.onState?.(info.state);
+    if (Date.now() > deadline) {
+      throw new GeminiError(
+        `PROCESSING_PENDING — Google is still processing "${file.name}" after ${Math.round(
+          PROCESSING_TIMEOUT_MS / 60000,
+        )} minutes and never reached ACTIVE.`,
+        408,
+      );
+    }
     await new Promise((r) => setTimeout(r, 3000));
     if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const pollRes = await geminiRequest(`${BASE}/v1beta/${info.name}`, key, { signal: opts.signal ?? null });
     if (!pollRes.ok) throw await readError(pollRes);
     info = await pollRes.json();
   }
-  if (info.state !== "ACTIVE") throw new GeminiError(`Video processing failed (state ${info.state})`, 400);
+  if (info.state !== "ACTIVE") {
+    throw new GeminiError(
+      `Video processing failed (state ${info.state}${info.error?.message ? `: ${info.error.message}` : ""}). The file may be corrupt or in an unsupported codec.`,
+      400,
+    );
+  }
   opts.onState?.(info.state);
   return { uri: info.uri, mimeType: info.mimeType ?? mimeType, name: info.name };
 }
