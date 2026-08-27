@@ -144,20 +144,38 @@ function RootComponent() {
   // scope in sync with the signed-in account.
   useEffect(() => {
     setLocalScope(null);
+    migrateLegacyBrandKeys();
     // Remove the pre-isolation shared key vault that used to be visible to every
     // account on this device.
     void purgeLegacyKeyVaults();
-    void supabase.auth.getSession().then(({ data }) => setLocalScope(data.session?.user.id ?? null));
+    void supabase.auth.getSession().then(({ data }) => {
+      // No valid session on boot → wipe any leftover session state immediately.
+      if (!data.session?.user) {
+        clearUserScopedLocalData();
+        resetKeyCaches();
+        queryClient.clear();
+        setLocalScope(null);
+        return;
+      }
+      setLocalScope(data.session.user.id);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       const nextId = session?.user.id ?? null;
       if (nextId !== getLocalScope()) resetKeyCaches(); // account switch → drop cached tokens
+      if (event === "SIGNED_OUT" || !nextId) {
+        // Invalid/ended session: purge cached data before anything can re-read it.
+        void queryClient.cancelQueries();
+        queryClient.clear();
+        clearUserScopedLocalData();
+      }
       setLocalScope(nextId);
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
+
 
   return (
     <QueryClientProvider client={queryClient}>
