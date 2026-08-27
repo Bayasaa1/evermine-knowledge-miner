@@ -50,6 +50,7 @@ import {
   parseTimestamp,
   type VoiceSample,
 } from "@/lib/voice-sample";
+import { getCreationCategory } from "@/lib/creation-category";
 import {
   validateApiKey,
   uploadVideo,
