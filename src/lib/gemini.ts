@@ -95,13 +95,61 @@ export async function validateApiKey(key: string): Promise<string[]> {
 
 export type UploadedFile = { uri: string; mimeType: string; name: string };
 
+/** Video MIME types Gemini accepts through the File API. */
+export const SUPPORTED_VIDEO_MIME = [
+  "video/mp4",
+  "video/mpeg",
+  "video/mov",
+  "video/quicktime",
+  "video/avi",
+  "video/x-flv",
+  "video/mpg",
+  "video/webm",
+  "video/wmv",
+  "video/3gpp",
+] as const;
+
+const EXT_MIME: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  qt: "video/quicktime",
+  webm: "video/webm",
+  mpeg: "video/mpeg",
+  mpg: "video/mpg",
+  avi: "video/avi",
+  flv: "video/x-flv",
+  wmv: "video/wmv",
+  "3gp": "video/3gpp",
+};
+
+/**
+ * Resolves an explicit, Gemini-supported video MIME type for a file. Browsers
+ * often report an empty or generic type, which makes the File API reject the
+ * upload with a 400, so we fall back to the file extension.
+ */
+export function resolveVideoMime(file: File): string {
+  const declared = (file.type || "").toLowerCase();
+  if ((SUPPORTED_VIDEO_MIME as readonly string[]).includes(declared)) return declared;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const guessed = EXT_MIME[ext];
+  if (guessed) return guessed;
+  throw new GeminiError(
+    `Unsupported video type "${declared || ext || "unknown"}". Supported formats: ${SUPPORTED_VIDEO_MIME.join(", ")}.`,
+    415,
+  );
+}
+
+/** Hard cap for how long we wait on Google's PROCESSING state before giving up. */
+const PROCESSING_TIMEOUT_MS = 10 * 60 * 1000;
+
 /** Uploads a video with the resumable File API and waits until it is ACTIVE. */
 export async function uploadVideo(
   key: string,
   file: File,
   opts: { signal?: AbortSignal; onState?: (state: string) => void } = {},
 ): Promise<UploadedFile> {
-  const mimeType = file.type || "video/mp4";
+  const mimeType = resolveVideoMime(file);
   const startRes = await geminiRequest(`${BASE}/upload/v1beta/files`, key, {
     method: "POST",
     signal: opts.signal ?? null,
