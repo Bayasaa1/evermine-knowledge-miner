@@ -7,6 +7,7 @@
  * banner with a Retry button — never a raw log line.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
   CheckCircle2,
@@ -92,6 +93,7 @@ function GoogleMark() {
 
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   return (
