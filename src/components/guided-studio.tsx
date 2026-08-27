@@ -585,16 +585,98 @@ function StepUpload({ lang }: { lang: Lang }) {
       )}
 
       {result && (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t("successTitle")}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("successBody")}</p>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground">
-            {result.subconsciousness.beliefs.slice(0, 4).map((b, i) => (
-              <li key={i}>{b}</li>
-            ))}
-          </ul>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t("successTitle")}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {savedTitle
+                ? lang === "mn"
+                  ? `"${savedTitle}" таны бүртгэлд хадгалагдаж, нийтлэгдлээ.`
+                  : `"${savedTitle}" was saved to your account and published.`
+                : t("successBody")}
+            </p>
+            {driveNote && <p className="mt-1 text-xs text-muted-foreground">Google Drive: {driveNote}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/vaults" })}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                {lang === "mn" ? "Миний сангаас харах" : "View in My Vaults"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/" })}
+                className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                {lang === "mn" ? "Фийд дээр харах" : "View on Feed"}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-4">
+            <h3 className="text-sm font-semibold text-foreground">
+              {lang === "mn"
+                ? "Задлан авсан мэдлэг ба хөдөлгөөний зам"
+                : "Extracted Knowledge & Motion Trajectories"}
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(
+                [
+                  [result.knowledgeNodes.length, lang === "mn" ? "Мэдлэгийн зангилаа" : "Knowledge nodes"],
+                  [
+                    result.knowledgeNodes.filter((n) => n.spatial_action).length,
+                    lang === "mn" ? "Хөдөлгөөний зам" : "Trajectories",
+                  ],
+                  [result.subconsciousness.skills.length, lang === "mn" ? "Ур чадвар" : "Skills"],
+                  [result.transcript.length, lang === "mn" ? "Ярианы мөр" : "Transcript lines"],
+                ] as const
+              ).map(([n, label]) => (
+                <div key={label} className="rounded-lg border border-border bg-background p-2.5">
+                  <p className="text-lg font-semibold text-foreground">{n}</p>
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {result.knowledgeNodes.length > 0 ? (
+              <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
+                {result.knowledgeNodes.slice(0, 20).map((n, i) => (
+                  <li key={i} className="rounded-lg border border-border bg-background p-3">
+                    <details>
+                      <summary className="cursor-pointer list-none">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
+                            {n.timestamp_start}–{n.timestamp_end}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">{n.concept_title}</span>
+                          <span className="ml-auto text-[11px] text-muted-foreground">
+                            {Math.round(n.confidence_score * 100)}%
+                          </span>
+                        </span>
+                      </summary>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{n.detailed_explanation}</p>
+                      {n.spatial_action && (
+                        <p className="mt-2 rounded-md bg-muted/40 p-2 font-mono text-[11px] text-muted-foreground">
+                          {n.spatial_action.object_name} · {n.spatial_action.grasp_type} · xyz[
+                          {n.spatial_action.coordinates_xyz.map((v) => v.toFixed(2)).join(", ")}] · vec[
+                          {n.spatial_action.movement_vector.map((v) => v.toFixed(2)).join(", ")}]
+                        </p>
+                      )}
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground">
+                {result.subconsciousness.beliefs.slice(0, 4).map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
