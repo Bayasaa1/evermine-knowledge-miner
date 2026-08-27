@@ -47,7 +47,15 @@ export function safetyMessage(lang: "en" | "mn" = "en"): string {
 export function describeError(err: unknown): string {
   if (isSafetyBlocked(err)) return safetyMessage("en");
   if (err instanceof GeminiError) {
+    if (err.status === 400) return `Invalid argument (400): ${err.message}`;
     if (err.status === 401 || err.status === 403) return `Invalid or unauthorized API key (${err.status}): ${err.message}`;
+    if (err.status === 404)
+      return `File not found (404) — the uploaded video expired on Google's servers (files live 48h). Re-upload and mine again: ${err.message}`;
+    if (err.status === 408)
+      return `PROCESSING_PENDING (408): Google is still processing this video and did not become ACTIVE in time. Try a shorter or smaller clip: ${err.message}`;
+    if (err.status === 413)
+      return `Payload Too Large (413): the video exceeds Google's upload limit. Compress it or split it into smaller files: ${err.message}`;
+    if (err.status === 415) return `Unsupported video format (415): ${err.message}`;
     if (err.status === 429) return `Quota / rate limit reached (429): ${err.message}`;
     if (err.status >= 500) return `Gemini service error (${err.status}): ${err.message}`;
     return `Request failed (${err.status}): ${err.message}`;
@@ -87,13 +95,61 @@ export async function validateApiKey(key: string): Promise<string[]> {
 
 export type UploadedFile = { uri: string; mimeType: string; name: string };
 
+/** Video MIME types Gemini accepts through the File API. */
+export const SUPPORTED_VIDEO_MIME = [
+  "video/mp4",
+  "video/mpeg",
+  "video/mov",
+  "video/quicktime",
+  "video/avi",
+  "video/x-flv",
+  "video/mpg",
+  "video/webm",
+  "video/wmv",
+  "video/3gpp",
+] as const;
+
+const EXT_MIME: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  qt: "video/quicktime",
+  webm: "video/webm",
+  mpeg: "video/mpeg",
+  mpg: "video/mpg",
+  avi: "video/avi",
+  flv: "video/x-flv",
+  wmv: "video/wmv",
+  "3gp": "video/3gpp",
+};
+
+/**
+ * Resolves an explicit, Gemini-supported video MIME type for a file. Browsers
+ * often report an empty or generic type, which makes the File API reject the
+ * upload with a 400, so we fall back to the file extension.
+ */
+export function resolveVideoMime(file: File): string {
+  const declared = (file.type || "").toLowerCase();
+  if ((SUPPORTED_VIDEO_MIME as readonly string[]).includes(declared)) return declared;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const guessed = EXT_MIME[ext];
+  if (guessed) return guessed;
+  throw new GeminiError(
+    `Unsupported video type "${declared || ext || "unknown"}". Supported formats: ${SUPPORTED_VIDEO_MIME.join(", ")}.`,
+    415,
+  );
+}
+
+/** Hard cap for how long we wait on Google's PROCESSING state before giving up. */
+const PROCESSING_TIMEOUT_MS = 10 * 60 * 1000;
+
 /** Uploads a video with the resumable File API and waits until it is ACTIVE. */
 export async function uploadVideo(
   key: string,
   file: File,
   opts: { signal?: AbortSignal; onState?: (state: string) => void } = {},
 ): Promise<UploadedFile> {
-  const mimeType = file.type || "video/mp4";
+  const mimeType = resolveVideoMime(file);
   const startRes = await geminiRequest(`${BASE}/upload/v1beta/files`, key, {
     method: "POST",
     signal: opts.signal ?? null,
@@ -122,17 +178,37 @@ export async function uploadVideo(
   });
   if (!uploadRes.ok) throw await readError(uploadRes);
   const uploaded = await uploadRes.json();
-  let info = uploaded.file as { uri: string; name: string; state: string; mimeType?: string };
+  let info = uploaded.file as {
+    uri: string;
+    name: string;
+    state: string;
+    mimeType?: string;
+    error?: { message?: string };
+  };
 
+  const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
   while (info.state === "PROCESSING") {
     opts.onState?.(info.state);
+    if (Date.now() > deadline) {
+      throw new GeminiError(
+        `PROCESSING_PENDING — Google is still processing "${file.name}" after ${Math.round(
+          PROCESSING_TIMEOUT_MS / 60000,
+        )} minutes and never reached ACTIVE.`,
+        408,
+      );
+    }
     await new Promise((r) => setTimeout(r, 3000));
     if (opts.signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const pollRes = await geminiRequest(`${BASE}/v1beta/${info.name}`, key, { signal: opts.signal ?? null });
     if (!pollRes.ok) throw await readError(pollRes);
     info = await pollRes.json();
   }
-  if (info.state !== "ACTIVE") throw new GeminiError(`Video processing failed (state ${info.state})`, 400);
+  if (info.state !== "ACTIVE") {
+    throw new GeminiError(
+      `Video processing failed (state ${info.state}${info.error?.message ? `: ${info.error.message}` : ""}). The file may be corrupt or in an unsupported codec.`,
+      400,
+    );
+  }
   opts.onState?.(info.state);
   return { uri: info.uri, mimeType: info.mimeType ?? mimeType, name: info.name };
 }
