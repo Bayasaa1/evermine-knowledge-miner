@@ -57,8 +57,8 @@ import {
   type VaultField,
 } from "@/lib/user-vault";
 import { toast } from "sonner";
-import {
 import { apiFetch } from "@/lib/api-fetch";
+import {
   loadFollows,
   saveFollows,
   toggleFollow,
