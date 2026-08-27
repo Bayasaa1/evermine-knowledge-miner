@@ -1,7 +1,12 @@
 import { idbGet, idbSet, idbDelete, STORES } from "./store";
+import { scopedKey } from "./user-scope";
 
-const KEY_ID = "gemini-api-key";
-const KEYS_ID = "gemini-api-keys";
+// API keys are stored per signed-in account. Switching accounts switches vaults;
+// no account ever reads another's keys.
+const KEY_ID = () => scopedKey("gemini-api-key");
+const KEYS_ID = () => scopedKey("gemini-api-keys");
+const LEGACY_KEY_ID = "gemini-api-key";
+const LEGACY_KEYS_ID = "gemini-api-keys";
 
 export type ApiKeyEntry = {
   id: string;
