@@ -21,6 +21,7 @@ import {
   type CapturedError,
 } from "@/lib/error-capture";
 import { loadApiKeys } from "@/lib/keystore";
+import { getGeminiAccessToken } from "@/lib/google-gemini-auth";
 
 const MODEL = "gemini-2.5-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com";
@@ -57,10 +58,22 @@ function systemPrompt(lang: "en" | "mn", errors: CapturedError[]): string {
   ].join("\n");
 }
 
-async function askGemini(apiKey: string, lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
-  const res = await fetch(`${GEMINI_BASE}/v1/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+async function askGemini(
+  auth: { kind: "key"; value: string } | { kind: "oauth"; value: string },
+  lang: "en" | "mn",
+  history: ChatMsg[],
+): Promise<string> {
+  const url =
+    auth.kind === "key"
+      ? `${GEMINI_BASE}/v1/models/${MODEL}:generateContent?key=${encodeURIComponent(auth.value)}`
+      : `${GEMINI_BASE}/v1/models/${MODEL}:generateContent`;
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
+    headers: {
+      "Content-Type": "application/json",
+      ...(auth.kind === "oauth" ? { Authorization: `Bearer ${auth.value}` } : {}),
+      ...skipCaptureHeader(),
+    },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: systemPrompt(lang, getCapturedErrors()) }] },
       contents: history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
@@ -79,6 +92,54 @@ async function askGemini(apiKey: string, lang: "en" | "mn", history: ChatMsg[]):
     .join("")
     .trim();
   return text || "…";
+}
+
+/** Server-side fallback so a signed-in user is never blocked on a missing key. */
+async function askBackend(lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
+  const res = await fetch("/api/diagnose-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
+    body: JSON.stringify({ system: systemPrompt(lang, getCapturedErrors()), messages: history }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+  if (!res.ok) throw new Error(data.error ?? `Diagnostics service error (${res.status}).`);
+  return data.text?.trim() || "…";
+}
+
+/**
+ * Answers using whatever Gemini access the account already has: every key in
+ * the rotation pool first, then the active Google OAuth session, then the
+ * zero-setup backend. Only a total failure surfaces an error.
+ */
+async function answer(lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
+  const attempts: { kind: "key" | "oauth"; value: string }[] = [];
+  try {
+    for (const k of await loadApiKeys()) {
+      if (k.value) attempts.push({ kind: "key", value: k.value });
+    }
+  } catch {
+    /* key vault unavailable — fall through to session / backend */
+  }
+  try {
+    const token = await getGeminiAccessToken();
+    if (token) attempts.push({ kind: "oauth", value: token });
+  } catch {
+    /* no Google session */
+  }
+
+  let lastError: unknown = null;
+  for (const auth of attempts) {
+    try {
+      return await askGemini(auth, lang, history);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  try {
+    return await askBackend(lang, history);
+  } catch (err) {
+    throw attempts.length ? (lastError ?? err) : err;
+  }
 }
 
 export function DiagnosticChat() {
@@ -113,26 +174,19 @@ export function DiagnosticChat() {
     if (!question || thinking) return;
     setInput("");
 
-    const keys = await loadApiKeys();
-    const apiKey = keys[0]?.value;
     const next: ChatMsg[] = [...messages, { role: "user", text: question }];
     setMessages(next);
 
-    if (!apiKey) {
-      setMessages([...next, { role: "model", text: t("botNoKey") }]);
-      return;
-    }
-
     setThinking(true);
     try {
-      const reply = await askGemini(apiKey, lang, next);
+      const reply = await answer(lang, next);
       setMessages([...next, { role: "model", text: reply }]);
     } catch (err) {
       setMessages([...next, { role: "model", text: describeThrowable(err) }]);
     } finally {
       setThinking(false);
     }
-  }, [input, thinking, messages, lang, t]);
+  }, [input, thinking, messages, lang]);
 
   return (
     <>
