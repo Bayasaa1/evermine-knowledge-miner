@@ -28,6 +28,7 @@ const copy = {
     buyer: "Verified user",
     posted: "Thanks — your review is live.",
     failed: "Could not save your review",
+    locked: "Only verified buyers can leave a review. Purchase this mind to review it.",
     of: (n: number) => `${n} review${n === 1 ? "" : "s"}`,
   },
   mn: {
@@ -41,12 +42,21 @@ const copy = {
     buyer: "Баталгаажсан хэрэглэгч",
     posted: "Баярлалаа — сэтгэгдэл нийтлэгдлээ.",
     failed: "Сэтгэгдлийг хадгалж чадсангүй",
+    locked: "Зөвхөн худалдан авсан хэрэглэгч үнэлгээ өгнө. Эхлээд худалдан аваарай.",
     of: (n: number) => `${n} сэтгэгдэл`,
   },
 } as const;
 
 /** Amazon-style review & rating section shown under every AI Mind. */
-export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: "en" | "mn" }) {
+export function MindReviews({
+  mindId,
+  lang = "en",
+  purchased = true,
+}: {
+  mindId: string;
+  lang?: "en" | "mn";
+  purchased?: boolean;
+}) {
   const t = copy[lang];
   const { user, profile } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
