@@ -1621,7 +1621,7 @@ function Index() {
                 <Brain className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">{t.appName}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">{t.appName} — Creator Dashboard</h1>
                 <p className="text-xs text-muted-foreground">{t.tagline}</p>
               </div>
             </div>

@@ -109,9 +109,9 @@ function HomeFeed() {
   return (
     <div className="dark min-h-screen bg-black text-white">
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-4 py-3">
-        <span className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> Evermine
-        </span>
+        <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 text-primary" /> Evermine — Talk to real minds
+        </h1>
         <button
           type="button"
           onClick={() => setMuted((m) => !m)}
