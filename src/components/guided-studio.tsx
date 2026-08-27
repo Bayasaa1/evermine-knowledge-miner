@@ -35,7 +35,8 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
-import { getGeminiAccessToken, hasGeminiOauth, GEMINI_SCOPE } from "@/lib/google-gemini-auth";
+import { hasGeminiOauth } from "@/lib/google-gemini-auth";
+import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
@@ -180,7 +181,7 @@ function StepShell({
   );
 }
 
-/** Step 1 — Google sign-in that auto-links the creator's free-tier Gemini API. */
+/** Step 1 — Google sign-in unlocks the authenticated built-in mining service. */
 function StepGoogle({ lang }: { lang: Lang }) {
   const t = googleCopy[lang];
   const { isAuthenticated, profile } = useAuth();
@@ -203,7 +204,6 @@ function StepGoogle({ lang }: { lang: Lang }) {
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
-        scopes: `openid email profile ${GEMINI_SCOPE}`,
       });
       if (result.error) {
         toast.error(t.failed, { description: result.error.message });
@@ -301,13 +301,12 @@ function StepUpload({ lang }: { lang: Lang }) {
     const source = resolveSource();
     if (!source) return;
 
-    // OAuth token from Google sign-in authorizes the call; the empty string is
-    // only a placeholder for the legacy API-key fallback.
-    const token = await getGeminiAccessToken();
-    if (!token) {
+    if (!signedIn) {
       setErrorKey("errNoKey");
       return;
     }
+    // Files and Drive retain the creator's optional BYO path. Public YouTube
+    // videos use the authenticated built-in AI service and need no provider token.
     const key = "";
 
     const controller = new AbortController();
@@ -318,7 +317,9 @@ function StepUpload({ lang }: { lang: Lang }) {
 
     try {
       let mined: ChunkResult;
-      if (source.kind === "file") {
+      if (source.kind === "youtube") {
+        mined = await mineYoutubeVideo({ data: { url: source.url, startSec: 0, endSec: MAX_DURATION_SEC } });
+      } else if (source.kind === "file") {
         const ref = await uploadVideo(key, source.file, { signal: controller.signal });
         setProgress((p) => Math.max(p, 55));
         mined = await mineChunk(key, MODEL, ref, 0, MAX_DURATION_SEC, controller.signal);
@@ -344,7 +345,7 @@ function StepUpload({ lang }: { lang: Lang }) {
       setBusy(false);
       abortRef.current = null;
     }
-  }, [resolveSource, explain]);
+  }, [resolveSource, explain, signedIn]);
 
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
