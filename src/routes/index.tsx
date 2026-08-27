@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Heart, MessageCircle, Pause, Play, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 
-import { BottomNav } from "@/components/bottom-nav";
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
@@ -91,7 +90,6 @@ function HomeFeed() {
         mindName={talk?.creator ?? ""}
       />
       <RobotSyncModal open={!!robot} onClose={() => setRobot(null)} item={robot} />
-      <BottomNav />
     </div>
   );
 }

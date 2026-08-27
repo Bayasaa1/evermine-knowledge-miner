@@ -1,4 +1,3 @@
-import { BottomNav } from "@/components/bottom-nav";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";

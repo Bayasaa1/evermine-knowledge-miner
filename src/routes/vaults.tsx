@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { BottomNav } from "@/components/bottom-nav";
 import { MindManager } from "@/components/mind-manager";
 
 export const Route = createFileRoute("/vaults")({
@@ -25,7 +24,6 @@ function VaultsPage() {
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Vaults</h1>
         <MindManager lang="en" />
       </div>
-      <BottomNav />
     </div>
   );
 }

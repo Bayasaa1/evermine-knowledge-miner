@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -11,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
+import { BottomNav } from "@/components/bottom-nav";
 import { supabase } from "@/integrations/supabase/client";
 import { setLocalScope, getLocalScope } from "@/lib/user-scope";
 import { purgeLegacyKeyVaults, resetKeyCaches } from "@/lib/key-vault";
@@ -131,6 +133,8 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const showNav = !pathname.startsWith("/auth") && !pathname.startsWith("/api");
 
   // Global error interception feeding the System Diagnostic Assistant widget.
   useEffect(() => installGlobalErrorInterceptors(), []);
@@ -158,6 +162,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {showNav && <BottomNav />}
       <DiagnosticChat />
     </QueryClientProvider>
   );

@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Hammer, ShieldCheck, Wallet } from "lucide-react";
 
-import { BottomNav } from "@/components/bottom-nav";
 import { AccountMenu } from "@/components/account-menu";
 import { initials, useAuth } from "@/hooks/use-auth";
 
@@ -64,7 +63,6 @@ function ProfilePage() {
           </Link>
         </div>
       </div>
-      <BottomNav />
     </div>
   );
 }
