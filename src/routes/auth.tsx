@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { GEMINI_SCOPE } from "@/lib/google-gemini-auth";
+import { DRIVE_SCOPE } from "@/lib/drive-backup";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
