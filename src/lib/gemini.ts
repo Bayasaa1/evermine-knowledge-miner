@@ -559,7 +559,41 @@ const responseSchema = {
         ],
       },
     },
+    copyright: {
+      type: "object",
+      properties: {
+        flagged: { type: "boolean" },
+        originality: { type: "string", enum: ["original", "uncertain", "third-party"] },
+        summary: { type: "string" },
+        signals: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              kind: {
+                type: "string",
+                enum: [
+                  "watermark",
+                  "logo",
+                  "broadcast-overlay",
+                  "screen-recording",
+                  "third-party-music",
+                  "other-creator-face",
+                  "other",
+                ],
+              },
+              detail: { type: "string" },
+              confidence: { type: "number" },
+            },
+            required: ["timestamp", "kind", "detail", "confidence"],
+          },
+        },
+      },
+      required: ["flagged", "originality", "summary", "signals"],
+    },
   },
+
   required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness", "knowledgeNodes"],
 };
 const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
