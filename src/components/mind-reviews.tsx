@@ -96,7 +96,7 @@ export function MindReviews({
         rating,
         body: body.trim(),
         video_proof_url: proof.trim() || null,
-        author_name: profile?.displayName || user.email?.split("@")[0] || "Evermine user",
+        author_name: profile?.displayName || user.email?.split("@")[0] || "Evermind user",
       },
       { onConflict: "user_id,mind_id" },
     );

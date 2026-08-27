@@ -6,7 +6,7 @@ import { AccountMenu } from "@/components/account-menu";
 
 export type AppRole = "creator" | "explorer";
 
-export const ROLE_KEY = "evermine.role";
+export const ROLE_KEY = "evermind.role";
 
 export function setStoredRole(role: AppRole) {
   try {

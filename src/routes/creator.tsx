@@ -363,9 +363,9 @@ function AudioAtmosphere({ results, t }: { results: MineResult[]; t: AudioLabels
 export const Route = createFileRoute("/creator")({
   head: () => ({
     meta: [
-      { title: "Evermine — Creator Dashboard" },
-      { name: "description", content: "Evermine dashboard: configure your API key, upload a video, and mine structured knowledge." },
-      { property: "og:title", content: "Evermine — Dashboard" },
+      { title: "Evermind — Creator Dashboard" },
+      { name: "description", content: "Evermind dashboard: configure your API key, upload a video, and mine structured knowledge." },
+      { property: "og:title", content: "Evermind — Dashboard" },
       { property: "og:description", content: "Configure your API key, upload a video, and mine structured knowledge." },
     ],
   }),
@@ -378,7 +378,7 @@ type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "cloud
 
 const translations = {
   en: {
-    appName: "Evermine",
+    appName: "Evermind",
     tagline: "A life becomes a mind.",
     analytics: "Analytics & Earnings",
     subscription: "Subscription",
@@ -485,7 +485,7 @@ const translations = {
     noteKeySaved: "API key saved and validated.",
     noteExported: "Mine saved to your device.",
     noteImported: "Saved mine loaded.",
-    noteImportFailed: "That file is not a valid Evermine mine.",
+    noteImportFailed: "That file is not a valid Evermind mine.",
     tabSubtitle: "Subtitle & Transcript",
     tabStory: "Narrative Story",
     tabFace: "Face & Visual Data",
@@ -562,7 +562,7 @@ const translations = {
     noteOwnershipSaved: "Marketplace settings saved on this device.",
   },
   mn: {
-    appName: "Evermine",
+    appName: "Evermind",
     tagline: "Амьдрал оюун болдог.",
     analytics: "Аналитик ба орлого",
     subscription: "Захиалга",
@@ -670,7 +670,7 @@ const translations = {
     noteKeySaved: "API түлхүүр хадгалагдаж баталгаажлаа.",
     noteExported: "Мэдээлэл төхөөрөмж дээр хадгалагдлаа.",
     noteImported: "Хадгалсан мэдээлэл ачаалагдлаа.",
-    noteImportFailed: "Энэ файл зөв Evermine файл биш байна.",
+    noteImportFailed: "Энэ файл зөв Evermind файл биш байна.",
     tabSubtitle: "Хадмал ба ярианы бичлэг",
     tabStory: "Түүхэн өгүүлэмж",
     tabFace: "Царай ба дүрсний мэдээлэл",
@@ -2768,7 +2768,7 @@ function Index() {
 
               {activeTab === "log" && (
                 <div className="font-mono text-xs leading-relaxed text-muted-foreground">
-                  <p>[system] Evermine initialized</p>
+                  <p>[system] Evermind initialized</p>
                   {log.length === 0 && <p>[system] Waiting for video input...</p>}
                   {log.map((line, i) => (
                     <p

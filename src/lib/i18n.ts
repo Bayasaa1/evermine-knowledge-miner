@@ -1,5 +1,5 @@
 /**
- * Dynamic i18n for the guided Evermine studio. English + Mongolian ship today;
+ * Dynamic i18n for the guided Evermind studio. English + Mongolian ship today;
  * the dictionary shape is flat so new locales can be added without code changes.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -11,7 +11,7 @@ export const LANG_LABELS: Record<Lang, string> = { en: "English", mn: "Монг�
 export type Dict = Record<string, string>;
 
 const en: Dict = {
-  appName: "Evermine",
+  appName: "Evermind",
   tagline: "A life becomes a mind",
   guided: "Guided setup",
   advanced: "Advanced dashboard",
@@ -46,7 +46,7 @@ const en: Dict = {
   limitLangs: "Languages: native recognition for English, Mongolian and all global languages.",
 
   tipSource: "Tip: an unlisted link works fine — it just cannot be private.",
-  tipGoogle: "Tip: signing in with Google automatically gives Evermine access to your free-tier Gemini API. You can revoke it any time from your Google account.",
+  tipGoogle: "Tip: signing in with Google automatically gives Evermind access to your free-tier Gemini API. You can revoke it any time from your Google account.",
   tipPrice: "Tip: most creators start free to grow an audience, then switch on a $5–$20/month subscription.",
 
   errFileSize: "File size exceeds limit (Max 2GB). Please upload a smaller video.",
@@ -95,7 +95,7 @@ const en: Dict = {
 };
 
 const mn: Dict = {
-  appName: "Evermine",
+  appName: "Evermind",
   tagline: "Амьдрал оюун болно",
   guided: "Алхам алхмаар тохируулга",
   advanced: "Дэлгэрэнгүй самбар",
@@ -130,7 +130,7 @@ const mn: Dict = {
   limitLangs: "Хэл: Англи, Монгол болон дэлхийн бүх хэлийг төрөлх байдлаар таньдаг.",
 
   tipSource: "Зөвлөгөө: Unlisted линк тохирно — зөвхөн Private байж болохгүй.",
-  tipGoogle: "Зөвлөгөө: Google-ээр нэвтрэхэд таны үнэгүй Gemini API Evermine-д автоматаар холбогдоно. Google бүртгэлээсээ хүссэн үедээ хүчингүй болгож болно.",
+  tipGoogle: "Зөвлөгөө: Google-ээр нэвтрэхэд таны үнэгүй Gemini API Evermind-д автоматаар холбогдоно. Google бүртгэлээсээ хүссэн үедээ хүчингүй болгож болно.",
   tipPrice: "Зөвлөгөө: Ихэнх бүтээгч эхлээд үнэгүй эхэлж, дараа нь сард $5–$20 захиалга нэмдэг.",
 
   errFileSize: "Бичлэгийн хэмжээ хэтэрсэн байна (Дээд тал нь 2GB). Багахан бичлэг оруулна уу.",
@@ -180,7 +180,7 @@ const mn: Dict = {
 
 export const DICTS: Record<Lang, Dict> = { en, mn };
 
-const STORAGE_KEY = "evermine-lang";
+const STORAGE_KEY = "evermind-lang";
 
 export function isLang(v: unknown): v is Lang {
   return v === "en" || v === "mn";

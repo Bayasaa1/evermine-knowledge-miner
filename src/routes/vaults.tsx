@@ -5,13 +5,13 @@ import { MindManager } from "@/components/mind-manager";
 export const Route = createFileRoute("/vaults")({
   head: () => ({
     meta: [
-      { title: "My Mind Vaults — Evermine" },
+      { title: "My Mind Vaults — Evermind" },
       {
         name: "description",
         content: "Manage your isolated Mind Vaults — each one keeps its own core brain, tone and logic.",
       },
-      { property: "og:title", content: "My Mind Vaults — Evermine" },
-      { property: "og:description", content: "Manage your isolated AI Mind Vaults in Evermine." },
+      { property: "og:title", content: "My Mind Vaults — Evermind" },
+      { property: "og:description", content: "Manage your isolated AI Mind Vaults in Evermind." },
     ],
   }),
   component: VaultsPage,

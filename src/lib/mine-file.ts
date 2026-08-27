@@ -9,7 +9,7 @@ import {
   type RateUnit,
 } from "./ownership";
 
-export const MINE_FORMAT = "evermine.mine";
+export const MINE_FORMAT = "evermind.mine";
 export const MINE_VERSION = 2;
 
 export type MineResult = { index: number; chunk: Chunk; data: ChunkResult };
@@ -63,11 +63,11 @@ function isChunkResultish(v: unknown): boolean {
   return true;
 }
 
-/** Strictly validates a parsed .evermine.json payload. Throws with a readable reason. */
+/** Strictly validates a parsed .evermind.json payload. Throws with a readable reason. */
 export function parseMineFile(raw: unknown): MineFile {
-  if (!isObj(raw)) throw new Error("File is not a valid Evermine object.");
-  if (raw['format'] !== MINE_FORMAT) throw new Error('Missing or wrong "format" field — not an Evermine mine file.');
-  if (!isNum(raw['version']) || raw['version'] > MINE_VERSION) throw new Error("Unsupported Evermine file version.");
+  if (!isObj(raw)) throw new Error("File is not a valid Evermind object.");
+  if (raw['format'] !== MINE_FORMAT) throw new Error('Missing or wrong "format" field — not an Evermind mine file.');
+  if (!isNum(raw['version']) || raw['version'] > MINE_VERSION) throw new Error("Unsupported Evermind file version.");
   if (!isStr(raw['savedAt'])) throw new Error('Invalid "savedAt" field.');
   if (!isStr(raw['model'])) throw new Error('Invalid "model" field.');
 
@@ -112,12 +112,12 @@ function downloadJson(data: unknown, filename: string): string {
 }
 
 export function downloadMineFile(mine: MineFile): string {
-  return downloadJson(mine, `${safeBase(mine.source.name, "mine")}.evermine.json`);
+  return downloadJson(mine, `${safeBase(mine.source.name, "mine")}.evermind.json`);
 }
 
 /** Lightweight brain bundle meant to be dropped into an AI agent as system context. */
 export type AgentBrain = {
-  format: "evermine.agent-brain";
+  format: "evermind.agent-brain";
   version: 2;
   createdAt: string;
   mindId: string;
@@ -270,7 +270,7 @@ export async function buildAgentBrain(input: {
   });
 
   return {
-    format: "evermine.agent-brain",
+    format: "evermind.agent-brain",
     version: 2,
     createdAt: new Date().toISOString(),
     mindId: own.mindId,

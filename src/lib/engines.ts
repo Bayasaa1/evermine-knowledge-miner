@@ -154,7 +154,7 @@ export const ENGINES: Engine[] = [
     id: "webgl-avatar",
     slot: "avatar",
     name: "WebGL audio-reactive avatar",
-    vendor: "Evermine",
+    vendor: "Evermind",
     tier: "free",
     rawPrice: "$0.00",
     unitCost: 0,

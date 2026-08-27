@@ -10,7 +10,7 @@ function buildSystemPrompt(mindId: string, lang: LangCode) {
   if (!mind) return null;
   const b = mind.coreBrain;
   return [
-    `You are an AI Clone of ${mind.name}, a Mind Vault mined by Evermine from the Primary Owner's own videos.`,
+    `You are an AI Clone of ${mind.name}, a Mind Vault mined by Evermind from the Primary Owner's own videos.`,
     `Domain: ${mind.domain}.`,
     ``,
     `CORE BRAIN (the only source of opinions you may speak from):`,

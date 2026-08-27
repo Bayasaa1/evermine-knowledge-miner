@@ -40,7 +40,7 @@ export type EmbodiedSettings = {
 };
 
 export function defaultEmbodiedSettings(): EmbodiedSettings {
-  return { captureVla: false, rosExport: false, topic: "/evermine/mind_action" };
+  return { captureVla: false, rosExport: false, topic: "/evermind/mind_action" };
 }
 
 export function normalizeEmbodiedSettings(raw: unknown): EmbodiedSettings {
@@ -131,10 +131,10 @@ export function extractTrajectories(chunk: Pick<ChunkResult, "faceData">): VlaTr
 /** ROS 2-shaped payload for the simulated Robot Mind Export API. */
 export function toRos2Payload(topic: string, trajectories: VlaTrajectory[]) {
   return {
-    schema: "evermine.robot_mind/v1",
+    schema: "evermind.robot_mind/v1",
     ros_distro: "jazzy",
     topic,
-    message_type: "evermine_msgs/msg/MindAction",
+    message_type: "evermind_msgs/msg/MindAction",
     actions: trajectories.map((t) => ({
       instruction: t.instruction,
       object: t.object,

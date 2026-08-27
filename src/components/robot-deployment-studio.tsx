@@ -9,6 +9,14 @@ import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/ro
 import { loadEmbodiedSettings } from "@/lib/embodied";
 import { publishToFeed } from "@/lib/feed";
 import { getCreationCategory } from "@/lib/creation-category";
+import {
+  auditChunks,
+  canPublish,
+  confirmOwnership,
+  isOwnershipConfirmed,
+  type CopyrightVerdict,
+} from "@/lib/copyright";
+
 import coverFounder from "@/assets/cover-founder.jpg";
 
 const copy = {
@@ -28,6 +36,10 @@ const copy = {
     stats: (n: number, t: number, s: number) => `${n} knowledge nodes · ${t} VLA trajectories · ${s} spatial actions`,
     updated: "Last deployed",
     failed: "Deployment failed",
+    copyrightBlocked: "Copyright check flagged this footage — confirm you own it before publishing.",
+    copyrightTitle: "Copyright & authenticity check",
+    copyrightConfirm: "I own this footage — publish anyway",
+    copyrightConfirmed: "Ownership confirmed. You can publish now.",
   },
   mn: {
     title: "Роботын байршуулалтын студи",
@@ -45,6 +57,10 @@ const copy = {
     stats: (n: number, t: number, s: number) => `${n} мэдлэгийн зангилаа · ${t} VLA траектор · ${s} орон зайн үйлдэл`,
     updated: "Сүүлд байршуулсан",
     failed: "Байршуулалт амжилтгүй",
+    copyrightBlocked: "Зохиогчийн эрхийн шалгалт сэрэмжлүүлэв — эзэмшлээ баталгаажуулна уу.",
+    copyrightTitle: "Зохиогчийн эрх ба жинхэнэ эсэхийн шалгалт",
+    copyrightConfirm: "Энэ бичлэг миний өөрийн бүтээл — нийтэл",
+    copyrightConfirmed: "Эзэмшил баталгаажлаа. Одоо нийтэлж болно.",
   },
 } as const;
 
@@ -65,10 +81,11 @@ export function RobotDeploymentStudio({
   const fetchDeployment = useServerFn(getDeployment);
   const pushDeployment = useServerFn(publishDeployment);
 
-  const [topic, setTopic] = useState("/evermine/mind_action");
+  const [topic, setTopic] = useState("/evermind/mind_action");
   const [deployment, setDeployment] = useState<DeployedPackage | null>(null);
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [copyrightVerdict, setCopyrightVerdict] = useState<CopyrightVerdict | null>(null);
 
   const pkg = useMemo(
     () => buildRobotPackage({ mindId, title: mindTitle, topic, chunks }),
@@ -114,6 +131,14 @@ export function RobotDeploymentStudio({
       toast.error(t.signIn);
       return;
     }
+    // Copyright gate: flagged footage cannot go public until the creator confirms ownership.
+    const verdict = auditChunks(chunks, await isOwnershipConfirmed(mindId));
+    if (!canPublish(verdict)) {
+      setCopyrightVerdict(verdict);
+      toast.error(t.copyrightBlocked);
+      return;
+    }
+
     setBusy(true);
     try {
       const next = await pushDeployment({ data: { mindId, title: mindTitle, pkg } });
@@ -184,6 +209,35 @@ export function RobotDeploymentStudio({
           : t.empty}
       </p>
 
+      {copyrightVerdict?.state === "FLAGGED_COPYRIGHT" && (
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-destructive">
+            {t.copyrightTitle} · FLAGGED_COPYRIGHT
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+            {copyrightVerdict.signals.slice(0, 6).map((s, i) => (
+              <li key={`${s.timestamp}-${i}`}>
+                <span className="font-mono text-primary">{s.timestamp}</span> · {s.kind} — {s.detail} (
+                {Math.round(s.confidence * 100)}%)
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-3 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+            onClick={async () => {
+              await confirmOwnership(mindId);
+              setCopyrightVerdict(auditChunks(chunks, true));
+              toast.success(t.copyrightConfirmed);
+            }}
+          >
+            {t.copyrightConfirm}
+          </button>
+        </div>
+      )}
+
+
+
       {deployment && (
         <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
           <div className="rounded-xl border border-border bg-white p-3">
@@ -220,7 +274,7 @@ export function RobotDeploymentStudio({
               </button>
               <button
                 type="button"
-                onClick={() => download("evermine_mind_loader.py", rosClientScript(url, topic), "text/x-python")}
+                onClick={() => download("evermind_mind_loader.py", rosClientScript(url, topic), "text/x-python")}
                 className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
               >
                 <Download className="h-3.5 w-3.5" /> {t.downloadRos}

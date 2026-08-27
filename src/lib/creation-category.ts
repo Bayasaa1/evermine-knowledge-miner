@@ -4,7 +4,7 @@
  */
 export type CreationCategory = "knowledge" | "robot" | "voice" | "sales";
 
-export const CREATION_KEY = "evermine.creationCategory";
+export const CREATION_KEY = "evermind.creationCategory";
 
 export const CATEGORY_LABELS: Record<
   CreationCategory,

@@ -1,4 +1,4 @@
-/* Minimal service worker so mobile browsers can display Evermine notifications. */
+/* Minimal service worker so mobile browsers can display Evermind notifications. */
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("notificationclick", (event) => {

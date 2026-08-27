@@ -6,7 +6,7 @@ import type { ChunkResult, KnowledgeNode } from "./gemini";
 import { extractTrajectories, toRos2Payload, type VlaTrajectory } from "./embodied";
 
 export type RobotMindPackage = {
-  schema: "evermine.robot_mind/v1";
+  schema: "evermind.robot_mind/v1";
   mind_id: string;
   title: string;
   generated_at: string;
@@ -29,14 +29,14 @@ export function buildRobotPackage(input: {
   const knowledge = input.chunks.flatMap((c) => c.knowledgeNodes ?? []);
   const trajectories = input.chunks.flatMap((c) => extractTrajectories(c));
   return {
-    schema: "evermine.robot_mind/v1",
+    schema: "evermind.robot_mind/v1",
     mind_id: input.mindId,
     title: input.title,
     generated_at: new Date().toISOString(),
     runtime: {
       ros_distro: "jazzy",
       topic: input.topic,
-      message_type: "evermine_msgs/msg/MindAction",
+      message_type: "evermind_msgs/msg/MindAction",
     },
     knowledge_graph: knowledge,
     vla_trajectories: trajectories,
@@ -57,7 +57,7 @@ export function deploymentUrl(origin: string, token: string): string {
 /** Minimal Python/ROS 2 client the creator can run for integration testing. */
 export function rosClientScript(url: string, topic: string): string {
   return `#!/usr/bin/env python3
-"""Evermine OTA Mind loader — pulls a mind package and republishes it on ROS 2."""
+"""Evermind OTA Mind loader — pulls a mind package and republishes it on ROS 2."""
 import json
 import urllib.request
 
@@ -76,7 +76,7 @@ def fetch_mind():
 
 class MindLoader(Node):
     def __init__(self, mind):
-        super().__init__("evermine_mind_loader")
+        super().__init__("evermind_mind_loader")
         self.mind = mind
         self.publisher = self.create_publisher(String, TOPIC, 10)
         self.index = 0

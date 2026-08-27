@@ -91,7 +91,7 @@ export function reportFailure(
   return entry;
 }
 
-const SKIP_HEADER = "x-evermine-skip-capture";
+const SKIP_HEADER = "x-evermind-skip-capture";
 
 /** Marks a request (e.g. the assistant's own Gemini call) so it is never captured. */
 export function skipCaptureHeader(): Record<string, string> {

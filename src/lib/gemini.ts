@@ -319,6 +319,25 @@ export type KnowledgeNode = {
 /** Anything the model is less sure about than this is dropped. */
 export const MIN_NODE_CONFIDENCE = 0.8;
 
+/** Copyright & authenticity audit performed on every mined segment. */
+export type CopyrightSignal = {
+  timestamp: string;
+  /** watermark | logo | broadcast-overlay | screen-recording | third-party-music | other-creator-face */
+  kind: string;
+  detail: string;
+  /** 0.0 - 1.0 certainty that this segment is not the creator's own footage. */
+  confidence: number;
+};
+
+export type CopyrightAudit = {
+  /** true when the segment looks re-uploaded, watermarked or otherwise not original. */
+  flagged: boolean;
+  /** "original" | "uncertain" | "third-party" */
+  originality: string;
+  signals: CopyrightSignal[];
+  summary: string;
+};
+
 export type ChunkResult = {
   speakers: SpeakerProfile[];
   transcript: TranscriptLine[];
@@ -331,7 +350,10 @@ export type ChunkResult = {
   subconsciousness: Subconsciousness;
   /** Precise, confidence-filtered knowledge/action graph nodes. */
   knowledgeNodes: KnowledgeNode[];
+  /** Copyright & authenticity check for this segment. */
+  copyright: CopyrightAudit;
 };
+
 
 const strArr = { type: "array", items: { type: "string" } };
 
@@ -537,8 +559,53 @@ const responseSchema = {
         ],
       },
     },
+    copyright: {
+      type: "object",
+      properties: {
+        flagged: { type: "boolean" },
+        originality: { type: "string", enum: ["original", "uncertain", "third-party"] },
+        summary: { type: "string" },
+        signals: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              kind: {
+                type: "string",
+                enum: [
+                  "watermark",
+                  "logo",
+                  "broadcast-overlay",
+                  "screen-recording",
+                  "third-party-music",
+                  "other-creator-face",
+                  "other",
+                ],
+              },
+              detail: { type: "string" },
+              confidence: { type: "number" },
+            },
+            required: ["timestamp", "kind", "detail", "confidence"],
+          },
+        },
+      },
+      required: ["flagged", "originality", "summary", "signals"],
+    },
   },
-  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness", "knowledgeNodes"],
+
+  required: [
+    "speakers",
+    "subtitle",
+    "story",
+    "faceData",
+    "voiceData",
+    "audio",
+    "subconsciousness",
+    "knowledgeNodes",
+    "copyright",
+  ],
+
 };
 const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
 Extract the pillars below and return JSON only.
@@ -576,7 +643,15 @@ Extract the pillars below and return JSON only.
    - "spatial_action": when a physical object is manipulated, give "object_name", "coordinates_xyz" (3 numbers, normalized 0..1 in camera space: x right, y down, z depth), "grasp_type" (power-grasp, pinch, push, pull, pour, cut, none) and "movement_vector" (3 numbers, normalized direction of motion, -1..1). If no object is manipulated, set spatial_action to null.
    - "confidence_score": 0.0-1.0, your honest certainty this node is correct. NEVER inflate it. Use below 0.8 whenever you are guessing or inferring — such nodes are discarded.
 
+7. "copyright": COPYRIGHT & AUTHENTICITY CHECK. Judge whether this footage is the uploader's OWN original recording.
+   Look for: visible watermarks or usernames burned into the frame (TikTok, Douyin, YouTube, Instagram, Kuaishou, stock-footage marks), broadcaster or studio logos and lower-thirds, on-screen UI of another app (a screen recording or re-upload), letterboxing/cropping typical of re-uploaded clips, film/TV/anime footage, and commercially released background music.
+   - "signals": one entry per piece of evidence with its "timestamp", "kind", a precise "detail" (e.g. "@user123 watermark bottom-right"), and an honest "confidence" 0.0-1.0.
+   - "originality": "original" when nothing suggests third-party content, "uncertain" when evidence is weak, "third-party" when the segment is clearly someone else's footage.
+   - "flagged": true whenever originality is "third-party" or any signal has confidence 0.7 or higher. Flagged segments block publishing until the creator confirms ownership.
+   - "summary": one plain sentence explaining the verdict. Never guess — say so in the summary and keep confidence low instead.
+
 Only cover the requested time range. Output JSON only.`;
+
 
 
 /** Category-strict mining directives selected in the "+" Create hub. */
@@ -695,7 +770,27 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })
     .filter((n) => n.concept_title && n.confidence_score >= MIN_NODE_CONFIDENCE);
   const knowledge = strings(v['knowledge']);
+  const cp = (v['copyright'] ?? {}) as Record<string, unknown>;
+  const signals = arr<Record<string, unknown>>(cp['signals']).map((s) => ({
+    timestamp: String(s?.['timestamp'] ?? ""),
+    kind: String(s?.['kind'] ?? "other"),
+    detail: String(s?.['detail'] ?? ""),
+    confidence: typeof s?.['confidence'] === "number" ? (s['confidence'] as number) : 0,
+  }));
+  const originality =
+    cp['originality'] === "third-party" || cp['originality'] === "uncertain"
+      ? (cp['originality'] as string)
+      : "original";
+  const copyright: CopyrightAudit = {
+    // Never trust a "clear" verdict when a strong signal is present.
+    flagged:
+      cp['flagged'] === true || originality === "third-party" || signals.some((s) => s.confidence >= 0.7),
+    originality,
+    signals,
+    summary: typeof cp['summary'] === "string" ? cp['summary'] : "",
+  };
   return {
+
     speakers,
     transcript,
     scenes: faceData.map((f) => ({ timestamp: f.timestamp, description: f.description })),
@@ -723,6 +818,8 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     audio,
     subconsciousness,
     knowledgeNodes,
+    copyright,
+
   };
 }
 

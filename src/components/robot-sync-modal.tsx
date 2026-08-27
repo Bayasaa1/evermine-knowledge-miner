@@ -5,7 +5,7 @@ import { Bot, Download, X } from "lucide-react";
 import { deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
 import type { FeedItem } from "@/lib/feed";
 
-const TOPIC = "/evermine/mind_action";
+const TOPIC = "/evermind/mind_action";
 
 /** Robot Sync: QR code + ROS 2 / VLA package download for a feed video. */
 export function RobotSyncModal({
@@ -46,11 +46,11 @@ export function RobotSyncModal({
   };
 
   const stubPackage = {
-    schema: "evermine.robot_mind/v1",
+    schema: "evermind.robot_mind/v1",
     mind_id: item.mindId ?? item.id,
     title: item.title,
     generated_at: new Date().toISOString(),
-    runtime: { ros_distro: "jazzy", topic: TOPIC, message_type: "evermine_msgs/msg/MindAction" },
+    runtime: { ros_distro: "jazzy", topic: TOPIC, message_type: "evermind_msgs/msg/MindAction" },
     source: url || null,
     knowledge_graph: [],
     vla_trajectories: [],
@@ -97,7 +97,7 @@ export function RobotSyncModal({
           <button
             type="button"
             onClick={() =>
-              download("evermine_mind_loader.py", rosClientScript(url || "<publish-first>", TOPIC), "text/x-python")
+              download("evermind_mind_loader.py", rosClientScript(url || "<publish-first>", TOPIC), "text/x-python")
             }
             className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
           >

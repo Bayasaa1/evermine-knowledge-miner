@@ -29,13 +29,13 @@ import { useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Evermine Feed — Talk to real minds" },
+      { title: "Evermind Feed — Talk to real minds" },
       {
         name: "description",
         content:
           "A vertical video feed of AI Minds mined from real creators. Talk to any mind instantly, or unlock its VLA robot brain after purchase.",
       },
-      { property: "og:title", content: "Evermine Feed — Talk to real minds" },
+      { property: "og:title", content: "Evermind Feed — Talk to real minds" },
       {
         property: "og:description",
         content: "Scroll real creators' minds, ask them anything, and unlock robot deployment after buying.",
@@ -110,7 +110,7 @@ function HomeFeed() {
     <div className="dark min-h-screen bg-black text-white">
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-4 py-3">
         <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> Evermine — Talk to real minds
+          <Sparkles className="h-3.5 w-3.5 text-primary" /> Evermind — Talk to real minds
         </h1>
         <button
           type="button"

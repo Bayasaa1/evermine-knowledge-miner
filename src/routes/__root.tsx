@@ -14,7 +14,12 @@ import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { BottomNav } from "@/components/bottom-nav";
 import { supabase } from "@/integrations/supabase/client";
-import { setLocalScope, getLocalScope } from "@/lib/user-scope";
+import {
+  setLocalScope,
+  getLocalScope,
+  clearUserScopedLocalData,
+  migrateLegacyBrandKeys,
+} from "@/lib/user-scope";
 import { purgeLegacyKeyVaults, resetKeyCaches } from "@/lib/key-vault";
 import { installGlobalErrorInterceptors } from "@/lib/error-capture";
 import appCss from "../styles.css?url";
@@ -86,14 +91,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Evermine — A life becomes a mind" },
-      { name: "description", content: "Evermine transforms your life videos into structured knowledge. A life becomes a mind." },
-      { name: "author", content: "Evermine" },
-      { property: "og:title", content: "Evermine — A life becomes a mind" },
-      { property: "og:description", content: "Evermine transforms your life videos into structured knowledge." },
+      { title: "Evermind — A life becomes a mind" },
+      { name: "description", content: "Evermind transforms your life videos into structured knowledge. A life becomes a mind." },
+      { name: "author", content: "Evermind" },
+      { property: "og:title", content: "Evermind — A life becomes a mind" },
+      { property: "og:description", content: "Evermind transforms your life videos into structured knowledge." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@evermine" },
+      { name: "twitter:site", content: "@evermind" },
       { name: "google-site-verification", content: "LAZSTNNPmRTsxjJFJBnpLHdz20senVb4kox8Sknqt4s" },
     ],
     links: [
@@ -144,20 +149,38 @@ function RootComponent() {
   // scope in sync with the signed-in account.
   useEffect(() => {
     setLocalScope(null);
+    migrateLegacyBrandKeys();
     // Remove the pre-isolation shared key vault that used to be visible to every
     // account on this device.
     void purgeLegacyKeyVaults();
-    void supabase.auth.getSession().then(({ data }) => setLocalScope(data.session?.user.id ?? null));
+    void supabase.auth.getSession().then(({ data }) => {
+      // No valid session on boot → wipe any leftover session state immediately.
+      if (!data.session?.user) {
+        clearUserScopedLocalData();
+        resetKeyCaches();
+        queryClient.clear();
+        setLocalScope(null);
+        return;
+      }
+      setLocalScope(data.session.user.id);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       const nextId = session?.user.id ?? null;
       if (nextId !== getLocalScope()) resetKeyCaches(); // account switch → drop cached tokens
+      if (event === "SIGNED_OUT" || !nextId) {
+        // Invalid/ended session: purge cached data before anything can re-read it.
+        void queryClient.cancelQueries();
+        queryClient.clear();
+        clearUserScopedLocalData();
+      }
       setLocalScope(nextId);
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);
+
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardApi } from "@/lib/api-guard.server";
 
 const SYSTEM = [
-  "You are the Evermine Mind Miner. You read only the END USER's own spoken or typed turns from a conversation with an AI clone.",
+  "You are the Evermind Mind Miner. You read only the END USER's own spoken or typed turns from a conversation with an AI clone.",
   "Extract the user's own subconsciousness signals — never the AI clone's opinions.",
   "Return STRICT JSON with these keys, each an array of short plain strings (max 4 items each, may be empty):",
   '{"interests":[],"beliefs":[],"questions":[],"toneNotes":[]}',

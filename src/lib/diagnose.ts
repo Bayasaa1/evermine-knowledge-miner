@@ -45,7 +45,7 @@ export async function diagnoseError(opts: {
   if (!opts.apiKey && !token) return backendDiagnosis(opts.lang, opts.errorKey, raw, opts.context, opts.signal);
 
   const prompt = [
-    `You are the in-app support assistant for Evermine, a tool where creators mine knowledge from their videos.`,
+    `You are the in-app support assistant for Evermind, a tool where creators mine knowledge from their videos.`,
     `A step failed. Context: ${opts.context}.`,
     `Raw developer log:\n"""\n${raw.slice(0, 4000)}\n"""`,
     `Explain it to a non-technical creator in ${LANG_NAME[opts.lang]}.`,
@@ -104,7 +104,7 @@ async function backendDiagnosis(
       headers: { "Content-Type": "application/json" },
       ...(signal ? { signal } : {}),
       body: JSON.stringify({
-        system: `You are the in-app support assistant for Evermine. Reply in ${LANG_NAME[lang]} only, as strict JSON: {"problem":"one or two short sentences","steps":["short imperative step"]}. 2-4 steps, no jargon, no stack traces.`,
+        system: `You are the in-app support assistant for Evermind. Reply in ${LANG_NAME[lang]} only, as strict JSON: {"problem":"one or two short sentences","steps":["short imperative step"]}. 2-4 steps, no jargon, no stack traces.`,
         messages: [{ role: "user", text: `Context: ${context}\nRaw developer log:\n${raw.slice(0, 4000)}` }],
       }),
     });

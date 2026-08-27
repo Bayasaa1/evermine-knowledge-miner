@@ -95,13 +95,13 @@ export async function mineUserTurns(utterances: string[]): Promise<MinedDelta | 
 }
 
 export function exportUserVault(vault: UserVault) {
-  const blob = new Blob([JSON.stringify({ kind: "evermine.user-vault", version: 1, ...vault }, null, 2)], {
+  const blob = new Blob([JSON.stringify({ kind: "evermind.user-vault", version: 1, ...vault }, null, 2)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "my-subconsciousness.evermine.json";
+  a.download = "my-subconsciousness.evermind.json";
   a.click();
   URL.revokeObjectURL(url);
 }
