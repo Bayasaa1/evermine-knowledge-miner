@@ -594,7 +594,18 @@ const responseSchema = {
     },
   },
 
-  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness", "knowledgeNodes"],
+  required: [
+    "speakers",
+    "subtitle",
+    "story",
+    "faceData",
+    "voiceData",
+    "audio",
+    "subconsciousness",
+    "knowledgeNodes",
+    "copyright",
+  ],
+
 };
 const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
 Extract the pillars below and return JSON only.
