@@ -47,7 +47,15 @@ export function safetyMessage(lang: "en" | "mn" = "en"): string {
 export function describeError(err: unknown): string {
   if (isSafetyBlocked(err)) return safetyMessage("en");
   if (err instanceof GeminiError) {
+    if (err.status === 400) return `Invalid argument (400): ${err.message}`;
     if (err.status === 401 || err.status === 403) return `Invalid or unauthorized API key (${err.status}): ${err.message}`;
+    if (err.status === 404)
+      return `File not found (404) — the uploaded video expired on Google's servers (files live 48h). Re-upload and mine again: ${err.message}`;
+    if (err.status === 408)
+      return `PROCESSING_PENDING (408): Google is still processing this video and did not become ACTIVE in time. Try a shorter or smaller clip: ${err.message}`;
+    if (err.status === 413)
+      return `Payload Too Large (413): the video exceeds Google's upload limit. Compress it or split it into smaller files: ${err.message}`;
+    if (err.status === 415) return `Unsupported video format (415): ${err.message}`;
     if (err.status === 429) return `Quota / rate limit reached (429): ${err.message}`;
     if (err.status >= 500) return `Gemini service error (${err.status}): ${err.message}`;
     return `Request failed (${err.status}): ${err.message}`;
