@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot, Heart, MessageCircle, Pause, Play, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Bot, Heart, MessageCircle, Pause, Play, Sparkles, Star, Volume2, VolumeX, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
+import { MindReviews } from "@/components/mind-reviews";
 import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
 
 export const Route = createFileRoute("/")({
@@ -32,6 +33,7 @@ function HomeFeed() {
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
   const [robot, setRobot] = useState<FeedItem | null>(null);
+  const [reviews, setReviews] = useState<FeedItem | null>(null);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [subscribed, setSubscribed] = useState<Record<string, boolean>>({});
 
@@ -79,6 +81,7 @@ function HomeFeed() {
             }}
             onTalk={() => setTalk(item)}
             onRobot={() => setRobot(item)}
+            onReviews={() => setReviews(item)}
           />
         ))}
       </main>
@@ -90,6 +93,19 @@ function HomeFeed() {
         mindName={talk?.creator ?? ""}
       />
       <RobotSyncModal open={!!robot} onClose={() => setRobot(null)} item={robot} />
+      {reviews && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
+            <div className="mb-3 flex items-center gap-3">
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{reviews.title}</h2>
+              <button type="button" aria-label="Close" onClick={() => setReviews(null)}>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <MindReviews mindId={reviews.mindId ?? reviews.id} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -106,6 +122,7 @@ function FeedCard({
   onSubscribe,
   onTalk,
   onRobot,
+  onReviews,
 }: {
   item: FeedItem;
   muted: boolean;
@@ -118,6 +135,7 @@ function FeedCard({
   onSubscribe: () => void;
   onTalk: () => void;
   onRobot: () => void;
+  onReviews: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -188,13 +206,17 @@ function FeedCard({
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <MessageCircle className="h-5 w-5" />
           </span>
-          <span className="text-[10px]">Talk to Mind</span>
+          <span className="text-[10px]">Chat with Mind</span>
         </button>
         <button type="button" onClick={onRobot} aria-label="Robot Sync QR" className="flex flex-col items-center gap-1">
           <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
             <Bot className="h-5 w-5" />
           </span>
-          <span className="text-[10px]">Robot Sync</span>
+          <span className="text-[10px]">Deploy to Robot</span>
+        </button>
+        <button type="button" onClick={onReviews} aria-label="Reviews" className="flex flex-col items-center gap-1">
+          <Star className="h-7 w-7" />
+          <span className="text-[10px]">Reviews</span>
         </button>
         {item.src && (
           <button type="button" onClick={toggle} aria-label="Pause" className="opacity-70">
@@ -220,7 +242,11 @@ function FeedCard({
               subscribed ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
             }`}
           >
-            {subscribed ? "Subscribed" : item.price > 0 ? `Subscribe · ${item.currency} ${item.price}` : "Subscribe · Free"}
+            {subscribed
+              ? "Subscribed"
+              : item.price > 0
+                ? `Buy · ${item.currency} ${item.price}`
+                : "Subscribe · Free"}
           </button>
         </div>
         <p className="line-clamp-2 text-sm font-medium">{item.title}</p>
