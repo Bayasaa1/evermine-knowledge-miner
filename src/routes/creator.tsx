@@ -2290,7 +2290,7 @@ function Index() {
           <RobotDeploymentStudio
             lang={lang}
             mindId={ownership.mindId}
-            mindTitle={ownership.mindTitle || ownership.creatorName || "Untitled Mind"}
+            mindTitle={ownership.creatorName || "Untitled Mind"}
             chunks={results.map((r) => r.data)}
             isAuthenticated={isAuthenticated}
           />
