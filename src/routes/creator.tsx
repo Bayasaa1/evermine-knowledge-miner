@@ -1160,6 +1160,7 @@ function Index() {
       abortRef.current = controller;
       stopTimer();
       setStatus("processing");
+      setErrorDetail(null);
       setStatusNote(startIndex > 0 ? "noteResuming" : "noteUploading");
       if (startIndex === 0) {
         setResults([]);
