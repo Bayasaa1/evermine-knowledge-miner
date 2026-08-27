@@ -15,6 +15,7 @@ import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as VaultsRouteImport } from './routes/vaults'
+import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
@@ -51,6 +52,11 @@ const VaultsRoute = VaultsRouteImport.update({
   path: '/vaults',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiagnoseChatRoute = ApiDiagnoseChatRouteImport.update({
+  id: '/api/diagnose-chat',
+  path: '/api/diagnose-chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMindChatRoute = ApiMindChatRouteImport.update({
   id: '/api/mind-chat',
   path: '/api/mind-chat',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/explore': typeof ExploreRoute
   '/profile': typeof ProfileRoute
   '/vaults': typeof VaultsRoute
+  '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/explore': typeof ExploreRoute
   '/profile': typeof ProfileRoute
   '/vaults': typeof VaultsRoute
+  '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/explore': typeof ExploreRoute
   '/profile': typeof ProfileRoute
   '/vaults': typeof VaultsRoute
+  '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/explore'
     | '/profile'
     | '/vaults'
+    | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/explore'
     | '/profile'
     | '/vaults'
+    | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/explore'
     | '/profile'
     | '/vaults'
+    | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   ExploreRoute: typeof ExploreRoute
   ProfileRoute: typeof ProfileRoute
   VaultsRoute: typeof VaultsRoute
+  ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VaultsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/diagnose-chat': {
+      id: '/api/diagnose-chat'
+      path: '/api/diagnose-chat'
+      fullPath: '/api/diagnose-chat'
+      preLoaderRoute: typeof ApiDiagnoseChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mind-chat': {
       id: '/api/mind-chat'
       path: '/api/mind-chat'
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExploreRoute: ExploreRoute,
   ProfileRoute: ProfileRoute,
   VaultsRoute: VaultsRoute,
+  ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
