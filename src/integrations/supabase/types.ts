@@ -44,6 +44,45 @@ export type Database = {
         }
         Relationships: []
       }
+      mind_reviews: {
+        Row: {
+          author_name: string
+          body: string
+          created_at: string
+          id: string
+          mind_id: string
+          rating: number
+          updated_at: string
+          user_id: string
+          verified_deployment: boolean
+          video_proof_url: string | null
+        }
+        Insert: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          mind_id: string
+          rating: number
+          updated_at?: string
+          user_id: string
+          verified_deployment?: boolean
+          video_proof_url?: string | null
+        }
+        Update: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          mind_id?: string
+          rating?: number
+          updated_at?: string
+          user_id?: string
+          verified_deployment?: boolean
+          video_proof_url?: string | null
+        }
+        Relationships: []
+      }
       mind_vaults: {
         Row: {
           created_at: string
