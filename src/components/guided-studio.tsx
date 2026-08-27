@@ -43,6 +43,16 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
+import { useQueryClient } from "@tanstack/react-query";
+import { upsertVault } from "@/lib/cloud-vault.functions";
+import { publishToFeed } from "@/lib/feed";
+import { ensureActiveCreatorMind } from "@/lib/mind-registry";
+import {
+  backupMindToDrive,
+  DRIVE_FOLDER_NAME,
+  isDriveSyncEnabled,
+  setDriveSyncEnabled,
+} from "@/lib/drive-backup";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -276,6 +286,8 @@ function StepGoogle({ lang }: { lang: Lang }) {
 /** Step 2 — paste a YouTube/Drive link (or drop a file) and mine it directly. */
 function StepUpload({ lang }: { lang: Lang }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("youtube");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -285,12 +297,21 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
+  const [savedTitle, setSavedTitle] = useState<string | null>(null);
+  const [driveSync, setDriveSync] = useState(false);
+  const [driveNote, setDriveNote] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
+    void isDriveSyncEnabled().then(setDriveSync);
   }, [signedIn]);
+
+  const toggleDrive = useCallback(async (on: boolean) => {
+    setDriveSync(on);
+    await setDriveSyncEnabled(on);
+  }, []);
 
   const resolveSource = useCallback((): ImportSource | null => {
     const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;
@@ -311,9 +332,62 @@ function StepUpload({ lang }: { lang: Lang }) {
     reportFailure("analysis", err, { url: context });
   }, []);
 
+  /** Persists the mined result to the account's cloud vault, feed and Drive. */
+  const persist = useCallback(
+    async (mined: ChunkResult, source: ImportSource) => {
+      const category = getCreationCategory();
+      const title = mined.story.summary?.slice(0, 60) || source.label || "New Mind";
+      const payload = {
+        source: { kind: source.kind, label: source.label },
+        category,
+        minedAt: new Date().toISOString(),
+        result: mined,
+      };
+
+      try {
+        const vault = await ensureActiveCreatorMind();
+        const saved = await upsertVault({
+          data: { title, kind: "mine", payload: payload as never },
+        });
+        await publishToFeed({
+          id: `pub_${saved.id}`,
+          mindId: vault.id,
+          creator: vault.title,
+          handle: `@${vault.title.toLowerCase().replace(/\s+/g, "")}`,
+          title,
+          description: mined.story.summary ?? "",
+          category,
+          src: null,
+          poster: "",
+          tags: mined.subconsciousness.skills.slice(0, 4),
+          price: 0,
+          currency: "USD",
+        });
+        setSavedTitle(title);
+        await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      } catch (err) {
+        toast.error(lang === "mn" ? "Үүлэн санд хадгалж чадсангүй" : "Could not save to your cloud vault", {
+          description: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      if (await isDriveSyncEnabled()) {
+        const backup = await backupMindToDrive(title, payload);
+        setDriveNote(
+          backup.ok
+            ? `${DRIVE_FOLDER_NAME} / ${backup.fileName}`
+            : (lang === "mn" ? "Drive нөөцлөлт амжилтгүй: " : "Drive backup failed: ") + backup.reason,
+        );
+      }
+    },
+    [lang, queryClient],
+  );
+
   const run = useCallback(async () => {
     setErrorKey(null);
     setResult(null);
+    setSavedTitle(null);
+    setDriveNote(null);
     const source = resolveSource();
     if (!source) return;
 
@@ -350,6 +424,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         skills: mined.subconsciousness.skills.length,
         memories: mined.transcript.length,
       });
+      await persist(mined, source);
     } catch (err) {
       if ((err as Error)?.name === "AbortError") {
         setProgress(0);
@@ -361,7 +436,7 @@ function StepUpload({ lang }: { lang: Lang }) {
       setBusy(false);
       abortRef.current = null;
     }
-  }, [resolveSource, explain, signedIn]);
+  }, [resolveSource, explain, signedIn, persist]);
 
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
@@ -469,7 +544,24 @@ function StepUpload({ lang }: { lang: Lang }) {
           </div>
         )}
 
-        <p className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          <input
+            type="checkbox"
+            checked={driveSync}
+            onChange={(e) => void toggleDrive(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
+          />
+          <span className="text-xs leading-relaxed text-muted-foreground">
+            <span className="block font-medium text-foreground">
+              {lang === "mn" ? "Оюуны нөөцлөлтийг Google Drive-д хадгалах" : "Sync Mind Backup to Google Drive"}
+            </span>
+            {lang === "mn"
+              ? `Таны Google бүртгэл дэх "${DRIVE_FOLDER_NAME}" хавтсанд .mind.json файл автоматаар үүснэ.`
+              : `Writes a .mind.json file straight into an "${DRIVE_FOLDER_NAME}" folder in your Drive — no links to paste.`}
+          </span>
+        </label>
+
+        <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
           {t("termsNotice")}
         </p>
       </div>
@@ -493,16 +585,98 @@ function StepUpload({ lang }: { lang: Lang }) {
       )}
 
       {result && (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t("successTitle")}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("successBody")}</p>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground">
-            {result.subconsciousness.beliefs.slice(0, 4).map((b, i) => (
-              <li key={i}>{b}</li>
-            ))}
-          </ul>
+        <div className="space-y-4">
+          <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
+            <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {t("successTitle")}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {savedTitle
+                ? lang === "mn"
+                  ? `"${savedTitle}" таны бүртгэлд хадгалагдаж, нийтлэгдлээ.`
+                  : `"${savedTitle}" was saved to your account and published.`
+                : t("successBody")}
+            </p>
+            {driveNote && <p className="mt-1 text-xs text-muted-foreground">Google Drive: {driveNote}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/vaults" })}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                {lang === "mn" ? "Миний сангаас харах" : "View in My Vaults"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/" })}
+                className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                {lang === "mn" ? "Фийд дээр харах" : "View on Feed"}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-4">
+            <h3 className="text-sm font-semibold text-foreground">
+              {lang === "mn"
+                ? "Задлан авсан мэдлэг ба хөдөлгөөний зам"
+                : "Extracted Knowledge & Motion Trajectories"}
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(
+                [
+                  [result.knowledgeNodes.length, lang === "mn" ? "Мэдлэгийн зангилаа" : "Knowledge nodes"],
+                  [
+                    result.knowledgeNodes.filter((n) => n.spatial_action).length,
+                    lang === "mn" ? "Хөдөлгөөний зам" : "Trajectories",
+                  ],
+                  [result.subconsciousness.skills.length, lang === "mn" ? "Ур чадвар" : "Skills"],
+                  [result.transcript.length, lang === "mn" ? "Ярианы мөр" : "Transcript lines"],
+                ] as const
+              ).map(([n, label]) => (
+                <div key={label} className="rounded-lg border border-border bg-background p-2.5">
+                  <p className="text-lg font-semibold text-foreground">{n}</p>
+                  <p className="text-[11px] text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {result.knowledgeNodes.length > 0 ? (
+              <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
+                {result.knowledgeNodes.slice(0, 20).map((n, i) => (
+                  <li key={i} className="rounded-lg border border-border bg-background p-3">
+                    <details>
+                      <summary className="cursor-pointer list-none">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-[11px] text-primary">
+                            {n.timestamp_start}–{n.timestamp_end}
+                          </span>
+                          <span className="text-sm font-medium text-foreground">{n.concept_title}</span>
+                          <span className="ml-auto text-[11px] text-muted-foreground">
+                            {Math.round(n.confidence_score * 100)}%
+                          </span>
+                        </span>
+                      </summary>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{n.detailed_explanation}</p>
+                      {n.spatial_action && (
+                        <p className="mt-2 rounded-md bg-muted/40 p-2 font-mono text-[11px] text-muted-foreground">
+                          {n.spatial_action.object_name} · {n.spatial_action.grasp_type} · xyz[
+                          {n.spatial_action.coordinates_xyz.map((v) => v.toFixed(2)).join(", ")}] · vec[
+                          {n.spatial_action.movement_vector.map((v) => v.toFixed(2)).join(", ")}]
+                        </p>
+                      )}
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-foreground">
+                {result.subconsciousness.beliefs.slice(0, 4).map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
