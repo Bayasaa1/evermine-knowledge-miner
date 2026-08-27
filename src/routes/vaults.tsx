@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { ArrowRight } from "lucide-react";
+import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { MindManager } from "@/components/mind-manager";
 
@@ -23,6 +24,15 @@ function VaultsPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Vaults</h1>
         <MindManager lang="en" />
+        <div className="mt-6 flex justify-end">
+          <Link
+            to="/creator"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Continue to Creator Studio
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     </div>
   );
