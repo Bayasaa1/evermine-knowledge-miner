@@ -16,6 +16,7 @@ import {
   type EngineStack,
 } from "@/lib/engines";
 import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
+import { useAuth } from "@/hooks/use-auth";
 
 const copy = {
   en: {
@@ -73,6 +74,8 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
   const [stack, setStack] = useState<EngineStack>(freeStack);
   const [hydrated, setHydrated] = useState(false);
   const [testingKey, setTestingKey] = useState<string | null>(null);
+  // Keys are per-account: reload the vault whenever the signed-in user changes.
+  const { userId } = useAuth();
 
   const runKeyTest = useCallback(
     async (keyField: string) => {
@@ -93,11 +96,19 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
   );
 
   useEffect(() => {
+    let alive = true;
+    setHydrated(false);
+    setStack(freeStack());
     void (async () => {
-      setStack(await loadStack());
+      const next = await loadStack();
+      if (!alive) return;
+      setStack(next);
       setHydrated(true);
     })();
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!hydrated) return;
