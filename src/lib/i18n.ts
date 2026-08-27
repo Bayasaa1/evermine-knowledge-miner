@@ -60,7 +60,13 @@ const en: Dict = {
   errQuota: "Your AI quota is used up. Add another key or wait for the reset.",
   errGeneric: "Something went wrong while analysing this video. Please try again.",
   errNoKey: "Sign in with Google (Step 1) first — it links your Gemini API automatically.",
+  errSafety:
+    "Google's AI safety filters stopped this analysis. Pick another clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.",
   retry: "Retry",
+
+  termsNotice:
+    "Free tier notice: analysis runs on Google Gemini. On the free tier Google may review submitted content to improve their models, so avoid private or confidential footage.",
+  termsLink: "Terms & Privacy",
 
   diagTitle: "AI Assistant Diagnostics",
   diagThinking: "Working out what happened…",
@@ -139,7 +145,13 @@ const mn: Dict = {
   errQuota: "AI хязгаар дууслаа. Өөр түлхүүр нэмэх эсвэл сэргэхийг хүлээнэ үү.",
   errGeneric: "Бичлэгийг задлах үед алдаа гарлаа. Дахин оролдоно уу.",
   errNoKey: "Эхлээд 1-р алхамд Google-ээр нэвтэрнэ үү — Gemini API автоматаар холбогдоно.",
+  errSafety:
+    "Google-ийн AI аюулгүй байдлын шүүлтүүр энэ задалгааг зогсоолоо. Өөр хэсэг сонгох буюу эмзэг, насанд хүрэгчдийн, хүчирхийллийн агуулгыг хасна уу — ижил бичлэгийг дахин оролдох нь тус болохгүй.",
   retry: "Дахин оролдох",
+
+  termsNotice:
+    "Үнэгүй багцын мэдэгдэл: задалгаа Google Gemini дээр ажиллана. Үнэгүй багцад Google илгээсэн агуулгыг загвараа сайжруулахад ашиглаж болзошгүй тул хувийн, нууц бичлэг оруулахаас зайлсхийнэ үү.",
+  termsLink: "Үйлчилгээний нөхцөл ба Нууцлал",
 
   diagTitle: "AI туслахын оношилгоо",
   diagThinking: "Юу болсныг тодруулж байна…",

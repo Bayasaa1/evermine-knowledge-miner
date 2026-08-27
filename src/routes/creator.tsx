@@ -4,6 +4,8 @@ import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { SubscriptionPanel } from "@/components/subscription-panel";
 import { EngineHub } from "@/components/engine-hub";
+import { EmbodiedAiCard } from "@/components/embodied-ai-card";
+import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
 import { tr } from "@/lib/i18n";
 
@@ -2278,6 +2280,11 @@ function Index() {
           <SubscriptionPanel lang={lang} creatorEmail={ownership.creatorEmail} />
 
           <EngineHub lang={lang} />
+
+          <EmbodiedAiCard
+            lang={lang}
+            trajectories={results.flatMap((r) => extractTrajectories(r.data))}
+          />
 
           <AnalyticsPanel lang={lang} ownership={ownership} />
 

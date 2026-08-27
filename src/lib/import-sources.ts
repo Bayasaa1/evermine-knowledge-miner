@@ -94,6 +94,7 @@ export function checkFile(file: File): ImportCheck {
 export function errorKeyFor(err: unknown): string {
   const status = typeof err === "object" && err !== null && "status" in err ? Number((err as { status: unknown }).status) : 0;
   const msg = err instanceof Error ? err.message : String(err ?? "");
+  if (/SAFETY_BLOCKED|safety filter|safety|prohibited content|harm_category/i.test(msg)) return "errSafety";
   if (/quota|rate limit|exhaust/i.test(msg) || status === 429) return "errQuota";
   if (status === 401 || status === 403 || /api key/i.test(msg)) return "errKey";
   if (/private|not found|unavailable/i.test(msg) && /youtube/i.test(msg)) return "errUrlPrivate";

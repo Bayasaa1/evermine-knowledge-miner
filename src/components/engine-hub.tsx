@@ -283,6 +283,12 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
           .map((e) => `${t.slots[e.slot]}: ${findEngine(e.id)?.name}`)
           .join(" · ")}
       </p>
+
+      <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        {lang === "mn"
+          ? "Үнэгүй багцын мэдэгдэл: задалгаа Google Gemini дээр ажиллана. Үнэгүй багцад Google илгээсэн агуулгыг загвараа сайжруулахад ашиглаж болзошгүйг Gemini API-ийн нөхцөл заасан тул хувийн, нууц бичлэг оруулахаас зайлсхийнэ үү."
+          : "Free tier notice: analysis runs on Google Gemini. Under the Gemini API terms, content sent on the free tier may be reviewed by Google to improve their models — avoid private or confidential footage, or switch to a paid key."}
+      </p>
     </section>
   );
 }
