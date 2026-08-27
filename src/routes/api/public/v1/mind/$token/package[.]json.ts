@@ -1,6 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
 
 /**
  * Robot OTA endpoint. A physical robot scans the deployment QR code (or issues a
@@ -24,25 +22,15 @@ export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")(
           return Response.json({ error: "Invalid deployment token" }, { status: 400, headers: cors });
         }
 
-        const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
-        const supabase = createClient<Database>(process.env["SUPABASE_URL"]!, key, {
-          auth: { persistSession: false },
-          global: {
-            fetch: (input, init) => {
-              const h = new Headers(init?.headers);
-              if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) {
-                h.delete("Authorization");
-              }
-              h.set("apikey", key);
-              return fetch(input, { ...init, headers: h });
-            },
-          },
-        });
+        // Privileged server-only client: the token-scoped RPC is no longer
+        // executable by anon/authenticated API roles.
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // Token-scoped RPC: never exposes deploy_token or other creators' rows.
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
           .rpc("get_published_mind_package", { _token: token })
           .maybeSingle();
+
 
         if (error) {
           return Response.json({ error: "Deployment lookup failed" }, { status: 502, headers: cors });
