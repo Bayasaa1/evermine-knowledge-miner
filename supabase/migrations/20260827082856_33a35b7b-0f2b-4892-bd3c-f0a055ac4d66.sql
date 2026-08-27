@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.validate_mind_review() FROM PUBLIC, anon, authenticated;

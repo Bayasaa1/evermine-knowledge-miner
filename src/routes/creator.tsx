@@ -5,6 +5,7 @@ import { AnalyticsPanel } from "@/components/analytics-panel";
 import { SubscriptionPanel } from "@/components/subscription-panel";
 import { EngineHub } from "@/components/engine-hub";
 import { EmbodiedAiCard } from "@/components/embodied-ai-card";
+import { MindReviews } from "@/components/mind-reviews";
 import { RobotDeploymentStudio } from "@/components/robot-deployment-studio";
 import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
@@ -2295,6 +2296,8 @@ function Index() {
             chunks={results.map((r) => r.data)}
             isAuthenticated={isAuthenticated}
           />
+
+          <MindReviews mindId={ownership.mindId} lang={lang} />
 
           <AnalyticsPanel lang={lang} ownership={ownership} />
 
