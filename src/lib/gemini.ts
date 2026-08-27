@@ -219,6 +219,30 @@ export type Subconsciousness = {
   /** Aesthetic taste and mood preference inferred from the owner's audio choices. */
   aestheticProfile: string[];
 };
+export type SpatialAction = {
+  object_name: string;
+  /** Normalized 3D coordinates in camera space [x, y, z]. */
+  coordinates_xyz: [number, number, number];
+  /** e.g. power-grasp, pinch, push, none. */
+  grasp_type: string;
+  /** Normalized direction vector of the motion [dx, dy, dz]. */
+  movement_vector: [number, number, number];
+};
+
+/** Strict, high-confidence knowledge node mined from the video. */
+export type KnowledgeNode = {
+  timestamp_start: string;
+  timestamp_end: string;
+  concept_title: string;
+  detailed_explanation: string;
+  spatial_action: SpatialAction | null;
+  /** 0.0 - 1.0. Nodes below MIN_NODE_CONFIDENCE are discarded as hallucinations. */
+  confidence_score: number;
+};
+
+/** Anything the model is less sure about than this is dropped. */
+export const MIN_NODE_CONFIDENCE = 0.8;
+
 export type ChunkResult = {
   speakers: SpeakerProfile[];
   transcript: TranscriptLine[];
@@ -229,6 +253,8 @@ export type ChunkResult = {
   voiceData: VoiceWindow[];
   audio: AudioProfile;
   subconsciousness: Subconsciousness;
+  /** Precise, confidence-filtered knowledge/action graph nodes. */
+  knowledgeNodes: KnowledgeNode[];
 };
 
 const strArr = { type: "array", items: { type: "string" } };
@@ -404,8 +430,39 @@ const responseSchema = {
         "culturalVocabulary",
       ],
     },
+    knowledgeNodes: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp_start: { type: "string" },
+          timestamp_end: { type: "string" },
+          concept_title: { type: "string" },
+          detailed_explanation: { type: "string" },
+          spatial_action: {
+            type: "object",
+            properties: {
+              object_name: { type: "string" },
+              coordinates_xyz: { type: "array", items: { type: "number" } },
+              grasp_type: { type: "string" },
+              movement_vector: { type: "array", items: { type: "number" } },
+            },
+            required: ["object_name", "coordinates_xyz", "grasp_type", "movement_vector"],
+          },
+          confidence_score: { type: "number" },
+        },
+        required: [
+          "timestamp_start",
+          "timestamp_end",
+          "concept_title",
+          "detailed_explanation",
+          "spatial_action",
+          "confidence_score",
+        ],
+      },
+    },
   },
-  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness"],
+  required: ["speakers", "subtitle", "story", "faceData", "voiceData", "audio", "subconsciousness", "knowledgeNodes"],
 };
 const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
 Extract the pillars below and return JSON only.
@@ -435,6 +492,13 @@ Extract the pillars below and return JSON only.
    - "genres", "moods" (e.g. Chill, Intense, Acoustic, Melancholic, Uplifting), "tempo" (e.g. "slow ~70 BPM", "upbeat ~120 BPM") and "atmosphere" = one sentence describing the overall sonic feel of the segment (room tone, ambience, noise, music balance).
    - "segments": each distinct music or notable non-speech audio passage with whole-video-relative "start"/"end", "genre", "mood", "tempo", "instrumentation", a short "note", and "isOriginalByOwner" set to true ONLY when the Primary Owner is performing, singing, playing, composing or using their own custom audio theme.
    - "audioSkillAssets": short descriptions of ORIGINAL musical performance, composition or custom audio themes created by the Primary Owner (instrument, style, skill level, timestamp). Leave empty if there are none.
+
+6. "knowledgeNodes": a STRICT, PRECISE knowledge + action graph. One node per distinct concept, technique or physical action actually shown. Each node needs:
+   - "timestamp_start" / "timestamp_end": whole-video-relative MM:SS.
+   - "concept_title": a short name for what is taught or done.
+   - "detailed_explanation": a precise, self-contained explanation grounded ONLY in what the video shows or says.
+   - "spatial_action": when a physical object is manipulated, give "object_name", "coordinates_xyz" (3 numbers, normalized 0..1 in camera space: x right, y down, z depth), "grasp_type" (power-grasp, pinch, push, pull, pour, cut, none) and "movement_vector" (3 numbers, normalized direction of motion, -1..1). If no object is manipulated, set spatial_action to null.
+   - "confidence_score": 0.0-1.0, your honest certainty this node is correct. NEVER inflate it. Use below 0.8 whenever you are guessing or inferring — such nodes are discarded.
 
 Only cover the requested time range. Output JSON only.`;
 
@@ -506,6 +570,33 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })),
     audioSkillAssets: strings(au['audioSkillAssets']),
   };
+  const num = (x: unknown, d = 0): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
+  const vec = (x: unknown): [number, number, number] => {
+    const a = arr<unknown>(x);
+    return [num(a[0]), num(a[1]), num(a[2])];
+  };
+  const knowledgeNodes = arr<Record<string, unknown>>(v['knowledgeNodes'])
+    .map((n) => {
+      const sa = n?.['spatial_action'];
+      const spatial =
+        typeof sa === "object" && sa !== null
+          ? {
+              object_name: String((sa as Record<string, unknown>)['object_name'] ?? ""),
+              coordinates_xyz: vec((sa as Record<string, unknown>)['coordinates_xyz']),
+              grasp_type: String((sa as Record<string, unknown>)['grasp_type'] ?? "none"),
+              movement_vector: vec((sa as Record<string, unknown>)['movement_vector']),
+            }
+          : null;
+      return {
+        timestamp_start: String(n?.['timestamp_start'] ?? ""),
+        timestamp_end: String(n?.['timestamp_end'] ?? ""),
+        concept_title: String(n?.['concept_title'] ?? ""),
+        detailed_explanation: String(n?.['detailed_explanation'] ?? ""),
+        spatial_action: spatial && spatial.object_name ? spatial : null,
+        confidence_score: num(n?.['confidence_score']),
+      } as KnowledgeNode;
+    })
+    .filter((n) => n.concept_title && n.confidence_score >= MIN_NODE_CONFIDENCE);
   const knowledge = strings(v['knowledge']);
   return {
     speakers,
@@ -534,6 +625,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })),
     audio,
     subconsciousness,
+    knowledgeNodes,
   };
 }
 

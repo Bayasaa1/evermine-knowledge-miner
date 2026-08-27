@@ -1,0 +1,218 @@
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import QRCode from "qrcode";
+import { Bot, Copy, Download, Link2, QrCode, Radio, RefreshCw } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import type { ChunkResult } from "@/lib/gemini";
+import { buildRobotPackage, deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
+import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/robot-deploy.functions";
+import { loadEmbodiedSettings } from "@/lib/embodied";
+
+const copy = {
+  en: {
+    title: "Robot Deployment Studio",
+    hint: "Publish this Mind Vault over the air. A robot scans the QR code or issues a single HTTP GET to pull the compiled VLA trajectories, spatial coordinates and knowledge graph straight into its local runtime memory.",
+    publish: "Publish mind package",
+    republish: "Re-publish latest mind",
+    link: "Direct ROS 2 / API link",
+    qr: "Mind Deployment QR",
+    downloadPkg: "Download package.json",
+    downloadRos: "Download ROS 2 / Python package",
+    copied: "Deployment link copied.",
+    published: "Mind package deployed. Robots can pull it now.",
+    signIn: "Sign in to publish this mind to robots.",
+    empty: "Mine a video first — the deployment package is built from mined knowledge nodes and action trajectories.",
+    stats: (n: number, t: number, s: number) => `${n} knowledge nodes · ${t} VLA trajectories · ${s} spatial actions`,
+    updated: "Last deployed",
+    failed: "Deployment failed",
+  },
+  mn: {
+    title: "Роботын байршуулалтын студи",
+    hint: "Энэ Оюун санг агаараар нийтэл. Робот QR кодыг уншиж эсвэл нэг HTTP GET хүсэлтээр VLA траектор, орон зайн координат, мэдлэгийн графыг өөрийн санах ойд шууд татна.",
+    publish: "Оюуны багц нийтлэх",
+    republish: "Сүүлийн оюуныг дахин нийтлэх",
+    link: "Шууд ROS 2 / API холбоос",
+    qr: "Байршуулалтын QR код",
+    downloadPkg: "package.json татах",
+    downloadRos: "ROS 2 / Python багц татах",
+    copied: "Холбоос хуулагдлаа.",
+    published: "Оюуны багц байршлаа. Робот татах боломжтой.",
+    signIn: "Нийтлэхийн тулд нэвтэрнэ үү.",
+    empty: "Эхлээд видео олборлоно уу — багц нь олборлосон мэдлэг, үйлдлээс бүрдэнэ.",
+    stats: (n: number, t: number, s: number) => `${n} мэдлэгийн зангилаа · ${t} VLA траектор · ${s} орон зайн үйлдэл`,
+    updated: "Сүүлд байршуулсан",
+    failed: "Байршуулалт амжилтгүй",
+  },
+} as const;
+
+export function RobotDeploymentStudio({
+  lang,
+  mindId,
+  mindTitle,
+  chunks,
+  isAuthenticated,
+}: {
+  lang: "en" | "mn";
+  mindId: string;
+  mindTitle: string;
+  chunks: ChunkResult[];
+  isAuthenticated: boolean;
+}) {
+  const t = copy[lang];
+  const fetchDeployment = useServerFn(getDeployment);
+  const pushDeployment = useServerFn(publishDeployment);
+
+  const [topic, setTopic] = useState("/evermine/mind_action");
+  const [deployment, setDeployment] = useState<DeployedPackage | null>(null);
+  const [qr, setQr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const pkg = useMemo(
+    () => buildRobotPackage({ mindId, title: mindTitle, topic, chunks }),
+    [mindId, mindTitle, topic, chunks],
+  );
+
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const url = deployment ? deploymentUrl(origin, deployment.token) : "";
+
+  useEffect(() => {
+    void loadEmbodiedSettings().then((s) => setTopic(s.topic));
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !mindId) return;
+    void fetchDeployment({ data: { mindId } })
+      .then(setDeployment)
+      .catch(() => setDeployment(null));
+  }, [fetchDeployment, isAuthenticated, mindId]);
+
+  useEffect(() => {
+    if (!url) {
+      setQr("");
+      return;
+    }
+    void QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: "#111111", light: "#ffffff" } })
+      .then(setQr)
+      .catch(() => setQr(""));
+  }, [url]);
+
+  const download = (name: string, body: string, type: string) => {
+    const blob = new Blob([body], { type });
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(href);
+  };
+
+  const onPublish = async () => {
+    if (!isAuthenticated) {
+      toast.error(t.signIn);
+      return;
+    }
+    setBusy(true);
+    try {
+      const next = await pushDeployment({ data: { mindId, title: mindTitle, pkg } });
+      setDeployment(next);
+      toast.success(t.published);
+    } catch (e) {
+      toast.error(`${t.failed}: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section id="robot-deploy" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Bot className="h-4 w-4" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground">{t.title}</h3>
+        <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          OTA
+        </span>
+      </div>
+      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
+
+      <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/40 p-4">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="deployTopic" className="mb-1.5 block text-xs text-muted-foreground">
+            ROS 2 topic
+          </label>
+          <input
+            id="deployTopic"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none focus:border-primary"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => void onPublish()}
+          disabled={busy}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-terracotta-dark disabled:opacity-50"
+        >
+          {busy ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}
+          {deployment ? t.republish : t.publish}
+        </button>
+      </div>
+
+      <p className="mb-4 text-xs text-muted-foreground">
+        {pkg.stats.nodes + pkg.stats.trajectories > 0
+          ? t.stats(pkg.stats.nodes, pkg.stats.trajectories, pkg.stats.spatial_actions)
+          : t.empty}
+      </p>
+
+      {deployment && (
+        <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
+          <div className="rounded-xl border border-border bg-white p-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+              <QrCode className="h-3.5 w-3.5" /> {t.qr}
+            </div>
+            {qr ? <img src={qr} alt={t.qr} className="h-auto w-full rounded-md" /> : null}
+          </div>
+          <div className="min-w-0">
+            <div className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+              <Link2 className="h-3.5 w-3.5" /> {t.link}
+            </div>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2">
+              <code className="min-w-0 flex-1 truncate font-mono text-xs text-primary">{url}</code>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(url);
+                  toast.success(t.copied);
+                }}
+                className="text-muted-foreground transition-colors hover:text-primary"
+                aria-label={t.copied}
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => download("mind-package.json", JSON.stringify(pkg, null, 2), "application/json")}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                <Download className="h-3.5 w-3.5" /> {t.downloadPkg}
+              </button>
+              <button
+                type="button"
+                onClick={() => download("evermine_mind_loader.py", rosClientScript(url, topic), "text/x-python")}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                <Download className="h-3.5 w-3.5" /> {t.downloadRos}
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t.updated}: {new Date(deployment.updatedAt).toLocaleString()}
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
