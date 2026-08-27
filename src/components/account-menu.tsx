@@ -4,6 +4,7 @@ import { LogIn, LogOut, Settings, ShieldCheck, User as UserIcon } from "lucide-r
 
 import { initials, useAuth } from "@/hooks/use-auth";
 import { clearUserScopedLocalData } from "@/lib/user-scope";
+import { clearActiveKeyVault } from "@/lib/key-vault";
 import {
   DropdownMenu,
   DropdownMenuContent,
