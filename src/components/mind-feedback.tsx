@@ -107,7 +107,7 @@ function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en" | 
       user_id: user.id,
       mind_id: mindId,
       body: body.trim(),
-      author_name: profile?.displayName || user.email?.split("@")[0] || "Evermine user",
+      author_name: profile?.displayName || user.email?.split("@")[0] || "Evermind user",
     });
     setBusy(false);
     if (error) {

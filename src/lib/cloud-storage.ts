@@ -40,7 +40,7 @@ export const PROVIDERS: { id: ProviderId; name: string; hint: string; defaultQuo
   { id: "google_drive", name: "Google Drive", hint: "you@gmail.com", defaultQuotaGb: 15 },
   { id: "dropbox", name: "Dropbox", hint: "you@dropbox.com", defaultQuotaGb: 2 },
   { id: "onedrive", name: "OneDrive", hint: "you@outlook.com", defaultQuotaGb: 5 },
-  { id: "s3", name: "AWS S3", hint: "my-evermine-bucket", defaultQuotaGb: 100 },
+  { id: "s3", name: "AWS S3", hint: "my-evermind-bucket", defaultQuotaGb: 100 },
 ];
 
 export const GB = 1024 ** 3;
@@ -130,7 +130,7 @@ export function resolveUri(hub: CloudHub, name: string): { file: IndexedFile; ac
   if (!file) return null;
   const account = hub.accounts.find((a) => a.id === file.accountId);
   if (!account) return null;
-  return { file, account, uri: `evermine://${account.provider}/${account.account}/${file.path}` };
+  return { file, account, uri: `evermind://${account.provider}/${account.account}/${file.path}` };
 }
 
 export function makeAccount(input: {

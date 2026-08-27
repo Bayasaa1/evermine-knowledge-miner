@@ -11,13 +11,13 @@ import { useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in to Evermine — Your minds, your account" },
+      { title: "Sign in to Evermind — Your minds, your account" },
       {
         name: "description",
         content:
-          "Sign in to Evermine to keep your Mind Vaults, Core Brains and chat history private and synced to your own account.",
+          "Sign in to Evermind to keep your Mind Vaults, Core Brains and chat history private and synced to your own account.",
       },
-      { property: "og:title", content: "Sign in to Evermine" },
+      { property: "og:title", content: "Sign in to Evermind" },
       {
         property: "og:description",
         content: "Continue with Google or Apple, or use an email magic link to reach your Mind Vaults.",
@@ -125,7 +125,7 @@ function AuthPage() {
           to="/"
           className="mb-6 inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Evermine
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Evermind
         </Link>
 
         <div className="rounded-[12px] border border-border bg-card p-6 sm:p-8">
@@ -134,7 +134,7 @@ function AuthPage() {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Evermine — Sign In</h1>
+              <h1 className="text-lg font-semibold text-foreground">Evermind — Sign In</h1>
               <p className="text-xs text-muted-foreground">A life becomes a mind.</p>
             </div>
           </div>

@@ -65,7 +65,7 @@ export function RobotDeploymentStudio({
   const fetchDeployment = useServerFn(getDeployment);
   const pushDeployment = useServerFn(publishDeployment);
 
-  const [topic, setTopic] = useState("/evermine/mind_action");
+  const [topic, setTopic] = useState("/evermind/mind_action");
   const [deployment, setDeployment] = useState<DeployedPackage | null>(null);
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -220,7 +220,7 @@ export function RobotDeploymentStudio({
               </button>
               <button
                 type="button"
-                onClick={() => download("evermine_mind_loader.py", rosClientScript(url, topic), "text/x-python")}
+                onClick={() => download("evermind_mind_loader.py", rosClientScript(url, topic), "text/x-python")}
                 className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
               >
                 <Download className="h-3.5 w-3.5" /> {t.downloadRos}

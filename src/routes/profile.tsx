@@ -7,13 +7,13 @@ import { initials, useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "Profile — Evermine" },
+      { title: "Profile — Evermind" },
       {
         name: "description",
-        content: "Your Evermine account: creator studio, earnings, payouts and data privacy controls.",
+        content: "Your Evermind account: creator studio, earnings, payouts and data privacy controls.",
       },
-      { property: "og:title", content: "Profile — Evermine" },
-      { property: "og:description", content: "Manage your Evermine account, studio and earnings." },
+      { property: "og:title", content: "Profile — Evermind" },
+      { property: "og:description", content: "Manage your Evermind account, studio and earnings." },
     ],
   }),
   component: ProfilePage,

@@ -2,7 +2,7 @@
  * Server-only guard for the paid AI endpoints.
  *
  * Every route that spends platform AI credits must (a) prove the caller is a
- * signed-in Evermine user and (b) stay inside a per-user request budget, so a
+ * signed-in Evermind user and (b) stay inside a per-user request budget, so a
  * scripted caller cannot drain the shared AI balance.
  */
 import { createClient } from "@supabase/supabase-js";

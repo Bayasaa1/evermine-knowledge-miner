@@ -2,7 +2,7 @@ import type { CulturalExpression } from "./gemini";
 import type { MineResult } from "./mine-file";
 import { idbGet, idbSet, STORES } from "./store";
 
-export const BRAIN_FORMAT = "evermine.core-brain";
+export const BRAIN_FORMAT = "evermind.core-brain";
 export const BRAIN_VERSION = 1;
 export const BRAIN_KEY = "coreBrainDoc";
 
@@ -173,7 +173,7 @@ function normEntry(v: unknown, cat: string): BrainEntry | null {
 /** Strictly validates an imported brain file. Throws with a readable reason. */
 export function parseBrainDoc(raw: unknown): BrainDoc {
   if (!isObj(raw)) throw new Error("File is not a valid Core Brain object.");
-  if (raw['format'] !== BRAIN_FORMAT) throw new Error('Missing or wrong "format" field — not an Evermine brain file.');
+  if (raw['format'] !== BRAIN_FORMAT) throw new Error('Missing or wrong "format" field — not an Evermind brain file.');
   if (typeof raw['version'] !== "number" || raw['version'] > BRAIN_VERSION)
     throw new Error("Unsupported Core Brain file version.");
   const entriesRaw = raw['entries'];

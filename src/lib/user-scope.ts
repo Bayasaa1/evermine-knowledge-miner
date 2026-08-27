@@ -3,7 +3,7 @@
  * signed-in account so two people sharing a browser never see each other's minds.
  */
 
-const SCOPE_KEY = "evermine.uid";
+const SCOPE_KEY = "evermind.uid";
 
 /** Remembers which account owns the local data currently on this device. */
 export function setLocalScope(userId: string | null): void {
@@ -30,7 +30,7 @@ export function clearUserScopedLocalData(): void {
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const k = window.localStorage.key(i);
     if (!k) continue;
-    if (k.startsWith("sb-") || k.startsWith("evermine.session") || k === SCOPE_KEY) drop.push(k);
+    if (k.startsWith("sb-") || k.startsWith("evermind.session") || k === SCOPE_KEY) drop.push(k);
   }
   drop.forEach((k) => window.localStorage.removeItem(k));
   window.sessionStorage.clear();

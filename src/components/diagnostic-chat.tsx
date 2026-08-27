@@ -47,7 +47,7 @@ function systemPrompt(lang: "en" | "mn", errors: CapturedError[]): string {
           2,
         );
   return [
-    `You are the System Diagnostic Assistant inside Evermine, an app that mines videos into AI "mind" data.`,
+    `You are the System Diagnostic Assistant inside Evermind, an app that mines videos into AI "mind" data.`,
     `Always reply in ${langName}. Use plain, friendly, non-technical language.`,
     `When the user asks about a failure, analyse the captured system errors below, say what went wrong in one short paragraph, then give exact numbered steps to fix it.`,
     `Concrete fixes you can suggest when relevant: re-check the Gemini API key in Step 1 (invalid keys cause HTTP 400/401/403 from generativelanguage.googleapis.com), wait for quota reset or add another key on HTTP 429, make sure a YouTube link is Public or Unlisted (Private videos fail), make sure a Google Drive file is shared as "Anyone with the link", keep files under 2GB and videos under 2 hours, check the internet connection on network failures.`,

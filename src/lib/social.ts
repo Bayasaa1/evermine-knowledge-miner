@@ -85,7 +85,7 @@ export async function enablePushNotifications(): Promise<NotificationPermission>
   if (perm === "default") perm = await Notification.requestPermission();
   if (perm === "granted" && "serviceWorker" in navigator) {
     try {
-      await navigator.serviceWorker.register("/evermine-sw.js");
+      await navigator.serviceWorker.register("/evermind-sw.js");
     } catch {
       /* notifications still work without the worker on desktop */
     }
@@ -106,7 +106,7 @@ export async function pushNotification(n: CreatorNotification): Promise<boolean>
   };
   try {
     if ("serviceWorker" in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration("/evermine-sw.js");
+      const reg = await navigator.serviceWorker.getRegistration("/evermind-sw.js");
       if (reg) {
         await reg.showNotification(n.title, options);
         return true;

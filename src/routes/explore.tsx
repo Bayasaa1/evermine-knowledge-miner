@@ -80,13 +80,13 @@ import {
 export const Route = createFileRoute("/explore")({
   head: () => ({
     meta: [
-      { title: "Evermine — Mind Feed" },
+      { title: "Evermind — Mind Feed" },
       {
         name: "description",
         content:
-          "Swipe a vertical feed of Evermine Mind Vaults, chat in a bottom sheet or start a full-screen AI call — while your own Subconsciousness Vault is mined in the background.",
+          "Swipe a vertical feed of Evermind Mind Vaults, chat in a bottom sheet or start a full-screen AI call — while your own Subconsciousness Vault is mined in the background.",
       },
-      { property: "og:title", content: "Evermine — Mind Feed" },
+      { property: "og:title", content: "Evermind — Mind Feed" },
       {
         property: "og:description",
         content: "Swipe AI Clone Mind Vaults, chat or call, and build your own Mind Vault as you talk.",
@@ -588,7 +588,7 @@ function Explore() {
             <Brain className="h-4.5 w-4.5" />
           </div>
           <div className="leading-tight">
-            <h1 className="text-sm font-semibold">Explore AI Minds — Evermine Mind Feed</h1>
+            <h1 className="text-sm font-semibold">Explore AI Minds — Evermind Mind Feed</h1>
             <p className="text-[11px] text-white/60">Swipe up for the next Mind</p>
           </div>
         </div>
