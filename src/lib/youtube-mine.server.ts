@@ -10,6 +10,7 @@ Analyze only the requested time range and return JSON only with these keys:
 - voiceData: the cleanest music-free speech windows with start, end, quality, note, and musicPresent.
 - audio: hasMusic, atmosphere, genres, moods, tempo, segments, and audioSkillAssets.
 - subconsciousness: skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, and aestheticProfile.
+- knowledgeNodes: precise concept/action nodes with timestamp_start, timestamp_end, concept_title, detailed_explanation, spatial_action (object_name, coordinates_xyz as three normalized 0..1 numbers, grasp_type, movement_vector as three numbers, or null when no object is handled), and confidence_score between 0.0 and 1.0. Never inflate confidence_score; use below 0.8 whenever you are guessing, since those nodes are discarded.
 
 Only attribute skills, beliefs, decision logic, cultural vocabulary, and expressive style to the primary owner. Decode idioms, metaphors, blessings, teasing, and sarcasm according to their real cultural intent, not their literal wording. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent information that is not present in the video.`;
 
