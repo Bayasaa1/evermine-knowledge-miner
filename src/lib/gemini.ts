@@ -502,6 +502,23 @@ Extract the pillars below and return JSON only.
 
 Only cover the requested time range. Output JSON only.`;
 
+
+/** Category-strict mining directives selected in the "+" Create hub. */
+export type MiningCategory = "knowledge" | "robot" | "voice";
+
+export function categoryDirective(category: MiningCategory | undefined): string {
+  if (category === "robot") {
+    return `\n\nCATEGORY: ROBOT BRAIN / EMBODIED VLA — STRICT SPATIAL MODE.
+"knowledgeNodes" is the primary output of this run. Emit one node for EVERY distinct physical manipulation, and always fill "spatial_action" with object_name, coordinates_xyz (3 normalized numbers, camera space), grasp_type and movement_vector (3 normalized numbers). Timestamps must be tight (under 8 seconds per node). Give an honest "confidence_score"; anything you infer rather than see must stay below 0.8 so it is discarded. Prefer fewer, exact nodes over many approximate ones.`;
+  }
+  if (category === "voice") {
+    return `\n\nCATEGORY: VOICE CALLING AGENT — SPEECH-FIRST MODE.
+Prioritise "voiceData" (long, music-free, single-speaker windows), verbatim "subtitle" lines with speaker roles, and "subconsciousness.expressiveStyle" so the cloned voice can hold a real-time conversation. Spatial actions are optional here.`;
+  }
+  return `\n\nCATEGORY: AI ASSISTANT / KNOWLEDGE MIND — Q&A MODE.
+Prioritise a clean knowledge graph: every "knowledgeNodes" entry must be a self-contained question-answerable concept with a precise explanation the clone can be asked about later, plus rich "subconsciousness" skills, beliefs and decision logic. Set "spatial_action" to null unless a physical object is genuinely manipulated.`;
+}
+
 /** Fills missing pillars so older files and partial model output stay usable. */
 export function normalizeChunkResult(raw: unknown): ChunkResult {
   const v = (raw ?? {}) as Record<string, unknown>;
@@ -636,6 +653,7 @@ export async function mineChunk(
   startSec: number,
   endSec: number,
   signal?: AbortSignal,
+  category?: MiningCategory,
 ): Promise<ChunkResult> {
   const res = await geminiRequest(
     `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
@@ -657,7 +675,7 @@ export async function mineChunk(
                 },
               },
               {
-                text: `${PROMPT}\n\nTime range for this segment: ${Math.floor(startSec)}s to ${Math.ceil(endSec)}s of the video.`,
+                text: `${PROMPT}${categoryDirective(category)}\n\nTime range for this segment: ${Math.floor(startSec)}s to ${Math.ceil(endSec)}s of the video.`,
               },
             ],
           },
@@ -724,7 +742,7 @@ export async function mineUrlSegment(
                   endOffset: `${Math.ceil(endSec)}s`,
                 },
               },
-              { text: `${PROMPT}\n\nTime range for this segment: ${Math.floor(startSec)}s to ${Math.ceil(endSec)}s of the video.` },
+              { text: `${PROMPT}${categoryDirective(category)}\n\nTime range for this segment: ${Math.floor(startSec)}s to ${Math.ceil(endSec)}s of the video.` },
             ],
           },
         ],
