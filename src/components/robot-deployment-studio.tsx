@@ -114,6 +114,14 @@ export function RobotDeploymentStudio({
       toast.error(t.signIn);
       return;
     }
+    // Copyright gate: flagged footage cannot go public until the creator confirms ownership.
+    const verdict = auditChunks(chunks, await isOwnershipConfirmed(mindId));
+    if (!canPublish(verdict)) {
+      setCopyrightVerdict(verdict);
+      toast.error(t.copyrightBlocked);
+      return;
+    }
+
     setBusy(true);
     try {
       const next = await pushDeployment({ data: { mindId, title: mindTitle, pkg } });
