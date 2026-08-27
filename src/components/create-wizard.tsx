@@ -35,7 +35,7 @@ export function CreateWizard({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4">
+    <div className="dark fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4">
       <div className="w-full max-w-lg rounded-t-2xl border border-border bg-card p-5 sm:rounded-2xl">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
