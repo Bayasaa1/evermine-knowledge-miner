@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 
@@ -12,6 +13,9 @@ export const Route = createFileRoute("/api/mind-voice")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Paid AI call: signed-in users only, with a per-user request budget.
+        const auth = await guardApi(request, "mind-voice", 30);
+        if (auth instanceof Response) return auth;
         let body: { mindId?: string; text?: string; lang?: string };
         try {
           body = (await request.json()) as typeof body;
