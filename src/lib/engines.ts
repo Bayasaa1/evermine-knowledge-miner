@@ -4,7 +4,8 @@
  * engines are billed at the provider's raw list price with no platform markup, or
  * run entirely on the user's own API key (BYO).
  */
-import { idbGet, idbSet, STORES } from "./store";
+import { idbGet, idbSet, idbDelete, STORES } from "./store";
+import { scopedKey } from "./user-scope";
 
 export type EngineSlot = "llm" | "tts" | "avatar";
 export type EngineTier = "free" | "premium";
@@ -280,12 +281,29 @@ export function brainEngineRoute(stack: EngineStack): BrainRoute {
   return { ...route, apiKey };
 }
 
-const STACK_KEY = "engine-stack";
+/**
+ * Engine stacks (including BYO API keys) are strictly per-account: the storage key
+ * carries the signed-in user id, so a second account on the same browser can never
+ * read the first account's keys.
+ */
+const STACK_KEY = () => scopedKey("engine-stack");
+/** Legacy un-scoped record from before per-account isolation. Never read, only purged. */
+const LEGACY_STACK_KEY = "engine-stack";
 
 export async function loadStack(): Promise<EngineStack> {
-  return normalizeStack(await idbGet<unknown>(STORES.SETTINGS, STACK_KEY));
+  return normalizeStack(await idbGet<unknown>(STORES.SETTINGS, STACK_KEY()));
 }
 
 export async function saveStack(stack: EngineStack): Promise<void> {
-  await idbSet(STORES.SETTINGS, STACK_KEY, stack);
+  await idbSet(STORES.SETTINGS, STACK_KEY(), stack);
+}
+
+/** Removes the current account's engine stack + keys from this device. */
+export async function clearStack(): Promise<void> {
+  await idbDelete(STORES.SETTINGS, STACK_KEY());
+}
+
+/** One-time purge of the shared, un-scoped stack that leaked keys across accounts. */
+export async function purgeLegacyStack(): Promise<void> {
+  await idbDelete(STORES.SETTINGS, LEGACY_STACK_KEY);
 }
