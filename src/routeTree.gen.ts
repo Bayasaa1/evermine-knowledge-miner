@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as VaultsRouteImport } from './routes/vaults'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
@@ -38,6 +39,11 @@ const CreatorRoute = CreatorRouteImport.update({
 const ExploreRoute = ExploreRouteImport.update({
   id: '/explore',
   path: '/explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VaultsRoute = VaultsRouteImport.update({
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/profile': typeof ProfileRoute
   '/vaults': typeof VaultsRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/profile': typeof ProfileRoute
   '/vaults': typeof VaultsRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/profile': typeof ProfileRoute
   '/vaults': typeof VaultsRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/profile'
     | '/vaults'
     | '/api/mind-chat'
     | '/api/mind-voice'
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/profile'
     | '/vaults'
     | '/api/mind-chat'
     | '/api/mind-voice'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/profile'
     | '/vaults'
     | '/api/mind-chat'
     | '/api/mind-voice'
@@ -153,6 +165,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
+  ProfileRoute: typeof ProfileRoute
   VaultsRoute: typeof VaultsRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
@@ -189,6 +202,13 @@ declare module '@tanstack/react-router' {
       path: '/explore'
       fullPath: '/explore'
       preLoaderRoute: typeof ExploreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/vaults': {
@@ -241,6 +261,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
+  ProfileRoute: ProfileRoute,
   VaultsRoute: VaultsRoute,
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
