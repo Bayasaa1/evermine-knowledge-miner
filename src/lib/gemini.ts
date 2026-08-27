@@ -722,6 +722,7 @@ export async function mineUrlSegment(
   startSec: number,
   endSec: number,
   signal?: AbortSignal,
+  category?: MiningCategory,
 ): Promise<ChunkResult> {
   const res = await geminiRequest(
     `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
