@@ -504,12 +504,16 @@ Only cover the requested time range. Output JSON only.`;
 
 
 /** Category-strict mining directives selected in the "+" Create hub. */
-export type MiningCategory = "knowledge" | "robot" | "voice";
+export type MiningCategory = "knowledge" | "robot" | "voice" | "sales";
 
 export function categoryDirective(category: MiningCategory | undefined): string {
   if (category === "robot") {
     return `\n\nCATEGORY: ROBOT BRAIN / EMBODIED VLA — STRICT SPATIAL MODE.
 "knowledgeNodes" is the primary output of this run. Emit one node for EVERY distinct physical manipulation, and always fill "spatial_action" with object_name, coordinates_xyz (3 normalized numbers, camera space), grasp_type and movement_vector (3 normalized numbers). Timestamps must be tight (under 8 seconds per node). Give an honest "confidence_score"; anything you infer rather than see must stay below 0.8 so it is discarded. Prefer fewer, exact nodes over many approximate ones.`;
+  }
+  if (category === "sales") {
+    return `\n\nCATEGORY: PRODUCT & SERVICE SALES MIND — COMMERCIAL MODE.
+Extract every product or service claim as a "knowledgeNodes" entry: exact name, offer, price/promotion if spoken, differentiators and objection handling, so an automated sales agent can pitch and answer buyer questions. Capture persuasion style and promises in "subconsciousness". Never invent prices or guarantees — if it is not stated, keep "confidence_score" below 0.8.`;
   }
   if (category === "voice") {
     return `\n\nCATEGORY: VOICE CALLING AGENT — SPEECH-FIRST MODE.

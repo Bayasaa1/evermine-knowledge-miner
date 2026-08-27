@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Bot, Brain, PhoneCall, X, ChevronRight } from "lucide-react";
+import { Bot, Brain, PhoneCall, Megaphone, X, ChevronRight } from "lucide-react";
 
 import {
   CATEGORY_LABELS,
@@ -11,9 +11,10 @@ const ICONS: Record<CreationCategory, typeof Brain> = {
   knowledge: Brain,
   robot: Bot,
   voice: PhoneCall,
+  sales: Megaphone,
 };
 
-const ORDER: CreationCategory[] = ["knowledge", "robot", "voice"];
+const ORDER: CreationCategory[] = ["knowledge", "robot", "voice", "sales"];
 
 /** Categorized AI Creation Wizard opened from the unified "+" hub. */
 export function CreateWizard({
