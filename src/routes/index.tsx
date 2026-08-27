@@ -1,12 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot, Heart, MessageCircle, Pause, Play, Sparkles, Star, Volume2, VolumeX, X } from "lucide-react";
+import {
+  Bot,
+  FolderOpen,
+  Heart,
+  Loader2,
+  MessageCircle,
+  Pause,
+  Phone,
+  Play,
+  Sparkles,
+  Star,
+  Video as VideoIcon,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
-import { MindReviews } from "@/components/mind-reviews";
+import { MindFeedback } from "@/components/mind-feedback";
 import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
+import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
+import { listPurchases, purchaseMind } from "@/lib/purchases";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,31 +33,84 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A vertical video feed of AI Minds mined from real creators. Talk to any mind instantly, or sync its VLA robot brain over the air.",
+          "A vertical video feed of AI Minds mined from real creators. Talk to any mind instantly, or unlock its VLA robot brain after purchase.",
       },
       { property: "og:title", content: "Evermine Feed — Talk to real minds" },
       {
         property: "og:description",
-        content: "Scroll real creators' minds, ask them anything, and deploy their robot brains via QR.",
+        content: "Scroll real creators' minds, ask them anything, and unlock robot deployment after buying.",
       },
     ],
   }),
   component: HomeFeed,
 });
 
+const mindKey = (item: FeedItem) => item.mindId ?? item.id;
+
 function HomeFeed() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [items, setItems] = useState<FeedItem[]>(() => marketplaceFeed());
   const [muted, setMuted] = useState(true);
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
   const [robot, setRobot] = useState<FeedItem | null>(null);
-  const [reviews, setReviews] = useState<FeedItem | null>(null);
+  const [feedback, setFeedback] = useState<FeedItem | null>(null);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
-  const [subscribed, setSubscribed] = useState<Record<string, boolean>>({});
+  const [owned, setOwned] = useState<Record<string, boolean>>({});
+  const [buying, setBuying] = useState<string | null>(null);
 
   useEffect(() => {
     void loadFeed().then(setItems).catch(() => undefined);
   }, []);
+
+  const refreshPurchases = useCallback(async () => {
+    if (!user) {
+      setOwned({});
+      return;
+    }
+    const rows = await listPurchases().catch(() => []);
+    setOwned(Object.fromEntries(rows.map((r) => [r.mind_id, true])));
+  }, [user]);
+
+  useEffect(() => {
+    void refreshPurchases();
+  }, [refreshPurchases]);
+
+  const buy = async (item: FeedItem) => {
+    if (!user) {
+      toast.error("Sign in to buy this mind.");
+      void navigate({ to: "/auth" });
+      return;
+    }
+    const key = mindKey(item);
+    setBuying(key);
+    const { error } = await purchaseMind({
+      userId: user.id,
+      mindId: key,
+      category: item.category,
+      price: item.price,
+      currency: item.currency,
+    });
+    setBuying(null);
+    if (error) {
+      toast.error(`Purchase failed: ${error}`);
+      return;
+    }
+    setOwned((s) => ({ ...s, [key]: true }));
+    toast.success(
+      item.price > 0
+        ? `Unlocked ${item.creator} — ${item.currency} ${item.price}`
+        : `Unlocked ${item.creator} — free`,
+    );
+  };
+
+  const runPrimary = (item: FeedItem) => {
+    const action = primaryActionFor(item.category);
+    if (action.capability === "robot") setRobot(item);
+    else if (action.capability === "voice") setTalk(item);
+    else void navigate({ to: "/vaults" });
+  };
 
   return (
     <div className="dark min-h-screen bg-black text-white">
@@ -67,21 +138,15 @@ function HomeFeed() {
             onVisible={setActive}
             isActive={active === i}
             liked={!!liked[item.id]}
-            subscribed={!!subscribed[item.id]}
+            purchased={!!owned[mindKey(item)]}
+            buying={buying === mindKey(item)}
             onLike={() => setLiked((s) => ({ ...s, [item.id]: !s[item.id] }))}
-            onSubscribe={() => {
-              setSubscribed((s) => ({ ...s, [item.id]: !s[item.id] }));
-              toast.success(
-                subscribed[item.id]
-                  ? `Unsubscribed from ${item.creator}`
-                  : item.price > 0
-                    ? `Subscribed to ${item.creator} — ${item.currency} ${item.price}/mo`
-                    : `Subscribed to ${item.creator} — free`,
-              );
-            }}
+            onBuy={() => void buy(item)}
+            onPrimary={() => runPrimary(item)}
             onTalk={() => setTalk(item)}
             onRobot={() => setRobot(item)}
-            onReviews={() => setReviews(item)}
+            onVault={() => void navigate({ to: "/vaults" })}
+            onFeedback={() => setFeedback(item)}
           />
         ))}
       </main>
@@ -93,16 +158,16 @@ function HomeFeed() {
         mindName={talk?.creator ?? ""}
       />
       <RobotSyncModal open={!!robot} onClose={() => setRobot(null)} item={robot} />
-      {reviews && (
+      {feedback && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
           <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
             <div className="mb-3 flex items-center gap-3">
-              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{reviews.title}</h2>
-              <button type="button" aria-label="Close" onClick={() => setReviews(null)}>
-                <X className="h-5 w-5" />
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{feedback.title}</h2>
+              <button type="button" aria-label="Close" onClick={() => setFeedback(null)}>
+                <X className="h-5 w-5 text-foreground" />
               </button>
             </div>
-            <MindReviews mindId={reviews.mindId ?? reviews.id} />
+            <MindFeedback mindId={mindKey(feedback)} purchased={!!owned[mindKey(feedback)]} />
           </div>
         </div>
       )}
@@ -117,12 +182,15 @@ function FeedCard({
   isActive,
   onVisible,
   liked,
-  subscribed,
+  purchased,
+  buying,
   onLike,
-  onSubscribe,
+  onBuy,
+  onPrimary,
   onTalk,
   onRobot,
-  onReviews,
+  onVault,
+  onFeedback,
 }: {
   item: FeedItem;
   muted: boolean;
@@ -130,16 +198,23 @@ function FeedCard({
   isActive: boolean;
   onVisible: (i: number) => void;
   liked: boolean;
-  subscribed: boolean;
+  purchased: boolean;
+  buying: boolean;
   onLike: () => void;
-  onSubscribe: () => void;
+  onBuy: () => void;
+  onPrimary: () => void;
   onTalk: () => void;
   onRobot: () => void;
-  onReviews: () => void;
+  onVault: () => void;
+  onFeedback: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
+
+  const caps = capabilitiesFor(item.category);
+  const primary = primaryActionFor(item.category);
+  const has = (c: Capability) => caps.includes(c);
 
   useEffect(() => {
     const el = ref.current;
@@ -162,6 +237,7 @@ function FeedCard({
   }, [isActive, paused]);
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
+  const locked = () => toast.error("Purchase this mind to unlock this service.");
 
   return (
     <section
@@ -196,28 +272,74 @@ function FeedCard({
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-      {/* Right action rail */}
+      {/* Right action rail — only the services this creator enabled */}
       <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5">
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
           <span className="text-[10px]">Like</span>
         </button>
-        <button type="button" onClick={onTalk} aria-label="Talk to Mind" className="flex flex-col items-center gap-1">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <MessageCircle className="h-5 w-5" />
-          </span>
-          <span className="text-[10px]">Chat with Mind</span>
-        </button>
-        <button type="button" onClick={onRobot} aria-label="Robot Sync QR" className="flex flex-col items-center gap-1">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-            <Bot className="h-5 w-5" />
-          </span>
-          <span className="text-[10px]">Deploy to Robot</span>
-        </button>
-        <button type="button" onClick={onReviews} aria-label="Reviews" className="flex flex-col items-center gap-1">
+
+        {has("chat") && (
+          <button type="button" onClick={onTalk} aria-label="Text Chat" className="flex flex-col items-center gap-1">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <MessageCircle className="h-5 w-5" />
+            </span>
+            <span className="text-[10px]">{purchased ? "Text Chat" : "Preview Chat"}</span>
+          </button>
+        )}
+
+        {has("voice") && (
+          <button
+            type="button"
+            onClick={purchased ? onTalk : locked}
+            aria-label="Voice Call"
+            className={`flex flex-col items-center gap-1 ${purchased ? "" : "opacity-40"}`}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
+              <Phone className="h-5 w-5" />
+            </span>
+            <span className="text-[10px]">Voice Call</span>
+          </button>
+        )}
+
+        {has("video") && (
+          <button
+            type="button"
+            onClick={purchased ? onTalk : locked}
+            aria-label="Video Call AI"
+            className={`flex flex-col items-center gap-1 ${purchased ? "" : "opacity-40"}`}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
+              <VideoIcon className="h-5 w-5" />
+            </span>
+            <span className="text-[10px]">Video Call</span>
+          </button>
+        )}
+
+        {/* Robot deployment only exists after purchase — never a free action */}
+        {has("robot") && purchased && (
+          <button type="button" onClick={onRobot} aria-label="Deploy to Robot" className="flex flex-col items-center gap-1">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
+              <Bot className="h-5 w-5" />
+            </span>
+            <span className="text-[10px]">Deploy to Robot</span>
+          </button>
+        )}
+
+        {has("asset") && purchased && (
+          <button type="button" onClick={onVault} aria-label="Files and assets" className="flex flex-col items-center gap-1">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
+              <FolderOpen className="h-5 w-5" />
+            </span>
+            <span className="text-[10px]">Assets</span>
+          </button>
+        )}
+
+        <button type="button" onClick={onFeedback} aria-label="Comments and reviews" className="flex flex-col items-center gap-1">
           <Star className="h-7 w-7" />
           <span className="text-[10px]">Reviews</span>
         </button>
+
         {item.src && (
           <button type="button" onClick={toggle} aria-label="Pause" className="opacity-70">
             {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
@@ -237,16 +359,18 @@ function FeedCard({
           </div>
           <button
             type="button"
-            onClick={onSubscribe}
-            className={`pointer-events-auto ml-auto rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              subscribed ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
+            onClick={purchased ? onPrimary : onBuy}
+            disabled={buying}
+            className={`pointer-events-auto ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
+              purchased ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
             }`}
           >
-            {subscribed
-              ? "Subscribed"
+            {buying && <Loader2 className="h-3 w-3 animate-spin" />}
+            {purchased
+              ? primary.en
               : item.price > 0
                 ? `Buy · ${item.currency} ${item.price}`
-                : "Subscribe · Free"}
+                : "Get · Free"}
           </button>
         </div>
         <p className="line-clamp-2 text-sm font-medium">{item.title}</p>
