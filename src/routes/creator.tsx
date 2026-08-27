@@ -1213,7 +1213,7 @@ function Index() {
           let data;
           try {
             data = await withRotatingKey(`piece ${chunk.index + 1}`, (key) =>
-              mineChunk(key, model, uploaded!, chunk.start, chunk.end, controller.signal),
+              mineChunk(key, model, uploaded!, chunk.start, chunk.end, controller.signal, getCreationCategory()),
             );
           } catch (chunkErr) {
             if (
