@@ -57,6 +57,7 @@ import {
   type VaultField,
 } from "@/lib/user-vault";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api-fetch";
 import {
   loadFollows,
   saveFollows,
@@ -475,7 +476,7 @@ function Explore() {
       // configured (BYO key on this device, else a backend secret); otherwise the
       // server falls back to the platform default model.
       const brain = brainEngineRoute(await loadStack());
-      const res = await fetch("/api/mind-chat", {
+      const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

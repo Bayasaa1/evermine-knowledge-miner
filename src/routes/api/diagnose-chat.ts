@@ -6,6 +6,7 @@
  * assistant is never blocked behind "add an API key first".
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { guardApi } from "@/lib/api-guard.server";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
@@ -13,6 +14,9 @@ export const Route = createFileRoute("/api/diagnose-chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Paid AI call: signed-in users only, with a per-user request budget.
+        const auth = await guardApi(request, "diagnose-chat", 20);
+        if (auth instanceof Response) return auth;
         let body: { system?: string; messages?: ChatMsg[] };
         try {
           body = (await request.json()) as typeof body;

@@ -1,4 +1,5 @@
 import { idbGet, idbSet, STORES } from "@/lib/store";
+import { apiFetch } from "@/lib/api-fetch";
 
 export type UserVault = {
   updatedAt: string;
@@ -80,7 +81,7 @@ export async function mineUserTurns(utterances: string[]): Promise<MinedDelta | 
   const clean = utterances.map((u) => u.trim()).filter(Boolean);
   if (clean.length === 0) return null;
   try {
-    const res = await fetch("/api/user-mine", {
+    const res = await apiFetch("/api/user-mine", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ utterances: clean.slice(-12) }),

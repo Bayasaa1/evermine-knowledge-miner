@@ -22,6 +22,7 @@ import {
 } from "@/lib/error-capture";
 import { loadApiKeys } from "@/lib/keystore";
 import { getGeminiAccessToken } from "@/lib/google-gemini-auth";
+import { apiFetch } from "@/lib/api-fetch";
 
 const MODEL = "gemini-2.5-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com";
@@ -96,7 +97,7 @@ async function askGemini(
 
 /** Server-side fallback so a signed-in user is never blocked on a missing key. */
 async function askBackend(lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
-  const res = await fetch("/api/diagnose-chat", {
+  const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
     body: JSON.stringify({ system: systemPrompt(lang, getCapturedErrors()), messages: history }),

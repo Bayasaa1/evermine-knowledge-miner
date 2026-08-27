@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardApi } from "@/lib/api-guard.server";
 
 const SYSTEM = [
   "You are the Evermine Mind Miner. You read only the END USER's own spoken or typed turns from a conversation with an AI clone.",
@@ -18,6 +19,9 @@ export const Route = createFileRoute("/api/user-mine")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Paid AI call: signed-in users only, with a per-user request budget.
+        const auth = await guardApi(request, "user-mine", 20);
+        if (auth instanceof Response) return auth;
         let body: Body;
         try {
           body = (await request.json()) as Body;

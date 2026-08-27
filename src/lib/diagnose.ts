@@ -8,6 +8,7 @@
 import { describeError } from "@/lib/gemini";
 import { getGeminiAccessToken } from "@/lib/google-gemini-auth";
 import { tr, type Lang } from "@/lib/i18n";
+import { apiFetch } from "@/lib/api-fetch";
 
 const BASE = "https://generativelanguage.googleapis.com";
 const DIAG_MODEL = "gemini-2.5-flash";
@@ -98,7 +99,7 @@ async function backendDiagnosis(
   signal?: AbortSignal,
 ): Promise<Diagnosis> {
   try {
-    const res = await fetch("/api/diagnose-chat", {
+    const res = await apiFetch("/api/diagnose-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       ...(signal ? { signal } : {}),

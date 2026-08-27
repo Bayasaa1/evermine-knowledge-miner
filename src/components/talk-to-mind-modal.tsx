@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Send, Sparkles, X } from "lucide-react";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Msg = { role: "user" | "agent"; text: string };
 
@@ -43,7 +44,7 @@ export function TalkToMindModal({
     setBusy(true);
     try {
       if (!mindId) throw new Error("This mind is still private to its creator.");
-      const res = await fetch("/api/mind-chat", {
+      const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mindId, lang, messages: next }),

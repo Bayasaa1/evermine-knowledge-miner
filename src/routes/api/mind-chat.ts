@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 
@@ -153,6 +154,9 @@ export const Route = createFileRoute("/api/mind-chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Paid AI call: signed-in users only, with a per-user request budget.
+        const auth = await guardApi(request, "mind-chat", 30);
+        if (auth instanceof Response) return auth;
         let body: {
           mindId?: string;
           messages?: ChatMsg[];
