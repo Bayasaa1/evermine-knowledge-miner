@@ -319,6 +319,25 @@ export type KnowledgeNode = {
 /** Anything the model is less sure about than this is dropped. */
 export const MIN_NODE_CONFIDENCE = 0.8;
 
+/** Copyright & authenticity audit performed on every mined segment. */
+export type CopyrightSignal = {
+  timestamp: string;
+  /** watermark | logo | broadcast-overlay | screen-recording | third-party-music | other-creator-face */
+  kind: string;
+  detail: string;
+  /** 0.0 - 1.0 certainty that this segment is not the creator's own footage. */
+  confidence: number;
+};
+
+export type CopyrightAudit = {
+  /** true when the segment looks re-uploaded, watermarked or otherwise not original. */
+  flagged: boolean;
+  /** "original" | "uncertain" | "third-party" */
+  originality: string;
+  signals: CopyrightSignal[];
+  summary: string;
+};
+
 export type ChunkResult = {
   speakers: SpeakerProfile[];
   transcript: TranscriptLine[];
@@ -331,7 +350,10 @@ export type ChunkResult = {
   subconsciousness: Subconsciousness;
   /** Precise, confidence-filtered knowledge/action graph nodes. */
   knowledgeNodes: KnowledgeNode[];
+  /** Copyright & authenticity check for this segment. */
+  copyright: CopyrightAudit;
 };
+
 
 const strArr = { type: "array", items: { type: "string" } };
 
