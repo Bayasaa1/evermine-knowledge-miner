@@ -7,6 +7,7 @@
  * banner with a Retry button — never a raw log line.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
   CheckCircle2,
@@ -92,6 +93,7 @@ function GoogleMark() {
 
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
 
   return (
@@ -145,12 +147,25 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         </button>
         <button
           type="button"
-          onClick={() => setStep((s) => Math.min(3, s + 1))}
-          disabled={step === 3}
+          onClick={() => {
+            if (step < 3) {
+              setStep((s) => s + 1);
+              return;
+            }
+            toast.success(lang === "mn" ? "Тохиргоо дууслаа" : "Setup complete", {
+              description:
+                lang === "mn"
+                  ? "Таны AI оюун санг Mind Vaults хэсгээс харна уу."
+                  : "Your AI mind is ready — opening your Mind Vaults.",
+            });
+            void navigate({ to: "/vaults" });
+          }}
           className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
         >
-          {t("next")} <ChevronRight className="h-4 w-4" />
+          {step === 3 ? (lang === "mn" ? "Дуусгах" : "Finish") : t("next")}{" "}
+          <ChevronRight className="h-4 w-4" />
         </button>
+
       </div>
     </section>
   );
