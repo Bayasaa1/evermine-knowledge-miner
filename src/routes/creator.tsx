@@ -795,6 +795,8 @@ function Index() {
   const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");
   const [statusNote, setStatusNote] = useState<string>("noteReady");
+  /** Exact Gemini failure text, shown as a persistent alert in the upload studio. */
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
   const [activeMindId, setActiveMindId] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -1054,6 +1056,7 @@ function Index() {
     (err: unknown) => {
       const message = describeError(err);
       setStatus("error");
+      setErrorDetail(message);
       if (err instanceof GeminiError && (err.status === 401 || err.status === 403)) {
         setKeyState("invalid");
         setStatusNote("noteKeyRejected");
@@ -1734,6 +1737,26 @@ function Index() {
             <div className="ml-auto hidden text-xs text-muted-foreground sm:block">{(t as Record<string, string>)[statusNote] ?? statusNote}</div>
 
           </div>
+
+          {errorDetail && (
+            <div className="mb-6 flex items-start gap-3 rounded-[12px] border border-destructive/40 bg-destructive/10 p-4">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-destructive">
+                  {lang === "mn" ? "Видео боловсруулалт амжилтгүй" : "Video processing failed"}
+                </p>
+                <p className="mt-1 break-words text-xs text-muted-foreground">{errorDetail}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Dismiss error"
+                onClick={() => setErrorDetail(null)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           {/* Main grid */}
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
