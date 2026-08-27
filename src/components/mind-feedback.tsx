@@ -80,7 +80,7 @@ export function MindFeedback({
   );
 }
 
-function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en"] }) {
+function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en" | "mn"] }) {
   const { user, profile } = useAuth();
   const [items, setItems] = useState<Comment[]>([]);
   const [body, setBody] = useState("");
