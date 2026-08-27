@@ -209,6 +209,35 @@ export function RobotDeploymentStudio({
           : t.empty}
       </p>
 
+      {copyrightVerdict?.state === "FLAGGED_COPYRIGHT" && (
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-destructive">
+            {t.copyrightTitle} · FLAGGED_COPYRIGHT
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+            {copyrightVerdict.signals.slice(0, 6).map((s, i) => (
+              <li key={`${s.timestamp}-${i}`}>
+                <span className="font-mono text-primary">{s.timestamp}</span> · {s.kind} — {s.detail} (
+                {Math.round(s.confidence * 100)}%)
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-3 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+            onClick={async () => {
+              await confirmOwnership(mindId);
+              setCopyrightVerdict(auditChunks(chunks, true));
+              toast.success(t.copyrightConfirmed);
+            }}
+          >
+            {t.copyrightConfirm}
+          </button>
+        </div>
+      )}
+
+
+
       {deployment && (
         <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
           <div className="rounded-xl border border-border bg-white p-3">
