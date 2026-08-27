@@ -588,7 +588,7 @@ function Explore() {
             <Brain className="h-4.5 w-4.5" />
           </div>
           <div className="leading-tight">
-            <p className="text-sm font-semibold">Mind Feed</p>
+            <h1 className="text-sm font-semibold">Explore AI Minds — Evermine Mind Feed</h1>
             <p className="text-[11px] text-white/60">Swipe up for the next Mind</p>
           </div>
         </div>
