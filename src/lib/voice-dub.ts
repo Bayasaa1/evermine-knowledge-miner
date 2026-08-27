@@ -1,4 +1,5 @@
 import type { LangCode } from "@/lib/languages";
+import { apiFetch } from "@/lib/api-fetch";
 
 /**
  * Native voice dubbing playback.
@@ -29,7 +30,7 @@ export function startDub(opts: {
 
   const done = (async () => {
     try {
-      const res = await fetch("/api/mind-voice", {
+      const res = await apiFetch("/api/mind-voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mindId: opts.mindId, text: opts.text, lang: opts.lang }),
