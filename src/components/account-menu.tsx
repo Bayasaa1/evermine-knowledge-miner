@@ -43,6 +43,7 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
   const handleSignOut = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
+    await clearActiveKeyVault(); // wipe this account's API keys + cached tokens
     clearUserScopedLocalData();
     await signOut();
     void navigate({ to: "/auth", replace: true });
