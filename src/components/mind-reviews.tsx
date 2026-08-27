@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Loader2, Send, Star, Video } from "lucide-react";
+import { BadgeCheck, Loader2, Lock, Send, Star, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ const copy = {
     buyer: "Verified user",
     posted: "Thanks — your review is live.",
     failed: "Could not save your review",
+    locked: "Only verified buyers can leave a review. Purchase this mind to review it.",
     of: (n: number) => `${n} review${n === 1 ? "" : "s"}`,
   },
   mn: {
@@ -41,12 +42,21 @@ const copy = {
     buyer: "Баталгаажсан хэрэглэгч",
     posted: "Баярлалаа — сэтгэгдэл нийтлэгдлээ.",
     failed: "Сэтгэгдлийг хадгалж чадсангүй",
+    locked: "Зөвхөн худалдан авсан хэрэглэгч үнэлгээ өгнө. Эхлээд худалдан аваарай.",
     of: (n: number) => `${n} сэтгэгдэл`,
   },
 } as const;
 
 /** Amazon-style review & rating section shown under every AI Mind. */
-export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: "en" | "mn" }) {
+export function MindReviews({
+  mindId,
+  lang = "en",
+  purchased = true,
+}: {
+  mindId: string;
+  lang?: "en" | "mn";
+  purchased?: boolean;
+}) {
   const t = copy[lang];
   const { user, profile } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -111,6 +121,11 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: "e
         </span>
       </div>
 
+      {!purchased ? (
+        <p className="mb-5 flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
+          <Lock className="h-3.5 w-3.5 shrink-0" /> {t.locked}
+        </p>
+      ) : (
       <div className="mb-5 rounded-xl border border-border bg-muted/40 p-3">
         <div className="mb-2 flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -145,6 +160,7 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: "e
         </div>
         {!user && <p className="mt-2 text-[11px] text-muted-foreground">{t.signIn}</p>}
       </div>
+      )}
 
       {reviews.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t.none}</p>

@@ -44,6 +44,69 @@ export type Database = {
         }
         Relationships: []
       }
+      mind_comments: {
+        Row: {
+          author_name: string
+          body: string
+          created_at: string
+          id: string
+          mind_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author_name?: string
+          body: string
+          created_at?: string
+          id?: string
+          mind_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          mind_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mind_purchases: {
+        Row: {
+          category: string
+          created_at: string
+          currency: string
+          id: string
+          mind_id: string
+          price: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          mind_id: string
+          price?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          mind_id?: string
+          price?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       mind_reviews: {
         Row: {
           author_name: string
