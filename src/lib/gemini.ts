@@ -770,7 +770,27 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })
     .filter((n) => n.concept_title && n.confidence_score >= MIN_NODE_CONFIDENCE);
   const knowledge = strings(v['knowledge']);
+  const cp = (v['copyright'] ?? {}) as Record<string, unknown>;
+  const signals = arr<Record<string, unknown>>(cp['signals']).map((s) => ({
+    timestamp: String(s?.['timestamp'] ?? ""),
+    kind: String(s?.['kind'] ?? "other"),
+    detail: String(s?.['detail'] ?? ""),
+    confidence: typeof s?.['confidence'] === "number" ? (s['confidence'] as number) : 0,
+  }));
+  const originality =
+    cp['originality'] === "third-party" || cp['originality'] === "uncertain"
+      ? (cp['originality'] as string)
+      : "original";
+  const copyright: CopyrightAudit = {
+    // Never trust a "clear" verdict when a strong signal is present.
+    flagged:
+      cp['flagged'] === true || originality === "third-party" || signals.some((s) => s.confidence >= 0.7),
+    originality,
+    signals,
+    summary: typeof cp['summary'] === "string" ? cp['summary'] : "",
+  };
   return {
+
     speakers,
     transcript,
     scenes: faceData.map((f) => ({ timestamp: f.timestamp, description: f.description })),
