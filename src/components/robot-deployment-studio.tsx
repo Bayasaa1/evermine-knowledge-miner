@@ -36,6 +36,10 @@ const copy = {
     stats: (n: number, t: number, s: number) => `${n} knowledge nodes · ${t} VLA trajectories · ${s} spatial actions`,
     updated: "Last deployed",
     failed: "Deployment failed",
+    copyrightBlocked: "Copyright check flagged this footage — confirm you own it before publishing.",
+    copyrightTitle: "Copyright & authenticity check",
+    copyrightConfirm: "I own this footage — publish anyway",
+    copyrightConfirmed: "Ownership confirmed. You can publish now.",
   },
   mn: {
     title: "Роботын байршуулалтын студи",
@@ -53,6 +57,10 @@ const copy = {
     stats: (n: number, t: number, s: number) => `${n} мэдлэгийн зангилаа · ${t} VLA траектор · ${s} орон зайн үйлдэл`,
     updated: "Сүүлд байршуулсан",
     failed: "Байршуулалт амжилтгүй",
+    copyrightBlocked: "Зохиогчийн эрхийн шалгалт сэрэмжлүүлэв — эзэмшлээ баталгаажуулна уу.",
+    copyrightTitle: "Зохиогчийн эрх ба жинхэнэ эсэхийн шалгалт",
+    copyrightConfirm: "Энэ бичлэг миний өөрийн бүтээл — нийтэл",
+    copyrightConfirmed: "Эзэмшил баталгаажлаа. Одоо нийтэлж болно.",
   },
 } as const;
 
@@ -77,6 +85,7 @@ export function RobotDeploymentStudio({
   const [deployment, setDeployment] = useState<DeployedPackage | null>(null);
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [copyrightVerdict, setCopyrightVerdict] = useState<CopyrightVerdict | null>(null);
 
   const pkg = useMemo(
     () => buildRobotPackage({ mindId, title: mindTitle, topic, chunks }),
