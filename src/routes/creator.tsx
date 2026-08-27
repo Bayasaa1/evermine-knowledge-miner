@@ -2296,6 +2296,8 @@ function Index() {
             isAuthenticated={isAuthenticated}
           />
 
+          <MindReviews mindId={ownership.mindId} lang={lang} />
+
           <AnalyticsPanel lang={lang} ownership={ownership} />
 
 
