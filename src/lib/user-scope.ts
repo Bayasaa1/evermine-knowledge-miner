@@ -4,6 +4,33 @@
  */
 
 const SCOPE_KEY = "evermind.uid";
+const LEGACY_PREFIX = "evermine.";
+const BRAND_PREFIX = "evermind.";
+
+/**
+ * One-time rename of pre-rebrand ("evermine.*") local keys so existing users keep
+ * their language, role and category preferences after the Evermind rename.
+ */
+export function migrateLegacyBrandKeys(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const legacy: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const k = window.localStorage.key(i);
+      if (k && (k.startsWith(LEGACY_PREFIX) || k === "evermine-lang")) legacy.push(k);
+    }
+    for (const k of legacy) {
+      const value = window.localStorage.getItem(k);
+      const next = k === "evermine-lang" ? "evermind-lang" : `${BRAND_PREFIX}${k.slice(LEGACY_PREFIX.length)}`;
+      if (value !== null && window.localStorage.getItem(next) === null) {
+        window.localStorage.setItem(next, value);
+      }
+      window.localStorage.removeItem(k);
+    }
+  } catch {
+    /* storage disabled — nothing to migrate */
+  }
+}
 
 /** Remembers which account owns the local data currently on this device. */
 export function setLocalScope(userId: string | null): void {
@@ -23,14 +50,25 @@ export function scopedKey(key: string): string {
   return uid ? `${uid}:${key}` : `anon:${key}`;
 }
 
-/** Clears sensitive session-scoped values on sign-out. Mined vaults stay on disk. */
+/**
+ * Clears every session-bound value on sign-out or account switch: the Supabase
+ * session, cached identity, and any legacy brand keys. Mined vaults stay on disk
+ * but are unreachable because they are namespaced by account id.
+ */
 export function clearUserScopedLocalData(): void {
   if (typeof window === "undefined") return;
   const drop: string[] = [];
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const k = window.localStorage.key(i);
     if (!k) continue;
-    if (k.startsWith("sb-") || k.startsWith("evermind.session") || k === SCOPE_KEY) drop.push(k);
+    if (
+      k.startsWith("sb-") ||
+      k.startsWith("evermind.session") ||
+      k.startsWith("evermine.session") ||
+      k === SCOPE_KEY
+    ) {
+      drop.push(k);
+    }
   }
   drop.forEach((k) => window.localStorage.removeItem(k));
   window.sessionStorage.clear();
