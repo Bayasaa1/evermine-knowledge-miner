@@ -105,6 +105,11 @@ export function RobotSyncModal({
             <Download className="h-3.5 w-3.5" /> ROS 2 / Python
           </button>
         </div>
+
+        <div className="mt-4">
+          <MindSpecs mindId={item.mindId ?? item.id} lang={lang} />
+        </div>
+
       </div>
     </div>
   );
