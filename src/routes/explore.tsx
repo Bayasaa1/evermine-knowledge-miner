@@ -534,7 +534,10 @@ function Explore() {
         },
       }).catch(() => undefined);
     }
-    if (via === "call") speak(reply);
+    // Dynamic emotion engine: the reply's emotion drives face + voice.
+    const replyEmotion = inferEmotion(reply, selected.voiceProfile?.emotion);
+    setEmotion(replyEmotion);
+    if (via === "call") speak(reply, replyEmotion);
 
   }
 
