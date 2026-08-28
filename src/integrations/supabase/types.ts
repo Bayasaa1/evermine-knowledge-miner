@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          created_at: string
+          detail: string
+          event: string
+          id: string
+          ip: string | null
+          suspicious: boolean
+          tokens: number
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string
+          event: string
+          id?: string
+          ip?: string | null
+          suspicious?: boolean
+          tokens?: number
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string
+          event?: string
+          id?: string
+          ip?: string | null
+          suspicious?: boolean
+          tokens?: number
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           body: string
@@ -221,6 +257,75 @@ export type Database = {
         }
         Relationships: []
       }
+      mining_jobs: {
+        Row: {
+          chunks: Json
+          created_at: string
+          custom_instructions: string
+          id: string
+          last_error: string | null
+          next_index: number
+          playlist_id: string | null
+          primary_focus: string
+          queue_position: number
+          results: Json
+          retry_after: string | null
+          source_kind: string
+          source_label: string
+          source_url: string
+          status: string
+          total_chunks: number
+          updated_at: string
+          user_id: string
+          vault_id: string | null
+          video_context: string
+        }
+        Insert: {
+          chunks?: Json
+          created_at?: string
+          custom_instructions?: string
+          id?: string
+          last_error?: string | null
+          next_index?: number
+          playlist_id?: string | null
+          primary_focus?: string
+          queue_position?: number
+          results?: Json
+          retry_after?: string | null
+          source_kind?: string
+          source_label?: string
+          source_url: string
+          status?: string
+          total_chunks?: number
+          updated_at?: string
+          user_id: string
+          vault_id?: string | null
+          video_context?: string
+        }
+        Update: {
+          chunks?: Json
+          created_at?: string
+          custom_instructions?: string
+          id?: string
+          last_error?: string | null
+          next_index?: number
+          playlist_id?: string | null
+          primary_focus?: string
+          queue_position?: number
+          results?: Json
+          retry_after?: string | null
+          source_kind?: string
+          source_label?: string
+          source_url?: string
+          status?: string
+          total_chunks?: number
+          updated_at?: string
+          user_id?: string
+          vault_id?: string | null
+          video_context?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -284,6 +389,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -298,9 +424,16 @@ export type Database = {
           updated_at: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -427,6 +560,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
