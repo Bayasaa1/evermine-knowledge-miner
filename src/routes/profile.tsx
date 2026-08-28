@@ -23,7 +23,7 @@ function ProfilePage() {
   const { profile, isAuthenticated } = useAuth();
 
   return (
-    <div className="dark min-h-screen bg-background pb-24 text-foreground">
+    <div className="dark min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">

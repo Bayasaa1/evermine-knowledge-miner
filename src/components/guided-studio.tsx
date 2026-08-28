@@ -53,6 +53,11 @@ import {
   isDriveSyncEnabled,
   setDriveSyncEnabled,
 } from "@/lib/drive-backup";
+import { CHUNK_SECONDS } from "@/lib/chunking";
+import { MiningWizard } from "@/components/mining-wizard";
+import { DEFAULT_ASSESSMENT, type Assessment } from "@/lib/mining-jobs";
+import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
+
 
 const MODEL = "gemini-2.5-flash";
 
@@ -300,8 +305,15 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
   const [driveSync, setDriveSync] = useState(false);
   const [driveNote, setDriveNote] = useState<string | null>(null);
+  const [assessment, setAssessment] = useState<Assessment>(DEFAULT_ASSESSMENT);
+  const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [paused, setPaused] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
@@ -383,60 +395,137 @@ function StepUpload({ lang }: { lang: Lang }) {
     [lang, queryClient],
   );
 
-  const run = useCallback(async () => {
-    setErrorKey(null);
-    setResult(null);
-    setSavedTitle(null);
-    setDriveNote(null);
-    const source = resolveSource();
-    if (!source) return;
-
-    if (!signedIn) {
-      setErrorKey("errNoKey");
-      return;
-    }
-    // Files and Drive retain the creator's optional BYO path. Public YouTube
-    // videos use the authenticated built-in AI service and need no provider token.
-    const key = "";
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setBusy(true);
-    setProgress(5);
-    const tick = window.setInterval(() => setProgress((p) => (p < 90 ? p + 3 : p)), 900);
-
-    try {
-      let mined: ChunkResult;
-      if (source.kind === "youtube") {
-        mined = await mineYoutubeVideo({ data: { url: source.url, startSec: 0, endSec: MAX_DURATION_SEC } });
-      } else if (source.kind === "file") {
-        const ref = await uploadVideo(key, source.file, { signal: controller.signal });
-        setProgress((p) => Math.max(p, 55));
-        mined = await mineChunk(key, MODEL, ref, 0, MAX_DURATION_SEC, controller.signal, getCreationCategory());
-      } else {
-        mined = await mineUrlSegment(key, MODEL, source.url, 0, MAX_DURATION_SEC, controller.signal, getCreationCategory());
-      }
-      setProgress(100);
-      setResult(mined);
-      await idbSet(STORES.SESSION, "guided-last-mine", { source: source.label, minedAt: Date.now(), result: mined });
+  /** Local checkpoint + growth stats, then cloud vault / feed / Drive persistence. */
+  const finishMined = useCallback(
+    async (mined: ChunkResult, source: ImportSource) => {
+      await idbSet(STORES.SESSION, "guided-last-mine", {
+        source: source.label,
+        minedAt: Date.now(),
+        result: mined,
+      });
       await recordGrowth({
         beliefs: mined.subconsciousness.beliefs.length,
         skills: mined.subconsciousness.skills.length,
         memories: mined.transcript.length,
       });
       await persist(mined, source);
-    } catch (err) {
-      if ((err as Error)?.name === "AbortError") {
-        setProgress(0);
-      } else {
-        explain(err, `${source.kind} import — ${source.label}`);
+    },
+    [persist],
+  );
+
+
+
+  /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
+  const runYoutubeJobs = useCallback(
+    async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
+      const jobs = await startMiningJobs({ data: { url: source.url, assessment } });
+      setQueueTotal(jobs.length);
+      let lastMerged: ChunkResult | null = null;
+
+      for (let q = 0; q < jobs.length; q++) {
+        let current = jobs[q]!;
+        setQueueIndex(q + 1);
+        setStatusNote(current.sourceLabel);
+        while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
+          const step = await runNextChunk({ data: { jobId: current.id } });
+          current = step.job;
+          if (step.merged) {
+            lastMerged = step.merged;
+            setResult(step.merged);
+          }
+          setCheckpoint({ index: current.nextIndex, total: current.totalChunks });
+          setProgress(
+            Math.round(((q + (current.totalChunks ? current.nextIndex / current.totalChunks : 1)) / jobs.length) * 100),
+          );
+          if (step.done) break;
+        }
+
+        if (current.status === "paused_quota") {
+          setPaused(
+            lang === "mn"
+              ? `Gemini-ийн үнэгүй хязгаарт хүрлээ. ${current.nextIndex}/${current.totalChunks} хэсэг хадгалагдсан — квот сэргэмэгц автоматаар үргэлжилнэ.`
+              : `Free AI quota reached. ${current.nextIndex}/${current.totalChunks} checkpoints are saved — the background worker resumes automatically after the quota resets.`,
+          );
+          break;
+        }
+        if (current.status === "error") {
+          throw new Error(current.lastError ?? "Mining failed.");
+        }
+        if (lastMerged) await finishMined(lastMerged, source);
+        lastMerged = null;
       }
-    } finally {
-      window.clearInterval(tick);
-      setBusy(false);
-      abortRef.current = null;
-    }
-  }, [resolveSource, explain, signedIn, persist]);
+    },
+    [lang, finishMined],
+  );
+
+  const run = useCallback(
+    async (assessment: Assessment) => {
+      setErrorKey(null);
+      setResult(null);
+      setSavedTitle(null);
+      setDriveNote(null);
+      setPaused(null);
+      setCheckpoint(null);
+      setQueueIndex(0);
+      setQueueTotal(0);
+      const source = resolveSource();
+      if (!source) return;
+
+      if (!signedIn) {
+        setErrorKey("errNoKey");
+        return;
+      }
+      // Files and Drive retain the creator's optional BYO path. Public YouTube
+      // videos use the authenticated built-in AI service and need no provider token.
+      const key = "";
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setBusy(true);
+      setProgress(5);
+
+      try {
+        if (source.kind === "youtube") {
+          await runYoutubeJobs(source, assessment);
+        } else {
+          const mined =
+            source.kind === "file"
+              ? await mineChunk(
+                  key,
+                  MODEL,
+                  await uploadVideo(key, source.file, { signal: controller.signal }),
+                  0,
+                  CHUNK_SECONDS,
+                  controller.signal,
+                  getCreationCategory(),
+                )
+              : await mineUrlSegment(
+                  key,
+                  MODEL,
+                  source.url,
+                  0,
+                  CHUNK_SECONDS,
+                  controller.signal,
+                  getCreationCategory(),
+                );
+          setProgress(100);
+          setResult(mined);
+          await finishMined(mined, source);
+        }
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") {
+          setProgress(0);
+        } else {
+          explain(err, `${source.kind} import — ${source.label}`);
+        }
+      } finally {
+        setBusy(false);
+        abortRef.current = null;
+      }
+    },
+    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined],
+  );
+
 
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
@@ -512,17 +601,21 @@ function StepUpload({ lang }: { lang: Lang }) {
           </p>
         )}
 
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void run()}
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {busy ? t("analyzing") : t("analyze")}
-          </button>
-          {busy && (
+        <div className="mt-4">
+          <MiningWizard
+            lang={lang}
+            value={assessment}
+            onChange={setAssessment}
+            busy={busy}
+            onStart={(a) => {
+              setAssessment(a);
+              void run(a);
+            }}
+          />
+        </div>
+
+        {busy && (
+          <div className="mt-3">
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
@@ -530,8 +623,15 @@ function StepUpload({ lang }: { lang: Lang }) {
             >
               {t("cancel")}
             </button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {paused && (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-500">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {paused}
+          </p>
+        )}
+
 
         {busy && (
           <div className="mt-4">
@@ -540,7 +640,11 @@ function StepUpload({ lang }: { lang: Lang }) {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {t("analyzing")} {progress}%
+              {checkpoint ? ` · ${lang === "mn" ? "хэсэг" : "chunk"} ${checkpoint.index}/${checkpoint.total}` : ""}
+              {queueTotal > 1 ? ` · ${lang === "mn" ? "видео" : "video"} ${queueIndex}/${queueTotal}` : ""}
+              {statusNote ? ` · ${statusNote}` : ""}
             </p>
+
           </div>
         )}
 
@@ -575,7 +679,7 @@ function StepUpload({ lang }: { lang: Lang }) {
           </div>
           <button
             type="button"
-            onClick={() => void run()}
+            onClick={() => void run(assessment)}
             disabled={busy}
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >

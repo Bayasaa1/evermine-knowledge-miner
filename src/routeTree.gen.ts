@@ -16,11 +16,13 @@ import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VaultsRouteImport } from './routes/vaults'
+import { Route as AdminControlSessionRouteImport } from './routes/admin/control-session'
 import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
+import { Route as ApiPublicCronResumeMiningRouteImport } from './routes/api/public/cron/resume-mining'
 import { Route as ApiPublicV1MindTokenPackageDotjsonRouteImport } from './routes/api/public/v1/mind/$token/package[.]json'
 
 const IndexRoute = IndexRouteImport.update({
@@ -58,6 +60,11 @@ const VaultsRoute = VaultsRouteImport.update({
   path: '/vaults',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminControlSessionRoute = AdminControlSessionRouteImport.update({
+  id: '/admin/control-session',
+  path: '/admin/control-session',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDiagnoseChatRoute = ApiDiagnoseChatRouteImport.update({
   id: '/api/diagnose-chat',
   path: '/api/diagnose-chat',
@@ -83,6 +90,12 @@ const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
   path: '/api/public/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronResumeMiningRoute =
+  ApiPublicCronResumeMiningRouteImport.update({
+    id: '/api/public/cron/resume-mining',
+    path: '/api/public/cron/resume-mining',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicV1MindTokenPackageDotjsonRoute =
   ApiPublicV1MindTokenPackageDotjsonRouteImport.update({
     id: '/api/public/v1/mind/$token/package.json',
@@ -98,11 +111,13 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 export interface FileRoutesByTo {
@@ -113,11 +128,13 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 export interface FileRoutesById {
@@ -129,11 +146,13 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 export interface FileRouteTypes {
@@ -146,11 +165,13 @@ export interface FileRouteTypes {
     | '/profile'
     | '/sitemap.xml'
     | '/vaults'
+    | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/public/ping'
+    | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -161,11 +182,13 @@ export interface FileRouteTypes {
     | '/profile'
     | '/sitemap.xml'
     | '/vaults'
+    | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/public/ping'
+    | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   id:
     | '__root__'
@@ -176,11 +199,13 @@ export interface FileRouteTypes {
     | '/profile'
     | '/sitemap.xml'
     | '/vaults'
+    | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/public/ping'
+    | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   fileRoutesById: FileRoutesById
 }
@@ -192,11 +217,13 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VaultsRoute: typeof VaultsRoute
+  AdminControlSessionRoute: typeof AdminControlSessionRoute
   ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
+  ApiPublicCronResumeMiningRoute: typeof ApiPublicCronResumeMiningRoute
   ApiPublicV1MindTokenPackageDotjsonRoute: typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 
@@ -251,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VaultsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/control-session': {
+      id: '/admin/control-session'
+      path: '/admin/control-session'
+      fullPath: '/admin/control-session'
+      preLoaderRoute: typeof AdminControlSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/diagnose-chat': {
       id: '/api/diagnose-chat'
       path: '/api/diagnose-chat'
@@ -286,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/resume-mining': {
+      id: '/api/public/cron/resume-mining'
+      path: '/api/public/cron/resume-mining'
+      fullPath: '/api/public/cron/resume-mining'
+      preLoaderRoute: typeof ApiPublicCronResumeMiningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/v1/mind/$token/package.json': {
       id: '/api/public/v1/mind/$token/package.json'
       path: '/api/public/v1/mind/$token/package.json'
@@ -304,11 +345,13 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VaultsRoute: VaultsRoute,
+  AdminControlSessionRoute: AdminControlSessionRoute,
   ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
+  ApiPublicCronResumeMiningRoute: ApiPublicCronResumeMiningRoute,
   ApiPublicV1MindTokenPackageDotjsonRoute:
     ApiPublicV1MindTokenPackageDotjsonRoute,
 }

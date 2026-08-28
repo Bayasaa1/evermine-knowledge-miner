@@ -26,10 +26,27 @@ function gatewayMessage(status: number, detail: string): string {
   return detail || `Video analysis failed (${status}).`;
 }
 
+/** Free-text answers from the pre-mining assessment wizard. */
+export type Assessment = {
+  videoContext?: string;
+  primaryFocus?: string;
+  customInstructions?: string;
+};
+
+function assessmentDirective(a: Assessment | undefined): string {
+  if (!a) return "";
+  const lines: string[] = [];
+  if (a.videoContext) lines.push(`Video context: ${a.videoContext}. Interpret every scene through this lens.`);
+  if (a.primaryFocus) lines.push(`Primary extraction focus: ${a.primaryFocus}. Weight the output heavily toward it.`);
+  if (a.customInstructions) lines.push(`Creator instructions: ${a.customInstructions}`);
+  return lines.length ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}` : "";
+}
+
 export async function analyzeYoutubeVideo(input: {
   url: string;
   startSec: number;
   endSec: number;
+  assessment?: Assessment;
 }): Promise<ChunkResult> {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
@@ -51,13 +68,14 @@ export async function analyzeYoutubeVideo(input: {
           content: [
             {
               type: "text",
-              text: `${miningPrompt}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.`,
+              text: `${miningPrompt}${assessmentDirective(input.assessment)}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.`,
             },
             { type: "video_url", video_url: { url } },
           ],
         },
       ],
       response_format: { type: "json_object" },
+
     }),
   });
 
