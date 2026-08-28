@@ -89,6 +89,8 @@ export function RobotDeploymentStudio({
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
   const [copyrightVerdict, setCopyrightVerdict] = useState<CopyrightVerdict | null>(null);
+  const [releaseNotes, setReleaseNotes] = useState("");
+
 
   const pkg = useMemo(
     () => buildRobotPackage({ mindId, title: mindTitle, topic, chunks }),
