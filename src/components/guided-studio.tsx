@@ -654,11 +654,54 @@ function StepUpload({ lang }: { lang: Lang }) {
           <div className="mt-3">
             <button
               type="button"
-              onClick={() => abortRef.current?.abort()}
-              className="rounded-xl border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => {
+                stopRef.current = true;
+                abortRef.current?.abort();
+                setLog((prev) => [...prev, `\n> ${t("stopRequested")}`]);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-colors hover:opacity-90"
             >
-              {t("cancel")}
+              <Square className="h-4 w-4" /> {t("stopMining")}
             </button>
+          </div>
+        )}
+
+        {queue.length > 0 && (
+          <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              {t("queueTitle")} · {queue.length}
+            </p>
+            <ol className="mt-2 space-y-1">
+              {queue.map((q, i) => (
+                <li
+                  key={q.id}
+                  className={`flex items-center justify-between gap-3 text-xs ${
+                    i + 1 === queueIndex ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <span className="truncate">
+                    {i + 1}. {q.label}
+                  </span>
+                  <span className="shrink-0">{q.total} × 5min</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {log.length > 0 && (
+          <div className="mt-4 overflow-hidden rounded-xl border border-border bg-[hsl(var(--background))]">
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+              <TerminalIcon className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-foreground">{t("terminalTitle")}</span>
+              {busy && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-primary" />}
+            </div>
+            <pre
+              ref={termRef}
+              className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-[11px] leading-relaxed text-muted-foreground"
+            >
+              {log.join("\n")}
+            </pre>
           </div>
         )}
 
