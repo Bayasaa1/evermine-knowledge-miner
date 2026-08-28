@@ -311,8 +311,22 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [queueTotal, setQueueTotal] = useState(0);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [paused, setPaused] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [queue, setQueue] = useState<{ id: string; label: string; total: number }[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const stopRef = useRef(false);
+  const termRef = useRef<HTMLPreElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  /** Appends one line to the live mining terminal and keeps it scrolled down. */
+  const say = useCallback((line: string) => {
+    setLog((prev) => [...prev, line].slice(-400));
+  }, []);
+
+  useEffect(() => {
+    const el = termRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [log]);
 
 
   useEffect(() => {
