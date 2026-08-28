@@ -225,10 +225,14 @@ function FeedCard({
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
+  const [now, setNow] = useState(0);
 
   const caps = capabilitiesFor(item.category);
   const primary = primaryActionFor(item.category);
   const has = (c: Capability) => caps.includes(c);
+  const activeMark = markAt(item.timeline, now);
+  const activeEmotion = markAt(item.emotionTimeline, now);
+
 
   useEffect(() => {
     const el = ref.current;
