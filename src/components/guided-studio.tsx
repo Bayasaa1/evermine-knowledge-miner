@@ -21,6 +21,8 @@ import {
   ChevronRight,
   Sparkles,
   KeyRound,
+  Square,
+  Terminal as TerminalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
