@@ -338,6 +338,32 @@ export type CopyrightAudit = {
   summary: string;
 };
 
+/** Canonical emotional states mined from a video segment. */
+export const PRIMARY_EMOTIONS = [
+  "HAPPY",
+  "EXCITED",
+  "SERIOUS",
+  "SAD",
+  "EMPATHETIC",
+  "NEUTRAL",
+] as const;
+export type PrimaryEmotion = (typeof PRIMARY_EMOTIONS)[number];
+
+/** One entry of the mined emotion timeline. */
+export type EmotionMoment = {
+  timestamp_start: string;
+  timestamp_end: string;
+  primary_emotion: PrimaryEmotion;
+  /** 0.0 - 1.0 strength of the visible/audible expression. */
+  expression_intensity: number;
+  /** e.g. Smile, Frown, Nod, Eyebrow_Raise. */
+  facial_trigger: string;
+  /** e.g. High_Pitch, Low_Calm, Passionate. */
+  vocal_tone_marker: string;
+  /** Short reason the emotion was assigned (speech or visual evidence). */
+  evidence: string;
+};
+
 export type ChunkResult = {
   speakers: SpeakerProfile[];
   transcript: TranscriptLine[];
@@ -350,9 +376,12 @@ export type ChunkResult = {
   subconsciousness: Subconsciousness;
   /** Precise, confidence-filtered knowledge/action graph nodes. */
   knowledgeNodes: KnowledgeNode[];
+  /** Timeline of emotional states, facial triggers and vocal tone markers. */
+  emotionTimeline: EmotionMoment[];
   /** Copyright & authenticity check for this segment. */
   copyright: CopyrightAudit;
 };
+
 
 
 const strArr = { type: "array", items: { type: "string" } };
