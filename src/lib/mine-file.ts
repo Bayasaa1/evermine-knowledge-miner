@@ -261,6 +261,7 @@ export async function buildAgentBrain(input: {
   const voiceCloning = ordered.flatMap((r) => r.data.voiceData);
   const faceCloning = ordered.flatMap((r) => r.data.faceData);
   const transcript = ordered.flatMap((r) => r.data.transcript);
+  const emotionTimeline = ordered.flatMap((r) => r.data.emotionTimeline ?? []);
   const speakerMap = new Map<string, { label: string; role: string; description: string }>();
   for (const r of ordered) for (const sp of r.data.speakers) if (!speakerMap.has(sp.label)) speakerMap.set(sp.label, sp);
   const speakers = [...speakerMap.values()];
