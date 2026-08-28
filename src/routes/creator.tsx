@@ -13,6 +13,7 @@ import { tr, pickCopy, type Lang } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
+import { MindVersioningHub } from "@/components/mind-versioning-hub";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -973,7 +974,7 @@ class QuotaPaused extends Error {
 
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
-  const [view, setView] = useState<"guided" | "advanced">("guided");
+  const [view, setView] = useState<"guided" | "advanced" | "versions">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-2.5-flash");
@@ -1913,10 +1914,22 @@ function Index() {
             >
               {tr(lang, "advanced")}
             </button>
+            <button
+              onClick={() => setView("versions")}
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                view === "versions" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {pickCopy({ en: "Versions", mn: "Хувилбарууд", ko: "버전" }, lang)}
+            </button>
           </div>
         </div>
 
-        {view === "guided" ? (
+        {view === "versions" ? (
+          <div className="p-4 pb-28 sm:p-6 lg:p-8 xl:p-10">
+            <MindVersioningHub lang={lang} signedIn={isAuthenticated} />
+          </div>
+        ) : view === "guided" ? (
           <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
             <GuidedStudio lang={lang} creatorEmail={ownership.creatorEmail} />
           </div>

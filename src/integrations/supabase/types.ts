@@ -257,6 +257,59 @@ export type Database = {
         }
         Relationships: []
       }
+      mind_versions: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          mind_id: string
+          payload: Json
+          release_notes: string
+          title: string
+          updated_at: string
+          user_id: string
+          vault_id: string
+          version: string
+          version_num: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mind_id?: string
+          payload?: Json
+          release_notes?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+          vault_id: string
+          version?: string
+          version_num?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          mind_id?: string
+          payload?: Json
+          release_notes?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          vault_id?: string
+          version?: string
+          version_num?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mind_versions_vault_id_fkey"
+            columns: ["vault_id"]
+            isOneToOne: false
+            referencedRelation: "mind_vaults"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mining_jobs: {
         Row: {
           chunks: Json
@@ -430,6 +483,28 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      rollback_mind_version: {
+        Args: { _version_id: string }
+        Returns: {
+          vault_id: string
+          version: string
+        }[]
+      }
+      save_mind_version: {
+        Args: {
+          _mind_id?: string
+          _payload: Json
+          _release_notes?: string
+          _title: string
+          _vault_id: string
+        }
+        Returns: {
+          vault_id: string
+          version: string
+          version_id: string
+          version_num: number
+        }[]
       }
     }
     Enums: {

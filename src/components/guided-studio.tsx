@@ -46,7 +46,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQueryClient } from "@tanstack/react-query";
-import { upsertVault } from "@/lib/cloud-vault.functions";
+import { saveMindVersion } from "@/lib/mind-versions.functions";
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import {
@@ -374,7 +374,12 @@ function StepUpload({ lang }: { lang: Lang }) {
     reportFailure("analysis", err, { url: context });
   }, []);
 
-  /** Persists the mined result to the account's cloud vault, feed and Drive. */
+  /**
+   * Atomically persists the mined JSON to the database (vault + version row in a
+   * single transaction), then publishes to the feed and backs up to Drive.
+   * Throws when the database write cannot be verified, so the caller never
+   * reports "mining finished" for data that was not saved.
+   */
   const persist = useCallback(
     async (mined: ChunkResult, source: ImportSource) => {
       const category = getCreationCategory();
@@ -386,32 +391,44 @@ function StepUpload({ lang }: { lang: Lang }) {
         result: mined,
       };
 
-      try {
-        const vault = await ensureActiveCreatorMind();
-        const saved = await upsertVault({
-          data: { title, kind: "mine", payload: payload as never },
-        });
-        await publishToFeed({
-          id: `pub_${saved.id}`,
-          mindId: vault.id,
-          creator: vault.title,
-          handle: `@${vault.title.toLowerCase().replace(/\s+/g, "")}`,
+      const vault = await ensureActiveCreatorMind();
+      const saved = await saveMindVersion({
+        data: {
           title,
-          description: mined.story.summary ?? "",
-          category,
-          src: null,
-          poster: "",
-          tags: mined.subconsciousness.skills.slice(0, 4),
-          price: 0,
-          currency: "USD",
-        });
-        setSavedTitle(title);
-        await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
-      } catch (err) {
-        toast.error(pickCopy({ en: "Could not save to your cloud vault", mn: "Үүлэн санд хадгалж чадсангүй", ko: "클라우드 보관함에 저장하지 못했습니다" }, lang), {
-          description: err instanceof Error ? err.message : String(err),
-        });
+          payload: payload as never,
+          releaseNotes: pickCopy(
+            { en: "Mined from ", mn: "Эх сурвалж: ", ko: "마이닝 출처: " },
+            lang,
+          ) + source.label,
+          mindId: vault.id,
+        },
+      });
+      if (!saved?.vaultId) {
+        throw new Error(
+          pickCopy(
+            { en: "The Mind could not be verified in the database", mn: "Оюуныг өгөгдлийн санд баталгаажуулж чадсангүй", ko: "데이터베이스에서 마인드를 확인할 수 없습니다" },
+            lang,
+          ),
+        );
       }
+
+      await publishToFeed({
+        id: `pub_${saved.vaultId}`,
+        mindId: vault.id,
+        creator: vault.title,
+        handle: `@${vault.title.toLowerCase().replace(/\s+/g, "")}`,
+        title,
+        description: mined.story.summary ?? "",
+        category,
+        src: null,
+        poster: "",
+        tags: mined.subconsciousness.skills.slice(0, 4),
+        price: 0,
+        currency: "USD",
+      });
+      setSavedTitle(`${title} · ${saved.version}`);
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
 
       if (await isDriveSyncEnabled()) {
         const backup = await backupMindToDrive(title, payload);
@@ -424,6 +441,7 @@ function StepUpload({ lang }: { lang: Lang }) {
     },
     [lang, queryClient],
   );
+
 
   /** Local checkpoint + growth stats, then cloud vault / feed / Drive persistence. */
   const finishMined = useCallback(
