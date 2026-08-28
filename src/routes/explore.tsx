@@ -37,6 +37,13 @@ import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
+import {
+  inferEmotion,
+  emotionStyle,
+  EMOTION_LABEL,
+  NEUTRAL_EMOTION,
+  type AvatarEmotion,
+} from "@/lib/emotion";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
 import { useNetworkQuality, TIER_LABEL, type StreamTier } from "@/lib/network-quality";
 import { startMiningCapture, MINING_PROFILES, formatBytes, type MiningRecorderHandle } from "@/lib/mining-audio";
@@ -157,6 +164,7 @@ function Explore() {
   const [lang, setLang] = useState<LangCode>("en");
   const [langOpen, setLangOpen] = useState(false);
   const [mouth, setMouth] = useState(0);
+  const [emotion, setEmotion] = useState<AvatarEmotion>(NEUTRAL_EMOTION);
   const [dubbing, setDubbing] = useState(false);
   const [captions, setCaptions] = useState(false);
 
