@@ -6,6 +6,7 @@
 import { MINDS } from "./minds";
 import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
+import { listPublicVisualContent, type TimelineMark } from "./projects";
 import type { CreationCategory } from "./creation-category";
 
 export type FeedItem = {
@@ -19,6 +20,12 @@ export type FeedItem = {
   category: CreationCategory;
   /** Video source; when absent the poster is shown as a still. */
   src: string | null;
+  /** YouTube video id — rendered with the YouTube Iframe player, no hosting cost. */
+  youtubeId?: string | null;
+  /** Mined knowledge moments aligned to playback time. */
+  timeline?: TimelineMark[];
+  /** Mined emotion tags aligned to playback time. */
+  emotionTimeline?: TimelineMark[];
   poster: string;
   tags: string[];
   /** Monthly subscription price set by the creator. 0 = free. */
@@ -30,6 +37,7 @@ export type FeedItem = {
 };
 
 const FEED_KEY = () => scopedKey("publishedFeed");
+
 
 /** Marketplace minds rendered as feed clips. */
 export function marketplaceFeed(): FeedItem[] {
@@ -72,8 +80,37 @@ export async function removeFromFeed(id: string): Promise<FeedItem[]> {
   return rest;
 }
 
-/** Full home feed: your published minds first, then the marketplace. */
-export async function loadFeed(): Promise<FeedItem[]> {
-  const mine = await listPublished().catch(() => [] as FeedItem[]);
-  return [...mine, ...marketplaceFeed()];
+/** Playable YouTube clips published inside public Projects. */
+export async function projectFeed(): Promise<FeedItem[]> {
+  const rows = await listPublicVisualContent().catch(() => []);
+  return rows
+    .filter((row) => row.youtube_id)
+    .map((row) => ({
+      id: `project:${row.id}`,
+      mindId: `project:${row.project_id}`,
+      creator: row.project?.creator_name ?? "Evermind creator",
+      handle: `@${(row.project?.title ?? "project").toLowerCase().replace(/\s+/g, "")}`,
+      title: row.title,
+      description: row.description,
+      category: "knowledge" as CreationCategory,
+      src: null,
+      youtubeId: row.youtube_id,
+      timeline: row.timeline,
+      emotionTimeline: row.emotion_timeline,
+      poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
+      tags: row.tags,
+      price: Number(row.project?.price ?? 0),
+      currency: row.project?.currency ?? "USD",
+      publishedAt: row.created_at,
+    }));
 }
+
+/** Full home feed: project videos, your published minds, then the marketplace. */
+export async function loadFeed(): Promise<FeedItem[]> {
+  const [projects, mine] = await Promise.all([
+    projectFeed().catch(() => [] as FeedItem[]),
+    listPublished().catch(() => [] as FeedItem[]),
+  ]);
+  return [...projects, ...mine, ...marketplaceFeed()];
+}
+

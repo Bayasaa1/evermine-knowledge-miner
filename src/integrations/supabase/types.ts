@@ -150,6 +150,7 @@ export type Database = {
           created_at: string
           id: string
           mind_id: string
+          paid_owner: boolean
           rating: number
           updated_at: string
           user_id: string
@@ -162,6 +163,7 @@ export type Database = {
           created_at?: string
           id?: string
           mind_id: string
+          paid_owner?: boolean
           rating: number
           updated_at?: string
           user_id: string
@@ -174,6 +176,7 @@ export type Database = {
           created_at?: string
           id?: string
           mind_id?: string
+          paid_owner?: boolean
           rating?: number
           updated_at?: string
           user_id?: string
@@ -403,6 +406,107 @@ export type Database = {
           email?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      project_content: {
+        Row: {
+          created_at: string
+          description: string
+          emotion_timeline: Json
+          id: string
+          kind: string
+          mind_id: string
+          project_id: string
+          source_url: string
+          tags: string[]
+          timeline: Json
+          title: string
+          updated_at: string
+          user_id: string
+          youtube_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          emotion_timeline?: Json
+          id?: string
+          kind?: string
+          mind_id?: string
+          project_id: string
+          source_url?: string
+          tags?: string[]
+          timeline?: Json
+          title?: string
+          updated_at?: string
+          user_id: string
+          youtube_id?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          emotion_timeline?: Json
+          id?: string
+          kind?: string
+          mind_id?: string
+          project_id?: string
+          source_url?: string
+          tags?: string[]
+          timeline?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+          youtube_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_content_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          creator_name: string
+          currency: string
+          description: string
+          id: string
+          price: number
+          published: boolean
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          creator_name?: string
+          currency?: string
+          description?: string
+          id?: string
+          price?: number
+          published?: boolean
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          creator_name?: string
+          currency?: string
+          description?: string
+          id?: string
+          price?: number
+          published?: boolean
+          title?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
