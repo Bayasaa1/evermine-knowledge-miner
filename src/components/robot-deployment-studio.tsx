@@ -129,6 +129,44 @@ export function RobotDeploymentStudio({
     URL.revokeObjectURL(href);
   };
 
+  /** "HH:MM:SS" / "MM:SS" → seconds. */
+  const toSeconds = (stamp: string) => {
+    const parts = String(stamp ?? "")
+      .split(":")
+      .map((p) => Number(p) || 0);
+    return parts.reduce((acc, p) => acc * 60 + p, 0);
+  };
+
+  /** Version/spec metadata is derived from the mined material itself. */
+  const saveSpecs = async (previous: { version: string } | null) => {
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return;
+    const nodes = chunks.flatMap((c) => c.knowledgeNodes ?? []);
+    const seconds = chunks.reduce(
+      (sum, c) => sum + Math.max(0, ...(c.knowledgeNodes ?? []).map((n) => toSeconds(n.timestamp_end))),
+      0,
+    );
+    const accuracy = nodes.length
+      ? (nodes.reduce((s, n) => s + (n.confidence_score ?? 0), 0) / nodes.length) * 100
+      : 0;
+    const m = /v?(\d+)\.(\d+)/.exec(previous?.version ?? "");
+    const version = m ? `v${m[1]}.${Number(m[2]) + 1}` : "v1.0";
+    await supabase.from("mind_specs").upsert(
+      {
+        user_id: uid,
+        mind_id: mindId,
+        training_hours: Number((seconds / 3600).toFixed(2)),
+        version,
+        accuracy_score: Number(accuracy.toFixed(1)),
+        compatibility: ["ROS 2", "Web Voice", "Video Call"],
+        changelog_notes: releaseNotes.trim(),
+        last_updated_at: new Date().toISOString(),
+      },
+      { onConflict: "mind_id" },
+    );
+  };
+
   const onPublish = async () => {
     if (!isAuthenticated) {
       toast.error(t.signIn);
@@ -146,6 +184,12 @@ export function RobotDeploymentStudio({
     try {
       const next = await pushDeployment({ data: { mindId, title: mindTitle, pkg } });
       setDeployment(next);
+      const { data: prior } = await supabase
+        .from("mind_specs")
+        .select("version")
+        .eq("mind_id", mindId)
+        .maybeSingle();
+      await saveSpecs(prior ?? null).catch(() => undefined);
       // Publishing a mind renders it straight onto the global Home Feed.
       await publishToFeed({
         id: `local:${mindId}`,
@@ -169,6 +213,7 @@ export function RobotDeploymentStudio({
       setBusy(false);
     }
   };
+
 
   return (
     <section id="robot-deploy" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
