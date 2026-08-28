@@ -40,7 +40,7 @@ export const saveMindVersion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<SavedMind> => {
     const { data: rows, error } = await context.supabase.rpc("save_mind_version", {
-      _vault_id: data.vaultId ?? undefined,
+      _vault_id: (data.vaultId ?? null) as unknown as string,
       _title: data.title.slice(0, 200),
       _payload: data.payload as never,
       _release_notes: (data.releaseNotes ?? "").slice(0, 4000),
