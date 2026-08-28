@@ -588,6 +588,33 @@ const responseSchema = {
         ],
       },
     },
+    emotion_timeline: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp_start: { type: "string" },
+          timestamp_end: { type: "string" },
+          primary_emotion: {
+            type: "string",
+            enum: ["HAPPY", "EXCITED", "SERIOUS", "SAD", "EMPATHETIC", "NEUTRAL"],
+          },
+          expression_intensity: { type: "number" },
+          facial_trigger: { type: "string" },
+          vocal_tone_marker: { type: "string" },
+          evidence: { type: "string" },
+        },
+        required: [
+          "timestamp_start",
+          "timestamp_end",
+          "primary_emotion",
+          "expression_intensity",
+          "facial_trigger",
+          "vocal_tone_marker",
+          "evidence",
+        ],
+      },
+    },
     copyright: {
       type: "object",
       properties: {
