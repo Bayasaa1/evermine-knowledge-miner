@@ -9,6 +9,8 @@ import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/ro
 import { loadEmbodiedSettings } from "@/lib/embodied";
 import { publishToFeed } from "@/lib/feed";
 import { getCreationCategory } from "@/lib/creation-category";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import {
   auditChunks,
   canPublish,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/copyright";
 
 import coverFounder from "@/assets/cover-founder.jpg";
+
 
 const copy = {
   en: {
