@@ -670,7 +670,15 @@ Extract the pillars below and return JSON only.
    - "concept_title": a short name for what is taught or done.
    - "detailed_explanation": a precise, self-contained explanation grounded ONLY in what the video shows or says.
    - "spatial_action": when a physical object is manipulated, give "object_name", "coordinates_xyz" (3 numbers, normalized 0..1 in camera space: x right, y down, z depth), "grasp_type" (power-grasp, pinch, push, pull, pour, cut, none) and "movement_vector" (3 numbers, normalized direction of motion, -1..1). If no object is manipulated, set spatial_action to null.
-   - "confidence_score": 0.0-1.0, your honest certainty this node is correct. NEVER inflate it. Use below 0.8 whenever you are guessing or inferring — such nodes are discarded.
+
+7. "emotion_timeline": a continuous EMOTION & EXPRESSION TIMELINE of the Primary Owner. Segment the requested range into consecutive moments (roughly 3-15 seconds each, or wherever the emotion clearly shifts) and for every moment give:
+   - "timestamp_start" / "timestamp_end": whole-video-relative MM:SS.
+   - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL.
+   - "expression_intensity": 0.0-1.0 float for how strongly the emotion is expressed.
+   - "facial_trigger": the dominant visible facial/head cue, e.g. Smile, Frown, Nod, Eyebrow_Raise, Wide_Eyes, Head_Shake, Neutral_Face.
+   - "vocal_tone_marker": the dominant vocal quality, e.g. High_Pitch, Low_Calm, Passionate, Soft_Warm, Flat_Even, Laughing.
+   - "evidence": one short phrase citing what you saw or heard. Judge from face, voice and words together; use NEUTRAL with low intensity rather than guessing.
+
 
 7. "copyright": COPYRIGHT & AUTHENTICITY CHECK. Judge whether this footage is the uploader's OWN original recording.
    Look for: visible watermarks or usernames burned into the frame (TikTok, Douyin, YouTube, Instagram, Kuaishou, stock-footage marks), broadcaster or studio logos and lower-thirds, on-screen UI of another app (a screen recording or re-upload), letterboxing/cropping typical of re-uploaded clips, film/TV/anime footage, and commercially released background music.
