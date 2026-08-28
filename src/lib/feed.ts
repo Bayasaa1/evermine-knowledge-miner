@@ -80,8 +80,37 @@ export async function removeFromFeed(id: string): Promise<FeedItem[]> {
   return rest;
 }
 
-/** Full home feed: your published minds first, then the marketplace. */
-export async function loadFeed(): Promise<FeedItem[]> {
-  const mine = await listPublished().catch(() => [] as FeedItem[]);
-  return [...mine, ...marketplaceFeed()];
+/** Playable YouTube clips published inside public Projects. */
+export async function projectFeed(): Promise<FeedItem[]> {
+  const rows = await listPublicVisualContent().catch(() => []);
+  return rows
+    .filter((row) => row.youtube_id)
+    .map((row) => ({
+      id: `project:${row.id}`,
+      mindId: `project:${row.project_id}`,
+      creator: row.project?.creator_name ?? "Evermind creator",
+      handle: `@${(row.project?.title ?? "project").toLowerCase().replace(/\s+/g, "")}`,
+      title: row.title,
+      description: row.description,
+      category: "knowledge" as CreationCategory,
+      src: null,
+      youtubeId: row.youtube_id,
+      timeline: row.timeline,
+      emotionTimeline: row.emotion_timeline,
+      poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
+      tags: row.tags,
+      price: Number(row.project?.price ?? 0),
+      currency: row.project?.currency ?? "USD",
+      publishedAt: row.created_at,
+    }));
 }
+
+/** Full home feed: project videos, your published minds, then the marketplace. */
+export async function loadFeed(): Promise<FeedItem[]> {
+  const [projects, mine] = await Promise.all([
+    projectFeed().catch(() => [] as FeedItem[]),
+    listPublished().catch(() => [] as FeedItem[]),
+  ]);
+  return [...projects, ...mine, ...marketplaceFeed()];
+}
+
