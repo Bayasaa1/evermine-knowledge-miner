@@ -601,17 +601,21 @@ function StepUpload({ lang }: { lang: Lang }) {
           </p>
         )}
 
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void run()}
-            disabled={busy}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {busy ? t("analyzing") : t("analyze")}
-          </button>
-          {busy && (
+        <div className="mt-4">
+          <MiningWizard
+            lang={lang}
+            value={assessment}
+            onChange={setAssessment}
+            busy={busy}
+            onStart={(a) => {
+              setAssessment(a);
+              void run(a);
+            }}
+          />
+        </div>
+
+        {busy && (
+          <div className="mt-3">
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}
@@ -619,8 +623,15 @@ function StepUpload({ lang }: { lang: Lang }) {
             >
               {t("cancel")}
             </button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {paused && (
+          <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-500">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {paused}
+          </p>
+        )}
+
 
         {busy && (
           <div className="mt-4">
