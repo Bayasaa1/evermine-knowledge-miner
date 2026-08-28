@@ -82,8 +82,10 @@ export function MindFeedback({
           <MindReviews mindId={mindId} lang={lang} purchased={purchased} />
         )}
       </div>
-    </section>
+      </section>
+    </div>
   );
+
 }
 
 function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en" | "mn"] }) {
