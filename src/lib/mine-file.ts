@@ -305,6 +305,7 @@ export async function buildAgentBrain(input: {
     voiceCloning,
     faceCloning,
     speakers,
+    emotion_timeline: emotionTimeline,
     transcript,
   };
 }
