@@ -9,7 +9,7 @@ import { MindFeedback } from "@/components/mind-feedback";
 import { RobotDeploymentStudio } from "@/components/robot-deployment-studio";
 import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
-import { tr } from "@/lib/i18n";
+import { tr, pickCopy, type Lang } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
@@ -373,7 +373,7 @@ export const Route = createFileRoute("/creator")({
 });
 
 type Status = "ready" | "processing" | "complete" | "error" | "paused";
-type Language = "en" | "mn";
+
 type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "cloud" | "log";
 
 const translations = {
@@ -788,7 +788,7 @@ class QuotaPaused extends Error {
 
 
 function Index() {
-  const [lang, setLang] = useState<Language>("en");
+  const [lang, setLang] = useState<Lang>("en");
   const [view, setView] = useState<"guided" | "advanced">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
@@ -889,7 +889,7 @@ function Index() {
     let cancelled = false;
     (async () => {
       const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
-      const prefs = await idbGet<{ lang?: Language; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
+      const prefs = await idbGet<{ lang?: Lang; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
       const savedOwnership = await idbGet<unknown>(STORES.SETTINGS, "ownership");
       if (cancelled) return;
       if (savedOwnership) setOwnership(normalizeOwnership(savedOwnership));
