@@ -640,7 +640,11 @@ function StepUpload({ lang }: { lang: Lang }) {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {t("analyzing")} {progress}%
+              {checkpoint ? ` · ${lang === "mn" ? "хэсэг" : "chunk"} ${checkpoint.index}/${checkpoint.total}` : ""}
+              {queueTotal > 1 ? ` · ${lang === "mn" ? "видео" : "video"} ${queueIndex}/${queueTotal}` : ""}
+              {statusNote ? ` · ${statusNote}` : ""}
             </p>
+
           </div>
         )}
 
