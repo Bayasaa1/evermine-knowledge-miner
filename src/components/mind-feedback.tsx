@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MindReviews } from "@/components/mind-reviews";
+import { MindSpecs } from "@/components/mind-specs";
+
 
 type Comment = {
   id: string;
