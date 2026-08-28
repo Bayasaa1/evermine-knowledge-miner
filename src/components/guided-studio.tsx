@@ -501,6 +501,9 @@ function StepUpload({ lang }: { lang: Lang }) {
       setCheckpoint(null);
       setQueueIndex(0);
       setQueueTotal(0);
+      setQueue([]);
+      setLog([]);
+      stopRef.current = false;
       const source = resolveSource();
       if (!source) return;
 
