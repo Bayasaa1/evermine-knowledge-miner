@@ -103,9 +103,9 @@ export function driveFileId(raw: string): string | null {
 }
 
 export function checkYoutube(url: string): ImportCheck {
-  const id = youtubeId(url);
-  if (!id) return { ok: false, error: { errorKey: "errUrlInvalid" } };
-  return { ok: true, source: { kind: "youtube", url: `https://www.youtube.com/watch?v=${id}`, label: url.trim() } };
+  const normalized = normalizeYoutubeUrl(url);
+  if (!normalized) return { ok: false, error: { errorKey: "errUrlInvalid" } };
+  return { ok: true, source: { kind: "youtube", url: normalized, label: url.trim() } };
 }
 
 export function checkDrive(url: string): ImportCheck {
