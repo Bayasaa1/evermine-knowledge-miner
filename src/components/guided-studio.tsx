@@ -488,7 +488,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         lastMerged = null;
       }
     },
-    [lang, finishMined],
+    [lang, finishMined, say],
   );
 
   const run = useCallback(
