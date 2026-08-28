@@ -434,15 +434,29 @@ function StepUpload({ lang }: { lang: Lang }) {
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
       const jobs = await startMiningJobs({ data: { url: source.url, assessment } });
       setQueueTotal(jobs.length);
+      setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
+      say(`$ evermind mine --videos ${jobs.length}`);
+      jobs.forEach((j, i) => say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 5min`));
       let lastMerged: ChunkResult | null = null;
 
       for (let q = 0; q < jobs.length; q++) {
         let current = jobs[q]!;
         setQueueIndex(q + 1);
         setStatusNote(current.sourceLabel);
+        say(`\n## ${current.sourceLabel}`);
         while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
+          if (stopRef.current) {
+            say("\n> STOPPED by user — every finished checkpoint stays saved.");
+            return;
+          }
+          say(`\n### chunk ${current.nextIndex + 1}/${current.totalChunks} — streaming…`);
           const step = await runNextChunk({ data: { jobId: current.id } });
           current = step.job;
+          if (step.chunk) {
+            say("```json");
+            say(JSON.stringify(step.chunk, null, 2).slice(0, 6000));
+            say("```");
+          }
           if (step.merged) {
             lastMerged = step.merged;
             setResult(step.merged);
@@ -451,8 +465,13 @@ function StepUpload({ lang }: { lang: Lang }) {
           setProgress(
             Math.round(((q + (current.totalChunks ? current.nextIndex / current.totalChunks : 1)) / jobs.length) * 100),
           );
+          if (stopRef.current) {
+            say("\n> STOPPED by user — every finished checkpoint stays saved.");
+            return;
+          }
           if (step.done) break;
         }
+
 
         if (current.status === "paused_quota") {
           setPaused(
