@@ -21,10 +21,30 @@ import { toast } from "sonner";
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
+import { YouTubeStage } from "@/components/youtube-stage";
 import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
+import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
 import { useAuth } from "@/hooks/use-auth";
+
+/** mm:ss stamp for mined timeline marks. */
+function stamp(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Latest mark whose timestamp has already passed. */
+function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | null {
+  if (!marks?.length) return null;
+  let found: TimelineMark | null = null;
+  for (const m of marks) {
+    if (m.t <= now + 0.5) found = m;
+    else break;
+  }
+  return found;
+}
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
