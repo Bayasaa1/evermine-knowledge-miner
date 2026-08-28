@@ -238,7 +238,16 @@ function FeedCard({
       ref={ref}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
-      {item.src ? (
+      {item.youtubeId ? (
+        <YouTubeStage
+          videoId={item.youtubeId}
+          active={isActive}
+          muted={muted}
+          paused={paused}
+          onTime={setNow}
+          onToggle={toggle}
+        />
+      ) : item.src ? (
         <video
           ref={videoRef}
           src={item.src}
@@ -253,7 +262,7 @@ function FeedCard({
         <img src={item.poster} alt={item.title} className="h-full w-full object-cover" />
       )}
 
-      {paused && item.src && (
+      {paused && (item.src || item.youtubeId) && (
         <button
           type="button"
           onClick={toggle}
@@ -263,6 +272,24 @@ function FeedCard({
           <Play className="h-14 w-14 opacity-80" />
         </button>
       )}
+
+      {/* Live mined knowledge + emotion tags, aligned to what is playing */}
+      {(activeMark || activeEmotion) && (
+        <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[62%] space-y-1.5">
+          {activeMark && (
+            <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
+              <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
+              {activeMark.label}
+            </p>
+          )}
+          {activeEmotion && (
+            <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
+              {activeEmotion.emotion ?? activeEmotion.label}
+            </span>
+          )}
+        </div>
+      )}
+
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
