@@ -16,6 +16,7 @@ import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VaultsRouteImport } from './routes/vaults'
+import { Route as AdminControlSessionRouteImport } from './routes/admin/control-session'
 import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
@@ -57,6 +58,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const VaultsRoute = VaultsRouteImport.update({
   id: '/vaults',
   path: '/vaults',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminControlSessionRoute = AdminControlSessionRouteImport.update({
+  id: '/admin/control-session',
+  path: '/admin/control-session',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDiagnoseChatRoute = ApiDiagnoseChatRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/sitemap.xml'
     | '/vaults'
+    | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/sitemap.xml'
     | '/vaults'
+    | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/sitemap.xml'
     | '/vaults'
+    | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-voice'
@@ -205,6 +217,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VaultsRoute: typeof VaultsRoute
+  AdminControlSessionRoute: typeof AdminControlSessionRoute
   ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
@@ -263,6 +276,13 @@ declare module '@tanstack/react-router' {
       path: '/vaults'
       fullPath: '/vaults'
       preLoaderRoute: typeof VaultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/control-session': {
+      id: '/admin/control-session'
+      path: '/admin/control-session'
+      fullPath: '/admin/control-session'
+      preLoaderRoute: typeof AdminControlSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/diagnose-chat': {
@@ -325,6 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VaultsRoute: VaultsRoute,
+  AdminControlSessionRoute: AdminControlSessionRoute,
   ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
