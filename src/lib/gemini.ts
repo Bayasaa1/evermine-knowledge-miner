@@ -659,7 +659,8 @@ const responseSchema = {
     "audio",
     "subconsciousness",
     "knowledgeNodes",
-    "copyright",
+    "emotion_timeline",
+
   ],
 
 };
