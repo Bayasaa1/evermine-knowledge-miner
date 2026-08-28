@@ -50,9 +50,41 @@ export function youtubeId(raw: string): string | null {
   return m?.[2] ?? null;
 }
 
+/**
+ * Extracts a playlist id from every YouTube playlist form:
+ *   youtube.com/playlist?list=PL…
+ *   youtube.com/watch?v=…&list=PL…
+ *   m./music./youtu.be links, with or without a scheme.
+ * Auto-generated mixes (RD…, radio) have no stable page and are rejected.
+ */
+export function youtubePlaylistId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let u: URL;
+  try {
+    u = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+  if (!/(^|\.)youtube\.com$/.test(host) && !/(^|\.)youtu\.be$/.test(host)) return null;
+  const list = u.searchParams.get("list");
+  if (!list || !/^[\w-]{10,}$/.test(list)) return null;
+  if (/^(RD|UL|LL|WL)/.test(list)) return null;
+  return list;
+}
+
+/** True when the link points at a playlist (with or without a video id). */
+export function isYoutubePlaylist(raw: string): boolean {
+  return youtubePlaylistId(raw) !== null;
+}
+
 /** Canonical watch URL for any YouTube link form, or null when unrecognisable. */
 export function normalizeYoutubeUrl(raw: string): string | null {
+  const list = youtubePlaylistId(raw);
   const id = youtubeId(raw);
+  if (list && !id) return `https://www.youtube.com/playlist?list=${list}`;
+  if (id && list) return `https://www.youtube.com/watch?v=${id}&list=${list}`;
   return id ? `https://www.youtube.com/watch?v=${id}` : null;
 }
 
@@ -71,9 +103,9 @@ export function driveFileId(raw: string): string | null {
 }
 
 export function checkYoutube(url: string): ImportCheck {
-  const id = youtubeId(url);
-  if (!id) return { ok: false, error: { errorKey: "errUrlInvalid" } };
-  return { ok: true, source: { kind: "youtube", url: `https://www.youtube.com/watch?v=${id}`, label: url.trim() } };
+  const normalized = normalizeYoutubeUrl(url);
+  if (!normalized) return { ok: false, error: { errorKey: "errUrlInvalid" } };
+  return { ok: true, source: { kind: "youtube", url: normalized, label: url.trim() } };
 }
 
 export function checkDrive(url: string): ImportCheck {

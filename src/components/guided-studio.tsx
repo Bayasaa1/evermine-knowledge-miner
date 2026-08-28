@@ -21,10 +21,12 @@ import {
   ChevronRight,
   Sparkles,
   KeyRound,
+  Square,
+  Terminal as TerminalIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
-import { tr, type Lang } from "@/lib/i18n";
+import { tr, pickCopy, type Lang } from "@/lib/i18n";
 import {
   checkDrive,
   checkFile,
@@ -84,7 +86,17 @@ const googleCopy = {
     free: "Үнэгүй түвшин · API түлхүүргүй · Засвар үйлчилгээгүй",
     failed: "Google нэвтрэлт амжилтгүй боллоо",
   },
-} as const;
+  ko: {
+    linked: "Gemini API 자동 연결됨",
+    linkedBody: "Google 계정이 무료 등급으로 AI 분석을 지원합니다. 그 외에 설정할 것은 없습니다.",
+    signedNoScope: "로그인은 되어 있지만 아직 Gemini 접근이 연결되지 않았습니다.",
+    relink: "Gemini API 접근 연결",
+    signIn: "Google로 로그인",
+    connecting: "연결하는 중…",
+    free: "무료 등급 · API 키 불필요 · 유지보수 불필요",
+    failed: "Google 로그인에 실패했습니다",
+  },
+};
 
 function GoogleMark() {
   return (
@@ -167,17 +179,21 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
               setStep((s) => s + 1);
               return;
             }
-            toast.success(lang === "mn" ? "Тохиргоо дууслаа" : "Setup complete", {
-              description:
-                lang === "mn"
-                  ? "Таны AI оюун санг Mind Vaults хэсгээс харна уу."
-                  : "Your AI mind is ready — opening your Mind Vaults.",
+            toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang), {
+              description: pickCopy(
+                {
+                  en: "Your AI mind is ready — opening your Mind Vaults.",
+                  mn: "Таны AI оюун санг Mind Vaults хэсгээс харна уу.",
+                  ko: "AI 마인드가 준비되었습니다 — Mind Vaults를 엽니다.",
+                },
+                lang,
+              ),
             });
             void navigate({ to: "/vaults" });
           }}
           className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
         >
-          {step === 3 ? (lang === "mn" ? "Дуусгах" : "Finish") : t("next")}{" "}
+          {step === 3 ? pickCopy({ en: "Finish", mn: "Дуусгах", ko: "완료" }, lang) : t("next")}{" "}
           <ChevronRight className="h-4 w-4" />
         </button>
 
@@ -214,7 +230,7 @@ function StepShell({
 
 /** Step 1 — Google sign-in unlocks the authenticated built-in mining service. */
 function StepGoogle({ lang }: { lang: Lang }) {
-  const t = googleCopy[lang];
+  const t = pickCopy(googleCopy, lang);
   const { isAuthenticated, profile } = useAuth();
   // Signing in is enough: when the Google session carries no Gemini scope the app
   // falls back to the backend/platform engine, so onboarding never loops here.
@@ -311,8 +327,22 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [queueTotal, setQueueTotal] = useState(0);
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [paused, setPaused] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [queue, setQueue] = useState<{ id: string; label: string; total: number }[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  const stopRef = useRef(false);
+  const termRef = useRef<HTMLPreElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  /** Appends one line to the live mining terminal and keeps it scrolled down. */
+  const say = useCallback((line: string) => {
+    setLog((prev) => [...prev, line].slice(-400));
+  }, []);
+
+  useEffect(() => {
+    const el = termRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [log]);
 
 
   useEffect(() => {
@@ -378,7 +408,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         setSavedTitle(title);
         await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       } catch (err) {
-        toast.error(lang === "mn" ? "Үүлэн санд хадгалж чадсангүй" : "Could not save to your cloud vault", {
+        toast.error(pickCopy({ en: "Could not save to your cloud vault", mn: "Үүлэн санд хадгалж чадсангүй", ko: "클라우드 보관함에 저장하지 못했습니다" }, lang), {
           description: err instanceof Error ? err.message : String(err),
         });
       }
@@ -388,7 +418,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         setDriveNote(
           backup.ok
             ? `${DRIVE_FOLDER_NAME} / ${backup.fileName}`
-            : (lang === "mn" ? "Drive нөөцлөлт амжилтгүй: " : "Drive backup failed: ") + backup.reason,
+            : pickCopy({ en: "Drive backup failed: ", mn: "Drive нөөцлөлт амжилтгүй: ", ko: "Drive 백업 실패: " }, lang) + backup.reason,
         );
       }
     },
@@ -420,15 +450,29 @@ function StepUpload({ lang }: { lang: Lang }) {
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
       const jobs = await startMiningJobs({ data: { url: source.url, assessment } });
       setQueueTotal(jobs.length);
+      setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
+      say(`$ evermind mine --videos ${jobs.length}`);
+      jobs.forEach((j, i) => say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 5min`));
       let lastMerged: ChunkResult | null = null;
 
       for (let q = 0; q < jobs.length; q++) {
         let current = jobs[q]!;
         setQueueIndex(q + 1);
         setStatusNote(current.sourceLabel);
+        say(`\n## ${current.sourceLabel}`);
         while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
+          if (stopRef.current) {
+            say("\n> STOPPED by user — every finished checkpoint stays saved.");
+            return;
+          }
+          say(`\n### chunk ${current.nextIndex + 1}/${current.totalChunks} — streaming…`);
           const step = await runNextChunk({ data: { jobId: current.id } });
           current = step.job;
+          if (step.chunk) {
+            say("```json");
+            say(JSON.stringify(step.chunk, null, 2).slice(0, 6000));
+            say("```");
+          }
           if (step.merged) {
             lastMerged = step.merged;
             setResult(step.merged);
@@ -437,14 +481,24 @@ function StepUpload({ lang }: { lang: Lang }) {
           setProgress(
             Math.round(((q + (current.totalChunks ? current.nextIndex / current.totalChunks : 1)) / jobs.length) * 100),
           );
+          if (stopRef.current) {
+            say("\n> STOPPED by user — every finished checkpoint stays saved.");
+            return;
+          }
           if (step.done) break;
         }
 
+
         if (current.status === "paused_quota") {
           setPaused(
-            lang === "mn"
-              ? `Gemini-ийн үнэгүй хязгаарт хүрлээ. ${current.nextIndex}/${current.totalChunks} хэсэг хадгалагдсан — квот сэргэмэгц автоматаар үргэлжилнэ.`
-              : `Free AI quota reached. ${current.nextIndex}/${current.totalChunks} checkpoints are saved — the background worker resumes automatically after the quota resets.`,
+            pickCopy(
+              {
+                en: `Free AI quota reached. ${current.nextIndex}/${current.totalChunks} checkpoints are saved — the background worker resumes automatically after the quota resets.`,
+                mn: `Gemini-ийн үнэгүй хязгаарт хүрлээ. ${current.nextIndex}/${current.totalChunks} хэсэг хадгалагдсан — квот сэргэмэгц автоматаар үргэлжилнэ.`,
+                ko: `무료 AI 사용량 한도에 도달했습니다. ${current.nextIndex}/${current.totalChunks}개 체크포인트가 저장되었습니다 — 사용량이 초기화되면 자동으로 이어집니다.`,
+              },
+              lang,
+            ),
           );
           break;
         }
@@ -455,7 +509,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         lastMerged = null;
       }
     },
-    [lang, finishMined],
+    [lang, finishMined, say],
   );
 
   const run = useCallback(
@@ -468,6 +522,9 @@ function StepUpload({ lang }: { lang: Lang }) {
       setCheckpoint(null);
       setQueueIndex(0);
       setQueueTotal(0);
+      setQueue([]);
+      setLog([]);
+      stopRef.current = false;
       const source = resolveSource();
       if (!source) return;
 
@@ -618,11 +675,54 @@ function StepUpload({ lang }: { lang: Lang }) {
           <div className="mt-3">
             <button
               type="button"
-              onClick={() => abortRef.current?.abort()}
-              className="rounded-xl border border-border px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => {
+                stopRef.current = true;
+                abortRef.current?.abort();
+                setLog((prev) => [...prev, `\n> ${t("stopRequested")}`]);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-colors hover:opacity-90"
             >
-              {t("cancel")}
+              <Square className="h-4 w-4" /> {t("stopMining")}
             </button>
+          </div>
+        )}
+
+        {queue.length > 0 && (
+          <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              {t("queueTitle")} · {queue.length}
+            </p>
+            <ol className="mt-2 space-y-1">
+              {queue.map((q, i) => (
+                <li
+                  key={q.id}
+                  className={`flex items-center justify-between gap-3 text-xs ${
+                    i + 1 === queueIndex ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  <span className="truncate">
+                    {i + 1}. {q.label}
+                  </span>
+                  <span className="shrink-0">{q.total} × 5min</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {log.length > 0 && (
+          <div className="mt-4 overflow-hidden rounded-xl border border-border bg-[hsl(var(--background))]">
+            <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+              <TerminalIcon className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-medium text-foreground">{t("terminalTitle")}</span>
+              {busy && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-primary" />}
+            </div>
+            <pre
+              ref={termRef}
+              className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-[11px] leading-relaxed text-muted-foreground"
+            >
+              {log.join("\n")}
+            </pre>
           </div>
         )}
 
@@ -640,8 +740,12 @@ function StepUpload({ lang }: { lang: Lang }) {
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               {t("analyzing")} {progress}%
-              {checkpoint ? ` · ${lang === "mn" ? "хэсэг" : "chunk"} ${checkpoint.index}/${checkpoint.total}` : ""}
-              {queueTotal > 1 ? ` · ${lang === "mn" ? "видео" : "video"} ${queueIndex}/${queueTotal}` : ""}
+              {checkpoint
+                ? ` · ${pickCopy({ en: "chunk", mn: "хэсэг", ko: "구간" }, lang)} ${checkpoint.index}/${checkpoint.total}`
+                : ""}
+              {queueTotal > 1
+                ? ` · ${pickCopy({ en: "video", mn: "видео", ko: "영상" }, lang)} ${queueIndex}/${queueTotal}`
+                : ""}
               {statusNote ? ` · ${statusNote}` : ""}
             </p>
 
@@ -657,11 +761,19 @@ function StepUpload({ lang }: { lang: Lang }) {
           />
           <span className="text-xs leading-relaxed text-muted-foreground">
             <span className="block font-medium text-foreground">
-              {lang === "mn" ? "Оюуны нөөцлөлтийг Google Drive-д хадгалах" : "Sync Mind Backup to Google Drive"}
+              {pickCopy(
+                { en: "Sync Mind Backup to Google Drive", mn: "Оюуны нөөцлөлтийг Google Drive-д хадгалах", ko: "마인드 백업을 Google Drive와 동기화" },
+                lang,
+              )}
             </span>
-            {lang === "mn"
-              ? `Таны Google бүртгэл дэх "${DRIVE_FOLDER_NAME}" хавтсанд .mind.json файл автоматаар үүснэ.`
-              : `Writes a .mind.json file straight into an "${DRIVE_FOLDER_NAME}" folder in your Drive — no links to paste.`}
+            {pickCopy(
+              {
+                en: `Writes a .mind.json file straight into an "${DRIVE_FOLDER_NAME}" folder in your Drive — no links to paste.`,
+                mn: `Таны Google бүртгэл дэх "${DRIVE_FOLDER_NAME}" хавтсанд .mind.json файл автоматаар үүснэ.`,
+                ko: `Google Drive의 "${DRIVE_FOLDER_NAME}" 폴더에 .mind.json 파일을 자동으로 저장합니다 — 링크를 붙여넣을 필요가 없습니다.`,
+              },
+              lang,
+            )}
           </span>
         </label>
 
@@ -696,9 +808,14 @@ function StepUpload({ lang }: { lang: Lang }) {
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {savedTitle
-                ? lang === "mn"
-                  ? `"${savedTitle}" таны бүртгэлд хадгалагдаж, нийтлэгдлээ.`
-                  : `"${savedTitle}" was saved to your account and published.`
+                ? pickCopy(
+                    {
+                      en: `"${savedTitle}" was saved to your account and published.`,
+                      mn: `"${savedTitle}" таны бүртгэлд хадгалагдаж, нийтлэгдлээ.`,
+                      ko: `"${savedTitle}"이(가) 계정에 저장되고 게시되었습니다.`,
+                    },
+                    lang,
+                  )
                 : t("successBody")}
             </p>
             {driveNote && <p className="mt-1 text-xs text-muted-foreground">Google Drive: {driveNote}</p>}
@@ -708,34 +825,39 @@ function StepUpload({ lang }: { lang: Lang }) {
                 onClick={() => void navigate({ to: "/vaults" })}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
               >
-                {lang === "mn" ? "Миний сангаас харах" : "View in My Vaults"}
+                {pickCopy({ en: "View in My Vaults", mn: "Миний сангаас харах", ko: "내 보관함에서 보기" }, lang)}
               </button>
               <button
                 type="button"
                 onClick={() => void navigate({ to: "/" })}
                 className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
-                {lang === "mn" ? "Фийд дээр харах" : "View on Feed"}
+                {pickCopy({ en: "View on Feed", mn: "Фийд дээр харах", ko: "피드에서 보기" }, lang)}
               </button>
             </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-4">
             <h3 className="text-sm font-semibold text-foreground">
-              {lang === "mn"
-                ? "Задлан авсан мэдлэг ба хөдөлгөөний зам"
-                : "Extracted Knowledge & Motion Trajectories"}
+              {pickCopy(
+                {
+                  en: "Extracted Knowledge & Motion Trajectories",
+                  mn: "Задлан авсан мэдлэг ба хөдөлгөөний зам",
+                  ko: "추출된 지식 및 동작 궤적",
+                },
+                lang,
+              )}
             </h3>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(
                 [
-                  [result.knowledgeNodes.length, lang === "mn" ? "Мэдлэгийн зангилаа" : "Knowledge nodes"],
+                  [result.knowledgeNodes.length, pickCopy({ en: "Knowledge nodes", mn: "Мэдлэгийн зангилаа", ko: "지식 노드" }, lang)],
                   [
                     result.knowledgeNodes.filter((n) => n.spatial_action).length,
-                    lang === "mn" ? "Хөдөлгөөний зам" : "Trajectories",
+                    pickCopy({ en: "Trajectories", mn: "Хөдөлгөөний зам", ko: "궤적" }, lang),
                   ],
-                  [result.subconsciousness.skills.length, lang === "mn" ? "Ур чадвар" : "Skills"],
-                  [result.transcript.length, lang === "mn" ? "Ярианы мөр" : "Transcript lines"],
+                  [result.subconsciousness.skills.length, pickCopy({ en: "Skills", mn: "Ур чадвар", ko: "스킬" }, lang)],
+                  [result.transcript.length, pickCopy({ en: "Transcript lines", mn: "Ярианы мөр", ko: "스크립트 줄" }, lang)],
                 ] as const
               ).map(([n, label]) => (
                 <div key={label} className="rounded-lg border border-border bg-background p-2.5">

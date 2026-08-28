@@ -5,6 +5,7 @@ import { Bot, Download, X } from "lucide-react";
 import { deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
 import type { FeedItem } from "@/lib/feed";
 import { MindSpecs } from "@/components/mind-specs";
+import type { Lang } from "@/lib/i18n";
 
 
 const TOPIC = "/evermind/mind_action";
@@ -19,7 +20,7 @@ export function RobotSyncModal({
   open: boolean;
   onClose: () => void;
   item: FeedItem | null;
-  lang?: "en" | "mn";
+  lang?: Lang;
 }) {
   const [qr, setQr] = useState("");
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -65,7 +66,7 @@ export function RobotSyncModal({
         <div className="mb-4 flex items-center gap-3">
           <Bot className="h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {lang === "mn" ? "Робот синк" : "Robot Sync"} — {item.title}
+            {lang === "mn" ? "Робот синк" : lang === "ko" ? "로봇 동기화" : "Robot Sync"} — {item.title}
           </h2>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -85,6 +86,8 @@ export function RobotSyncModal({
           <p className="mb-4 text-xs text-muted-foreground">
             {lang === "mn"
               ? "Энэ мэдлэгийн Оюуны OTA багц хараахан нийтлэгдээгүй байна. Доорх ROS 2 ачаалагчийг татаж туршиж болно."
+              : lang === "ko"
+              ? "이 마인드는 아직 OTA 패키지가 게시되지 않았습니다. 아래 ROS 2 로더를 다운로드해 연동을 테스트해 볼 수 있습니다."
               : "No OTA package has been published for this mind yet. You can still download the ROS 2 loader to test the integration."}
           </p>
         )}

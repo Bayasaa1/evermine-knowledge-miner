@@ -9,7 +9,7 @@ import { MindFeedback } from "@/components/mind-feedback";
 import { RobotDeploymentStudio } from "@/components/robot-deployment-studio";
 import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
-import { tr } from "@/lib/i18n";
+import { tr, pickCopy, type Lang } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
@@ -373,7 +373,7 @@ export const Route = createFileRoute("/creator")({
 });
 
 type Status = "ready" | "processing" | "complete" | "error" | "paused";
-type Language = "en" | "mn";
+
 type Tab = "subtitle" | "story" | "face" | "voice" | "brain" | "studio" | "cloud" | "log";
 
 const translations = {
@@ -746,6 +746,190 @@ const translations = {
     commercialHint: "Зөвхөн энэ хөтөч дээр хадгалагдаж, агент-бэлэн экспортод багтана.",
     noteOwnershipSaved: "Маркетплейс тохиргоо төхөөрөмж дээр хадгалагдлаа.",
   },
+  ko: {
+    appName: "Evermind",
+    tagline: "삶이 마음이 됩니다.",
+    analytics: "분석 및 수익",
+    subscription: "구독",
+    engines: "엔진",
+    language: "언어",
+    quickLinks: "바로가기",
+    apiKey: "API 키",
+    provider: "제공자",
+    apiKeyPlaceholder: "API 키를 여기에 붙여넣으세요",
+    saveKey: "키 추가",
+    keyPool: "API 키 (순환 풀)",
+    keyPoolHint: "키는 순서대로 사용됩니다. 하나가 할당량에 도달하면 자동으로 다음 키로 전환됩니다.",
+    keyEmpty: "등록된 키가 없습니다 — Gemini 키를 최소 하나 추가하세요.",
+    keyActive: "사용 중",
+    keyExhausted: "할당량 소진",
+    keyRejected: "거부됨",
+    keyReset: "다시 사용 가능으로 표시",
+    keyRemove: "키 삭제",
+    keyDuplicate: "이미 풀에 등록된 키입니다.",
+    keyAdded: "키가 순환 풀에 추가되었습니다.",
+    resetAllKeys: "모든 키 초기화",
+    paused: "일시중지됨",
+    pausedQuota: "채굴 일시중지 (할당량 초과)",
+    pausedQuotaBody:
+      "풀에 있는 모든 API 키가 할당량에 도달했습니다. 새 키를 추가하거나 할당량이 초기화될 때까지 기다린 후 재개하세요 — 완료된 항목은 저장되어 있습니다.",
+    resumeMining: "채굴 재개",
+    discardResume: "저장된 진행 상태 삭제",
+    resumeReady: "저장된 진행 상태 발견",
+    resumeBody: "채굴이 중단된 조각",
+    resumeNeedVideo: "재개하려면 동일한 영상 파일을 다시 추가하세요.",
+    notePausedQuota: "모든 API 키의 할당량이 소진되었습니다. 채굴이 일시중지되었습니다 — 진행 상태는 저장됨.",
+    noteResuming: "저장된 지점에서 채굴을 재개하는 중...",
+    noteNeedVideo: "재개하기 전에 영상 파일을 다시 불러오세요.",
+
+    uploadVideo: "영상 업로드",
+    dragDrop: "영상 파일을 여기로 드래그하세요",
+    orClick: "또는 클릭하여 찾아보기",
+    supported: "MP4, MOV, WebM 최대 2GB",
+    dropHere: "영상을 놓아서 불러오기",
+    tooLarge: "파일이 너무 큽니다 — 제한은 2GB입니다.",
+    badType: "지원하지 않는 형식입니다. MP4, MOV 또는 WebM을 사용하세요.",
+    preview: "미리보기",
+    resolution: "해상도",
+    fileSize: "파일 크기",
+    reading: "읽는 중…",
+    mineVideo: "영상 채굴",
+    status: "상태",
+    ready: "준비됨",
+    processing: "처리 중",
+    complete: "완료",
+    error: "오류",
+    structuredKnowledge: "구조화된 지식",
+    transcript: "대본",
+    appLog: "앱 로그",
+    noResults: "채굴이 시작되면 결과가 여기에 표시됩니다.",
+    noTranscript: "처리가 끝나면 대본이 여기에 표시됩니다.",
+    searchTranscript: "대본 검색…",
+    noMatches: "검색어와 일치하는 대본 줄이 없습니다.",
+    copyAll: "전체 대본 복사",
+    copied: "대본이 클립보드에 복사되었습니다",
+    copyFailed: "대본을 복사할 수 없습니다",
+    jumpTo: "영상의 이 지점으로 이동",
+    noLog: "애플리케이션 로그가 여기에 표시됩니다.",
+    dashboard: "대시보드",
+    settings: "설정",
+    history: "기록",
+    help: "도움말",
+    removeFile: "파일 삭제",
+    progress: "채굴 진행 상황",
+    chunkTimeline: "조각 타임라인",
+    chunkPending: "대기 중",
+    chunkProcessing: "처리 중",
+    chunkDone: "완료됨",
+    chunkFailed: "실패함",
+    showingPiece: "표시 중인 조각",
+    showAllPieces: "모든 조각 보기",
+    openChunkData: "이 조각의 추출 데이터 열기",
+    piece: "조각",
+    of: "/",
+    elapsed: "경과 시간",
+    remaining: "예상 남은 시간",
+    stop: "중지",
+    stopped: "사용자가 작업을 취소했습니다.",
+    pieces: "조각",
+    duration: "재생 시간",
+    results: "결과",
+    model: "모델",
+    keyValid: "키가 검증되어 로컬에 저장되었습니다.",
+    keyInvalid: "키가 거부되었습니다 — 앱 로그를 확인하세요.",
+    keyChecking: "키를 검증하는 중...",
+    saveMine: "채굴 결과 저장 (.json)",
+    openMine: "저장된 채굴 결과 열기",
+    localOnly: "모든 데이터는 이 기기에만 저장됩니다 — 키, 영상, 결과가 브라우저 밖으로 나가지 않습니다.",
+    restored: "이 기기에서 마지막 채굴 세션을 복원했습니다.",
+    noteReady: "영상 처리 준비가 완료되었습니다.",
+    noteKeyRejected: "API 키가 거부되었습니다 — Google Gemini 키를 확인하세요.",
+    noteQuota: "할당량 또는 요청 제한에 도달했습니다. 나중에 다시 시도하세요.",
+    noteGeneric: "문제가 발생했습니다. 앱 로그를 확인하세요.",
+    noteNoKey: "먼저 Google Gemini API 키를 추가하고 저장하세요.",
+    noteProviderOnly: "현재는 Google Gemini만 지원됩니다.",
+    noteUploading: "영상을 Gemini에 업로드하는 중...",
+    noteMining: "영상에서 지식을 채굴하는 중...",
+    noteComplete: "지식 추출이 완료되었습니다.",
+    noteKeySaved: "API 키가 저장되고 검증되었습니다.",
+    noteExported: "채굴 결과가 기기에 저장되었습니다.",
+    noteImported: "저장된 채굴 결과를 불러왔습니다.",
+    noteImportFailed: "이 파일은 유효한 Evermind 채굴 파일이 아닙니다.",
+    tabSubtitle: "자막 및 대본",
+    tabStory: "서사 스토리",
+    tabFace: "얼굴 및 시각 데이터",
+    tabVoice: "음성 샘플 데이터",
+    tabBrain: "잠재의식 / 핵심 두뇌",
+    skills: "역량",
+    beliefs: "신념과 의견",
+    decisionLogic: "의사결정 논리",
+    aestheticProfile: "미적 프로필 및 분위기 선호도",
+    expressiveStyle: "표현 스타일",
+    culturalVocabulary: "문화적 표현과 어투",
+    culturalLiteral: "직역",
+    culturalMeaning: "진짜 의도",
+    culturalUsage: "사용 상황",
+    audioAtmosphere: "음악 및 오디오 분위기",
+    audioGenres: "장르",
+    audioMoods: "분위기 / 톤",
+    audioTempo: "템포",
+    audioSegments: "음악 구간",
+    audioSkillAssets: "오디오 역량 자산",
+    audioSkillHint: "주 소유자가 직접 연주하거나 작곡한 원곡입니다.",
+    noAudio: "아직 감지된 음악이나 오디오 분위기가 없습니다.",
+    musicPresent: "구간 내 음악 있음",
+    cleanSpeech: "깨끗한 음성",
+    speechFiltered: "배경 음악이 필터링됨",
+    ownComposition: "소유자 본인의 작품",
+    tone: "감정 톤",
+    timeline: "타임라인",
+    gestures: "제스처",
+    lighting: "조명",
+    faceAngle: "얼굴 각도",
+    cloneQuality: "복제 품질",
+    speakers: "감지된 화자",
+    primaryOwner: "주 소유자",
+    secondarySpeaker: "게스트",
+    unknownSpeaker: "알 수 없음",
+    keyAction: "핵심 동작",
+    actionClip: "동작 다시보기",
+    playClip: "클립 재생",
+    needVideoForClip: "이 동작을 재생하려면 원본 영상을 불러오세요.",
+    noStory: "처리가 끝나면 서사 스토리가 여기에 표시됩니다.",
+    noFace: "처리가 끝나면 시각 및 얼굴 구도 메모가 여기에 표시됩니다.",
+    noVoice: "처리가 끝나면 깨끗한 오디오 구간이 여기에 표시됩니다.",
+    noBrain: "처리가 끝나면 역량, 신념, 의사결정 논리가 여기에 표시됩니다.",
+    voiceWindows: "가장 깨끗한 오디오 구간",
+    extractSample: "60초 음성 샘플 추출",
+    extracting: "샘플 추출 중...",
+    downloadSample: "다운로드",
+    deleteSample: "삭제",
+    voiceHint: "로컬 파일에서 실시간으로 녹음됩니다 — 아무것도 업로드되지 않습니다.",
+    noSample: "아직 추출된 음성 샘플이 없습니다.",
+    sampleReady: "음성 샘플이 준비되었습니다.",
+    exportBrain: "에이전트용 두뇌 내보내기",
+    noteBrainExported: "에이전트용 두뇌가 내보내졌습니다.",
+    noteSampleReady: "60초 음성 샘플이 추출되었습니다.",
+    noteSampleFailed: "이 파일에서 음성 샘플을 추출할 수 없습니다.",
+    needVideoForSample: "음성 샘플을 추출하려면 원본 영상 파일을 불러오세요.",
+    commercial: "상업 / 마켓플레이스 설정",
+    creatorName: "마인드 크리에이터 이름",
+    creatorEmail: "연락처 이메일",
+    accessLevel: "접근 수준",
+    accessPrivate: "비공개",
+    accessMarketplace: "공개 마켓플레이스",
+    rate: "요금",
+    perHour: "시간당",
+    rateUnit: "청구 단위",
+    perQuery: "요청당",
+    currency: "토큰 / 통화",
+    licenseTerms: "라이선스 조건",
+    mindId: "마인드 고유 ID",
+    regenerateId: "새 ID",
+    invalidEmail: "유효한 연락처 이메일을 입력하세요.",
+    commercialHint: "이 브라우저에만 저장되며 에이전트용 내보내기에 포함됩니다.",
+    noteOwnershipSaved: "마켓플레이스 설정이 이 기기에 저장되었습니다.",
+  },
 };
 
 const navLinks = [
@@ -788,7 +972,7 @@ class QuotaPaused extends Error {
 
 
 function Index() {
-  const [lang, setLang] = useState<Language>("en");
+  const [lang, setLang] = useState<Lang>("en");
   const [view, setView] = useState<"guided" | "advanced">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
@@ -889,7 +1073,7 @@ function Index() {
     let cancelled = false;
     (async () => {
       const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
-      const prefs = await idbGet<{ lang?: Language; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
+      const prefs = await idbGet<{ lang?: Lang; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
       const savedOwnership = await idbGet<unknown>(STORES.SETTINGS, "ownership");
       if (cancelled) return;
       if (savedOwnership) setOwnership(normalizeOwnership(savedOwnership));
@@ -1648,6 +1832,14 @@ function Index() {
               >
                 Монгол
               </button>
+              <button
+                onClick={() => setLang("ko")}
+                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  lang === "ko" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                한국어
+              </button>
             </div>
           </div>
 
@@ -1751,7 +1943,7 @@ function Index() {
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold text-destructive">
-                  {lang === "mn" ? "Видео боловсруулалт амжилтгүй" : "Video processing failed"}
+                  {pickCopy({ en: "Video processing failed", mn: "Видео боловсруулалт амжилтгүй", ko: "영상 처리 실패" }, lang)}
                 </p>
                 <p className="mt-1 break-words text-xs text-muted-foreground">{errorDetail}</p>
               </div>
@@ -2349,8 +2541,8 @@ function Index() {
                   { id: "face", label: t.tabFace, icon: ScanFace },
                   { id: "voice", label: t.tabVoice, icon: AudioLines },
                   { id: "brain", label: t.tabBrain, icon: Brain },
-                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang], icon: Sparkles },
-                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang], icon: Cloud },
+                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Sparkles },
+                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Cloud },
                   { id: "log", label: t.appLog, icon: Terminal },
                 ] as { id: Tab; label: string; icon: typeof Brain }[]
               ).map((tab) => (
@@ -2745,7 +2937,7 @@ function Index() {
                     }}
                   />
                   <BrainStudio
-                    lang={lang}
+                    lang={lang === "ko" ? "en" : lang}
                     results={results}
                     mindId={activeMindId}
                     previewUrl={previewUrl}
@@ -2758,7 +2950,7 @@ function Index() {
 
               {activeTab === "cloud" && (
                 <CloudStorageHub
-                  lang={lang}
+                  lang={lang === "ko" ? "en" : lang}
                   results={results}
                   sourceName={file?.name ?? null}
                   sourceSize={file?.size ?? null}

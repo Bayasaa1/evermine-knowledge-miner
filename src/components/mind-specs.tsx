@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import type { Lang } from "@/lib/i18n";
 
 export type MindSpec = {
   id: string;
@@ -77,6 +78,29 @@ const copy = {
     saved: "Үзүүлэлт нийтлэгдлээ.",
     failed: "Үзүүлэлтийг хадгалж чадсангүй",
   },
+  ko: {
+    title: "마인드 사양 및 투명성",
+    hours: "학습 / 개발 시간",
+    updated: "마지막 업데이트",
+    version: "현재 버전",
+    accuracy: "정확도 / 신뢰도",
+    compat: "호환성",
+    verified: "검증됨",
+    hoursValue: (h: number) => `${h.toFixed(1)}시간 분량의 영상 학습`,
+    changelog: "변경 이력 및 리뷰 반영",
+    noChangelog: "이 버전에는 아직 릴리스 노트가 없습니다.",
+    fixes: "검증된 리뷰에서 반영된 사항",
+    noSpec: "아직 발행된 사양이 없습니다 — 크리에이터가 버전 릴리스를 게시하지 않았습니다.",
+    edit: "새 버전 발행",
+    cancel: "취소",
+    save: "릴리스 저장",
+    notes: "릴리스 노트",
+    notesPlaceholder: "이 버전에서 무엇이 바뀌었나요?",
+    pickFixes: "이 릴리스로 해결된 리뷰 선택",
+    noReviews: "아직 해결할 검증된 리뷰가 없습니다.",
+    saved: "사양이 발행되었습니다.",
+    failed: "사양을 저장하지 못했습니다",
+  },
 } as const;
 
 const DEFAULT_COMPAT = ["ROS 2", "Web Voice", "Video Call"];
@@ -94,7 +118,7 @@ export function MindSpecs({
   canEdit = false,
 }: {
   mindId: string;
-  lang?: "en" | "mn";
+  lang?: Lang;
   canEdit?: boolean;
 }) {
   const t = copy[lang];
@@ -189,7 +213,7 @@ export function MindSpecs({
       icon: <CalendarDays className="h-3.5 w-3.5" />,
       label: t.updated,
       value: spec
-        ? new Date(spec.last_updated_at).toLocaleDateString(lang === "mn" ? "mn-MN" : "en-US", {
+        ? new Date(spec.last_updated_at).toLocaleDateString(lang === "mn" ? "mn-MN" : lang === "ko" ? "ko-KR" : "en-US", {
             month: "short",
             year: "numeric",
           })

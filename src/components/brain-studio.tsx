@@ -17,6 +17,7 @@ import {
 } from "@/lib/brain-studio";
 import { parseTimestamp } from "@/lib/voice-sample";
 import type { MineResult } from "@/lib/mine-file";
+import type { Lang } from "@/lib/i18n";
 import {
   Brain,
   Pencil,
@@ -30,8 +31,6 @@ import {
   Quote,
   Film,
 } from "lucide-react";
-
-type Lang = "en" | "mn";
 
 const L = {
   en: {
@@ -115,6 +114,47 @@ const L = {
     recordedAt: "Бүртгэсэн",
     historyTimeline: "Санах ойн түүхэн хуанли",
     conflicts: "зөрчил шийдэгдсэн (шинэ нь давна)",
+  },
+  ko: {
+    tab: "🧠 코어 브레인 스튜디오",
+    title: "코어 브레인 스튜디오",
+    subtitle: "AI 클론의 마인드에 지식을 직접 편집, 다듬고 주입하세요.",
+    beliefs: "신념과 철학",
+    decisionLogic: "의사결정 로직과 규칙",
+    skills: "스킬과 역량",
+    expressiveStyle: "표현 스타일",
+    aestheticProfile: "미적 프로필",
+    cultural: "문화적 관용구와 고유 어휘",
+    actions: "시각적 액션 클립",
+    empty: "아직 여기 아무것도 없습니다 — 영상을 채굴하거나 사용자 지정 기억을 추가하세요.",
+    add: "+ 사용자 지정 기억 추가",
+    addPlaceholder: "철학, 규칙 또는 사실을 입력하세요…",
+    save: "저장",
+    cancel: "취소",
+    edit: "수정",
+    remove: "삭제",
+    custom: "사용자 지정",
+    edited: "수정됨",
+    regenerate: "저장소에서 브레인 재생성",
+    download: "브레인 다운로드 (.json)",
+    import: "브레인 가져오기",
+    saved: "코어 브레인이 저장되었습니다",
+    deleted: "코어 브레인에서 제거되었습니다",
+    added: "사용자 지정 기억이 주입되었습니다",
+    regenerated: "저장소에서 브레인이 재구성되었습니다",
+    imported: "브레인을 가져왔습니다",
+    importFailed: "가져오기 실패",
+    literal: "직역",
+    meaning: "실제 의미",
+    noVideo: "이 액션을 미리 보려면 소스 영상을 불러오세요.",
+    entries: "개 항목",
+    activeBadge: "활성 / 최신 보기",
+    archivedBadge: "보관됨 / 이전 보기",
+    makeActive: "활성으로 설정",
+    archive: "보관",
+    recordedAt: "기록됨",
+    historyTimeline: "과거 기억 타임라인",
+    conflicts: "건 충돌 해결됨 (최신 우선)",
   },
 } as const;
 
@@ -364,7 +404,7 @@ export function BrainStudio({
               {archived ? `🟡 ${t.archivedBadge}` : `🟢 ${t.activeBadge}`}
             </span>
             <span className="rounded-full bg-muted px-2 py-0.5 font-mono">
-              {t.recordedAt}: {new Date(e.updatedAt).toLocaleString(lang === "mn" ? "mn-MN" : "en-US", { dateStyle: "short", timeStyle: "short" })}
+              {t.recordedAt}: {new Date(e.updatedAt).toLocaleString(lang === "mn" ? "mn-MN" : lang === "ko" ? "ko-KR" : "en-US", { dateStyle: "short", timeStyle: "short" })}
             </span>
           </p>
         </div>
@@ -638,4 +678,4 @@ export function BrainStudio({
   );
 }
 
-export const BRAIN_STUDIO_TAB_LABEL: Record<Lang, string> = { en: L.en.tab, mn: L.mn.tab };
+export const BRAIN_STUDIO_TAB_LABEL: Record<Lang, string> = { en: L.en.tab, mn: L.mn.tab, ko: L.ko.tab };

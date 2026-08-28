@@ -6,6 +6,7 @@ import {
   setCreationCategory,
   type CreationCategory,
 } from "@/lib/creation-category";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const ICONS: Record<CreationCategory, typeof Brain> = {
   knowledge: Brain,
@@ -24,7 +25,7 @@ export function CreateWizard({
 }: {
   open: boolean;
   onClose: () => void;
-  lang?: "en" | "mn";
+  lang?: Lang;
 }) {
   const navigate = useNavigate();
   if (!open) return null;
@@ -41,12 +42,20 @@ export function CreateWizard({
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">
-              {lang === "mn" ? "Өнөөдөр юу бүтээх вэ?" : "What are you creating today?"}
+              {pickCopy(
+                { en: "What are you creating today?", mn: "Өнөөдөр юу бүтээх вэ?", ko: "오늘은 무엇을 만들어 볼까요?" },
+                lang,
+              )}
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              {lang === "mn"
-                ? "Сонголт нь олборлолтын схемийг тодорхойлно."
-                : "Your choice sets the mining schema used on your video."}
+              {pickCopy(
+                {
+                  en: "Your choice sets the mining schema used on your video.",
+                  mn: "Сонголт нь олборлолтын схемийг тодорхойлно.",
+                  ko: "선택한 항목에 따라 영상 분석 스키마가 결정됩니다.",
+                },
+                lang,
+              )}
             </p>
           </div>
           <button
@@ -62,7 +71,7 @@ export function CreateWizard({
         <div className="grid gap-3">
           {ORDER.map((category) => {
             const Icon = ICONS[category];
-            const copy = CATEGORY_LABELS[category][lang];
+            const copy = pickCopy(CATEGORY_LABELS[category], lang);
             return (
               <button
                 key={category}

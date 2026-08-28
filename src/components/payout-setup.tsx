@@ -9,6 +9,7 @@ import {
   type PayoutChannel,
   type PayoutSettings,
 } from "@/lib/payouts";
+import type { Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -67,6 +68,34 @@ const copy = {
       bank: "Зөв дансны дугаар оруулна уу.",
     } as Record<string, string>,
   },
+  ko: {
+    title: "출금 방법 연결",
+    hint: "출금할 때만 필요합니다. 편한 채널을 선택하세요 — 언제든 변경할 수 있습니다.",
+    channels: {
+      stripe: "Stripe (카드)",
+      paypal: "PayPal",
+      crypto: "USDT / 암호화폐 지갑",
+      bank: "은행 송금 / 현지 결제망",
+    } as Record<PayoutChannel, string>,
+    destLabel: {
+      stripe: "Stripe 계정 이메일",
+      paypal: "PayPal 이메일",
+      crypto: "지갑 주소",
+      bank: "계좌번호 / IBAN",
+    } as Record<PayoutChannel, string>,
+    network: "네트워크",
+    bankName: "은행 / 결제망 이름",
+    holder: "예금주명",
+    save: "출금 방법 저장",
+    saving: "저장 중…",
+    saved: "출금 방법이 연결되었습니다.",
+    errors: {
+      required: "필수 입력 항목입니다.",
+      email: "올바른 이메일 주소를 입력하세요.",
+      wallet: "올바른 지갑 주소를 입력하세요.",
+      bank: "올바른 계좌번호를 입력하세요.",
+    } as Record<string, string>,
+  },
 } as const;
 
 const icons: Record<PayoutChannel, typeof CreditCard> = {
@@ -81,7 +110,7 @@ export function PayoutSetup({
   defaultEmail = "",
   onConnected,
 }: {
-  lang: "en" | "mn";
+  lang: Lang;
   defaultEmail?: string;
   onConnected: (s: PayoutSettings) => void;
 }) {

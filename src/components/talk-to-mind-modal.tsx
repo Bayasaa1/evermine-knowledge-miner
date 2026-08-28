@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Send, Sparkles, X } from "lucide-react";
 import { apiFetch } from "@/lib/api-fetch";
+import type { Lang } from "@/lib/i18n";
 
 type Msg = { role: "user" | "agent"; text: string };
 
@@ -18,7 +19,7 @@ export function TalkToMindModal({
   onClose: () => void;
   mindId: string | null;
   mindName: string;
-  lang?: "en" | "mn";
+  lang?: Lang;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -66,7 +67,7 @@ export function TalkToMindModal({
         <div className="flex items-center gap-3 border-b border-border p-4">
           <Sparkles className="h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {lang === "mn" ? "Оюунтай ярих" : "Talk to"} — {mindName}
+            {lang === "mn" ? "Оюунтай ярих" : lang === "ko" ? "대화하기" : "Talk to"} — {mindName}
           </h2>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -78,6 +79,8 @@ export function TalkToMindModal({
             <p className="text-xs text-muted-foreground">
               {lang === "mn"
                 ? "Энэ видеоны талаар шууд асуу — Оюун өөрийн мэдлэгээс хариулна."
+                : lang === "ko"
+                ? "이 영상에 대해 무엇이든 물어보세요 — 마인드가 자신의 채굴된 지식을 바탕으로 답합니다."
                 : "Ask anything about this video — the Mind answers from its own mined brain."}
             </p>
           )}
@@ -110,7 +113,7 @@ export function TalkToMindModal({
             onKeyDown={(e) => {
               if (e.key === "Enter") void send();
             }}
-            placeholder={lang === "mn" ? "Асуултаа бичнэ үү…" : "Ask this mind…"}
+            placeholder={lang === "mn" ? "Асуултаа бичнэ үү…" : lang === "ko" ? "이 마인드에게 물어보세요…" : "Ask this mind…"}
             className="min-w-0 flex-1 rounded-lg border border-border bg-muted px-3 py-2 text-sm outline-none focus:border-primary"
           />
           <button

@@ -10,6 +10,7 @@ import {
   splitRevenue,
   type SubscriptionPlan,
 } from "@/lib/subscription";
+import type { Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -54,9 +55,30 @@ const copy = {
     payoutLaterHint:
       "Нийтлэхэд хэтэвч, дансны мэдээлэл шаардлагагүй. Орлого “Аваагүй орлого” болж хуримтлагдана — та мөнгөө авахаар шийдсэн үедээ л төлбөрийн суваг холбоно.",
   },
+  ko: {
+    title: "수익화",
+    hint: "팬들은 월 정액 요금으로 당신의 AI 클론에 완전히 접근합니다 — 채팅, 음성, 영상 통화 포함.",
+    freeMode: "무료",
+    paidMode: "유료",
+    freeNote: "무료 모드가 켜져 있습니다 — 누구나 당신의 AI 클론과 무료로 대화할 수 있습니다. 언제든 유료로 전환할 수 있습니다.",
+    price: "월 요금 — 원하는 금액을 설정하세요",
+    priceHint: "상한선이나 고정 등급이 없습니다. $1, $250 또는 그 사이 아무 값이나 입력하세요. 0은 무료 이용을 뜻합니다.",
+    currency: "통화",
+    perks: "구독자가 받는 혜택",
+    hints: "빠른 입력 (선택 사항)",
+    freeChip: "무료",
+    split: "수익 분배",
+    gross: "구독자 결제액",
+    fee: `플랫폼 수수료 (${Math.round(PLATFORM_COMMISSION * 100)}%)`,
+    net: "실수령액",
+    per100: "구독자 100명 기준",
+    payoutLater: "출금은 나중에",
+    payoutLaterHint:
+      "공개하는 데 지갑이나 은행 정보가 필요하지 않습니다. 수익은 '미청구 수익'으로 쌓이며, 출금하기로 결정했을 때만 결제 수단을 연결하면 됩니다.",
+  },
 } as const;
 
-export function SubscriptionPanel({ lang }: { lang: "en" | "mn"; creatorEmail?: string }) {
+export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string }) {
   const t = copy[lang];
   const [plan, setPlan] = useState<SubscriptionPlan>(createPlan);
   const [hydrated, setHydrated] = useState(false);

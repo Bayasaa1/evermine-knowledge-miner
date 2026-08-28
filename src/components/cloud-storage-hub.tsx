@@ -24,12 +24,12 @@ import {
 import { loadBrainDoc } from "@/lib/brain-studio";
 import type { MineResult } from "@/lib/mine-file";
 import { Cloud, HardDrive, Link2, Plus, RefreshCw, Trash2, Power, FolderSync, Search } from "lucide-react";
-
-type Lang = "en" | "mn";
+import type { Lang } from "@/lib/i18n";
 
 export const CLOUD_HUB_TAB_LABEL: Record<Lang, string> = {
   en: "☁️ Cloud Storage Hub",
   mn: "☁️ Үүлэн сан",
+  ko: "☁️ 클라우드 저장소 허브",
 };
 
 const L = {
@@ -89,6 +89,34 @@ const L = {
     oauthNote:
       "Google Drive хандалт нь зөвхөн Evermind_Vaults фолдероор хязгаарлагдана. Жинхэнэ OAuth синк хийхийн тулд Google дансаа холбоно уу.",
   },
+  ko: {
+    title: "클라우드 저장소 허브",
+    subtitle: `여러 드라이브를 연결하고, 역할을 지정하며, 하나가 가득 차면 자동으로 다음 드라이브로 전환됩니다. 앱 폴더: ${VAULT_FOLDER}`,
+    connect: "계정 연결",
+    provider: "제공업체",
+    account: "계정 / 버킷",
+    label: "표시 이름",
+    quota: "용량 (GB)",
+    used: "사용량 (GB)",
+    role: "역할",
+    add: "저장소 연결",
+    none: "아직 연결된 저장소가 없습니다. 드라이브를 연결해 Core Brain 동기화와 미디어 라우팅을 활성화하세요.",
+    primary: "기본 — Core Brain (.json)",
+    media: "미디어 — 영상 및 클립",
+    backup: "백업",
+    syncBrain: "Core Brain을 Evermind_Vaults로 동기화",
+    registerMedia: "소스 영상 및 클립 라우팅",
+    index: "통합 파일 인덱스",
+    indexEmpty: "아직 인덱싱된 항목이 없습니다.",
+    search: "인덱싱된 파일 검색…",
+    disable: "일시 중지",
+    enable: "재개",
+    remove: "연결 해제",
+    full: "가득 참",
+    free: "여유",
+    oauthNote:
+      "Google Drive 접근 권한은 앱 전용 Evermind_Vaults 폴더로 범위가 제한됩니다. 실시간 OAuth 동기화를 사용하려면 워크스페이스 커넥터에서 실제 Google 계정을 연결하세요 — 여기서 추가한 링크는 기기 내에서 인덱싱 및 라우팅됩니다.",
+  },
 } as const;
 
 type Props = {
@@ -129,7 +157,13 @@ export function CloudStorageHub({ lang, results, sourceName, sourceSize, onLog }
 
   const addAccount = () => {
     if (!form.account.trim()) {
-      toast.error(lang === "en" ? "Enter the account or bucket name." : "Данс эсвэл bucket нэрээ оруулна уу.");
+      toast.error(
+        lang === "en"
+          ? "Enter the account or bucket name."
+          : lang === "ko"
+          ? "계정 또는 버킷 이름을 입력하세요."
+          : "Данс эсвэл bucket нэрээ оруулна уу.",
+      );
       return;
     }
     const acc = makeAccount({
@@ -157,7 +191,9 @@ export function CloudStorageHub({ lang, results, sourceName, sourceSize, onLog }
   const store = (kind: IndexedFile["kind"], name: string, sizeBytes: number, role?: StorageRole) => {
     const res = placeFile(hub, { kind, name, sizeBytes, role });
     if (!res.file) {
-      toast.error(lang === "en" ? "All linked drives are full." : "Бүх сан дүүрсэн байна.");
+      toast.error(
+        lang === "en" ? "All linked drives are full." : lang === "ko" ? "연결된 모든 드라이브가 가득 찼습니다." : "Бүх сан дүүрсэн байна.",
+      );
       onLog(`Routing failed for ${name} — every linked drive is at capacity`);
       return null;
     }
@@ -167,24 +203,37 @@ export function CloudStorageHub({ lang, results, sourceName, sourceSize, onLog }
       `${res.failedOver ? "Failover: " : ""}${name} → ${acc.label}:/${res.file.path} (${formatBytes(sizeBytes)})`,
     );
     if (res.failedOver)
-      toast.warning(lang === "en" ? `Failover → ${acc.label}` : `Шилжүүлэв → ${acc.label}`);
+      toast.warning(
+      lang === "en" ? `Failover → ${acc.label}` : lang === "ko" ? `장애 조치 → ${acc.label}` : `Шилжүүлэв → ${acc.label}`,
+    );
     return res;
   };
 
   const syncBrain = async () => {
     const doc = (await loadBrainDoc()) ?? null;
     if (!doc) {
-      toast.error(lang === "en" ? "Mine a video first — no Core Brain yet." : "Эхлээд видео боловсруулна уу.");
+      toast.error(
+        lang === "en"
+          ? "Mine a video first — no Core Brain yet."
+          : lang === "ko"
+          ? "먼저 영상을 채굴하세요 — 아직 Core Brain이 없습니다."
+          : "Эхлээд видео боловсруулна уу.",
+      );
       return;
     }
     const size = new Blob([JSON.stringify(doc)]).size;
     const r = store("brain", "core-brain.brain.json", size, "primary");
-    if (r) toast.success(lang === "en" ? "Core Brain synced" : "Core Brain синк хийгдлээ");
+    if (r)
+      toast.success(
+        lang === "en" ? "Core Brain synced" : lang === "ko" ? "Core Brain 동기화 완료" : "Core Brain синк хийгдлээ",
+      );
   };
 
   const registerMedia = () => {
     if (!sourceName) {
-      toast.error(lang === "en" ? "Upload a video first." : "Эхлээд видео оруулна уу.");
+      toast.error(
+        lang === "en" ? "Upload a video first." : lang === "ko" ? "먼저 영상을 업로드하세요." : "Эхлээд видео оруулна уу.",
+      );
       return;
     }
     store("video", sourceName, sourceSize ?? 0, "media");

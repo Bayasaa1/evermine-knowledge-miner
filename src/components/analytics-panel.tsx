@@ -17,6 +17,7 @@ import {
   maskDestination,
   type PayoutSettings,
 } from "@/lib/payouts";
+import type { Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -77,13 +78,42 @@ const copy = {
     change: "Суваг солих",
     channelNames: { stripe: "Stripe", paypal: "PayPal", crypto: "Крипто хэтэвч", bank: "Банк шилжүүлэг" },
   },
+  ko: {
+    title: "분석 및 수익",
+    live: "실시간",
+    calls: "총 영상 통화",
+    activeChats: "활성 채팅 세션",
+    minutes: "참여 시간(분)",
+    queries: "건 답변",
+    inCall: "통화 중",
+    growth: "이번 주 마인드 성장",
+    beliefs: "새로운 신념",
+    memories: "새로운 기억",
+    skills: "새로운 스킬",
+    growthEmpty: "영상을 채굴해 이번 주 마인드를 성장시켜 보세요.",
+    money: "창작자 수익화",
+    perQuery: "질문당 수익",
+    perMinute: "통화 분당 수익",
+    gross: "총 수익",
+    paid: "이미 지급됨",
+    available: "출금 가능 금액",
+    payout: "출금 요청",
+    payoutDone: (v: string) => `${v} 출금이 요청되었습니다. 영업일 기준 3일 이내에 처리됩니다.`,
+    payoutEmpty: "아직 출금할 금액이 없습니다.",
+    rateHint: "요율은 Mind Ownership 설정에서 가져옵니다.",
+    unclaimed: "미청구 수익",
+    connectPrompt: "출금하려면 결제 수단을 연결하세요",
+    payoutVia: "지급 방식",
+    change: "방식 변경",
+    channelNames: { stripe: "Stripe", paypal: "PayPal", crypto: "암호화폐 지갑", bank: "은행 송금" },
+  },
 };
 
 function money(v: number, currency: string) {
   return `${v.toFixed(2)} ${currency}`;
 }
 
-export function AnalyticsPanel({ lang, ownership }: { lang: "en" | "mn"; ownership: Ownership }) {
+export function AnalyticsPanel({ lang, ownership }: { lang: Lang; ownership: Ownership }) {
   const t = copy[lang];
   const [data, setData] = useState<Analytics>(() => emptyAnalytics());
   const [now, setNow] = useState(() => Date.now());

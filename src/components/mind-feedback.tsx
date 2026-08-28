@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MindReviews } from "@/components/mind-reviews";
 import { MindSpecs } from "@/components/mind-specs";
+import type { Lang } from "@/lib/i18n";
 
 
 type Comment = {
@@ -37,6 +38,16 @@ const copy = {
     failed: "Сэтгэгдлийг нийтэлж чадсангүй",
     deleted: "Сэтгэгдэл устгагдлаа",
   },
+  ko: {
+    comments: "댓글",
+    reviews: "검증된 리뷰",
+    placeholder: "질문을 하거나 소감을 남겨보세요…",
+    post: "게시",
+    signIn: "대화에 참여하려면 로그인하세요.",
+    none: "아직 댓글이 없습니다 — 대화를 시작해보세요.",
+    failed: "댓글을 게시하지 못했습니다",
+    deleted: "댓글이 삭제되었습니다",
+  },
 } as const;
 
 /** Dual feedback surface: open comments for everyone, reviews for buyers only. */
@@ -47,7 +58,7 @@ export function MindFeedback({
   canEditSpecs = false,
 }: {
   mindId: string;
-  lang?: "en" | "mn";
+  lang?: Lang;
   purchased?: boolean;
   /** Creator-side surfaces let the owner publish a new version + release notes. */
   canEditSpecs?: boolean;
@@ -90,7 +101,7 @@ export function MindFeedback({
 
 }
 
-function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en" | "mn"] }) {
+function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)[Lang] }) {
   const { user, profile } = useAuth();
   const [items, setItems] = useState<Comment[]>([]);
   const [body, setBody] = useState("");

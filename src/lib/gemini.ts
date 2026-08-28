@@ -1,4 +1,5 @@
 import { getGeminiAccessToken } from "./google-gemini-auth";
+import type { Lang } from "./i18n";
 
 const BASE = "https://generativelanguage.googleapis.com";
 
@@ -38,10 +39,12 @@ export function isSafetyBlocked(err: unknown): boolean {
 }
 
 /** Friendly, non-technical explanation for a safety-blocked analysis. */
-export function safetyMessage(lang: "en" | "mn" = "en"): string {
-  return lang === "mn"
-    ? "Google-ийн AI аюулгүй байдлын шүүлтүүр энэ видеог шинжлэхийг зогсоолоо. Хүчирхийлэл, насанд хүрэгчдийн болон эмзэг агуулгагүй хэсгийг сонгож дахин оролдоно уу."
-    : "Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.";
+export function safetyMessage(lang: Lang = "en"): string {
+  if (lang === "mn")
+    return "Google-ийн AI аюулгүй байдлын шүүлтүүр энэ видеог шинжлэхийг зогсоолоо. Хүчирхийлэл, насанд хүрэгчдийн болон эмзэг агуулгагүй хэсгийг сонгож дахин оролдоно уу.";
+  if (lang === "ko")
+    return "Google AI 안전 필터가 이 영상의 분석을 중단했습니다. 민감하거나 성인·폭력적인 장면을 잘라내고 다른 구간으로 다시 시도해 주세요 — 같은 영상은 다시 시도해도 통과되지 않습니다.";
+  return "Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.";
 }
 
 export function describeError(err: unknown): string {
