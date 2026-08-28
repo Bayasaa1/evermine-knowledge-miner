@@ -1,5 +1,6 @@
 import type { LangCode } from "@/lib/languages";
 import { apiFetch } from "@/lib/api-fetch";
+import type { AvatarEmotion } from "@/lib/emotion";
 
 /**
  * Native voice dubbing playback.
@@ -19,6 +20,8 @@ export function startDub(opts: {
   mindId: string;
   text: string;
   lang: LangCode;
+  /** Active emotion tag so the voice engine can shift pitch and tone. */
+  emotion?: AvatarEmotion;
   onViseme?: (openness: number) => void;
   onStart?: () => void;
   onError?: (message: string) => void;
@@ -33,7 +36,12 @@ export function startDub(opts: {
       const res = await apiFetch("/api/mind-voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mindId: opts.mindId, text: opts.text, lang: opts.lang }),
+        body: JSON.stringify({
+          mindId: opts.mindId,
+          text: opts.text,
+          lang: opts.lang,
+          emotion: opts.emotion,
+        }),
         signal: controller.signal,
       });
 

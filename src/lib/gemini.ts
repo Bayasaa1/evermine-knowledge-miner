@@ -338,6 +338,32 @@ export type CopyrightAudit = {
   summary: string;
 };
 
+/** Canonical emotional states mined from a video segment. */
+export const PRIMARY_EMOTIONS = [
+  "HAPPY",
+  "EXCITED",
+  "SERIOUS",
+  "SAD",
+  "EMPATHETIC",
+  "NEUTRAL",
+] as const;
+export type PrimaryEmotion = (typeof PRIMARY_EMOTIONS)[number];
+
+/** One entry of the mined emotion timeline. */
+export type EmotionMoment = {
+  timestamp_start: string;
+  timestamp_end: string;
+  primary_emotion: PrimaryEmotion;
+  /** 0.0 - 1.0 strength of the visible/audible expression. */
+  expression_intensity: number;
+  /** e.g. Smile, Frown, Nod, Eyebrow_Raise. */
+  facial_trigger: string;
+  /** e.g. High_Pitch, Low_Calm, Passionate. */
+  vocal_tone_marker: string;
+  /** Short reason the emotion was assigned (speech or visual evidence). */
+  evidence: string;
+};
+
 export type ChunkResult = {
   speakers: SpeakerProfile[];
   transcript: TranscriptLine[];
@@ -350,9 +376,12 @@ export type ChunkResult = {
   subconsciousness: Subconsciousness;
   /** Precise, confidence-filtered knowledge/action graph nodes. */
   knowledgeNodes: KnowledgeNode[];
+  /** Timeline of emotional states, facial triggers and vocal tone markers. */
+  emotionTimeline: EmotionMoment[];
   /** Copyright & authenticity check for this segment. */
   copyright: CopyrightAudit;
 };
+
 
 
 const strArr = { type: "array", items: { type: "string" } };
@@ -559,6 +588,33 @@ const responseSchema = {
         ],
       },
     },
+    emotion_timeline: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp_start: { type: "string" },
+          timestamp_end: { type: "string" },
+          primary_emotion: {
+            type: "string",
+            enum: ["HAPPY", "EXCITED", "SERIOUS", "SAD", "EMPATHETIC", "NEUTRAL"],
+          },
+          expression_intensity: { type: "number" },
+          facial_trigger: { type: "string" },
+          vocal_tone_marker: { type: "string" },
+          evidence: { type: "string" },
+        },
+        required: [
+          "timestamp_start",
+          "timestamp_end",
+          "primary_emotion",
+          "expression_intensity",
+          "facial_trigger",
+          "vocal_tone_marker",
+          "evidence",
+        ],
+      },
+    },
     copyright: {
       type: "object",
       properties: {
@@ -603,7 +659,10 @@ const responseSchema = {
     "audio",
     "subconsciousness",
     "knowledgeNodes",
+    "emotion_timeline",
     "copyright",
+
+
   ],
 
 };
@@ -643,7 +702,15 @@ Extract the pillars below and return JSON only.
    - "spatial_action": when a physical object is manipulated, give "object_name", "coordinates_xyz" (3 numbers, normalized 0..1 in camera space: x right, y down, z depth), "grasp_type" (power-grasp, pinch, push, pull, pour, cut, none) and "movement_vector" (3 numbers, normalized direction of motion, -1..1). If no object is manipulated, set spatial_action to null.
    - "confidence_score": 0.0-1.0, your honest certainty this node is correct. NEVER inflate it. Use below 0.8 whenever you are guessing or inferring — such nodes are discarded.
 
-7. "copyright": COPYRIGHT & AUTHENTICITY CHECK. Judge whether this footage is the uploader's OWN original recording.
+7. "emotion_timeline": a continuous EMOTION & EXPRESSION TIMELINE of the Primary Owner. Segment the requested range into consecutive moments (roughly 3-15 seconds each, or wherever the emotion clearly shifts) and for every moment give:
+   - "timestamp_start" / "timestamp_end": whole-video-relative MM:SS.
+   - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL.
+   - "expression_intensity": 0.0-1.0 float for how strongly the emotion is expressed.
+   - "facial_trigger": the dominant visible facial/head cue, e.g. Smile, Frown, Nod, Eyebrow_Raise, Wide_Eyes, Head_Shake, Neutral_Face.
+   - "vocal_tone_marker": the dominant vocal quality, e.g. High_Pitch, Low_Calm, Passionate, Soft_Warm, Flat_Even, Laughing.
+   - "evidence": one short phrase citing what you saw or heard. Judge from face, voice and words together; use NEUTRAL with low intensity rather than guessing.
+
+8. "copyright": COPYRIGHT & AUTHENTICITY CHECK. Judge whether this footage is the uploader's OWN original recording.
    Look for: visible watermarks or usernames burned into the frame (TikTok, Douyin, YouTube, Instagram, Kuaishou, stock-footage marks), broadcaster or studio logos and lower-thirds, on-screen UI of another app (a screen recording or re-upload), letterboxing/cropping typical of re-uploaded clips, film/TV/anime footage, and commercially released background music.
    - "signals": one entry per piece of evidence with its "timestamp", "kind", a precise "detail" (e.g. "@user123 watermark bottom-right"), and an honest "confidence" 0.0-1.0.
    - "originality": "original" when nothing suggests third-party content, "uncertain" when evidence is weak, "third-party" when the segment is clearly someone else's footage.
@@ -770,6 +837,23 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })
     .filter((n) => n.concept_title && n.confidence_score >= MIN_NODE_CONFIDENCE);
   const knowledge = strings(v['knowledge']);
+  const emotionTimeline = arr<Record<string, unknown>>(v['emotion_timeline'] ?? v['emotionTimeline'])
+    .map((e) => {
+      const raw = String(e?.['primary_emotion'] ?? "").toUpperCase();
+      const primary = (PRIMARY_EMOTIONS as readonly string[]).includes(raw)
+        ? (raw as PrimaryEmotion)
+        : "NEUTRAL";
+      return {
+        timestamp_start: String(e?.['timestamp_start'] ?? ""),
+        timestamp_end: String(e?.['timestamp_end'] ?? ""),
+        primary_emotion: primary,
+        expression_intensity: Math.min(1, Math.max(0, num(e?.['expression_intensity']))),
+        facial_trigger: String(e?.['facial_trigger'] ?? "Neutral_Face"),
+        vocal_tone_marker: String(e?.['vocal_tone_marker'] ?? "Flat_Even"),
+        evidence: String(e?.['evidence'] ?? ""),
+      } as EmotionMoment;
+    })
+    .filter((e) => e.timestamp_start || e.evidence);
   const cp = (v['copyright'] ?? {}) as Record<string, unknown>;
   const signals = arr<Record<string, unknown>>(cp['signals']).map((s) => ({
     timestamp: String(s?.['timestamp'] ?? ""),
@@ -818,6 +902,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     audio,
     subconsciousness,
     knowledgeNodes,
+    emotionTimeline,
     copyright,
 
   };

@@ -37,6 +37,13 @@ import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
+import {
+  inferEmotion,
+  emotionStyle,
+  EMOTION_LABEL,
+  NEUTRAL_EMOTION,
+  type AvatarEmotion,
+} from "@/lib/emotion";
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
 import { useNetworkQuality, TIER_LABEL, type StreamTier } from "@/lib/network-quality";
 import { startMiningCapture, MINING_PROFILES, formatBytes, type MiningRecorderHandle } from "@/lib/mining-audio";
@@ -157,6 +164,7 @@ function Explore() {
   const [lang, setLang] = useState<LangCode>("en");
   const [langOpen, setLangOpen] = useState(false);
   const [mouth, setMouth] = useState(0);
+  const [emotion, setEmotion] = useState<AvatarEmotion>(NEUTRAL_EMOTION);
   const [dubbing, setDubbing] = useState(false);
   const [captions, setCaptions] = useState(false);
 
@@ -392,16 +400,19 @@ function Explore() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
   }
 
-  function speak(text: string) {
+  function speak(text: string, emotionTag?: AvatarEmotion) {
     stopSpeaking();
     const clean = text.replace(/[*_`#>[\]()]/g, "").trim();
     if (!clean) return;
+    const active = emotionTag ?? inferEmotion(clean);
+    setEmotion(active);
     setDubbing(true);
     setSpeaking(true);
     const handle = startDub({
       mindId: selected.id,
       text: clean,
       lang,
+      emotion: active,
       onViseme: setMouth,
       onStart: () => setDubbing(false),
       onError: (message) => {
@@ -523,7 +534,10 @@ function Explore() {
         },
       }).catch(() => undefined);
     }
-    if (via === "call") speak(reply);
+    // Dynamic emotion engine: the reply's emotion drives face + voice.
+    const replyEmotion = inferEmotion(reply, selected.voiceProfile?.emotion);
+    setEmotion(replyEmotion);
+    if (via === "call") speak(reply, replyEmotion);
 
   }
 
@@ -1209,8 +1223,8 @@ function Explore() {
               style={{
                 borderColor: selected.accent,
                 background: `${selected.accent}33`,
-                transform: `scale(${1 + mouth * 0.06})`,
-                boxShadow: `0 0 ${20 + mouth * 60}px ${selected.accent}${speaking ? "88" : "22"}`,
+                transform: `scale(${(1 + mouth * 0.06) * emotionStyle(emotion).scale})`,
+                boxShadow: `0 0 ${20 + mouth * 60 + emotion.expression_intensity * 30}px ${selected.accent}${speaking ? "88" : "22"}, 0 0 ${30 * emotion.expression_intensity}px ${emotionStyle(emotion).glow}`,
               }}
             >
               {tier !== "audio" && (
@@ -1225,17 +1239,34 @@ function Explore() {
               <span className="relative text-4xl font-semibold text-white drop-shadow">
                 {selected.shortName.slice(0, 2)}
               </span>
-              {/* mouth */}
+              {/* eyebrows shift with the active emotion */}
               <span
                 aria-hidden
-                className="absolute bottom-9 left-1/2 -translate-x-1/2 rounded-full bg-black/70 transition-[height,width] duration-75"
+                className="absolute top-12 left-1/2 flex w-20 -translate-x-1/2 justify-between transition-transform duration-300"
+                style={{ transform: `translateX(-50%) translateY(${-emotionStyle(emotion).browLift}px)` }}
+              >
+                <span className="h-[3px] w-7 rounded-full bg-black/60" style={{ transform: `rotate(${-emotionStyle(emotion).browLift}deg)` }} />
+                <span className="h-[3px] w-7 rounded-full bg-black/60" style={{ transform: `rotate(${emotionStyle(emotion).browLift}deg)` }} />
+              </span>
+              {/* mouth: openness from the waveform, curve from the emotion */}
+              <span
+                aria-hidden
+                className="absolute bottom-9 left-1/2 -translate-x-1/2 bg-black/70 transition-[height,width,border-radius] duration-75"
                 style={{
                   width: `${34 + mouth * 16}px`,
                   height: `${3 + mouth * 26}px`,
                   opacity: speaking ? 0.85 : 0.25,
+                  borderRadius:
+                    emotionStyle(emotion).mouthCurve >= 0
+                      ? `40% 40% 60% 60% / 20% 20% ${60 + emotionStyle(emotion).mouthCurve * 4}% ${60 + emotionStyle(emotion).mouthCurve * 4}%`
+                      : `60% 60% 40% 40% / ${60 - emotionStyle(emotion).mouthCurve * 4}% ${60 - emotionStyle(emotion).mouthCurve * 4}% 20% 20%`,
                 }}
               />
             </div>
+            <p className="text-[11px] uppercase tracking-wide text-white/70">
+              {lang === "mn" ? EMOTION_LABEL[emotion.primary_emotion].mn : EMOTION_LABEL[emotion.primary_emotion].en}
+              <span className="ml-2 text-white/40">{Math.round(emotion.expression_intensity * 100)}%</span>
+            </p>
             <p className="text-center text-[11px] text-white/60">
               {selected.shortName}'s cloned voice · speaking {LANGUAGES[lang].name} ·{" "}
               {tier === "hd" ? "HD video + lip-sync" : tier === "voice" ? "audio-reactive avatar" : "voice only"}

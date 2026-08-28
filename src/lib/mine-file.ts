@@ -1,5 +1,10 @@
 import type { Chunk } from "./chunking";
-import { normalizeChunkResult, type ChunkResult, type CulturalExpression } from "./gemini";
+import {
+  normalizeChunkResult,
+  type ChunkResult,
+  type CulturalExpression,
+  type EmotionMoment,
+} from "./gemini";
 import {
   normalizeOwnership,
   signMind,
@@ -170,6 +175,8 @@ export type AgentBrain = {
     cloneQuality: string;
   }[];
   speakers: { label: string; role: string; description: string }[];
+  /** Mined emotional states, facial triggers and vocal tone markers over time. */
+  emotion_timeline: EmotionMoment[];
   transcript: { timestamp: string; speech: string; speaker: string; role: string }[];
 };
 
@@ -254,6 +261,7 @@ export async function buildAgentBrain(input: {
   const voiceCloning = ordered.flatMap((r) => r.data.voiceData);
   const faceCloning = ordered.flatMap((r) => r.data.faceData);
   const transcript = ordered.flatMap((r) => r.data.transcript);
+  const emotionTimeline = ordered.flatMap((r) => r.data.emotionTimeline ?? []);
   const speakerMap = new Map<string, { label: string; role: string; description: string }>();
   for (const r of ordered) for (const sp of r.data.speakers) if (!speakerMap.has(sp.label)) speakerMap.set(sp.label, sp);
   const speakers = [...speakerMap.values()];
@@ -297,6 +305,7 @@ export async function buildAgentBrain(input: {
     voiceCloning,
     faceCloning,
     speakers,
+    emotion_timeline: emotionTimeline,
     transcript,
   };
 }

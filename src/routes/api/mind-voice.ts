@@ -16,7 +16,17 @@ export const Route = createFileRoute("/api/mind-voice")({
         // Paid AI call: signed-in users only, with a per-user request budget.
         const auth = await guardApi(request, "mind-voice", 30);
         if (auth instanceof Response) return auth;
-        let body: { mindId?: string; text?: string; lang?: string };
+        let body: {
+          mindId?: string;
+          text?: string;
+          lang?: string;
+          emotion?: {
+            primary_emotion?: string;
+            expression_intensity?: number;
+            facial_trigger?: string;
+            vocal_tone_marker?: string;
+          };
+        };
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -32,6 +42,39 @@ export const Route = createFileRoute("/api/mind-voice")({
         const language = LANGUAGES[lang];
         const vp = mind.voiceProfile;
 
+        // Dynamic emotion drives pitch, pace and delivery on top of the cloned voice.
+        const allowed = ["HAPPY", "EXCITED", "SERIOUS", "SAD", "EMPATHETIC", "NEUTRAL"] as const;
+        const raw = String(body.emotion?.primary_emotion ?? "").toUpperCase();
+        const primary = (allowed as readonly string[]).includes(raw) ? raw : "NEUTRAL";
+        const intensity = Math.min(
+          1,
+          Math.max(0, typeof body.emotion?.expression_intensity === "number" ? body.emotion.expression_intensity : 0),
+        );
+        const clean = (s: unknown) =>
+          typeof s === "string" ? s.replace(/[^A-Za-z_ -]/g, "").slice(0, 40) : "";
+        const facial = clean(body.emotion?.facial_trigger) || "Neutral_Face";
+        const vocal = clean(body.emotion?.vocal_tone_marker) || "Flat_Even";
+        const delivery: Record<string, string> = {
+          HAPPY: "Lift the pitch slightly and let a warm smile colour the voice.",
+          EXCITED: "Raise the pitch and energy, speak faster and with clear enthusiasm.",
+          SERIOUS: "Lower the pitch, steady and measured, with no smile in the voice.",
+          SAD: "Lower and soften the pitch, slower and quieter, with gentle heaviness.",
+          EMPATHETIC: "Soften and warm the voice, slower and caring, as if comforting someone.",
+          NEUTRAL: "Keep an even, natural delivery.",
+        };
+        const speedDelta: Record<string, number> = {
+          HAPPY: 0.06,
+          EXCITED: 0.12,
+          SERIOUS: -0.04,
+          SAD: -0.1,
+          EMPATHETIC: -0.06,
+          NEUTRAL: 0,
+        };
+        const speed = Math.min(
+          1.4,
+          Math.max(0.6, (vp.speed ?? 1) + (speedDelta[primary] ?? 0) * intensity),
+        );
+
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) {
           return new Response(JSON.stringify({ error: "Voice is not configured" }), { status: 500 });
@@ -43,6 +86,8 @@ export const Route = createFileRoute("/api/mind-voice")({
           `Accent characteristics to preserve: ${vp.accent}`,
           `Emotional signature: ${vp.emotion}`,
           `Pace: ${vp.pace}`,
+          `ACTIVE EMOTION for this line: ${primary} (intensity ${intensity.toFixed(2)}, facial cue ${facial}, vocal marker ${vocal}). ${delivery[primary]}`,
+          `Blend that emotion into the speaker's own voice — never replace their timbre or accent with a generic performance.`,
           `Speak fluent, natural ${language.name} (${language.native}) as a native speaker would — correct pronunciation and prosody for that language — while keeping the speaker's own timbre, accent colour and emotion completely unchanged.`,
           `This is dubbing, not narration: it must sound like this same person genuinely speaking ${language.name}. Never add commentary, translation notes or subtitles.`,
         ].join("\n");
@@ -60,7 +105,7 @@ export const Route = createFileRoute("/api/mind-voice")({
               input: text.slice(0, 4000),
               voice: vp.voice,
               instructions,
-              speed: vp.speed ?? 1,
+              speed,
               stream_format: "sse",
               response_format: "pcm",
             }),
