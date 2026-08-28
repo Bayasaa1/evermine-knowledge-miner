@@ -170,6 +170,8 @@ export type AgentBrain = {
     cloneQuality: string;
   }[];
   speakers: { label: string; role: string; description: string }[];
+  /** Mined emotional states, facial triggers and vocal tone markers over time. */
+  emotion_timeline: EmotionMoment[];
   transcript: { timestamp: string; speech: string; speaker: string; role: string }[];
 };
 
