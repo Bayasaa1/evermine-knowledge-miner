@@ -392,16 +392,19 @@ function Explore() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
   }
 
-  function speak(text: string) {
+  function speak(text: string, emotionTag?: AvatarEmotion) {
     stopSpeaking();
     const clean = text.replace(/[*_`#>[\]()]/g, "").trim();
     if (!clean) return;
+    const active = emotionTag ?? inferEmotion(clean);
+    setEmotion(active);
     setDubbing(true);
     setSpeaking(true);
     const handle = startDub({
       mindId: selected.id,
       text: clean,
       lang,
+      emotion: active,
       onViseme: setMouth,
       onStart: () => setDubbing(false),
       onError: (message) => {
