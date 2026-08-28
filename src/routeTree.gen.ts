@@ -21,6 +21,7 @@ import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
+import { Route as ApiPublicCronResumeMiningRouteImport } from './routes/api/public/cron/resume-mining'
 import { Route as ApiPublicV1MindTokenPackageDotjsonRouteImport } from './routes/api/public/v1/mind/$token/package[.]json'
 
 const IndexRoute = IndexRouteImport.update({
@@ -83,6 +84,12 @@ const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
   path: '/api/public/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronResumeMiningRoute =
+  ApiPublicCronResumeMiningRouteImport.update({
+    id: '/api/public/cron/resume-mining',
+    path: '/api/public/cron/resume-mining',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicV1MindTokenPackageDotjsonRoute =
   ApiPublicV1MindTokenPackageDotjsonRouteImport.update({
     id: '/api/public/v1/mind/$token/package.json',
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 export interface FileRoutesByTo {
@@ -118,6 +126,7 @@ export interface FileRoutesByTo {
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 export interface FileRoutesById {
@@ -134,6 +143,7 @@ export interface FileRoutesById {
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 export interface FileRouteTypes {
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/public/ping'
+    | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/public/ping'
+    | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   id:
     | '__root__'
@@ -181,6 +193,7 @@ export interface FileRouteTypes {
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/public/ping'
+    | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   fileRoutesById: FileRoutesById
 }
@@ -197,6 +210,7 @@ export interface RootRouteChildren {
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
+  ApiPublicCronResumeMiningRoute: typeof ApiPublicCronResumeMiningRoute
   ApiPublicV1MindTokenPackageDotjsonRoute: typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
 
@@ -286,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/resume-mining': {
+      id: '/api/public/cron/resume-mining'
+      path: '/api/public/cron/resume-mining'
+      fullPath: '/api/public/cron/resume-mining'
+      preLoaderRoute: typeof ApiPublicCronResumeMiningRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/v1/mind/$token/package.json': {
       id: '/api/public/v1/mind/$token/package.json'
       path: '/api/public/v1/mind/$token/package.json'
@@ -309,6 +330,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
+  ApiPublicCronResumeMiningRoute: ApiPublicCronResumeMiningRoute,
   ApiPublicV1MindTokenPackageDotjsonRoute:
     ApiPublicV1MindTokenPackageDotjsonRoute,
 }
