@@ -58,7 +58,8 @@ export function RobotSyncModal({
 
   return (
     <div className="dark fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
-      <div className="w-full max-w-md rounded-t-2xl border border-border bg-card p-5 sm:rounded-2xl">
+      <div className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-border bg-card p-5 sm:rounded-2xl">
+
         <div className="mb-4 flex items-center gap-3">
           <Bot className="h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
