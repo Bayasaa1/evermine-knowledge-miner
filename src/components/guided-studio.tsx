@@ -300,8 +300,15 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
   const [driveSync, setDriveSync] = useState(false);
   const [driveNote, setDriveNote] = useState<string | null>(null);
+  const [assessment, setAssessment] = useState<Assessment>(DEFAULT_ASSESSMENT);
+  const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [statusNote, setStatusNote] = useState<string | null>(null);
+  const [paused, setPaused] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
