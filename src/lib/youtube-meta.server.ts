@@ -11,16 +11,8 @@ export const FALLBACK_DURATION_SEC = 20 * 60;
 
 export type VideoMeta = { videoId: string; url: string; title: string; durationSec: number };
 
-export function playlistId(raw: string): string | null {
-  try {
-    const u = new URL(raw.trim());
-    if (!/(^|\.)youtube\.com$/.test(u.hostname) && u.hostname !== "youtu.be") return null;
-    const list = u.searchParams.get("list");
-    return list && /^[\w-]{10,}$/.test(list) ? list : null;
-  } catch {
-    return null;
-  }
-}
+/** Shared with the client parser so every playlist URL form behaves the same. */
+export { youtubePlaylistId as playlistId } from "@/lib/import-sources";
 
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" } });
