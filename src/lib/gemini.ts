@@ -837,6 +837,23 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })
     .filter((n) => n.concept_title && n.confidence_score >= MIN_NODE_CONFIDENCE);
   const knowledge = strings(v['knowledge']);
+  const emotionTimeline = arr<Record<string, unknown>>(v['emotion_timeline'] ?? v['emotionTimeline'])
+    .map((e) => {
+      const raw = String(e?.['primary_emotion'] ?? "").toUpperCase();
+      const primary = (PRIMARY_EMOTIONS as readonly string[]).includes(raw)
+        ? (raw as PrimaryEmotion)
+        : "NEUTRAL";
+      return {
+        timestamp_start: String(e?.['timestamp_start'] ?? ""),
+        timestamp_end: String(e?.['timestamp_end'] ?? ""),
+        primary_emotion: primary,
+        expression_intensity: Math.min(1, Math.max(0, num(e?.['expression_intensity']))),
+        facial_trigger: String(e?.['facial_trigger'] ?? "Neutral_Face"),
+        vocal_tone_marker: String(e?.['vocal_tone_marker'] ?? "Flat_Even"),
+        evidence: String(e?.['evidence'] ?? ""),
+      } as EmotionMoment;
+    })
+    .filter((e) => e.timestamp_start || e.evidence);
   const cp = (v['copyright'] ?? {}) as Record<string, unknown>;
   const signals = arr<Record<string, unknown>>(cp['signals']).map((s) => ({
     timestamp: String(s?.['timestamp'] ?? ""),
