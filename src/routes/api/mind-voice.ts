@@ -105,7 +105,7 @@ export const Route = createFileRoute("/api/mind-voice")({
               input: text.slice(0, 4000),
               voice: vp.voice,
               instructions,
-              speed: vp.speed ?? 1,
+              speed,
               stream_format: "sse",
               response_format: "pcm",
             }),
