@@ -40,7 +40,7 @@ const copy = {
     customPlaceholder: "예: 수비 대형과 코치의 전술 지시에 집중해 주세요.",
     start: "분석 시작",
   },
-} as const;
+};
 
 export function MiningWizard({
   lang,

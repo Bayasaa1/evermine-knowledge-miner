@@ -2541,8 +2541,8 @@ function Index() {
                   { id: "face", label: t.tabFace, icon: ScanFace },
                   { id: "voice", label: t.tabVoice, icon: AudioLines },
                   { id: "brain", label: t.tabBrain, icon: Brain },
-                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang], icon: Sparkles },
-                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang], icon: Cloud },
+                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Sparkles },
+                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Cloud },
                   { id: "log", label: t.appLog, icon: Terminal },
                 ] as { id: Tab; label: string; icon: typeof Brain }[]
               ).map((tab) => (
@@ -2937,7 +2937,7 @@ function Index() {
                     }}
                   />
                   <BrainStudio
-                    lang={lang}
+                    lang={lang === "ko" ? "en" : lang}
                     results={results}
                     mindId={activeMindId}
                     previewUrl={previewUrl}
@@ -2950,7 +2950,7 @@ function Index() {
 
               {activeTab === "cloud" && (
                 <CloudStorageHub
-                  lang={lang}
+                  lang={lang === "ko" ? "en" : lang}
                   results={results}
                   sourceName={file?.name ?? null}
                   sourceSize={file?.size ?? null}
