@@ -242,6 +242,20 @@ export function RobotDeploymentStudio({
             className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none focus:border-primary"
           />
         </div>
+        <div className="w-full">
+          <label htmlFor="releaseNotes" className="mb-1.5 block text-xs text-muted-foreground">
+            {t.releaseNotes}
+          </label>
+          <textarea
+            id="releaseNotes"
+            rows={2}
+            value={releaseNotes}
+            onChange={(e) => setReleaseNotes(e.target.value)}
+            placeholder={t.releaseNotesHint}
+            className="w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
+          />
+        </div>
+
         <button
           type="button"
           onClick={() => void onPublish()}
