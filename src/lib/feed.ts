@@ -6,6 +6,7 @@
 import { MINDS } from "./minds";
 import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
+import { listPublicVisualContent, type TimelineMark } from "./projects";
 import type { CreationCategory } from "./creation-category";
 
 export type FeedItem = {
@@ -19,6 +20,12 @@ export type FeedItem = {
   category: CreationCategory;
   /** Video source; when absent the poster is shown as a still. */
   src: string | null;
+  /** YouTube video id — rendered with the YouTube Iframe player, no hosting cost. */
+  youtubeId?: string | null;
+  /** Mined knowledge moments aligned to playback time. */
+  timeline?: TimelineMark[];
+  /** Mined emotion tags aligned to playback time. */
+  emotionTimeline?: TimelineMark[];
   poster: string;
   tags: string[];
   /** Monthly subscription price set by the creator. 0 = free. */
@@ -30,6 +37,7 @@ export type FeedItem = {
 };
 
 const FEED_KEY = () => scopedKey("publishedFeed");
+
 
 /** Marketplace minds rendered as feed clips. */
 export function marketplaceFeed(): FeedItem[] {
