@@ -1682,7 +1682,7 @@ function Index() {
       </aside>
 
       {/* Main workspace */}
-      <main className="min-h-screen min-w-0 lg:pl-[260px]">
+      <main className="min-h-screen min-w-0 pb-28 lg:pl-[260px]">
         {/* Header */}
         <header className="sticky top-0 z-30 border-b border-border bg-background/80 px-4 py-4 backdrop-blur-md sm:px-6 sm:py-5 lg:px-8 xl:px-10">
           <div className="flex min-w-0 items-center justify-between">

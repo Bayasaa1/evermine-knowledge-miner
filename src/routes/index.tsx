@@ -107,7 +107,7 @@ function HomeFeed() {
   };
 
   return (
-    <div className="dark min-h-screen bg-black text-white">
+    <div className="dark min-h-screen bg-black pb-28 text-white">
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-4 py-3">
         <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
           <Sparkles className="h-3.5 w-3.5 text-primary" /> Evermind — Talk to real minds

@@ -67,7 +67,7 @@ function SavedMinds() {
 
 function VaultsPage() {
   return (
-    <div className="dark min-h-screen bg-background pb-24 text-foreground">
+    <div className="dark min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Vaults</h1>
         <MindManager lang="en" />
