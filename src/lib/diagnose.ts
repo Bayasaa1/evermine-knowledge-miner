@@ -20,7 +20,7 @@ export type Diagnosis = {
   raw: string;
 };
 
-const LANG_NAME: Record<Lang, string> = { en: "English", mn: "Mongolian (Cyrillic)" };
+const LANG_NAME: Record<Lang, string> = { en: "English", mn: "Mongolian (Cyrillic)", ko: "Korean" };
 
 function fallback(lang: Lang, errorKey: string, raw: string): Diagnosis {
   return {
