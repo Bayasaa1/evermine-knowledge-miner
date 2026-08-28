@@ -92,7 +92,7 @@ export function MindFeedback({
         {tab === "comments" ? (
           <CommentThread mindId={mindId} t={t} />
         ) : (
-          <MindReviews mindId={mindId} lang={lang} purchased={purchased} />
+          <MindReviews mindId={mindId} lang={lang} />
         )}
       </div>
       </section>

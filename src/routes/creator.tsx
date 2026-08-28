@@ -13,6 +13,7 @@ import { tr, pickCopy, type Lang } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
+import { ProjectManager } from "@/components/project-manager";
 import { MindVersioningHub } from "@/components/mind-versioning-hub";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
@@ -974,7 +975,7 @@ class QuotaPaused extends Error {
 
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
-  const [view, setView] = useState<"guided" | "advanced" | "versions">("guided");
+  const [view, setView] = useState<"guided" | "advanced" | "versions" | "projects">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-2.5-flash");
@@ -1922,10 +1923,22 @@ function Index() {
             >
               {pickCopy({ en: "Versions", mn: "Хувилбарууд", ko: "버전" }, lang)}
             </button>
+            <button
+              onClick={() => setView("projects")}
+              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
+                view === "projects" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {pickCopy({ en: "Projects", mn: "Төслүүд", ko: "프로젝트" }, lang)}
+            </button>
           </div>
         </div>
 
-        {view === "versions" ? (
+        {view === "projects" ? (
+          <div className="p-4 pb-28 sm:p-6 lg:p-8 xl:p-10">
+            <ProjectManager lang={lang} />
+          </div>
+        ) : view === "versions" ? (
           <div className="p-4 pb-28 sm:p-6 lg:p-8 xl:p-10">
             <MindVersioningHub lang={lang} signedIn={isAuthenticated} />
           </div>
