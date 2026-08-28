@@ -43,6 +43,8 @@ const copy = {
     copyrightTitle: "Copyright & authenticity check",
     copyrightConfirm: "I own this footage — publish anyway",
     copyrightConfirmed: "Ownership confirmed. You can publish now.",
+    releaseNotes: "Release notes for this version",
+    releaseNotesHint: "e.g. Fixed: resolved grip pressure issue noted in user reviews.",
   },
   mn: {
     title: "Роботын байршуулалтын студи",
@@ -64,6 +66,8 @@ const copy = {
     copyrightTitle: "Зохиогчийн эрх ба жинхэнэ эсэхийн шалгалт",
     copyrightConfirm: "Энэ бичлэг миний өөрийн бүтээл — нийтэл",
     copyrightConfirmed: "Эзэмшил баталгаажлаа. Одоо нийтэлж болно.",
+    releaseNotes: "Энэ хувилбарын тэмдэглэл",
+    releaseNotesHint: "ж: Хэрэглэгчийн сэтгэгдэлд дурдсан барих даралтын алдааг зассан.",
   },
 } as const;
 
