@@ -53,6 +53,11 @@ import {
   isDriveSyncEnabled,
   setDriveSyncEnabled,
 } from "@/lib/drive-backup";
+import { CHUNK_SECONDS } from "@/lib/chunking";
+import { MiningWizard } from "@/components/mining-wizard";
+import { DEFAULT_ASSESSMENT, type Assessment } from "@/lib/mining-jobs";
+import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
+
 
 const MODEL = "gemini-2.5-flash";
 
