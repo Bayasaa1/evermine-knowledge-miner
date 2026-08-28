@@ -9,6 +9,8 @@ import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/ro
 import { loadEmbodiedSettings } from "@/lib/embodied";
 import { publishToFeed } from "@/lib/feed";
 import { getCreationCategory } from "@/lib/creation-category";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import {
   auditChunks,
   canPublish,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/copyright";
 
 import coverFounder from "@/assets/cover-founder.jpg";
+
 
 const copy = {
   en: {
@@ -40,6 +43,8 @@ const copy = {
     copyrightTitle: "Copyright & authenticity check",
     copyrightConfirm: "I own this footage — publish anyway",
     copyrightConfirmed: "Ownership confirmed. You can publish now.",
+    releaseNotes: "Release notes for this version",
+    releaseNotesHint: "e.g. Fixed: resolved grip pressure issue noted in user reviews.",
   },
   mn: {
     title: "Роботын байршуулалтын студи",
@@ -61,6 +66,8 @@ const copy = {
     copyrightTitle: "Зохиогчийн эрх ба жинхэнэ эсэхийн шалгалт",
     copyrightConfirm: "Энэ бичлэг миний өөрийн бүтээл — нийтэл",
     copyrightConfirmed: "Эзэмшил баталгаажлаа. Одоо нийтэлж болно.",
+    releaseNotes: "Энэ хувилбарын тэмдэглэл",
+    releaseNotesHint: "ж: Хэрэглэгчийн сэтгэгдэлд дурдсан барих даралтын алдааг зассан.",
   },
 } as const;
 
@@ -86,6 +93,8 @@ export function RobotDeploymentStudio({
   const [qr, setQr] = useState("");
   const [busy, setBusy] = useState(false);
   const [copyrightVerdict, setCopyrightVerdict] = useState<CopyrightVerdict | null>(null);
+  const [releaseNotes, setReleaseNotes] = useState("");
+
 
   const pkg = useMemo(
     () => buildRobotPackage({ mindId, title: mindTitle, topic, chunks }),
@@ -126,6 +135,44 @@ export function RobotDeploymentStudio({
     URL.revokeObjectURL(href);
   };
 
+  /** "HH:MM:SS" / "MM:SS" → seconds. */
+  const toSeconds = (stamp: string) => {
+    const parts = String(stamp ?? "")
+      .split(":")
+      .map((p) => Number(p) || 0);
+    return parts.reduce((acc, p) => acc * 60 + p, 0);
+  };
+
+  /** Version/spec metadata is derived from the mined material itself. */
+  const saveSpecs = async (previous: { version: string } | null) => {
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (!uid) return;
+    const nodes = chunks.flatMap((c) => c.knowledgeNodes ?? []);
+    const seconds = chunks.reduce(
+      (sum, c) => sum + Math.max(0, ...(c.knowledgeNodes ?? []).map((n) => toSeconds(n.timestamp_end))),
+      0,
+    );
+    const accuracy = nodes.length
+      ? (nodes.reduce((s, n) => s + (n.confidence_score ?? 0), 0) / nodes.length) * 100
+      : 0;
+    const m = /v?(\d+)\.(\d+)/.exec(previous?.version ?? "");
+    const version = m ? `v${m[1]}.${Number(m[2]) + 1}` : "v1.0";
+    await supabase.from("mind_specs").upsert(
+      {
+        user_id: uid,
+        mind_id: mindId,
+        training_hours: Number((seconds / 3600).toFixed(2)),
+        version,
+        accuracy_score: Number(accuracy.toFixed(1)),
+        compatibility: ["ROS 2", "Web Voice", "Video Call"],
+        changelog_notes: releaseNotes.trim(),
+        last_updated_at: new Date().toISOString(),
+      },
+      { onConflict: "mind_id" },
+    );
+  };
+
   const onPublish = async () => {
     if (!isAuthenticated) {
       toast.error(t.signIn);
@@ -143,6 +190,12 @@ export function RobotDeploymentStudio({
     try {
       const next = await pushDeployment({ data: { mindId, title: mindTitle, pkg } });
       setDeployment(next);
+      const { data: prior } = await supabase
+        .from("mind_specs")
+        .select("version")
+        .eq("mind_id", mindId)
+        .maybeSingle();
+      await saveSpecs(prior ?? null).catch(() => undefined);
       // Publishing a mind renders it straight onto the global Home Feed.
       await publishToFeed({
         id: `local:${mindId}`,
@@ -166,6 +219,7 @@ export function RobotDeploymentStudio({
       setBusy(false);
     }
   };
+
 
   return (
     <section id="robot-deploy" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
@@ -192,6 +246,20 @@ export function RobotDeploymentStudio({
             className="w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-xs text-foreground outline-none focus:border-primary"
           />
         </div>
+        <div className="w-full">
+          <label htmlFor="releaseNotes" className="mb-1.5 block text-xs text-muted-foreground">
+            {t.releaseNotes}
+          </label>
+          <textarea
+            id="releaseNotes"
+            rows={2}
+            value={releaseNotes}
+            onChange={(e) => setReleaseNotes(e.target.value)}
+            placeholder={t.releaseNotesHint}
+            className="w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
+          />
+        </div>
+
         <button
           type="button"
           onClick={() => void onPublish()}

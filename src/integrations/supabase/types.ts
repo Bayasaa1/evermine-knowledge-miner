@@ -146,6 +146,51 @@ export type Database = {
         }
         Relationships: []
       }
+      mind_specs: {
+        Row: {
+          accuracy_score: number
+          changelog_notes: string
+          compatibility: string[]
+          created_at: string
+          id: string
+          last_updated_at: string
+          mind_id: string
+          resolved_review_ids: string[]
+          training_hours: number
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          accuracy_score?: number
+          changelog_notes?: string
+          compatibility?: string[]
+          created_at?: string
+          id?: string
+          last_updated_at?: string
+          mind_id: string
+          resolved_review_ids?: string[]
+          training_hours?: number
+          updated_at?: string
+          user_id: string
+          version?: string
+        }
+        Update: {
+          accuracy_score?: number
+          changelog_notes?: string
+          compatibility?: string[]
+          created_at?: string
+          id?: string
+          last_updated_at?: string
+          mind_id?: string
+          resolved_review_ids?: string[]
+          training_hours?: number
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: []
+      }
       mind_vaults: {
         Row: {
           created_at: string
