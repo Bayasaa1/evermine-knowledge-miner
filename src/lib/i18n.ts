@@ -188,7 +188,104 @@ const mn: Dict = {
   successBody: "Энэ бичлэгийн мэдлэг таны AI клоны нэг хэсэг боллоо.",
 };
 
-export const DICTS: Record<Lang, Dict> = { en, mn };
+const ko: Dict = {
+  appName: "Evermind",
+  tagline: "하나의 삶이 하나의 마인드가 됩니다",
+  guided: "단계별 설정",
+  advanced: "고급 대시보드",
+  language: "언어",
+
+  step: "단계",
+  of: "/",
+  next: "계속",
+  back: "뒤로",
+  done: "완료",
+
+  step1Title: "Google로 로그인",
+  step1Sub: "한 번의 탭으로 Google 계정의 무료 Gemini API가 연결됩니다 — API 키도, 복사·붙여넣기도, 설정도 필요 없습니다.",
+  step2Title: "링크 붙여넣기",
+  step2Sub: "YouTube 링크나 Google Drive 영상을 붙여넣으세요. 변환이나 분할 없이 바로 분석합니다.",
+  step3Title: "수익화 설정",
+  step3Sub: "AI 클론을 무료로 공개하거나 월 구독으로 판매하세요 — 언제든 변경할 수 있고, 수익의 80%는 창작자의 몫입니다.",
+
+  sourceYoutube: "YouTube 링크",
+  sourceDrive: "Google Drive 링크",
+  sourceFile: "파일 업로드",
+  urlPlaceholder: "https://youtube.com/watch?v=…",
+  drivePlaceholder: "https://drive.google.com/file/d/…",
+  chooseFile: "영상 선택",
+  analyze: "영상 분석",
+  analyzing: "영상을 분석하는 중…",
+  cancel: "취소",
+
+  limitsTitle: "업로드 가능한 항목",
+  limitYoutube: "YouTube: 공개 또는 미등록 링크, 최대 2시간.",
+  limitDrive: "Google Drive / 파일 업로드: MP4 또는 MOV, 최대 2GB.",
+  limitLangs: "언어: 한국어, 영어, 몽골어를 비롯한 전 세계 언어를 원어 그대로 인식합니다.",
+
+  tipSource: "팁: 미등록(Unlisted) 링크도 괜찮습니다 — 비공개만 아니면 됩니다.",
+  tipGoogle: "팁: Google로 로그인하면 무료 Gemini API가 Evermind에 자동으로 연결됩니다. Google 계정에서 언제든 해제할 수 있습니다.",
+  tipPrice: "팁: 대부분의 창작자는 무료로 시작해 팬을 모은 뒤 월 $5–$20 구독으로 전환합니다.",
+
+  errFileSize: "파일 크기가 제한을 초과했습니다 (최대 2GB). 더 작은 영상을 업로드해 주세요.",
+  errFileType: "지원하지 않는 형식입니다. MP4 또는 MOV 영상을 업로드해 주세요.",
+  errUrlPrivate: "YouTube 링크를 찾을 수 없거나 비공개 상태입니다. 공개 또는 미등록으로 변경해 주세요.",
+  errUrlDrive: "이 Google Drive 링크는 공유되지 않았습니다. '링크가 있는 모든 사용자'로 설정해 주세요.",
+  errUrlInvalid: "링크 형식이 올바르지 않습니다. 전체 YouTube 또는 Google Drive 주소를 붙여넣어 주세요.",
+  errTooLong: "영상이 2시간을 초과합니다. 더 짧은 영상을 올려주세요.",
+  errNetwork: "네트워크 연결이 끊어졌습니다. 다시 시도해 주세요.",
+  errKey: "API 키가 거부되었습니다. 확인 후 다시 시도해 주세요.",
+  errQuota: "AI 사용량이 모두 소진되었습니다. 다른 키를 추가하거나 초기화를 기다려 주세요.",
+  errGeneric: "영상을 분석하는 중 문제가 발생했습니다. 다시 시도해 주세요.",
+  errNoKey: "먼저 1단계에서 Google로 로그인하세요 — Gemini API가 자동으로 연결됩니다.",
+  errSafety:
+    "Google AI 안전 필터가 이 분석을 중단했습니다. 다른 장면을 선택하거나 민감·성인·폭력적인 부분을 잘라내 주세요 — 같은 영상을 다시 시도해도 통과되지 않습니다.",
+  retry: "다시 시도",
+
+  termsNotice:
+    "무료 등급 안내: 분석은 Google Gemini에서 실행됩니다. 무료 등급에서는 Google이 제출된 콘텐츠를 모델 개선에 검토할 수 있으므로 비공개·기밀 영상은 피해 주세요.",
+  termsLink: "이용약관 및 개인정보 처리방침",
+
+  diagTitle: "AI 어시스턴트 진단",
+  diagThinking: "무슨 일이 있었는지 파악하는 중…",
+  diagProblem: "문제",
+  diagFix: "해결 방법",
+  diagTryAgain: "다시 시도",
+  diagFallbackStep: "링크나 파일을 확인한 뒤 분석을 다시 시작하세요.",
+
+  errAssistantHint: "분석에 실패했습니다. 왼쪽 아래 AI 어시스턴트를 눌러 즉시 진단을 받아보세요.",
+
+  botFab: "AI 어시스턴트",
+  botTitle: "시스템 진단 어시스턴트",
+  botSubtitle: "어떤 오류든 물어보세요 — 원인과 해결 방법을 알려드립니다.",
+  botPlaceholder: "왜 영상 분석이 실패했나요?…",
+  botEmpty: "아직 기록된 오류가 없습니다. 앱에 대해 무엇이든 물어보세요.",
+  botNewError: "기록됨 — 무엇이 잘못됐는지 물어보세요.",
+  botThinking: "진단 중…",
+  botClear: "기록된 오류 지우기",
+  botClose: "닫기",
+  botErrorContext: "확인 가능한 최근 오류",
+
+  stopMining: "채굴 중지 / 취소",
+  stopRequested: "중지 요청됨 — 현재 체크포인트를 안전하게 마무리하는 중입니다.",
+  queueTitle: "대기 중인 영상",
+  terminalTitle: "실시간 마이닝 터미널",
+
+  ready: "준비 완료",
+  complete: "완료",
+  successTitle: "당신의 마인드가 자라고 있습니다",
+  successBody: "이 영상의 지식이 이제 당신의 AI 클론의 일부가 되었습니다.",
+};
+
+export const DICTS: Record<Lang, Dict> = { en, mn, ko };
+
+/**
+ * Picks a component-local copy map entry for the active locale, falling back to
+ * English so a partially translated map never renders an empty UI.
+ */
+export function pickCopy<T>(copy: Partial<Record<Lang, T>>, lang: Lang): T {
+  return (copy[lang] ?? copy.en) as T;
+}
 
 const STORAGE_KEY = "evermind-lang";
 
