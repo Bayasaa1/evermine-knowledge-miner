@@ -974,7 +974,7 @@ class QuotaPaused extends Error {
 
 function Index() {
   const [lang, setLang] = useState<Lang>("en");
-  const [view, setView] = useState<"guided" | "advanced">("guided");
+  const [view, setView] = useState<"guided" | "advanced" | "versions">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-2.5-flash");
