@@ -395,6 +395,26 @@ function StepUpload({ lang }: { lang: Lang }) {
     [lang, queryClient],
   );
 
+  /** Local checkpoint + growth stats, then cloud vault / feed / Drive persistence. */
+  const finishMined = useCallback(
+    async (mined: ChunkResult, source: ImportSource) => {
+      await idbSet(STORES.SESSION, "guided-last-mine", {
+        source: source.label,
+        minedAt: Date.now(),
+        result: mined,
+      });
+      await recordGrowth({
+        beliefs: mined.subconsciousness.beliefs.length,
+        skills: mined.subconsciousness.skills.length,
+        memories: mined.transcript.length,
+      });
+      await persist(mined, source);
+    },
+    [persist],
+  );
+
+
+
   /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
