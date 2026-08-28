@@ -42,17 +42,23 @@ export function MindFeedback({
   mindId,
   lang = "en",
   purchased = false,
+  canEditSpecs = false,
 }: {
   mindId: string;
   lang?: "en" | "mn";
   purchased?: boolean;
+  /** Creator-side surfaces let the owner publish a new version + release notes. */
+  canEditSpecs?: boolean;
 }) {
   const t = copy[lang];
   const [tab, setTab] = useState<"comments" | "reviews">("comments");
 
   return (
-    <section className="rounded-[12px] border border-border bg-card">
+    <div className="space-y-3">
+      <MindSpecs mindId={mindId} lang={lang} canEdit={canEditSpecs} />
+      <section className="rounded-[12px] border border-border bg-card">
       <div className="flex border-b border-border">
+
         {(["comments", "reviews"] as const).map((key) => (
           <button
             key={key}
