@@ -20,6 +20,7 @@ import {
 } from "@/lib/copyright";
 
 import coverFounder from "@/assets/cover-founder.jpg";
+import type { Lang } from "@/lib/i18n";
 
 
 const copy = {
@@ -69,6 +70,29 @@ const copy = {
     releaseNotes: "Энэ хувилбарын тэмдэглэл",
     releaseNotesHint: "ж: Хэрэглэгчийн сэтгэгдэлд дурдсан барих даралтын алдааг зассан.",
   },
+  ko: {
+    title: "로봇 배포 스튜디오",
+    hint: "이 마인드 볼트를 무선(OTA)으로 배포하세요. 로봇이 QR 코드를 스캔하거나 단일 HTTP GET 요청을 보내면 컴파일된 VLA 궤적, 공간 좌표, 지식 그래프가 로컬 런타임 메모리로 바로 전달됩니다.",
+    publish: "마인드 패키지 게시",
+    republish: "최신 마인드 재게시",
+    link: "ROS 2 / API 직접 링크",
+    qr: "마인드 배포 QR",
+    downloadPkg: "package.json 다운로드",
+    downloadRos: "ROS 2 / Python 패키지 다운로드",
+    copied: "배포 링크가 복사되었습니다.",
+    published: "마인드 패키지가 배포되었습니다. 로봇이 이제 가져갈 수 있습니다.",
+    signIn: "이 마인드를 로봇에 게시하려면 로그인하세요.",
+    empty: "먼저 영상을 마이닝하세요 — 배포 패키지는 채굴된 지식 노드와 행동 궤적으로 만들어집니다.",
+    stats: (n: number, t: number, s: number) => `지식 노드 ${n}개 · VLA 궤적 ${t}개 · 공간 행동 ${s}개`,
+    updated: "마지막 배포",
+    failed: "배포 실패",
+    copyrightBlocked: "저작권 검사에서 이 영상이 표시되었습니다 — 게시 전에 소유권을 확인해 주세요.",
+    copyrightTitle: "저작권 및 진위 확인",
+    copyrightConfirm: "이 영상은 제 소유입니다 — 그래도 게시",
+    copyrightConfirmed: "소유권이 확인되었습니다. 이제 게시할 수 있습니다.",
+    releaseNotes: "이 버전의 릴리스 노트",
+    releaseNotesHint: "예: 사용자 리뷰에서 지적된 그립 압력 문제를 수정했습니다.",
+  },
 } as const;
 
 export function RobotDeploymentStudio({
@@ -78,7 +102,7 @@ export function RobotDeploymentStudio({
   chunks,
   isAuthenticated,
 }: {
-  lang: "en" | "mn";
+  lang: Lang;
   mindId: string;
   mindTitle: string;
   chunks: ChunkResult[];

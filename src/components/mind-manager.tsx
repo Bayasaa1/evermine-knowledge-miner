@@ -10,7 +10,7 @@ import {
   type CreatorMind,
 } from "@/lib/mind-registry";
 
-type Lang = "en" | "mn";
+import type { Lang } from "@/lib/i18n";
 
 const L = {
   en: {
@@ -42,6 +42,21 @@ const L = {
     created: "Оюун Сан үүслээ",
     deleted: "Оюун Сан устгагдлаа",
     empty: "Одоогоор сан байхгүй — эхний оюунаа үүсгэнэ үү.",
+  },
+  ko: {
+    title: "내 마인드 볼트",
+    subtitle: "각 볼트는 자체 코어 브레인, 톤과 로직을 가지며 — 완전히 독립되어 있습니다.",
+    add: "새 마인드 볼트",
+    placeholder: "예: 변호사 마인드, 기자 마인드…",
+    domainPlaceholder: "전문 분야 (선택 사항)",
+    create: "생성",
+    cancel: "취소",
+    active: "활성",
+    use: "활성화",
+    remove: "볼트 삭제",
+    created: "마인드 볼트가 생성되었습니다",
+    deleted: "마인드 볼트가 삭제되었습니다",
+    empty: "아직 볼트가 없습니다 — 첫 번째 마인드를 만들어보세요.",
   },
 } as const;
 

@@ -3,10 +3,11 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Home, Boxes, Plus, User } from "lucide-react";
 
 import { CreateWizard } from "@/components/create-wizard";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Item = { to: "/" | "/explore" | "/vaults" | "/profile"; label: string; icon: typeof Home };
 
-const ITEMS: Record<"en" | "mn", Item[]> = {
+const ITEMS: Record<Lang, Item[]> = {
   en: [
     { to: "/", label: "Home", icon: Home },
     { to: "/explore", label: "Explore", icon: Compass },
@@ -19,10 +20,16 @@ const ITEMS: Record<"en" | "mn", Item[]> = {
     { to: "/vaults", label: "Сангууд", icon: Boxes },
     { to: "/profile", label: "Профайл", icon: User },
   ],
+  ko: [
+    { to: "/", label: "홈", icon: Home },
+    { to: "/explore", label: "탐색", icon: Compass },
+    { to: "/vaults", label: "내 보관함", icon: Boxes },
+    { to: "/profile", label: "프로필", icon: User },
+  ],
 };
 
 /** Unified fixed bottom navigation with the centered "+" Create hub. */
-export function BottomNav({ lang = "en" }: { lang?: "en" | "mn" }) {
+export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [wizard, setWizard] = useState(false);
   const items = ITEMS[lang];
@@ -54,7 +61,7 @@ export function BottomNav({ lang = "en" }: { lang?: "en" | "mn" }) {
           <button
             type="button"
             onClick={() => setWizard(true)}
-            aria-label={lang === "mn" ? "Бүтээх" : "Create"}
+            aria-label={pickCopy({ en: "Create", mn: "Бүтээх", ko: "만들기" }, lang)}
             className="mx-1 -mt-5 flex h-12 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-terracotta-dark"
           >
             <Plus className="h-6 w-6" />

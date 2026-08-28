@@ -17,6 +17,7 @@ import {
 } from "@/lib/engines";
 import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
 import { useAuth } from "@/hooks/use-auth";
+import type { Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -67,9 +68,33 @@ const copy = {
     testOk: "Түлхүүр ажиллаж байна — хөдөлгүүр бэлэн.",
     testFail: "Түлхүүр шалгах амжилтгүй",
   },
+  ko: {
+    title: "API 엔진 스택",
+    hint: "클론을 구동할 엔진을 선택하세요. 무료 엔진은 비용이 들지 않으며, 프리미엄 엔진은 본인 API 키로 사용하거나 플랫폼 수수료 없이 제공업체 원가로 청구됩니다.",
+    slots: { llm: "브레인 (LLM)", tts: "음성 (TTS)", avatar: "아바타" } as Record<EngineSlot, string>,
+    llmNote: "브레인 엔진이 대화에 답하고 지식을 추출합니다. 영상 파일 분석은 네이티브 영상 입력을 지원하는 유일한 엔진인 Gemini에서만 실행되므로 Google 연결 상태를 유지하거나 Gemini 키를 저장해 두세요.",
+    free: "무료",
+    premium: "프리미엄",
+    billing: "결제",
+    byo: "내 API 키 사용",
+    passthrough: "제공업체 원가 그대로 청구",
+    keys: "제공업체 키",
+    keysHint: "선택 사항 — 무료 플랫폼 스택은 키 없이도 완전히 작동합니다. 붙여넣은 키는 이 브라우저에만 저장되며 업로드되거나 공유되지 않습니다.",
+    keyPlaceholder: "키 붙여넣기",
+    missing: (n: number) => `프리미엄 엔진 ${n}개에 아직 키가 필요합니다.`,
+    cost: "대화 1시간당 예상 비용",
+    zero: "$0.00 — 완전 무료 스택",
+    noMarkup: "제공업체 원가 그대로입니다. Evermind는 0%를 추가합니다.",
+    reset: "무료 스택으로 재설정",
+    saved: "엔진 스택이 저장되었습니다.",
+    test: "테스트",
+    testing: "테스트 중…",
+    testOk: "키가 정상 작동합니다 — 엔진 준비 완료.",
+    testFail: "키 테스트 실패",
+  },
 } as const;
 
-export function EngineHub({ lang }: { lang: "en" | "mn" }) {
+export function EngineHub({ lang }: { lang: Lang }) {
   const t = copy[lang];
   const [stack, setStack] = useState<EngineStack>(freeStack);
   const [hydrated, setHydrated] = useState(false);
@@ -287,6 +312,8 @@ export function EngineHub({ lang }: { lang: "en" | "mn" }) {
       <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
         {lang === "mn"
           ? "Үнэгүй багцын мэдэгдэл: задалгаа Google Gemini дээр ажиллана. Үнэгүй багцад Google илгээсэн агуулгыг загвараа сайжруулахад ашиглаж болзошгүйг Gemini API-ийн нөхцөл заасан тул хувийн, нууц бичлэг оруулахаас зайлсхийнэ үү."
+          : lang === "ko"
+          ? "무료 등급 안내: 분석은 Google Gemini에서 실행됩니다. Gemini API 약관에 따라 무료 등급으로 전송된 콘텐츠는 Google이 모델 개선을 위해 검토할 수 있으니, 비공개·기밀 영상은 피하거나 유료 키로 전환하세요."
           : "Free tier notice: analysis runs on Google Gemini. Under the Gemini API terms, content sent on the free tier may be reviewed by Google to improve their models — avoid private or confidential footage, or switch to a paid key."}
       </p>
     </section>

@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Hammer } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
+import type { Lang } from "@/lib/i18n";
 
 
 export type AppRole = "creator" | "explorer";
@@ -25,12 +26,13 @@ export function getStoredRole(): AppRole | null {
   }
 }
 
-const labels = {
+const labels: Record<Lang, { creator: string; explorer: string }> = {
   en: { creator: "Creator Mode", explorer: "Explorer Mode" },
   mn: { creator: "Бүтээгч горим", explorer: "Судлаач горим" },
+  ko: { creator: "크리에이터 모드", explorer: "탐색자 모드" },
 };
 
-export function ModeSwitch({ lang = "en" }: { lang?: "en" | "mn" }) {
+export function ModeSwitch({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const t = labels[lang];
   const base =

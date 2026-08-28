@@ -4,7 +4,7 @@
  */
 import { useState } from "react";
 import { ClipboardList, Sparkles } from "lucide-react";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 import {
   DEFAULT_ASSESSMENT,
   PRIMARY_FOCUSES,
@@ -31,6 +31,15 @@ const copy = {
     customPlaceholder: "жишээ нь: Хамгаалалтын бүтэц, дасгалжуулагчийн шийдвэрт анхаараарай.",
     start: "Шинжилгээ эхлүүлэх",
   },
+  ko: {
+    title: "분석 전 — 3가지 빠른 질문",
+    sub: "답변에 맞춰 AI가 정말 중요한 내용만 골라 추출합니다.",
+    context: "1. 영상 맥락",
+    focus: "2. 주요 초점",
+    custom: "3. 추가 분석 지침",
+    customPlaceholder: "예: 수비 대형과 코치의 전술 지시에 집중해 주세요.",
+    start: "분석 시작",
+  },
 } as const;
 
 export function MiningWizard({
@@ -46,7 +55,7 @@ export function MiningWizard({
   onStart: (a: Assessment) => void;
   busy?: boolean;
 }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [local, setLocal] = useState<Assessment>(value ?? DEFAULT_ASSESSMENT);
   const state = value ?? local;
 

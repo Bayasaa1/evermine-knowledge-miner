@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import type { Lang } from "@/lib/i18n";
 
 type Review = {
   id: string;
@@ -45,6 +46,20 @@ const copy = {
     locked: "Зөвхөн худалдан авсан хэрэглэгч үнэлгээ өгнө. Эхлээд худалдан аваарай.",
     of: (n: number) => `${n} сэтгэгдэл`,
   },
+  ko: {
+    title: "리뷰 및 평점",
+    none: "아직 리뷰가 없습니다. 이 마인드를 가장 먼저 테스트하고 후기를 남겨보세요.",
+    placeholder: "제 로봇에서 테스트해봤어요 — 정말 잘 작동합니다!",
+    proof: "영상 증빙 URL (선택 사항)",
+    submit: "리뷰 등록",
+    signIn: "리뷰를 남기려면 로그인하세요.",
+    verified: "검증된 로봇 배포",
+    buyer: "인증된 사용자",
+    posted: "감사합니다 — 리뷰가 게시되었습니다.",
+    failed: "리뷰를 저장하지 못했습니다",
+    locked: "인증된 구매자만 리뷰를 남길 수 있습니다. 이 마인드를 구매한 후 리뷰를 작성하세요.",
+    of: (n: number) => `리뷰 ${n}개`,
+  },
 } as const;
 
 /** Amazon-style review & rating section shown under every AI Mind. */
@@ -54,7 +69,7 @@ export function MindReviews({
   purchased = true,
 }: {
   mindId: string;
-  lang?: "en" | "mn";
+  lang?: Lang;
   purchased?: boolean;
 }) {
   const t = copy[lang];

@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Loader2, SendHorizonal, Trash2, X } from "lucide-react";
-import { useLang } from "@/lib/i18n";
+import { useLang, type Lang } from "@/lib/i18n";
 import {
   getCapturedErrors,
   subscribeCapturedErrors,
@@ -29,8 +29,8 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
-function systemPrompt(lang: "en" | "mn", errors: CapturedError[]): string {
-  const langName = lang === "mn" ? "Mongolian (Монгол)" : "English";
+function systemPrompt(lang: Lang, errors: CapturedError[]): string {
+  const langName = lang === "mn" ? "Mongolian (Монгол)" : lang === "ko" ? "Korean (한국어)" : "English";
   const errorBlock =
     errors.length === 0
       ? "No errors have been captured yet."
@@ -61,7 +61,7 @@ function systemPrompt(lang: "en" | "mn", errors: CapturedError[]): string {
 
 async function askGemini(
   auth: { kind: "key"; value: string } | { kind: "oauth"; value: string },
-  lang: "en" | "mn",
+  lang: Lang,
   history: ChatMsg[],
 ): Promise<string> {
   const url =
@@ -96,7 +96,7 @@ async function askGemini(
 }
 
 /** Server-side fallback so a signed-in user is never blocked on a missing key. */
-async function askBackend(lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
+async function askBackend(lang: Lang, history: ChatMsg[]): Promise<string> {
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
@@ -112,7 +112,7 @@ async function askBackend(lang: "en" | "mn", history: ChatMsg[]): Promise<string
  * the rotation pool first, then the active Google OAuth session, then the
  * zero-setup backend. Only a total failure surfaces an error.
  */
-async function answer(lang: "en" | "mn", history: ChatMsg[]): Promise<string> {
+async function answer(lang: Lang, history: ChatMsg[]): Promise<string> {
   const attempts: { kind: "key" | "oauth"; value: string }[] = [];
   try {
     for (const k of await loadApiKeys()) {

@@ -9,6 +9,7 @@ import {
   type EmbodiedSettings,
 } from "@/lib/embodied";
 import type { VlaTrajectory } from "@/lib/embodied";
+import type { Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -41,13 +42,28 @@ const copy = {
     saved: "Биет AI тохиргоо хадгалагдлаа.",
     exported: "Robot mind экспорт татагдлаа.",
   },
+  ko: {
+    title: "체화 AI 및 로봇 연동",
+    badge: "로드맵",
+    hint: "텍스트를 넘어서: Evermind는 영상에서 Vision-Language-Action(VLA) 궤적 — 손 움직임과 물체 조작 좌표 — 을 캡처하여, 언젠가 당신의 마인드가 실제 로봇을 구동할 수 있도록 합니다.",
+    capture: "채굴 중 VLA 궤적 캡처",
+    captureHint: "주요 물리적 동작마다 지시문, 대상 물체, 타이밍, 정규화된 3D 경유점을 저장합니다.",
+    ros: "ROS 2 / Robot Mind Export API",
+    rosHint: "시뮬레이션된 엔드포인트입니다. 활성화하면 채굴된 동작이 evermind_msgs/msg/MindAction으로 게시됩니다.",
+    topic: "ROS 2 토픽",
+    export: "샘플 내보내기 다운로드",
+    trajectories: (n: number) => `${n}개의 동작 궤적 준비됨`,
+    none: "아직 캡처된 물리적 동작이 없습니다 — 손이나 물체 움직임이 있는 영상을 채굴해 보세요.",
+    saved: "체화 AI 설정이 저장되었습니다.",
+    exported: "Robot mind 내보내기가 다운로드되었습니다.",
+  },
 } as const;
 
 export function EmbodiedAiCard({
   lang,
   trajectories = [],
 }: {
-  lang: "en" | "mn";
+  lang: Lang;
   trajectories?: VlaTrajectory[];
 }) {
   const t = copy[lang];
