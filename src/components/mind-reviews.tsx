@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Loader2, Lock, Send, Star, Video } from "lucide-react";
+import { BadgeCheck, Loader2, Send, Star, Video } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ type Review = {
   video_proof_url: string | null;
   author_name: string;
   verified_deployment: boolean;
+  paid_owner: boolean;
   created_at: string;
 };
 
@@ -26,10 +27,12 @@ const copy = {
     submit: "Post review",
     signIn: "Sign in to leave a review.",
     verified: "Verified Robot Deployment",
-    buyer: "Verified user",
+    owner: "Paid Owner",
+    tester: "Verified Tester",
+    trust: "Project Trust Score",
     posted: "Thanks — your review is live.",
     failed: "Could not save your review",
-    locked: "Only verified buyers can leave a review. Purchase this mind to review it.",
+    open: "Tried the free demo, a voice call or a preview? Leave your honest review.",
     of: (n: number) => `${n} review${n === 1 ? "" : "s"}`,
   },
   mn: {
@@ -40,10 +43,12 @@ const copy = {
     submit: "Сэтгэгдэл нийтлэх",
     signIn: "Сэтгэгдэл бичихийн тулд нэвтэрнэ үү.",
     verified: "Баталгаажсан робот байршуулалт",
-    buyer: "Баталгаажсан хэрэглэгч",
+    owner: "Худалдан авсан эзэмшигч",
+    tester: "Баталгаажсан туршигч",
+    trust: "Итгэлцлийн оноо",
     posted: "Баярлалаа — сэтгэгдэл нийтлэгдлээ.",
     failed: "Сэтгэгдлийг хадгалж чадсангүй",
-    locked: "Зөвхөн худалдан авсан хэрэглэгч үнэлгээ өгнө. Эхлээд худалдан аваарай.",
+    open: "Үнэгүй туршилт, дуут дуудлага эсвэл урьдчилсан үзлэг хийсэн үү? Сэтгэгдлээ үлдээгээрэй.",
     of: (n: number) => `${n} сэтгэгдэл`,
   },
   ko: {
@@ -54,24 +59,22 @@ const copy = {
     submit: "리뷰 등록",
     signIn: "리뷰를 남기려면 로그인하세요.",
     verified: "검증된 로봇 배포",
-    buyer: "인증된 사용자",
+    owner: "구매한 소유자",
+    tester: "검증된 테스터",
+    trust: "프로젝트 신뢰 점수",
     posted: "감사합니다 — 리뷰가 게시되었습니다.",
     failed: "리뷰를 저장하지 못했습니다",
-    locked: "인증된 구매자만 리뷰를 남길 수 있습니다. 이 마인드를 구매한 후 리뷰를 작성하세요.",
+    open: "무료 데모, 음성 통화 또는 미리보기를 사용해 보셨나요? 솔직한 리뷰를 남겨주세요.",
     of: (n: number) => `리뷰 ${n}개`,
   },
 } as const;
 
-/** Amazon-style review & rating section shown under every AI Mind. */
-export function MindReviews({
-  mindId,
-  lang = "en",
-  purchased = true,
-}: {
-  mindId: string;
-  lang?: Lang;
-  purchased?: boolean;
-}) {
+/**
+ * Try-before-you-buy review section: any signed-in user who tried the free demo,
+ * a voice call or a visual preview can rate the project. Reviews are badged as
+ * "Paid Owner" or "Verified Tester" and aggregate into a public Trust Score.
+ */
+export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: Lang }) {
   const t = copy[lang];
   const { user, profile } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -83,7 +86,7 @@ export function MindReviews({
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("mind_reviews")
-      .select("id,user_id,rating,body,video_proof_url,author_name,verified_deployment,created_at")
+      .select("id,user_id,rating,body,video_proof_url,author_name,verified_deployment,paid_owner,created_at")
       .eq("mind_id", mindId)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -93,6 +96,13 @@ export function MindReviews({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const trustScore = reviews.length
+    ? Math.round(
+        (reviews.reduce((sum, r) => sum + r.rating, 0) / (reviews.length * 5)) * 100 * 0.85 +
+          (reviews.filter((r) => r.paid_owner || r.verified_deployment).length / reviews.length) * 100 * 0.15,
+      )
+    : 0;
 
   const average = reviews.length
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
@@ -134,13 +144,14 @@ export function MindReviews({
         <span className="text-xs text-muted-foreground">
           {average ? average.toFixed(1) : "—"} · {t.of(reviews.length)}
         </span>
+        {reviews.length > 0 && (
+          <span className="ml-auto rounded-full bg-primary/15 px-2.5 py-1 text-[10px] font-semibold text-primary">
+            {t.trust}: {trustScore}%
+          </span>
+        )}
       </div>
 
-      {!purchased ? (
-        <p className="mb-5 flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
-          <Lock className="h-3.5 w-3.5 shrink-0" /> {t.locked}
-        </p>
-      ) : (
+      <p className="mb-3 text-[11px] text-muted-foreground">{t.open}</p>
       <div className="mb-5 rounded-xl border border-border bg-muted/40 p-3">
         <div className="mb-2 flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -175,7 +186,6 @@ export function MindReviews({
         </div>
         {!user && <p className="mt-2 text-[11px] text-muted-foreground">{t.signIn}</p>}
       </div>
-      )}
 
       {reviews.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t.none}</p>
@@ -188,13 +198,13 @@ export function MindReviews({
                 <Stars value={r.rating} />
                 <span
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    r.verified_deployment
+                    r.paid_owner || r.verified_deployment
                       ? "bg-primary/15 text-primary"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
                   <BadgeCheck className="h-3 w-3" />
-                  {r.verified_deployment ? t.verified : t.buyer}
+                  {r.verified_deployment ? t.verified : r.paid_owner ? t.owner : t.tester}
                 </span>
                 <span className="ml-auto text-[10px] text-muted-foreground">
                   {new Date(r.created_at).toLocaleDateString()}
