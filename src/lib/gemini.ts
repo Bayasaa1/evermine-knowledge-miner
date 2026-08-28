@@ -660,6 +660,8 @@ const responseSchema = {
     "subconsciousness",
     "knowledgeNodes",
     "emotion_timeline",
+    "copyright",
+
 
   ],
 
