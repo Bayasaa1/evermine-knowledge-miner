@@ -1,5 +1,6 @@
 import type { LangCode } from "@/lib/languages";
 import { apiFetch } from "@/lib/api-fetch";
+import type { AvatarEmotion } from "@/lib/emotion";
 
 /**
  * Native voice dubbing playback.
