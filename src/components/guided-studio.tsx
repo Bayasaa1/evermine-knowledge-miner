@@ -383,60 +383,117 @@ function StepUpload({ lang }: { lang: Lang }) {
     [lang, queryClient],
   );
 
-  const run = useCallback(async () => {
-    setErrorKey(null);
-    setResult(null);
-    setSavedTitle(null);
-    setDriveNote(null);
-    const source = resolveSource();
-    if (!source) return;
+  /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
+  const runYoutubeJobs = useCallback(
+    async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
+      const jobs = await startMiningJobs({ data: { url: source.url, assessment } });
+      setQueueTotal(jobs.length);
+      let lastMerged: ChunkResult | null = null;
 
-    if (!signedIn) {
-      setErrorKey("errNoKey");
-      return;
-    }
-    // Files and Drive retain the creator's optional BYO path. Public YouTube
-    // videos use the authenticated built-in AI service and need no provider token.
-    const key = "";
+      for (let q = 0; q < jobs.length; q++) {
+        let current = jobs[q]!;
+        setQueueIndex(q + 1);
+        setStatusNote(current.sourceLabel);
+        while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
+          const step = await runNextChunk({ data: { jobId: current.id } });
+          current = step.job;
+          if (step.merged) {
+            lastMerged = step.merged;
+            setResult(step.merged);
+          }
+          setCheckpoint({ index: current.nextIndex, total: current.totalChunks });
+          setProgress(
+            Math.round(((q + (current.totalChunks ? current.nextIndex / current.totalChunks : 1)) / jobs.length) * 100),
+          );
+          if (step.done) break;
+        }
 
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setBusy(true);
-    setProgress(5);
-    const tick = window.setInterval(() => setProgress((p) => (p < 90 ? p + 3 : p)), 900);
-
-    try {
-      let mined: ChunkResult;
-      if (source.kind === "youtube") {
-        mined = await mineYoutubeVideo({ data: { url: source.url, startSec: 0, endSec: MAX_DURATION_SEC } });
-      } else if (source.kind === "file") {
-        const ref = await uploadVideo(key, source.file, { signal: controller.signal });
-        setProgress((p) => Math.max(p, 55));
-        mined = await mineChunk(key, MODEL, ref, 0, MAX_DURATION_SEC, controller.signal, getCreationCategory());
-      } else {
-        mined = await mineUrlSegment(key, MODEL, source.url, 0, MAX_DURATION_SEC, controller.signal, getCreationCategory());
+        if (current.status === "paused_quota") {
+          setPaused(
+            lang === "mn"
+              ? `Gemini-ийн үнэгүй хязгаарт хүрлээ. ${current.nextIndex}/${current.totalChunks} хэсэг хадгалагдсан — квот сэргэмэгц автоматаар үргэлжилнэ.`
+              : `Free AI quota reached. ${current.nextIndex}/${current.totalChunks} checkpoints are saved — the background worker resumes automatically after the quota resets.`,
+          );
+          break;
+        }
+        if (current.status === "error") {
+          throw new Error(current.lastError ?? "Mining failed.");
+        }
+        if (lastMerged) await finishMined(lastMerged, source);
+        lastMerged = null;
       }
-      setProgress(100);
-      setResult(mined);
-      await idbSet(STORES.SESSION, "guided-last-mine", { source: source.label, minedAt: Date.now(), result: mined });
-      await recordGrowth({
-        beliefs: mined.subconsciousness.beliefs.length,
-        skills: mined.subconsciousness.skills.length,
-        memories: mined.transcript.length,
-      });
-      await persist(mined, source);
-    } catch (err) {
-      if ((err as Error)?.name === "AbortError") {
-        setProgress(0);
-      } else {
-        explain(err, `${source.kind} import — ${source.label}`);
+    },
+    [lang, finishMined],
+  );
+
+  const run = useCallback(
+    async (assessment: Assessment) => {
+      setErrorKey(null);
+      setResult(null);
+      setSavedTitle(null);
+      setDriveNote(null);
+      setPaused(null);
+      setCheckpoint(null);
+      setQueueIndex(0);
+      setQueueTotal(0);
+      const source = resolveSource();
+      if (!source) return;
+
+      if (!signedIn) {
+        setErrorKey("errNoKey");
+        return;
       }
-    } finally {
-      window.clearInterval(tick);
-      setBusy(false);
-      abortRef.current = null;
-    }
-  }, [resolveSource, explain, signedIn, persist]);
+      // Files and Drive retain the creator's optional BYO path. Public YouTube
+      // videos use the authenticated built-in AI service and need no provider token.
+      const key = "";
+
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setBusy(true);
+      setProgress(5);
+
+      try {
+        if (source.kind === "youtube") {
+          await runYoutubeJobs(source, assessment);
+        } else {
+          const mined =
+            source.kind === "file"
+              ? await mineChunk(
+                  key,
+                  MODEL,
+                  await uploadVideo(key, source.file, { signal: controller.signal }),
+                  0,
+                  CHUNK_SECONDS,
+                  controller.signal,
+                  getCreationCategory(),
+                )
+              : await mineUrlSegment(
+                  key,
+                  MODEL,
+                  source.url,
+                  0,
+                  CHUNK_SECONDS,
+                  controller.signal,
+                  getCreationCategory(),
+                );
+          setProgress(100);
+          setResult(mined);
+          await finishMined(mined, source);
+        }
+      } catch (err) {
+        if ((err as Error)?.name === "AbortError") {
+          setProgress(0);
+        } else {
+          explain(err, `${source.kind} import — ${source.label}`);
+        }
+      } finally {
+        setBusy(false);
+        abortRef.current = null;
+      }
+    },
+    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined],
+  );
+
 
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
