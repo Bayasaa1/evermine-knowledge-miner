@@ -885,6 +885,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     audio,
     subconsciousness,
     knowledgeNodes,
+    emotionTimeline,
     copyright,
 
   };
