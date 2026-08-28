@@ -46,7 +46,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQueryClient } from "@tanstack/react-query";
-import { upsertVault } from "@/lib/cloud-vault.functions";
+import { saveMindVersion } from "@/lib/mind-versions.functions";
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import {
