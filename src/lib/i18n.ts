@@ -4,9 +4,9 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-export type Lang = "en" | "mn";
+export type Lang = "en" | "mn" | "ko";
 
-export const LANG_LABELS: Record<Lang, string> = { en: "English", mn: "Монгол" };
+export const LANG_LABELS: Record<Lang, string> = { en: "English", mn: "Монгол", ko: "한국어" };
 
 export type Dict = Record<string, string>;
 
@@ -87,6 +87,11 @@ const en: Dict = {
   botClear: "Clear captured errors",
   botClose: "Close",
   botErrorContext: "Recent errors I can see",
+
+  stopMining: "STOP / CANCEL MINING",
+  stopRequested: "Stop requested — finishing the current checkpoint safely.",
+  queueTitle: "Queued videos",
+  terminalTitle: "Live mining terminal",
 
   ready: "Ready",
   complete: "Complete",
@@ -172,6 +177,11 @@ const mn: Dict = {
   botClose: "Хаах",
   botErrorContext: "Миний харж буй сүүлийн алдаанууд",
 
+  stopMining: "ЗОГСООХ / ЦУЦЛАХ",
+  stopRequested: "Зогсоох хүсэлт хүлээн авлаа — одоогийн хэсгийг аюулгүй дуусгаж байна.",
+  queueTitle: "Дараалалд буй бичлэгүүд",
+  terminalTitle: "Шууд задалгааны терминал",
+
   ready: "Бэлэн",
   complete: "Дууссан",
   successTitle: "Таны оюун ухаан өсч байна",
@@ -183,7 +193,7 @@ export const DICTS: Record<Lang, Dict> = { en, mn };
 const STORAGE_KEY = "evermind-lang";
 
 export function isLang(v: unknown): v is Lang {
-  return v === "en" || v === "mn";
+  return v === "en" || v === "mn" || v === "ko";
 }
 
 /** Reads/writes the active locale, shared across the app through localStorage. */
