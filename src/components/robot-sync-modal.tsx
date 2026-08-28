@@ -4,6 +4,8 @@ import { Bot, Download, X } from "lucide-react";
 
 import { deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
 import type { FeedItem } from "@/lib/feed";
+import { MindSpecs } from "@/components/mind-specs";
+
 
 const TOPIC = "/evermind/mind_action";
 
