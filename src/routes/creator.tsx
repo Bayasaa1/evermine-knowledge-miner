@@ -13,6 +13,7 @@ import { tr, pickCopy, type Lang } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
+import { MindVersioningHub } from "@/components/mind-versioning-hub";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
