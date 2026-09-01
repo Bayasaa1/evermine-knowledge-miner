@@ -2,11 +2,16 @@
  * Dynamic i18n for the guided Evermind studio. English + Mongolian ship today;
  * the dictionary shape is flat so new locales can be added without code changes.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
+import { getCachedTranslation, requestTranslation } from "@/lib/dynamic-translate";
 
-export type Lang = "en" | "mn" | "ko";
+/** The active display language. Always one of the 20 supported locales. */
+export type Lang = LangCode;
 
-export const LANG_LABELS: Record<Lang, string> = { en: "English", mn: "Монгол", ko: "한국어" };
+export const LANG_LABELS = Object.fromEntries(
+  Object.values(LANGUAGES).map((l) => [l.code, l.native]),
+) as Record<Lang, string>;
 
 export type Dict = Record<string, string>;
 
