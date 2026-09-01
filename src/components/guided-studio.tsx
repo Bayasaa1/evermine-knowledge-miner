@@ -387,7 +387,7 @@ function StepUpload({ lang }: { lang: Lang }) {
             sourcePublishedAt: formatPublishedDate(m.publishedAt, lang),
             sourceDurationLabel: m.durationLabel || formatDuration(m.durationSec),
             sourceChannel: m.channel,
-            outputLanguage: lang,
+            outputLanguage: lang, // audience hint only — the stored JSON stays English
           }));
         })
         .catch(() => {
