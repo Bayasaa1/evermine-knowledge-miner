@@ -9,7 +9,7 @@ import { MindFeedback } from "@/components/mind-feedback";
 import { RobotDeploymentStudio } from "@/components/robot-deployment-studio";
 import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
-import { tr, pickCopy, type Lang } from "@/lib/i18n";
+import { tr, pickCopy, useLang, type Lang } from "@/lib/i18n";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
@@ -974,7 +974,7 @@ class QuotaPaused extends Error {
 
 
 function Index() {
-  const [lang, setLang] = useState<Lang>("en");
+  const { lang, setLang } = useLang();
   const [view, setView] = useState<"guided" | "advanced" | "versions" | "projects">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
@@ -1817,32 +1817,7 @@ function Index() {
             <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
               {t.language}
             </label>
-            <div className="flex rounded-lg border border-border bg-muted p-1">
-              <button
-                onClick={() => setLang("en")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  lang === "en" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                English
-              </button>
-              <button
-                onClick={() => setLang("mn")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  lang === "mn" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Монгол
-              </button>
-              <button
-                onClick={() => setLang("ko")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  lang === "ko" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                한국어
-              </button>
-            </div>
+            <LanguageSelector variant="inline" />
           </div>
 
           <nav className="flex-1">

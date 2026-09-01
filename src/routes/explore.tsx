@@ -36,6 +36,7 @@ import {
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
+import { useLang } from "@/lib/i18n";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
 import {
   inferEmotion,
@@ -161,7 +162,7 @@ function Explore() {
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [lang, setLang] = useState<LangCode>("en");
+  const { lang, setLang } = useLang();
   const [langOpen, setLangOpen] = useState(false);
   const [mouth, setMouth] = useState(0);
   const [emotion, setEmotion] = useState<AvatarEmotion>(NEUTRAL_EMOTION);
