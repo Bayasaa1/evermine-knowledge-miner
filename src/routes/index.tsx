@@ -262,63 +262,75 @@ function FeedCard({
       ref={ref}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
-      {item.youtubeId ? (
-        <YouTubeStage
-          videoId={item.youtubeId}
-          active={isActive}
-          muted={muted}
-          paused={paused}
-          onTime={setNow}
-          onToggle={toggle}
+      {/* Blurred backdrop on desktop so wide screens never stretch the vertical video */}
+      {item.poster && (
+        <img
+          src={item.poster}
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute inset-0 hidden h-full w-full scale-110 object-cover opacity-40 blur-2xl md:block"
         />
-      ) : item.src ? (
-        <video
-          ref={videoRef}
-          src={item.src}
-          poster={item.poster}
-          muted={muted}
-          loop
-          playsInline
-          onClick={toggle}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <img src={item.poster} alt={item.title} className="h-full w-full object-cover" />
       )}
+      <div className="pointer-events-none absolute inset-0 hidden bg-black/40 md:block" />
 
-      {paused && (item.src || item.youtubeId) && (
-        <button
-          type="button"
-          onClick={toggle}
-          aria-label="Play"
-          className="absolute inset-0 flex items-center justify-center bg-black/20"
-        >
-          <Play className="h-14 w-14 opacity-80" />
-        </button>
-      )}
+      {/* Centered 9:16 player frame on desktop; full-bleed on mobile */}
+      <div className="relative h-[100dvh] w-full overflow-hidden md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[450px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
+        {item.youtubeId ? (
+          <YouTubeStage
+            videoId={item.youtubeId}
+            active={isActive}
+            muted={muted}
+            paused={paused}
+            onTime={setNow}
+            onToggle={toggle}
+          />
+        ) : item.src ? (
+          <video
+            ref={videoRef}
+            src={item.src}
+            poster={item.poster}
+            muted={muted}
+            loop
+            playsInline
+            onClick={toggle}
+            className="h-full w-full object-cover md:object-contain md:bg-black"
+          />
+        ) : (
+          <img src={item.poster} alt={item.title} className="h-full w-full object-cover md:object-contain md:bg-black" />
+        )}
 
-      {/* Live mined knowledge + emotion tags, aligned to what is playing */}
-      {(activeMark || activeEmotion) && (
-        <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[62%] space-y-1.5">
-          {activeMark && (
-            <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
-              <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
-              {activeMark.label}
-            </p>
-          )}
-          {activeEmotion && (
-            <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
-              {activeEmotion.emotion ?? activeEmotion.label}
-            </span>
-          )}
-        </div>
-      )}
+        {paused && (item.src || item.youtubeId) && (
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Play"
+            className="absolute inset-0 flex items-center justify-center bg-black/20"
+          >
+            <Play className="h-14 w-14 opacity-80" />
+          </button>
+        )}
 
+        {/* Live mined knowledge + emotion tags, aligned to what is playing */}
+        {(activeMark || activeEmotion) && (
+          <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[62%] space-y-1.5">
+            {activeMark && (
+              <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
+                <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
+                {activeMark.label}
+              </p>
+            )}
+            {activeEmotion && (
+              <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
+                {activeEmotion.emotion ?? activeEmotion.label}
+              </span>
+            )}
+          </div>
+        )}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
       {/* Right action rail — only the services this creator enabled */}
-      <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5">
+      <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5 md:bottom-8">
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
           <span className="text-[10px]">Like</span>
@@ -393,7 +405,7 @@ function FeedCard({
       </div>
 
       {/* Creator overlay */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20">
+      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20 md:bottom-6 md:pr-16">
         <div className="mb-2 flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
             {item.creator.slice(0, 2).toUpperCase()}
@@ -427,6 +439,7 @@ function FeedCard({
             </span>
           ))}
         </div>
+      </div>
       </div>
     </section>
   );
