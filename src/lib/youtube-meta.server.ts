@@ -53,3 +53,93 @@ export async function fetchVideoMeta(videoId: string): Promise<VideoMeta> {
   }
   return { videoId, url, title, durationSec };
 }
+
+/** Rich metadata for zero-touch onboarding: oEmbed + watch-page scrape. */
+export type VideoDetails = {
+  videoId: string;
+  url: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  durationSec: number;
+  thumbnail: string;
+  channel: string;
+};
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const details: VideoDetails = {
+    videoId,
+    url,
+    title: "",
+    description: "",
+    publishedAt: "",
+    durationSec: 0,
+    thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+    channel: "",
+  };
+
+  // oEmbed is the most reliable source for title + author.
+  try {
+    const res = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+      { headers: { "User-Agent": UA } },
+    );
+    if (res.ok) {
+      const j = (await res.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
+      if (j.title) details.title = j.title;
+      if (j.author_name) details.channel = j.author_name;
+      if (j.thumbnail_url) details.thumbnail = j.thumbnail_url.replace("hqdefault", "maxresdefault");
+    }
+  } catch {
+    // best effort
+  }
+
+  try {
+    const html = await fetchText(url);
+    const len = html.match(/"lengthSeconds":"(\d+)"/);
+    if (len?.[1]) {
+      const n = Number(len[1]);
+      if (Number.isFinite(n) && n > 0) details.durationSec = n;
+    }
+    const desc =
+      html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/)?.[1] ??
+      html.match(/<meta name="description" content="([^"]*)"/)?.[1] ??
+      "";
+    if (desc) {
+      try {
+        details.description = JSON.parse(`"${desc.replace(/"/g, '\\"').replace(/\\\\"/g, '\\"')}"`) as string;
+      } catch {
+        details.description = decodeEntities(desc.replace(/\\n/g, "\n"));
+      }
+    }
+    const published =
+      html.match(/"publishDate":"([^"]+)"/)?.[1] ??
+      html.match(/<meta itemprop="datePublished" content="([^"]+)"/)?.[1] ??
+      html.match(/"uploadDate":"([^"]+)"/)?.[1] ??
+      "";
+    if (published) details.publishedAt = published;
+    if (!details.title) {
+      const t = html.match(/<meta name="title" content="([^"]{1,200})"/);
+      if (t?.[1]) details.title = decodeEntities(t[1]);
+    }
+    if (!details.channel) {
+      const c = html.match(/"ownerChannelName":"([^"]{1,120})"/);
+      if (c?.[1]) details.channel = decodeEntities(c[1]);
+    }
+  } catch {
+    // best effort — the UI still gets whatever oEmbed returned
+  }
+
+  if (!details.title) details.title = videoId;
+  return details;
+}
