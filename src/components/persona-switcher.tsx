@@ -51,7 +51,10 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
       return switchPersona(userId, id);
     },
     onSuccess: async (error) => {
-      if (error) return toast.error(error);
+      if (error) {
+        toast.error(error);
+        return;
+      }
       await refresh();
       toast.success("Active persona updated");
     },
@@ -70,7 +73,10 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
       return null;
     },
     onSuccess: async (error) => {
-      if (error) return toast.error(error);
+      if (error) {
+        toast.error(error);
+        return;
+      }
       setDraft("");
       setAvatar("");
       await refresh();
@@ -81,7 +87,10 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
   const removing = useMutation({
     mutationFn: (id: string) => deletePersona(id),
     onSuccess: async (error) => {
-      if (error) return toast.error(error);
+      if (error) {
+        toast.error(error);
+        return;
+      }
       await refresh();
       toast.success("Persona removed");
     },
