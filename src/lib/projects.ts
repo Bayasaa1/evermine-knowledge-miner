@@ -121,6 +121,7 @@ export async function addProjectContent(
     title: string;
     description?: string;
     tags?: string[];
+    mindId?: string;
   },
 ): Promise<string | null> {
   const { error } = await supabase.from("project_content").insert({
@@ -132,6 +133,7 @@ export async function addProjectContent(
     title: input.title.trim() || "Untitled clip",
     description: input.description?.trim() ?? "",
     tags: input.tags ?? [],
+    ...(input.mindId ? { mind_id: input.mindId } : {}),
   });
   return error?.message ?? null;
 }
