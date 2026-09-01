@@ -10,6 +10,7 @@ import { RobotDeploymentStudio } from "@/components/robot-deployment-studio";
 import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
 import { tr, pickCopy, useLang, type Lang } from "@/lib/i18n";
+import { LanguageSelector } from "@/components/language-selector";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
