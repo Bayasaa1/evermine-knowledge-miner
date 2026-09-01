@@ -7,7 +7,7 @@ import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Item = { to: "/" | "/explore" | "/vaults" | "/profile"; label: string; icon: typeof Home };
 
-const ITEMS = {
+const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
   en: [
     { to: "/", label: "Home", icon: Home },
     { to: "/explore", label: "Explore", icon: Compass },

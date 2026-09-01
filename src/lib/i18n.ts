@@ -4,7 +4,12 @@
  */
 import { useCallback, useSyncExternalStore } from "react";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
-import { getCachedTranslation, requestTranslation } from "@/lib/dynamic-translate";
+import {
+  getCachedTranslation,
+  requestTranslation,
+  subscribeTranslations,
+  translationVersion,
+} from "@/lib/dynamic-translate";
 
 /** The active display language. Always one of the 20 supported locales. */
 export type Lang = LangCode;
@@ -365,11 +370,6 @@ export function useLang(): { lang: Lang; setLang: (l: Lang) => void; t: (key: st
   const t = useCallback((key: string) => tr(lang, key), [lang]);
 
   return { lang, setLang, t };
-}
-
-/** Subscribe to dynamic translation updates without needing the locale. */
-function subscribeTranslations(cb: () => void) {
-  return subscribeDynamic(cb);
 }
 
 export function tr(lang: Lang, key: string): string {
