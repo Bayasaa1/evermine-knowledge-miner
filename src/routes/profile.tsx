@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Hammer, ShieldCheck, Wallet } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
+import { PersonaSwitcher } from "@/components/persona-switcher";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/profile")({
@@ -35,6 +36,7 @@ function ProfilePage() {
             </h1>
             <p className="text-xs text-muted-foreground">A life becomes a mind.</p>
           </div>
+          <PersonaSwitcher />
           <AccountMenu compact />
         </div>
 
