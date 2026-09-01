@@ -49,6 +49,60 @@ function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | 
   return found;
 }
 
+/** Feed chrome copy. Missing locales stream through the dynamic translator. */
+const FEED_COPY = {
+  en: {
+    headline: "Evermind — Talk to real minds",
+    like: "Like",
+    textChat: "Text Chat",
+    previewChat: "Preview Chat",
+    voiceCall: "Voice Call",
+    videoCall: "Video Call",
+    robot: "Deploy to Robot",
+    assets: "Assets",
+    reviews: "Reviews",
+    buy: "Buy",
+    free: "Get · Free",
+    minedTimeline: "Mined timeline",
+    emotions: "Emotions",
+    signIn: "Sign in to buy this mind.",
+    locked: "Purchase this mind to unlock this service.",
+  },
+  mn: {
+    headline: "Evermind — Жинхэнэ оюунтай ярь",
+    like: "Таалагдлаа",
+    textChat: "Бичвэр чат",
+    previewChat: "Туршилтын чат",
+    voiceCall: "Дуут дуудлага",
+    videoCall: "Видео дуудлага",
+    robot: "Робот руу байршуулах",
+    assets: "Файлууд",
+    reviews: "Сэтгэгдэл",
+    buy: "Худалдан авах",
+    free: "Авах · Үнэгүй",
+    minedTimeline: "Задлагдсан цагийн хэлхээ",
+    emotions: "Сэтгэл хөдлөл",
+    signIn: "Энэ оюуныг авахын тулд нэвтэрнэ үү.",
+    locked: "Энэ үйлчилгээг нээхийн тулд оюуныг худалдан авна уу.",
+  },
+  ko: {
+    headline: "Evermind — 진짜 마인드와 대화하세요",
+    like: "좋아요",
+    textChat: "텍스트 채팅",
+    previewChat: "미리보기 채팅",
+    voiceCall: "음성 통화",
+    videoCall: "영상 통화",
+    robot: "로봇에 배포",
+    assets: "자료",
+    reviews: "리뷰",
+    buy: "구매",
+    free: "무료로 받기",
+    minedTimeline: "마이닝 타임라인",
+    emotions: "감정",
+    signIn: "이 마인드를 구매하려면 로그인하세요.",
+    locked: "이 기능을 사용하려면 마인드를 구매하세요.",
+  },
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
