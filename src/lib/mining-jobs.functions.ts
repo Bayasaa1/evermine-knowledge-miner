@@ -4,12 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { splitIntoChunks, type Chunk } from "@/lib/chunking";
 import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
+import { packInstructions, unpackInstructions } from "@/lib/mining-jobs";
 import type { ChunkStepResult, MiningJob, MiningJobStatus } from "@/lib/mining-jobs";
 
 const assessmentSchema = z.object({
   videoContext: z.string().max(120).default("Podcast"),
   primaryFocus: z.string().max(120).default("Knowledge / QA"),
   customInstructions: z.string().max(2_000).default(""),
+  speakerIdentity: z.string().max(300).default(""),
 });
 
 const startSchema = z.object({
@@ -100,7 +102,7 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         queue_position: i,
         video_context: data.assessment.videoContext,
         primary_focus: data.assessment.primaryFocus,
-        custom_instructions: data.assessment.customInstructions,
+        custom_instructions: packInstructions(data.assessment),
         chunks: chunks as never,
         results: [] as never,
         next_index: 0,
