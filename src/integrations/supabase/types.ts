@@ -484,6 +484,7 @@ export type Database = {
           title: string
           updated_at: string
           user_id: string
+          view_count: number
           youtube_id: string
         }
         Insert: {
@@ -500,6 +501,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id: string
+          view_count?: number
           youtube_id?: string
         }
         Update: {
@@ -516,6 +518,7 @@ export type Database = {
           title?: string
           updated_at?: string
           user_id?: string
+          view_count?: number
           youtube_id?: string
         }
         Relationships: [
@@ -537,11 +540,13 @@ export type Database = {
           currency: string
           description: string
           id: string
+          persona_id: string | null
           price: number
           published: boolean
           title: string
           updated_at: string
           user_id: string
+          view_count: number
         }
         Insert: {
           cover_url?: string | null
@@ -551,11 +556,13 @@ export type Database = {
           currency?: string
           description?: string
           id?: string
+          persona_id?: string | null
           price?: number
           published?: boolean
           title?: string
           updated_at?: string
           user_id: string
+          view_count?: number
         }
         Update: {
           cover_url?: string | null
@@ -565,13 +572,23 @@ export type Database = {
           currency?: string
           description?: string
           id?: string
+          persona_id?: string | null
           price?: number
           published?: boolean
           title?: string
           updated_at?: string
           user_id?: string
+          view_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "creator_personas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       robot_packages: {
         Row: {
