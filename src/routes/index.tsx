@@ -330,7 +330,7 @@ function FeedCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
       {/* Right action rail — only the services this creator enabled */}
-      <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5">
+      <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5 md:bottom-8">
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
           <span className="text-[10px]">Like</span>
@@ -405,7 +405,7 @@ function FeedCard({
       </div>
 
       {/* Creator overlay */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20">
+      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20 md:bottom-6 md:pr-16">
         <div className="mb-2 flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
             {item.creator.slice(0, 2).toUpperCase()}
@@ -439,6 +439,7 @@ function FeedCard({
             </span>
           ))}
         </div>
+      </div>
       </div>
     </section>
   );
