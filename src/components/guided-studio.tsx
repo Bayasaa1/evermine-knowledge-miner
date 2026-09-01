@@ -55,7 +55,13 @@ import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget 
 import { addProjectContent, createProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
-import { DEFAULT_ASSESSMENT, type Assessment, type VideoMetadata } from "@/lib/mining-jobs";
+import {
+  DEFAULT_ASSESSMENT,
+  formatDuration,
+  formatPublishedDate,
+  type Assessment,
+  type VideoMetadata,
+} from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
 import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
 
