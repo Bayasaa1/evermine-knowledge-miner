@@ -20,6 +20,8 @@ export type Project = {
   price: number;
   currency: string;
   published: boolean;
+  persona_id: string | null;
+  view_count: number;
   created_at: string;
   updated_at: string;
 };
@@ -44,14 +46,15 @@ export type ProjectContent = {
   timeline: TimelineMark[];
   emotion_timeline: TimelineMark[];
   mind_id: string;
+  view_count: number;
   created_at: string;
   updated_at: string;
 };
 
 const PROJECT_COLS =
-  "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,created_at,updated_at";
+  "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,view_count,created_at,updated_at";
 const CONTENT_COLS =
-  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,mind_id,created_at,updated_at";
+  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,mind_id,view_count,created_at,updated_at";
 
 export async function listMyProjects(userId: string): Promise<Project[]> {
   const { data } = await supabase
@@ -64,7 +67,14 @@ export async function listMyProjects(userId: string): Promise<Project[]> {
 
 export async function createProject(
   userId: string,
-  input: { title: string; description?: string; creatorName?: string; creatorAvatarUrl?: string | null; price?: number },
+  input: {
+    title: string;
+    description?: string;
+    creatorName?: string;
+    creatorAvatarUrl?: string | null;
+    price?: number;
+    personaId?: string | null;
+  },
 ): Promise<{ project: Project | null; error: string | null }> {
   const { data, error } = await supabase
     .from("projects")
@@ -75,6 +85,7 @@ export async function createProject(
       creator_name: input.creatorName?.trim() || "Evermind creator",
       creator_avatar_url: input.creatorAvatarUrl ?? null,
       price: input.price ?? 0,
+      persona_id: input.personaId ?? null,
     })
     .select(PROJECT_COLS)
     .single();
@@ -122,6 +133,21 @@ export async function addProjectContent(
     description: input.description?.trim() ?? "",
     tags: input.tags ?? [],
   });
+  return error?.message ?? null;
+}
+
+/** Projects that belong to one persona (or the master account when null). */
+export async function listProjectsByPersona(userId: string, personaId: string | null): Promise<Project[]> {
+  const all = await listMyProjects(userId);
+  return all.filter((p) => (p.persona_id ?? null) === personaId);
+}
+
+/** Edits the editable metadata of one mined video card. */
+export async function updateProjectContent(
+  id: string,
+  patch: { title?: string; description?: string; tags?: string[]; kind?: ContentKind },
+): Promise<string | null> {
+  const { error } = await supabase.from("project_content").update(patch).eq("id", id);
   return error?.message ?? null;
 }
 
