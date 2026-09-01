@@ -450,6 +450,9 @@ export function ProjectTargetPicker({
           {value.publishToFeed ? t.publishOn : t.publishOff}
         </span>
       </label>
+      </>
+      )}
     </div>
+
   );
 }
