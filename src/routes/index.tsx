@@ -307,6 +307,14 @@ function FeedCard({
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
 
+  const { lang } = useLang();
+  const c = pickCopy(FEED_COPY, lang);
+  const shownTitle = useDisplayText(item.title);
+  const shownDescription = useDisplayText(item.description);
+  const shownTags = useDisplayTexts(item.tags);
+  const shownMarks = useDisplayTexts((item.timeline ?? []).map((m) => m.label));
+  const shownEmotions = useDisplayTexts((item.emotionTimeline ?? []).map((m) => m.emotion ?? m.label));
+
   const caps = capabilitiesFor(item.category);
   const primary = primaryActionFor(item.category);
   const has = (c: Capability) => caps.includes(c);
