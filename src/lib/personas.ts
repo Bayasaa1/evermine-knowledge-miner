@@ -100,3 +100,9 @@ export async function switchPersona(userId: string, id: string | null): Promise<
     .eq("user_id", userId);
   return error?.message ?? null;
 }
+
+/** Loads a single persona by id (used when the wizard targets a specific identity). */
+export async function getPersona(id: string): Promise<Persona | null> {
+  const { data } = await supabase.from("creator_personas").select(COLS).eq("id", id).maybeSingle();
+  return (data as Persona | null) ?? null;
+}
