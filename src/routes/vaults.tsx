@@ -68,10 +68,16 @@ function SavedMinds() {
 function VaultsPage() {
   return (
     <div className="dark min-h-screen bg-background pb-28 text-foreground">
-      <div className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Vaults</h1>
-        <MindManager lang="en" />
-        <SavedMinds />
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <h1 className="text-2xl font-semibold tracking-tight">My Vaults</h1>
+        <p className="mb-6 mt-1 text-sm text-muted-foreground">
+          Personas, projects, mined content, Core Brain, monetization and reviews — one ecosystem.
+        </p>
+        <VaultHub lang="en" />
+        <div className="mt-8 space-y-6 border-t border-border pt-6">
+          <MindManager lang="en" />
+          <SavedMinds />
+        </div>
         <div className="mt-6 flex justify-end">
           <Link
             to="/creator"
@@ -85,3 +91,4 @@ function VaultsPage() {
     </div>
   );
 }
+
