@@ -57,6 +57,9 @@ import {
 } from "@/lib/drive-backup";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
+import { DEFAULT_TARGET, ProjectTargetPicker, type ProjectTarget } from "@/components/project-target";
+import { addProjectContent, createProject } from "@/lib/projects";
+import { youtubeId } from "@/lib/import-sources";
 import { DEFAULT_ASSESSMENT, type Assessment } from "@/lib/mining-jobs";
 import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
 
@@ -313,7 +316,8 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [hasAuth, setHasAuth] = useState(true);
-  const { isAuthenticated: signedIn } = useAuth();
+  const { isAuthenticated: signedIn, userId } = useAuth();
+  const [target, setTarget] = useState<ProjectTarget>(DEFAULT_TARGET);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -412,7 +416,31 @@ function StepUpload({ lang }: { lang: Lang }) {
         );
       }
 
-      await publishToFeed({
+      // File the video into the chosen Project (new or existing).
+      let projectId = target.mode === "existing" ? target.projectId : null;
+      if (userId && !projectId) {
+        const created = await createProject(userId, {
+          title: target.newTitle.trim() || title,
+          description: mined.story.summary ?? "",
+        });
+        projectId = created.project?.id ?? null;
+      }
+      if (userId && projectId) {
+        await addProjectContent(userId, {
+          projectId,
+          kind: target.contentKind,
+          youtubeId: source.kind === "youtube" ? (youtubeId(source.url) ?? "") : "",
+          sourceUrl: source.kind === "youtube" ? source.url : source.label,
+          title,
+          description: mined.story.summary ?? "",
+          tags: mined.subconsciousness.skills.slice(0, 6),
+        });
+        await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
+        await queryClient.invalidateQueries({ queryKey: ["project-content", projectId] });
+      }
+
+      const goPublic = target.publishToFeed && target.contentKind === "VISUAL_CONTENT";
+      if (goPublic) await publishToFeed({
         id: `pub_${saved.vaultId}`,
         mindId: vault.id,
         creator: vault.title,
@@ -439,7 +467,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         );
       }
     },
-    [lang, queryClient],
+    [lang, queryClient, target, userId],
   );
 
 
@@ -604,6 +632,8 @@ function StepUpload({ lang }: { lang: Lang }) {
 
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
+      <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />
+
       <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(

@@ -6,6 +6,8 @@ export type Assessment = {
   videoContext: string;
   primaryFocus: string;
   customInstructions: string;
+  /** Podcast diarization hint, e.g. "Host: Batbold, Guest: Elon Musk". */
+  speakerIdentity: string;
 };
 
 export const VIDEO_CONTEXTS = [
@@ -28,7 +30,27 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   videoContext: "Podcast",
   primaryFocus: "Knowledge / QA",
   customInstructions: "",
+  speakerIdentity: "",
 };
+
+const SPEAKER_MARKER = "[SPEAKER_IDENTITY]";
+
+/** Folds the diarization hint into the stored instructions column. */
+export function packInstructions(a: Assessment): string {
+  return a.speakerIdentity.trim()
+    ? `${a.customInstructions}\n${SPEAKER_MARKER} ${a.speakerIdentity.trim()}`.trim()
+    : a.customInstructions;
+}
+
+/** Splits a stored instructions column back into instructions + identity. */
+export function unpackInstructions(raw: string): { customInstructions: string; speakerIdentity: string } {
+  const at = raw.indexOf(SPEAKER_MARKER);
+  if (at < 0) return { customInstructions: raw, speakerIdentity: "" };
+  return {
+    customInstructions: raw.slice(0, at).trim(),
+    speakerIdentity: raw.slice(at + SPEAKER_MARKER.length).trim(),
+  };
+}
 
 export type MiningJobStatus = "queued" | "running" | "paused_quota" | "error" | "done";
 

@@ -724,6 +724,20 @@ Only cover the requested time range. Output JSON only.`;
 
 
 
+/**
+ * Podcast diarization: the host owns the Mind, guests are context only.
+ */
+export function speakerIdentityDirective(identity: string | undefined): string {
+  const who = (identity ?? "").trim();
+  if (!who) return "";
+  return `\n\nSPEAKER IDENTITY & DIARIZATION (STRICT)
+Known participants: ${who}.
+Map every diarized voice onto these names in "speakers". The Mind Owner / Host is the ONLY "primary" role; every guest, interviewer or caller is "secondary".
+- "subconsciousness" (skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, aestheticProfile) must contain ONLY what the Mind Owner personally says. Never absorb a guest's opinions, expertise or phrasing into the owner's identity.
+- Guest statements are still valuable: record them as "knowledgeNodes" whose "concept_title" is prefixed with "Guest context: " and whose explanation names the guest. They are contextual knowledge, not owner identity.
+- If you cannot tell who is speaking, mark the speaker "unknown" and keep the line out of the owner's core identity.\n`;
+}
+
 /** Category-strict mining directives selected in the "+" Create hub. */
 export type MiningCategory = "knowledge" | "robot" | "voice" | "sales";
 
