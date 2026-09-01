@@ -1,3 +1,4 @@
+import { LANGUAGES } from "@/lib/languages";
 import { normalizeYoutubeUrl } from "@/lib/import-sources";
 import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
 
@@ -41,14 +42,9 @@ export type Assessment = {
   outputLanguage?: string;
 };
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  mn: "Mongolian (Монгол)",
-  ko: "Korean (한국어)",
-  ja: "Japanese (日本語)",
-  zh: "Chinese (中文)",
-  es: "Spanish (Español)",
-};
+const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
+  Object.values(LANGUAGES).map((l) => [l.code, `${l.name} (${l.native})`]),
+);
 
 /**
  * The Core Brain is stored in English for AI stability and graph-schema
