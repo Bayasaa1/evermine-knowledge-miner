@@ -432,9 +432,7 @@ function PersonaWorkspace({
                 <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
                   <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-sm font-semibold text-foreground">{p.title}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
-                    </span>
+                    <ProjectCardStats lang={lang} project={p} />
                   </button>
                   <button
                     type="button"
@@ -466,19 +464,44 @@ function PersonaWorkspace({
   );
 }
 
+/** Live rating / earnings / views summary shown on each project card. */
+function ProjectCardStats({ lang, project }: { lang: Lang; project: Project }) {
+  const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const { data } = useQuery<ProjectStats>({
+    queryKey: ["project-stats", project.id],
+    queryFn: () => projectStats(project),
+  });
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1">
+        <Eye className="h-3 w-3" /> {(data?.views ?? project.view_count).toLocaleString()}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Coins className="h-3 w-3" /> {(data?.earnings ?? 0).toFixed(2)} {project.currency || "USD"}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Star className="h-3 w-3" /> {data?.rating ? `${data.rating.toFixed(1)} (${data.reviewCount})` : "—"}
+      </span>
+      <span>{new Date(project.updated_at).toLocaleDateString()}</span>
+    </span>
+  );
+}
+
 function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: Project; onChanged: () => void }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
-  const [items, setItems] = useState<ProjectContent[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: projectContentKey(project.id),
+    queryFn: () => listProjectContent(project.id),
+    refetchOnMount: "always",
+  });
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setItems(await listProjectContent(project.id));
-    setLoading(false);
-  }, [project.id]);
-
-  useEffect(() => { void load(); }, [load]);
+    await queryClient.invalidateQueries({ queryKey: projectContentKey(project.id) });
+    await queryClient.invalidateQueries({ queryKey: ["project-stats", project.id] });
+  }, [queryClient, project.id]);
 
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({ queryKey: ["mining-jobs"], queryFn: () => fetchJobs() });
