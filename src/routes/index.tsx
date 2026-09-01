@@ -24,6 +24,9 @@ import { MindFeedback } from "@/components/mind-feedback";
 import { MindReviews } from "@/components/mind-reviews";
 import { YouTubeStage } from "@/components/youtube-stage";
 import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
 import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
@@ -46,6 +49,60 @@ function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | 
   return found;
 }
 
+/** Feed chrome copy. Missing locales stream through the dynamic translator. */
+const FEED_COPY = {
+  en: {
+    headline: "Evermind — Talk to real minds",
+    like: "Like",
+    textChat: "Text Chat",
+    previewChat: "Preview Chat",
+    voiceCall: "Voice Call",
+    videoCall: "Video Call",
+    robot: "Deploy to Robot",
+    assets: "Assets",
+    reviews: "Reviews",
+    buy: "Buy",
+    free: "Get · Free",
+    minedTimeline: "Mined timeline",
+    emotions: "Emotions",
+    signIn: "Sign in to buy this mind.",
+    locked: "Purchase this mind to unlock this service.",
+  },
+  mn: {
+    headline: "Evermind — Жинхэнэ оюунтай ярь",
+    like: "Таалагдлаа",
+    textChat: "Бичвэр чат",
+    previewChat: "Туршилтын чат",
+    voiceCall: "Дуут дуудлага",
+    videoCall: "Видео дуудлага",
+    robot: "Робот руу байршуулах",
+    assets: "Файлууд",
+    reviews: "Сэтгэгдэл",
+    buy: "Худалдан авах",
+    free: "Авах · Үнэгүй",
+    minedTimeline: "Задлагдсан цагийн хэлхээ",
+    emotions: "Сэтгэл хөдлөл",
+    signIn: "Энэ оюуныг авахын тулд нэвтэрнэ үү.",
+    locked: "Энэ үйлчилгээг нээхийн тулд оюуныг худалдан авна уу.",
+  },
+  ko: {
+    headline: "Evermind — 진짜 마인드와 대화하세요",
+    like: "좋아요",
+    textChat: "텍스트 채팅",
+    previewChat: "미리보기 채팅",
+    voiceCall: "음성 통화",
+    videoCall: "영상 통화",
+    robot: "로봇에 배포",
+    assets: "자료",
+    reviews: "리뷰",
+    buy: "구매",
+    free: "무료로 받기",
+    minedTimeline: "마이닝 타임라인",
+    emotions: "감정",
+    signIn: "이 마인드를 구매하려면 로그인하세요.",
+    locked: "이 기능을 사용하려면 마인드를 구매하세요.",
+  },
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -71,7 +128,32 @@ const mindKey = (item: FeedItem) => item.mindId ?? item.id;
 function HomeFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [items, setItems] = useState<FeedItem[]>(() => marketplaceFeed());
+  const queryClient = useQueryClient();
+  const { lang } = useLang();
+  const c = pickCopy(FEED_COPY, lang);
+  const { data: items = marketplaceFeed() } = useQuery({
+    queryKey: ["home-feed"],
+    queryFn: loadFeed,
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
+  });
+
+  // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
+  useEffect(() => {
+    const channel = supabase
+      .channel("home-feed-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_content" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const [muted, setMuted] = useState(true);
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
@@ -81,9 +163,6 @@ function HomeFeed() {
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [buying, setBuying] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadFeed().then(setItems).catch(() => undefined);
-  }, []);
 
   const refreshPurchases = useCallback(async () => {
     if (!user) {
@@ -100,7 +179,7 @@ function HomeFeed() {
 
   const buy = async (item: FeedItem) => {
     if (!user) {
-      toast.error("Sign in to buy this mind.");
+      toast.error(c.signIn);
       void navigate({ to: "/auth" });
       return;
     }
@@ -131,7 +210,7 @@ function HomeFeed() {
     <div className="dark min-h-screen bg-black pb-28 text-white">
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-4 py-3">
         <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> Evermind — Talk to real minds
+          <Sparkles className="h-3.5 w-3.5 text-primary" /> {c.headline}
         </h1>
         <button
           type="button"
@@ -228,8 +307,17 @@ function FeedCard({
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
 
+  const { lang } = useLang();
+  const c = pickCopy(FEED_COPY, lang);
+  const shownTitle = useDisplayText(item.title);
+  const shownDescription = useDisplayText(item.description);
+  const shownTags = useDisplayTexts(item.tags);
+  const shownMarks = useDisplayTexts((item.timeline ?? []).map((m) => m.label));
+  const shownEmotions = useDisplayTexts((item.emotionTimeline ?? []).map((m) => m.emotion ?? m.label));
+
   const caps = capabilitiesFor(item.category);
   const primary = primaryActionFor(item.category);
+  const shownPrimary = useDisplayText(primary.en);
   const has = (c: Capability) => caps.includes(c);
   const activeMark = markAt(item.timeline, now);
   const activeEmotion = markAt(item.emotionTimeline, now);
@@ -256,7 +344,7 @@ function FeedCard({
   }, [isActive, paused]);
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
-  const locked = () => toast.error("Purchase this mind to unlock this service.");
+  const locked = () => toast.error(c.locked);
 
   return (
     <section
@@ -317,12 +405,14 @@ function FeedCard({
             {activeMark && (
               <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
-                {activeMark.label}
+                {shownMarks[(item.timeline ?? []).indexOf(activeMark)] || activeMark.label}
               </p>
             )}
             {activeEmotion && (
               <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
-                {activeEmotion.emotion ?? activeEmotion.label}
+                {shownEmotions[(item.emotionTimeline ?? []).indexOf(activeEmotion)] ||
+                  activeEmotion.emotion ||
+                  activeEmotion.label}
               </span>
             )}
           </div>
@@ -334,7 +424,7 @@ function FeedCard({
       <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5 md:bottom-8">
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
-          <span className="text-[10px]">Like</span>
+          <span className="text-[10px]">{c.like}</span>
         </button>
 
         {has("chat") && (
@@ -342,7 +432,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <MessageCircle className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">{purchased ? "Text Chat" : "Preview Chat"}</span>
+            <span className="text-[10px]">{purchased ? c.textChat : c.previewChat}</span>
           </button>
         )}
 
@@ -356,7 +446,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <Phone className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Voice Call</span>
+            <span className="text-[10px]">{c.voiceCall}</span>
           </button>
         )}
 
@@ -370,7 +460,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <VideoIcon className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Video Call</span>
+            <span className="text-[10px]">{c.videoCall}</span>
           </button>
         )}
 
@@ -380,7 +470,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <Bot className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Deploy to Robot</span>
+            <span className="text-[10px]">{c.robot}</span>
           </button>
         )}
 
@@ -389,13 +479,13 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <FolderOpen className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Assets</span>
+            <span className="text-[10px]">{c.assets}</span>
           </button>
         )}
 
         <button type="button" onClick={onFeedback} aria-label="Comments and reviews" className="flex flex-col items-center gap-1">
           <Star className="h-7 w-7" />
-          <span className="text-[10px]">Reviews</span>
+          <span className="text-[10px]">{c.reviews}</span>
         </button>
 
         {item.src && (
@@ -435,18 +525,18 @@ function FeedCard({
           >
             {buying && <Loader2 className="h-3 w-3 animate-spin" />}
             {purchased
-              ? primary.en
+              ? shownPrimary
               : item.price > 0
-                ? `Buy · ${item.currency} ${item.price}`
-                : "Get · Free"}
+                ? `${c.buy} · ${item.currency} ${item.price}`
+                : c.free}
           </button>
         </div>
-        <p className="line-clamp-2 text-sm font-medium">{item.title}</p>
-        <p className="mt-1 line-clamp-2 text-xs text-white/70">{item.description}</p>
+        <p className="line-clamp-2 text-sm font-medium">{shownTitle}</p>
+        <p className="mt-1 line-clamp-2 text-xs text-white/70">{shownDescription}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {item.tags.slice(0, 3).map((tag) => (
+          {item.tags.slice(0, 3).map((tag, ti) => (
             <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
-              #{tag}
+              #{shownTags[ti] || tag}
             </span>
           ))}
         </div>
@@ -456,15 +546,15 @@ function FeedCard({
       {/* Tablet dual-pane: mined knowledge, emotions, and reviews beside the video */}
       <aside className="hidden h-[min(100dvh-6rem,860px)] w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur md:ml-6 md:flex lg:hidden">
         <div className="border-b border-white/10 px-4 py-3">
-          <p className="truncate text-sm font-semibold">{item.title}</p>
+          <p className="truncate text-sm font-semibold">{shownTitle}</p>
           <p className="truncate text-xs text-white/60">{item.creator} · {item.handle}</p>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {item.timeline?.length ? (
             <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">Mined timeline</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">{c.minedTimeline}</h3>
               <ul className="space-y-1.5">
-                {item.timeline.map((m) => (
+                {item.timeline.map((m, mi) => (
                   <li
                     key={`${m.t}-${m.label}`}
                     className={`rounded-lg px-2.5 py-1.5 text-[11px] leading-snug ${
@@ -472,7 +562,7 @@ function FeedCard({
                     }`}
                   >
                     <span className="mr-1.5 font-mono text-primary">{stamp(m.t)}</span>
-                    {m.label}
+                    {shownMarks[mi] || m.label}
                   </li>
                 ))}
               </ul>
@@ -480,16 +570,16 @@ function FeedCard({
           ) : null}
           {item.emotionTimeline?.length ? (
             <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">Emotions</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">{c.emotions}</h3>
               <div className="flex flex-wrap gap-1.5">
-                {item.emotionTimeline.map((m) => (
+                {item.emotionTimeline.map((m, mi) => (
                   <span
                     key={`${m.t}-${m.label}`}
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                       activeEmotion === m ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
                     }`}
                   >
-                    {stamp(m.t)} · {m.emotion ?? m.label}
+                    {stamp(m.t)} · {shownEmotions[mi] || m.emotion || m.label}
                   </span>
                 ))}
               </div>

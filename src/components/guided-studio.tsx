@@ -52,7 +52,7 @@ import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
-import { addProjectContent, createProject } from "@/lib/projects";
+import { addProjectContent, createProject, updateProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
 import {
@@ -496,6 +496,13 @@ function StepUpload({ lang }: { lang: Lang }) {
       }
 
       const goPublic = target.publishToFeed && target.contentKind === "VISUAL_CONTENT";
+      // Visual content must be instantly visible in the public feed: the parent
+      // project has to be published for the public RLS read to return the clip.
+      if (goPublic && projectId) {
+        await updateProject(projectId, { published: true });
+        await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+        await queryClient.invalidateQueries({ queryKey: ["search-index"] });
+      }
       if (goPublic) await publishToFeed({
         id: `pub_${saved.vaultId}`,
         mindId: vault.id,

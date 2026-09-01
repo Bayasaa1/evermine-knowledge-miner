@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Loader2, SendHorizonal, Trash2, X } from "lucide-react";
 import { useLang, type Lang } from "@/lib/i18n";
+import { LANGUAGES } from "@/lib/languages";
 import {
   getCapturedErrors,
   subscribeCapturedErrors,
@@ -29,8 +30,22 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
+/** Product documentation the assistant answers "how do I…" questions from. */
+const PLATFORM_DOCS = [
+  `EVERMIND HANDBOOK (use this to answer product questions, not just errors):`,
+  `- Hierarchy: Persona → Project → Video. A Persona is a creator identity; every Project belongs to one Persona; mined videos live inside a Project.`,
+  `- Personas: create and switch them in My Vaults (persona grid) or with the persona switcher. New projects inherit the active persona's name and avatar.`,
+  `- Mining a video: press the centre "+" button, pick the Persona, then a new or existing Project, then paste a YouTube link (playlists supported). Title, description, duration and thumbnail are fetched automatically. The video is split into 5-minute checkpoints (chunks = ceil(duration / 300)); the live terminal shows each chunk and can be stopped and resumed.`,
+  `- Content type: VISUAL_CONTENT is published to the public Home Feed; TRAINING_ONLY stays private and only trains the mind.`,
+  `- Vaults: My Vaults shows personas, projects, mined videos, the Core Brain inspector (knowledge graph plus raw JSON with a chunk eraser), version history with rollback, analytics, earnings and reviews.`,
+  `- Search tab: search personas, projects, mined videos and topics across the network.`,
+  `- Feed: vertical TikTok-style stream with live mined timestamps and emotion tags; viewers can chat, call, review or deploy a purchased mind to a robot.`,
+  `- Storage: mined JSON is stored only in Evermind's own database in English; the interface translates it into the viewer's language at display time. There is no external backup.`,
+  `- Common problems: video must be Public or Unlisted; a stopped mining job can be resumed from the same wizard; an invalid or exhausted AI key shows HTTP 400/401/403/429; long videos simply produce more checkpoints.`,
+].join("\n");
+
 function systemPrompt(lang: Lang, errors: CapturedError[]): string {
-  const langName = lang === "mn" ? "Mongolian (Монгол)" : lang === "ko" ? "Korean (한국어)" : "English";
+  const langName = `${LANGUAGES[lang]?.name ?? "English"} (${LANGUAGES[lang]?.native ?? "English"})`;
   const errorBlock =
     errors.length === 0
       ? "No errors have been captured yet."
@@ -47,8 +62,12 @@ function systemPrompt(lang: Lang, errors: CapturedError[]): string {
           2,
         );
   return [
-    `You are the System Diagnostic Assistant inside Evermind, an app that mines videos into AI "mind" data.`,
-    `Always reply in ${langName}. Use plain, friendly, non-technical language.`,
+    `You are the Evermind Platform Assistant: both product guide and system diagnostician for Evermind, an app that mines videos into AI "mind" data.`,
+    `Always reply in ${langName}, no matter which language the user writes in. Use plain, friendly, non-technical language.`,
+    `Answer how-to questions (mining, vaults, personas, projects, publishing, troubleshooting) from the handbook below.`,
+    ``,
+    PLATFORM_DOCS,
+    ``,
     `When the user asks about a failure, analyse the captured system errors below, say what went wrong in one short paragraph, then give exact numbered steps to fix it.`,
     `Concrete fixes you can suggest when relevant: re-check the Gemini API key in Step 1 (invalid keys cause HTTP 400/401/403 from generativelanguage.googleapis.com), wait for quota reset or add another key on HTTP 429, make sure a YouTube link is Public or Unlisted (Private videos fail), make sure a Google Drive file is shared as "Anyone with the link", keep files under 2GB and videos under 2 hours, check the internet connection on network failures.`,
     `If no captured error explains the question, say so and ask for more detail.`,
