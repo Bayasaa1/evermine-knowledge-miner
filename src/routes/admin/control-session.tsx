@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Activity, AlertTriangle, Boxes, Cpu, Loader2, ShieldCheck, Users } from "lucide-react";
 import { getControlSession } from "@/lib/admin.functions";
 import { BottomNav } from "@/components/bottom-nav";
+import { AdminUserManagement } from "@/components/admin-user-management";
 
 export const Route = createFileRoute("/admin/control-session")({
   head: () => ({
@@ -91,6 +92,8 @@ function ControlSession() {
               <Leaderboard title="Top creators" rows={data.topCreators} empty="No creator activity yet." />
               <Leaderboard title="Most popular minds" rows={data.topMinds} empty="No mind engagement yet." />
             </section>
+
+            <AdminUserManagement />
 
             <section className="rounded-xl border border-border bg-card">
               <h2 className="border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
