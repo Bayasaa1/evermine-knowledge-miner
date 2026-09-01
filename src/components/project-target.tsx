@@ -166,15 +166,28 @@ export function ProjectTargetPicker({
 }) {
   const t = pickCopy(copy, lang);
   const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [touchedPublish, setTouchedPublish] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [personaName, setPersonaName] = useState("");
+  const [savingPersona, setSavingPersona] = useState(false);
 
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: personas = [], isLoading: personasLoading } = useQuery({
+    queryKey: ["my-personas", userId],
+    queryFn: () => listPersonas(userId as string),
+    enabled: Boolean(userId),
+  });
+
+  const { data: allProjects = [], isLoading } = useQuery({
     queryKey: ["my-projects", userId],
     queryFn: () => listMyProjects(userId as string),
     enabled: Boolean(userId),
   });
 
   const set = (patch: Partial<ProjectTarget>) => onChange({ ...value, ...patch });
+
+  // Step 2B only ever lists projects belonging to the persona chosen in 2A.
+  const projects = allProjects.filter((p) => (p.persona_id ?? null) === value.personaId);
 
   // Default publish state follows the content type until the creator overrides it.
   useEffect(() => {
@@ -184,12 +197,113 @@ export function ProjectTargetPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.contentKind, touchedPublish]);
 
+  // Preselect the only persona so single-identity creators aren't blocked.
+  useEffect(() => {
+    if (!value.personaId && personas.length === 1) set({ personaId: personas[0]!.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas, value.personaId]);
+
+  const addPersona = async () => {
+    if (!userId || !personaName.trim()) return;
+    setSavingPersona(true);
+    const { persona } = await createPersona(userId, { name: personaName.trim() });
+    setSavingPersona(false);
+    if (persona) {
+      await queryClient.invalidateQueries({ queryKey: ["my-personas"] });
+      setPersonaName("");
+      setCreating(false);
+      set({ personaId: persona.id, projectId: null });
+    }
+  };
+
+  const personaChosen = Boolean(value.personaId);
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="text-sm font-semibold text-foreground">{t.title}</p>
       <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      {/* ---- Step 2A: persona ---- */}
+      <p className="mt-5 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepA}</p>
+      <p className="mt-1 text-sm font-medium text-foreground">{t.personaQ}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{t.personaSub}</p>
+
+      {personasLoading ? (
+        <Loader2 className="mt-3 h-4 w-4 animate-spin text-muted-foreground" />
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {personas.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => set({ personaId: p.id, projectId: null })}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                value.personaId === p.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
+              }`}
+            >
+              {p.avatar_url ? (
+                <img src={p.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  <UserRound className="h-4 w-4 text-muted-foreground" />
+                </span>
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-foreground">{p.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">{p.handle}</span>
+              </span>
+            </button>
+          ))}
+
+          {creating ? (
+            <div className="rounded-xl border border-primary/50 p-3">
+              <input
+                value={personaName}
+                onChange={(e) => setPersonaName(e.target.value.slice(0, 60))}
+                placeholder={t.personaPlaceholder}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  disabled={savingPersona || !personaName.trim()}
+                  onClick={() => void addPersona()}
+                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  {savingPersona ? "…" : t.save}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreating(false)}
+                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 text-left text-sm text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" /> {t.newPersona}
+            </button>
+          )}
+        </div>
+      )}
+      {!personasLoading && personas.length === 0 && !creating && (
+        <p className="mt-2 text-xs text-muted-foreground">{t.noPersona}</p>
+      )}
+
+      {/* ---- Step 2B: project (nested under the persona) ---- */}
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepB}</p>
+      {!personaChosen ? (
+        <p className="mt-2 text-xs text-muted-foreground">{t.lockedB}</p>
+      ) : (
+      <>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+
         {(
           [
             ["new", t.newOpt, t.newSub, FolderPlus],
