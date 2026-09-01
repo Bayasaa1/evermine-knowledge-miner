@@ -49,12 +49,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
-import {
-  backupMindToDrive,
-  DRIVE_FOLDER_NAME,
-  isDriveSyncEnabled,
-  setDriveSyncEnabled,
-} from "@/lib/drive-backup";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { DEFAULT_TARGET, ProjectTargetPicker, type ProjectTarget } from "@/components/project-target";
@@ -324,8 +318,6 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
-  const [driveSync, setDriveSync] = useState(false);
-  const [driveNote, setDriveNote] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<Assessment>(DEFAULT_ASSESSMENT);
   const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -352,13 +344,7 @@ function StepUpload({ lang }: { lang: Lang }) {
 
   useEffect(() => {
     void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
-    void isDriveSyncEnabled().then(setDriveSync);
   }, [signedIn]);
-
-  const toggleDrive = useCallback(async (on: boolean) => {
-    setDriveSync(on);
-    await setDriveSyncEnabled(on);
-  }, []);
 
   const resolveSource = useCallback((): ImportSource | null => {
     const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;
@@ -381,7 +367,7 @@ function StepUpload({ lang }: { lang: Lang }) {
 
   /**
    * Atomically persists the mined JSON to the database (vault + version row in a
-   * single transaction), then publishes to the feed and backs up to Drive.
+   * single transaction), then publishes to the feed.
    * Throws when the database write cannot be verified, so the caller never
    * reports "mining finished" for data that was not saved.
    */
@@ -462,20 +448,12 @@ function StepUpload({ lang }: { lang: Lang }) {
       await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
 
-      if (await isDriveSyncEnabled()) {
-        const backup = await backupMindToDrive(title, payload);
-        setDriveNote(
-          backup.ok
-            ? `${DRIVE_FOLDER_NAME} / ${backup.fileName}`
-            : pickCopy({ en: "Drive backup failed: ", mn: "Drive нөөцлөлт амжилтгүй: ", ko: "Drive 백업 실패: " }, lang) + backup.reason,
-        );
-      }
     },
     [lang, queryClient, target, userId],
   );
 
 
-  /** Local checkpoint + growth stats, then cloud vault / feed / Drive persistence. */
+  /** Local checkpoint + growth stats, then cloud vault / feed persistence. */
   const finishMined = useCallback(
     async (mined: ChunkResult, source: ImportSource) => {
       await idbSet(STORES.SESSION, "guided-last-mine", {
@@ -567,7 +545,6 @@ function StepUpload({ lang }: { lang: Lang }) {
       setErrorKey(null);
       setResult(null);
       setSavedTitle(null);
-      setDriveNote(null);
       setPaused(null);
       setCheckpoint(null);
       setQueueIndex(0);
@@ -804,34 +781,7 @@ function StepUpload({ lang }: { lang: Lang }) {
           </div>
         )}
 
-        <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-          <input
-            type="checkbox"
-            checked={driveSync}
-            onChange={(e) => void toggleDrive(e.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]"
-          />
-          <span className="text-xs leading-relaxed text-muted-foreground">
-            <span className="block font-medium text-foreground">
-              {pickCopy(
-                { en: "Sync Mind Backup to Google Drive", mn: "Оюуны нөөцлөлтийг Google Drive-д хадгалах", ko: "마인드 백업을 Google Drive와 동기화" },
-                lang,
-              )}
-            </span>
-            {pickCopy(
-              {
-                en: `Writes a .mind.json file straight into an "${DRIVE_FOLDER_NAME}" folder in your Drive — no links to paste.`,
-                mn: `Таны Google бүртгэл дэх "${DRIVE_FOLDER_NAME}" хавтсанд .mind.json файл автоматаар үүснэ.`,
-                ko: `Google Drive의 "${DRIVE_FOLDER_NAME}" 폴더에 .mind.json 파일을 자동으로 저장합니다 — 링크를 붙여넣을 필요가 없습니다.`,
-              },
-              lang,
-            )}
-          </span>
-        </label>
 
-        <p className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          {t("termsNotice")}
-        </p>
       </div>
 
       {errorKey && (
@@ -870,7 +820,6 @@ function StepUpload({ lang }: { lang: Lang }) {
                   )
                 : t("successBody")}
             </p>
-            {driveNote && <p className="mt-1 text-xs text-muted-foreground">Google Drive: {driveNote}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
