@@ -105,12 +105,9 @@ export async function fetchVideoMeta(videoId: string): Promise<VideoMeta> {
   if (player.title) title = player.title;
   if (durationSec > 0) return { videoId, url, title, durationSec };
 
-  const complete = () =>
-    !!details.title && !!details.description && !!details.publishedAt && details.durationSec > 0;
-
   try {
-    if (complete()) return details;
     const html = await fetchText(url);
+
     const len = html.match(/"lengthSeconds":"(\d+)"/);
     if (len?.[1]) {
       const n = Number(len[1]);
