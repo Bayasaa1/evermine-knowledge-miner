@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
@@ -34,26 +34,26 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useAuth } from "@/hooks/use-auth";
-import { pickCopy, type Lang } from "@/lib/i18n";
 import {
-  createPersona,
-  deletePersona,
-  listPersonas,
-  personaHandle,
-  switchPersona,
-  type Persona,
-} from "@/lib/personas";
+  invalidatePersonaChain,
+  personaProjectsKey,
+  projectContentKey,
+  usePersonas,
+} from "@/hooks/use-personas";
+import { pickCopy, type Lang } from "@/lib/i18n";
+import { createPersona, deletePersona, personaHandle } from "@/lib/personas";
 import {
   createProject,
   deleteProject,
   deleteProjectContent,
   listProjectContent,
   listProjectsByPersona,
+  projectStats,
   updateProject,
   updateProjectContent,
   type ContentKind,
   type Project,
+  type ProjectStats,
   type ProjectContent,
 } from "@/lib/projects";
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
