@@ -421,7 +421,7 @@ function StepUpload({ lang }: { lang: Lang }) {
   const persist = useCallback(
     async (mined: ChunkResult, source: ImportSource) => {
       const category = getCreationCategory();
-      const title = mined.story.summary?.slice(0, 60) || source.label || "New Mind";
+      const title = assessment.sourceTitle?.trim() || mined.story.summary?.slice(0, 60) || source.label || "New Mind";
       const payload = {
         source: { kind: source.kind, label: source.label },
         category,
@@ -468,7 +468,7 @@ function StepUpload({ lang }: { lang: Lang }) {
           youtubeId: source.kind === "youtube" ? (youtubeId(source.url) ?? "") : "",
           sourceUrl: source.kind === "youtube" ? source.url : source.label,
           title,
-          description: mined.story.summary ?? "",
+          description: assessment.sourceDescription?.slice(0, 500) || (mined.story.summary ?? ""),
           tags: mined.subconsciousness.skills.slice(0, 6),
         });
         await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
@@ -496,7 +496,7 @@ function StepUpload({ lang }: { lang: Lang }) {
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
 
     },
-    [lang, queryClient, target, userId],
+    [lang, queryClient, target, userId, assessment],
   );
 
 
