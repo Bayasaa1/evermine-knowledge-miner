@@ -14,6 +14,8 @@ export type Assessment = {
   sourcePublishedAt: string;
   sourceDurationLabel: string;
   sourceChannel: string;
+  /** UI language code the mined JSON must be written in ("en" | "mn" | "ko" | ...). */
+  outputLanguage: string;
 };
 
 /** Metadata auto-extracted from a pasted YouTube link. */
@@ -85,6 +87,7 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   sourcePublishedAt: "",
   sourceDurationLabel: "",
   sourceChannel: "",
+  outputLanguage: "en",
 };
 
 const SPEAKER_MARKER = "[SPEAKER_IDENTITY]";
@@ -92,10 +95,16 @@ const META_MARKER = "[SOURCE_META]";
 
 type MetaFields = Pick<
   Assessment,
-  "sourceTitle" | "sourceDescription" | "sourcePublishedAt" | "sourceDurationLabel" | "sourceChannel"
+  | "sourceTitle"
+  | "sourceDescription"
+  | "sourcePublishedAt"
+  | "sourceDurationLabel"
+  | "sourceChannel"
+  | "outputLanguage"
 >;
 
 const EMPTY_META: MetaFields = {
+  outputLanguage: "en",
   sourceTitle: "",
   sourceDescription: "",
   sourcePublishedAt: "",
@@ -113,6 +122,7 @@ export function packInstructions(a: Assessment): string {
     sourcePublishedAt: a.sourcePublishedAt ?? "",
     sourceDurationLabel: a.sourceDurationLabel ?? "",
     sourceChannel: a.sourceChannel ?? "",
+    outputLanguage: a.outputLanguage || "en",
   };
   if (Object.values(meta).some((v) => v)) out = `${out}\n${META_MARKER} ${JSON.stringify(meta)}`.trim();
   return out;
