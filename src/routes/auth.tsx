@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { GEMINI_SCOPE } from "@/lib/google-gemini-auth";
-import { DRIVE_SCOPE } from "@/lib/drive-backup";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
@@ -62,7 +61,7 @@ function AuthPage() {
         // Google sign-in also links the creator's free-tier Gemini API and a
         // single-app Drive folder for Mind backups — zero API keys, zero setup.
         ...(provider === "google"
-          ? { scopes: `openid email profile ${GEMINI_SCOPE} ${DRIVE_SCOPE}` }
+          ? { scopes: `openid email profile ${GEMINI_SCOPE}` }
           : {}),
       });
       if (result.error) {

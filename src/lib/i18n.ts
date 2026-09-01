@@ -64,8 +64,6 @@ const en: Dict = {
     "Google's AI safety filters stopped this analysis. Pick another clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.",
   retry: "Retry",
 
-  termsNotice:
-    "Free tier notice: analysis runs on Google Gemini. On the free tier Google may review submitted content to improve their models, so avoid private or confidential footage.",
   termsLink: "Terms & Privacy",
 
   diagTitle: "AI Assistant Diagnostics",
@@ -153,8 +151,6 @@ const mn: Dict = {
     "Google-ийн AI аюулгүй байдлын шүүлтүүр энэ задалгааг зогсоолоо. Өөр хэсэг сонгох буюу эмзэг, насанд хүрэгчдийн, хүчирхийллийн агуулгыг хасна уу — ижил бичлэгийг дахин оролдох нь тус болохгүй.",
   retry: "Дахин оролдох",
 
-  termsNotice:
-    "Үнэгүй багцын мэдэгдэл: задалгаа Google Gemini дээр ажиллана. Үнэгүй багцад Google илгээсэн агуулгыг загвараа сайжруулахад ашиглаж болзошгүй тул хувийн, нууц бичлэг оруулахаас зайлсхийнэ үү.",
   termsLink: "Үйлчилгээний нөхцөл ба Нууцлал",
 
   diagTitle: "AI туслахын оношилгоо",
@@ -242,8 +238,6 @@ const ko: Dict = {
     "Google AI 안전 필터가 이 분석을 중단했습니다. 다른 장면을 선택하거나 민감·성인·폭력적인 부분을 잘라내 주세요 — 같은 영상을 다시 시도해도 통과되지 않습니다.",
   retry: "다시 시도",
 
-  termsNotice:
-    "무료 등급 안내: 분석은 Google Gemini에서 실행됩니다. 무료 등급에서는 Google이 제출된 콘텐츠를 모델 개선에 검토할 수 있으므로 비공개·기밀 영상은 피해 주세요.",
   termsLink: "이용약관 및 개인정보 처리방침",
 
   diagTitle: "AI 어시스턴트 진단",
