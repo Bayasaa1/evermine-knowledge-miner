@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
@@ -34,26 +34,26 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { useAuth } from "@/hooks/use-auth";
-import { pickCopy, type Lang } from "@/lib/i18n";
 import {
-  createPersona,
-  deletePersona,
-  listPersonas,
-  personaHandle,
-  switchPersona,
-  type Persona,
-} from "@/lib/personas";
+  invalidatePersonaChain,
+  personaProjectsKey,
+  projectContentKey,
+  usePersonas,
+} from "@/hooks/use-personas";
+import { pickCopy, type Lang } from "@/lib/i18n";
+import { createPersona, deletePersona, personaHandle } from "@/lib/personas";
 import {
   createProject,
   deleteProject,
   deleteProjectContent,
   listProjectContent,
   listProjectsByPersona,
+  projectStats,
   updateProject,
   updateProjectContent,
   type ContentKind,
   type Project,
+  type ProjectStats,
   type ProjectContent,
 } from "@/lib/projects";
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
@@ -124,42 +124,26 @@ type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
 
 export function VaultHub({ lang = "en" }: { lang?: Lang }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
-  const { user, userId, isAuthenticated } = useAuth();
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [selected, setSelected] = useState<{ id: string | null; name: string } | null>(null);
+  const queryClient = useQueryClient();
+  const { userId, isAuthenticated, personas, activePersonaId, setActive, isLoading } = usePersonas();
+  // Which persona's workspace is on screen — defaults to the globally active one.
+  const [viewing, setViewing] = useState<string | null | undefined>(undefined);
   const [draft, setDraft] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const loadPersonas = useCallback(async () => {
-    if (!userId) {
-      setPersonas([]);
-      return;
-    }
-    setPersonas(await listPersonas(userId));
-  }, [userId]);
+  const selectedId = viewing === undefined ? activePersonaId : viewing;
+  const selected = personas.find((p) => p.id === selectedId) ?? null;
+  const selectedName = selected?.name ?? t("master");
 
-  useEffect(() => { void loadPersonas(); }, [loadPersonas]);
-
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !userId) {
     return <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{t("signIn")}</p>;
-  }
-
-  if (selected) {
-    return (
-      <PersonaWorkspace
-        lang={lang}
-        userId={user.id}
-        personaId={selected.id}
-        personaName={selected.name}
-        onBack={() => setSelected(null)}
-      />
-    );
   }
 
   const add = async () => {
     setBusy(true);
-    const { persona, error } = await createPersona(user.id, {
+    const { persona, error } = await createPersona(userId, {
       name: draft,
       handle: personaHandle(draft),
       avatarUrl: avatar || null,
@@ -171,73 +155,118 @@ export function VaultHub({ lang = "en" }: { lang?: Lang }) {
     }
     setDraft("");
     setAvatar("");
-    if (persona) await switchPersona(user.id, persona.id);
-    await loadPersonas();
+    setShowCreate(false);
+    if (persona) {
+      await setActive(persona.id);
+      setViewing(persona.id);
+    }
+    await invalidatePersonaChain(queryClient);
     toast.success(t("saved"));
+  };
+
+  const chip = (id: string | null, name: string, handle: string, avatarUrl?: string | null) => {
+    const isViewing = selectedId === id;
+    const isActive = activePersonaId === id;
+    return (
+      <button
+        key={id ?? "master"}
+        type="button"
+        onClick={async () => {
+          setViewing(id);
+          if (!isActive) await setActive(id);
+        }}
+        className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+          isViewing ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+        }`}
+      >
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="" className="h-5 w-5 rounded-full object-cover" referrerPolicy="no-referrer" />
+        ) : (
+          <UserSquare2 className="h-3.5 w-3.5" />
+        )}
+        <span className="max-w-[10rem] truncate">{name}</span>
+        <span className="hidden text-[10px] font-normal opacity-70 sm:inline">{handle}</span>
+        {isActive ? <Check className="h-3 w-3" /> : null}
+      </button>
+    );
   };
 
   return (
     <section className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold text-foreground">{t("personas")}</h2>
-        <p className="mt-1 text-xs text-muted-foreground">{t("personasDesc")}</p>
-      </header>
+      <header className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{t("personas")}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{t("personasDesc")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowCreate((s) => !s)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" /> {t("create")}
+          </button>
+        </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <PersonaCard
-          lang={lang}
-          name={t("master")}
-          handle="@master"
-          isActive={personas.every((p) => !p.is_active)}
-          onOpen={() => setSelected({ id: null, name: t("master") })}
-          onActivate={async () => { await switchPersona(user.id, null); await loadPersonas(); }}
-        />
-        {personas.map((p) => (
-          <PersonaCard
-            key={p.id}
-            lang={lang}
-            name={p.name}
-            handle={p.handle}
-            avatarUrl={p.avatar_url}
-            isActive={p.is_active}
-            onOpen={() => setSelected({ id: p.id, name: p.name })}
-            onActivate={async () => { await switchPersona(user.id, p.id); await loadPersonas(); }}
-            onDelete={async () => {
-              const error = await deletePersona(p.id);
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
+          {chip(null, t("master"), "@master")}
+          {personas.map((p) => chip(p.id, p.name, p.handle, p.avatar_url))}
+        </div>
+
+        {selected ? (
+          <button
+            type="button"
+            onClick={async () => {
+              const error = await deletePersona(selected.id);
               if (error) {
                 toast.error(error);
                 return;
               }
-              await loadPersonas();
+              setViewing(null);
+              await invalidatePersonaChain(queryClient);
               toast.success(t("removed"));
             }}
-          />
-        ))}
-      </div>
+            className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> {selected.name}
+          </button>
+        ) : null}
 
-      <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={t("newPersona")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-        />
-        <input
-          value={avatar}
-          onChange={(e) => setAvatar(e.target.value)}
-          placeholder={t("avatarUrl")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-        />
-        <button
-          type="button"
-          disabled={!draft.trim() || busy}
-          onClick={() => void add()}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          {t("create")}
-        </button>
-      </div>
+        {showCreate ? (
+          <div className="mt-3 space-y-2 border-t border-border pt-3">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={t("newPersona")}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+            <input
+              value={avatar}
+              onChange={(e) => setAvatar(e.target.value)}
+              placeholder={t("avatarUrl")}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            />
+            <button
+              type="button"
+              disabled={!draft.trim() || busy}
+              onClick={() => void add()}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              {t("create")}
+            </button>
+          </div>
+        ) : null}
+      </header>
+
+      <PersonaWorkspace
+        key={selectedId ?? "master"}
+        lang={lang}
+        userId={userId}
+        personaId={selectedId}
+        personaName={selectedName}
+      />
     </section>
   );
 }
@@ -316,25 +345,28 @@ function PersonaWorkspace({
   userId,
   personaId,
   personaName,
-  onBack,
 }: {
   lang: Lang;
   userId: string;
   personaId: string | null;
   personaName: string;
-  onBack: () => void;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setProjects(await listProjectsByPersona(userId, personaId));
-  }, [userId, personaId]);
+  const { data: projects = [] } = useQuery({
+    queryKey: personaProjectsKey(userId, personaId),
+    queryFn: () => listProjectsByPersona(userId, personaId),
+    refetchOnMount: "always",
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  const load = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: personaProjectsKey(userId, personaId) }),
+    [queryClient, userId, personaId],
+  );
 
   const open = projects.find((p) => p.id === openId) ?? null;
 
@@ -358,9 +390,11 @@ function PersonaWorkspace({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2">
-        <button type="button" onClick={open ? () => setOpenId(null) : onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> {t("back")}
-        </button>
+        {open ? (
+          <button type="button" onClick={() => setOpenId(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> {t("back")}
+          </button>
+        ) : null}
         <p className="min-w-0 truncate text-sm font-semibold text-foreground">
           {personaName}
           {open ? <span className="text-muted-foreground"> / {open.title}</span> : null}
@@ -398,9 +432,7 @@ function PersonaWorkspace({
                 <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
                   <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 text-left">
                     <span className="block truncate text-sm font-semibold text-foreground">{p.title}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
-                    </span>
+                    <ProjectCardStats lang={lang} project={p} />
                   </button>
                   <button
                     type="button"
@@ -432,19 +464,44 @@ function PersonaWorkspace({
   );
 }
 
+/** Live rating / earnings / views summary shown on each project card. */
+function ProjectCardStats({ lang, project }: { lang: Lang; project: Project }) {
+  const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const { data } = useQuery<ProjectStats>({
+    queryKey: ["project-stats", project.id],
+    queryFn: () => projectStats(project),
+  });
+  return (
+    <span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span className="inline-flex items-center gap-1">
+        <Eye className="h-3 w-3" /> {(data?.views ?? project.view_count).toLocaleString()}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Coins className="h-3 w-3" /> {(data?.earnings ?? 0).toFixed(2)} {project.currency || "USD"}
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <Star className="h-3 w-3" /> {data?.rating ? `${data.rating.toFixed(1)} (${data.reviewCount})` : "—"}
+      </span>
+      <span>{new Date(project.updated_at).toLocaleDateString()}</span>
+    </span>
+  );
+}
+
 function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: Project; onChanged: () => void }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
-  const [items, setItems] = useState<ProjectContent[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: projectContentKey(project.id),
+    queryFn: () => listProjectContent(project.id),
+    refetchOnMount: "always",
+  });
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setItems(await listProjectContent(project.id));
-    setLoading(false);
-  }, [project.id]);
-
-  useEffect(() => { void load(); }, [load]);
+    await queryClient.invalidateQueries({ queryKey: projectContentKey(project.id) });
+    await queryClient.invalidateQueries({ queryKey: ["project-stats", project.id] });
+  }, [queryClient, project.id]);
 
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({ queryKey: ["mining-jobs"], queryFn: () => fetchJobs() });

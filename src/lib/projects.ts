@@ -121,6 +121,7 @@ export async function addProjectContent(
     title: string;
     description?: string;
     tags?: string[];
+    mindId?: string;
   },
 ): Promise<string | null> {
   const { error } = await supabase.from("project_content").insert({
@@ -132,6 +133,7 @@ export async function addProjectContent(
     title: input.title.trim() || "Untitled clip",
     description: input.description?.trim() ?? "",
     tags: input.tags ?? [],
+    ...(input.mindId ? { mind_id: input.mindId } : {}),
   });
   return error?.message ?? null;
 }
@@ -198,4 +200,32 @@ function marks(value: unknown): TimelineMark[] {
     })
     .filter((m) => m.label.length > 0)
     .sort((a, b) => a.t - b.t);
+}
+
+/** Aggregated project dashboard metrics: views, earnings estimate, rating. */
+export type ProjectStats = {
+  views: number;
+  signals: number;
+  tokens: number;
+  earnings: number;
+  rating: number | null;
+  reviewCount: number;
+};
+
+export async function projectStats(project: Project): Promise<ProjectStats> {
+  const items = await listProjectContent(project.id);
+  const views = project.view_count + items.reduce((n, i) => n + i.view_count, 0);
+  const signals = items.reduce((n, i) => n + i.timeline.length + i.emotion_timeline.length, 0);
+  const mindIds = [...new Set(items.map((i) => i.mind_id).filter(Boolean))];
+  const ids = mindIds.length > 0 ? mindIds : [project.id];
+  const { data } = await supabase.from("mind_reviews").select("rating").in("mind_id", ids);
+  const ratings = ((data as { rating: number }[] | null) ?? []).map((r) => Number(r.rating));
+  return {
+    views,
+    signals,
+    tokens: signals * 120,
+    earnings: views * (project.price > 0 ? project.price * 0.01 : 0.002),
+    rating: ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null,
+    reviewCount: ratings.length,
+  };
 }
