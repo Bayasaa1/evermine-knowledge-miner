@@ -82,14 +82,15 @@ export async function fetchPlayerMeta(videoId: string): Promise<Partial<PlayerMe
     const thumbs = d?.thumbnail?.thumbnails ?? [];
     const best = thumbs.slice().sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]?.url;
     const len = Number(d?.lengthSeconds ?? 0);
-    return {
-      title: d?.title || undefined,
-      description: d?.shortDescription || undefined,
-      durationSec: Number.isFinite(len) && len > 0 ? len : undefined,
-      channel: d?.author || undefined,
-      publishedAt: micro?.publishDate || micro?.uploadDate || undefined,
-      thumbnail: best || undefined,
-    };
+    const out: Partial<PlayerMeta> = {};
+    if (d?.title) out.title = d.title;
+    if (d?.shortDescription) out.description = d.shortDescription;
+    if (Number.isFinite(len) && len > 0) out.durationSec = len;
+    if (d?.author) out.channel = d.author;
+    const pub = micro?.publishDate || micro?.uploadDate;
+    if (pub) out.publishedAt = pub;
+    if (best) out.thumbnail = best;
+    return out;
   } catch {
     return {};
   }
