@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
+import { MindReviews } from "@/components/mind-reviews";
 import { YouTubeStage } from "@/components/youtube-stage";
 import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
 import type { TimelineMark } from "@/lib/projects";
@@ -268,13 +269,13 @@ function FeedCard({
           src={item.poster}
           alt=""
           aria-hidden
-          className="pointer-events-none absolute inset-0 hidden h-full w-full scale-110 object-cover opacity-40 blur-2xl md:block"
+          className="pointer-events-none absolute inset-0 hidden h-full w-full scale-110 object-cover opacity-50 blur-3xl lg:block"
         />
       )}
-      <div className="pointer-events-none absolute inset-0 hidden bg-black/40 md:block" />
+      <div className="pointer-events-none absolute inset-0 hidden bg-black/40 lg:block" />
 
-      {/* Centered 9:16 player frame on desktop; full-bleed on mobile */}
-      <div className="relative h-[100dvh] w-full overflow-hidden md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[450px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
+      {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
+      <div className="relative h-[100dvh] w-full overflow-hidden md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[480px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
         {item.youtubeId ? (
           <YouTubeStage
             videoId={item.youtubeId}
@@ -441,6 +442,54 @@ function FeedCard({
         </div>
       </div>
       </div>
+
+      {/* Tablet dual-pane: mined knowledge, emotions, and reviews beside the video */}
+      <aside className="hidden h-[min(100dvh-6rem,860px)] w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur md:ml-6 md:flex lg:hidden">
+        <div className="border-b border-white/10 px-4 py-3">
+          <p className="truncate text-sm font-semibold">{item.title}</p>
+          <p className="truncate text-xs text-white/60">{item.creator} · {item.handle}</p>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {item.timeline?.length ? (
+            <div>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">Mined timeline</h3>
+              <ul className="space-y-1.5">
+                {item.timeline.map((m) => (
+                  <li
+                    key={`${m.t}-${m.label}`}
+                    className={`rounded-lg px-2.5 py-1.5 text-[11px] leading-snug ${
+                      activeMark === m ? "bg-primary/20 text-white" : "bg-white/5 text-white/70"
+                    }`}
+                  >
+                    <span className="mr-1.5 font-mono text-primary">{stamp(m.t)}</span>
+                    {m.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {item.emotionTimeline?.length ? (
+            <div>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">Emotions</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {item.emotionTimeline.map((m) => (
+                  <span
+                    key={`${m.t}-${m.label}`}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      activeEmotion === m ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
+                    }`}
+                  >
+                    {stamp(m.t)} · {m.emotion ?? m.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <div className="dark rounded-xl">
+            <MindReviews mindId={item.mindId ?? item.id} />
+          </div>
+        </div>
+      </aside>
     </section>
   );
 }
