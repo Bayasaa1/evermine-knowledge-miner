@@ -55,7 +55,8 @@ import { DEFAULT_TARGET, ProjectTargetPicker, type ProjectTarget } from "@/compo
 import { addProjectContent, createProject } from "@/lib/projects";
 import { activePersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
-import { DEFAULT_ASSESSMENT, type Assessment } from "@/lib/mining-jobs";
+import { DEFAULT_ASSESSMENT, type Assessment, type VideoMetadata } from "@/lib/mining-jobs";
+import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
 import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
 
 
@@ -319,6 +320,8 @@ function StepUpload({ lang }: { lang: Lang }) {
   const [result, setResult] = useState<ChunkResult | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<Assessment>(DEFAULT_ASSESSMENT);
+  const [meta, setMeta] = useState<VideoMetadata | null>(null);
+  const [metaLoading, setMetaLoading] = useState(false);
   const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
   const [queueIndex, setQueueIndex] = useState(0);
   const [queueTotal, setQueueTotal] = useState(0);
@@ -345,6 +348,50 @@ function StepUpload({ lang }: { lang: Lang }) {
   useEffect(() => {
     void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
   }, [signedIn]);
+
+  /**
+   * Zero-touch onboarding: the moment a YouTube link is pasted or typed, pull
+   * its public metadata and pre-fill the wizard (and the Gemini context).
+   */
+  useEffect(() => {
+    if (tab !== "youtube") {
+      setMeta(null);
+      return;
+    }
+    const normalized = normalizeYoutubeUrl(url);
+    if (!normalized) {
+      setMeta(null);
+      return;
+    }
+    let cancelled = false;
+    setMetaLoading(true);
+    const timer = setTimeout(() => {
+      void getYoutubeMetadata({ data: { url: normalized } })
+        .then((m) => {
+          if (cancelled || !m) return;
+          setMeta(m);
+          setAssessment((prev) => ({
+            ...prev,
+            sourceTitle: m.title,
+            sourceDescription: m.description,
+            sourcePublishedAt: m.publishedAt ? m.publishedAt.slice(0, 10) : "",
+            sourceDurationLabel: m.durationLabel,
+            sourceChannel: m.channel,
+          }));
+        })
+        .catch(() => {
+          /* metadata is a convenience — mining still works without it */
+        })
+        .finally(() => {
+          if (!cancelled) setMetaLoading(false);
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      setMetaLoading(false);
+    };
+  }, [tab, url]);
 
   const resolveSource = useCallback((): ImportSource | null => {
     const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;
@@ -693,6 +740,8 @@ function StepUpload({ lang }: { lang: Lang }) {
             value={assessment}
             onChange={setAssessment}
             busy={busy}
+            meta={meta}
+            metaLoading={metaLoading}
             onStart={(a) => {
               setAssessment(a);
               void run(a);
