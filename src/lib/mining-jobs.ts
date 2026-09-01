@@ -14,6 +14,8 @@ export type Assessment = {
   sourcePublishedAt: string;
   sourceDurationLabel: string;
   sourceChannel: string;
+  /** UI language code the mined JSON must be written in ("en" | "mn" | "ko" | ...). */
+  outputLanguage: string;
 };
 
 /** Metadata auto-extracted from a pasted YouTube link. */
@@ -29,13 +31,35 @@ export type VideoMetadata = {
   channel: string;
 };
 
+/** Seconds -> HH:MM:SS (or MM:SS for videos under an hour). */
 export function formatDuration(sec: number): string {
   if (!Number.isFinite(sec) || sec <= 0) return "";
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+  const total = Math.round(sec);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
+
+/** ISO timestamp -> readable date in the active UI language. */
+export function formatPublishedDate(iso: string, locale = "en"): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  try {
+    return d.toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+/** Chunk plan size for a duration — always at least one 5-minute chunk. */
+export function totalChunksFor(durationSec: number): number {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return 1;
+  return Math.max(1, Math.ceil(durationSec / 300));
+}
+
 
 export const VIDEO_CONTEXTS = [
   "Podcast",
@@ -63,6 +87,7 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   sourcePublishedAt: "",
   sourceDurationLabel: "",
   sourceChannel: "",
+  outputLanguage: "en",
 };
 
 const SPEAKER_MARKER = "[SPEAKER_IDENTITY]";
@@ -70,10 +95,16 @@ const META_MARKER = "[SOURCE_META]";
 
 type MetaFields = Pick<
   Assessment,
-  "sourceTitle" | "sourceDescription" | "sourcePublishedAt" | "sourceDurationLabel" | "sourceChannel"
+  | "sourceTitle"
+  | "sourceDescription"
+  | "sourcePublishedAt"
+  | "sourceDurationLabel"
+  | "sourceChannel"
+  | "outputLanguage"
 >;
 
 const EMPTY_META: MetaFields = {
+  outputLanguage: "en",
   sourceTitle: "",
   sourceDescription: "",
   sourcePublishedAt: "",
@@ -91,6 +122,7 @@ export function packInstructions(a: Assessment): string {
     sourcePublishedAt: a.sourcePublishedAt ?? "",
     sourceDurationLabel: a.sourceDurationLabel ?? "",
     sourceChannel: a.sourceChannel ?? "",
+    outputLanguage: a.outputLanguage || "en",
   };
   if (Object.values(meta).some((v) => v)) out = `${out}\n${META_MARKER} ${JSON.stringify(meta)}`.trim();
   return out;

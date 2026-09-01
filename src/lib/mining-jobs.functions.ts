@@ -17,6 +17,7 @@ const assessmentSchema = z.object({
   sourcePublishedAt: z.string().max(64).default(""),
   sourceDurationLabel: z.string().max(32).default(""),
   sourceChannel: z.string().max(200).default(""),
+  outputLanguage: z.string().max(8).default("en"),
 });
 
 const startSchema = z.object({
@@ -97,6 +98,7 @@ export const startMiningJobs = createServerFn({ method: "POST" })
     const rows = [];
     for (let i = 0; i < videoIds.length; i++) {
       const meta = await fetchVideoMeta(videoIds[i]!);
+      // Chunk count is always derived from the real duration: ceil(seconds / 300).
       const chunks = splitIntoChunks(meta.durationSec);
       rows.push({
         user_id: context.userId,

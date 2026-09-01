@@ -6,7 +6,7 @@
  * Every limit is stated up front and every failure surfaces as a plain-language
  * banner with a Retry button — never a raw log line.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -55,7 +55,13 @@ import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget 
 import { addProjectContent, createProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
-import { DEFAULT_ASSESSMENT, type Assessment, type VideoMetadata } from "@/lib/mining-jobs";
+import {
+  DEFAULT_ASSESSMENT,
+  formatDuration,
+  formatPublishedDate,
+  type Assessment,
+  type VideoMetadata,
+} from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
 import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
 
@@ -374,9 +380,10 @@ function StepUpload({ lang }: { lang: Lang }) {
             ...prev,
             sourceTitle: m.title,
             sourceDescription: m.description,
-            sourcePublishedAt: m.publishedAt ? m.publishedAt.slice(0, 10) : "",
-            sourceDurationLabel: m.durationLabel,
+            sourcePublishedAt: formatPublishedDate(m.publishedAt, lang),
+            sourceDurationLabel: m.durationLabel || formatDuration(m.durationSec),
             sourceChannel: m.channel,
+            outputLanguage: lang,
           }));
         })
         .catch(() => {
@@ -391,7 +398,11 @@ function StepUpload({ lang }: { lang: Lang }) {
       clearTimeout(timer);
       setMetaLoading(false);
     };
-  }, [tab, url]);
+  }, [tab, url, lang]);
+
+  useEffect(() => {
+    setAssessment((prev) => (prev.outputLanguage === lang ? prev : { ...prev, outputLanguage: lang }));
+  }, [lang]);
 
   const resolveSource = useCallback((): ImportSource | null => {
     const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;
@@ -525,6 +536,24 @@ function StepUpload({ lang }: { lang: Lang }) {
 
 
 
+  /** Terminal strings follow the platform language instantly. */
+  const term = useMemo(
+    () => ({
+      min: pickCopy({ en: "min", mn: "мин", ko: "분" }, lang),
+      chunk: pickCopy({ en: "chunk", mn: "хэсэг", ko: "청크" }, lang),
+      streaming: pickCopy({ en: "streaming…", mn: "дамжуулж байна…", ko: "스트리밍 중…" }, lang),
+      stopped: pickCopy(
+        {
+          en: "STOPPED by user — every finished checkpoint stays saved.",
+          mn: "Хэрэглэгч зогсоолоо — дуусгасан бүх хэсэг хадгалагдсан хэвээр.",
+          ko: "사용자가 중지했습니다 — 완료된 모든 체크포인트는 저장된 상태로 유지됩니다.",
+        },
+        lang,
+      ),
+    }),
+    [lang],
+  );
+
   /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
@@ -532,7 +561,9 @@ function StepUpload({ lang }: { lang: Lang }) {
       setQueueTotal(jobs.length);
       setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
       say(`$ evermind mine --videos ${jobs.length}`);
-      jobs.forEach((j, i) => say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 5min`));
+      jobs.forEach((j, i) =>
+        say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 5${term.min}`),
+      );
       let lastMerged: ChunkResult | null = null;
 
       for (let q = 0; q < jobs.length; q++) {
@@ -542,10 +573,10 @@ function StepUpload({ lang }: { lang: Lang }) {
         say(`\n## ${current.sourceLabel}`);
         while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
           if (stopRef.current) {
-            say("\n> STOPPED by user — every finished checkpoint stays saved.");
+            say(`\n> ${term.stopped}`);
             return;
           }
-          say(`\n### chunk ${current.nextIndex + 1}/${current.totalChunks} — streaming…`);
+          say(`\n### ${term.chunk} ${current.nextIndex + 1}/${current.totalChunks} — ${term.streaming}`);
           const step = await runNextChunk({ data: { jobId: current.id } });
           current = step.job;
           if (step.chunk) {
@@ -562,7 +593,7 @@ function StepUpload({ lang }: { lang: Lang }) {
             Math.round(((q + (current.totalChunks ? current.nextIndex / current.totalChunks : 1)) / jobs.length) * 100),
           );
           if (stopRef.current) {
-            say("\n> STOPPED by user — every finished checkpoint stays saved.");
+            say(`\n> ${term.stopped}`);
             return;
           }
           if (step.done) break;
@@ -589,7 +620,7 @@ function StepUpload({ lang }: { lang: Lang }) {
         lastMerged = null;
       }
     },
-    [lang, finishMined, say],
+    [lang, term, finishMined, say],
   );
 
   const run = useCallback(
