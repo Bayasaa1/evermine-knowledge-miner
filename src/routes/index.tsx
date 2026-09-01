@@ -179,7 +179,7 @@ function HomeFeed() {
 
   const buy = async (item: FeedItem) => {
     if (!user) {
-      toast.error("Sign in to buy this mind.");
+      toast.error(c.signIn);
       void navigate({ to: "/auth" });
       return;
     }
