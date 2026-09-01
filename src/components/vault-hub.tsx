@@ -93,6 +93,11 @@ const C = {
   emotions: { en: "Emotion points", mn: "Сэтгэл хөдлөл", ko: "감정 포인트" },
   del: { en: "Delete video", mn: "Видео устгах", ko: "영상 삭제" },
   remine: { en: "Re-mine", mn: "Дахин олборлох", ko: "재마이닝" },
+  remineHint: {
+    en: "Link copied — paste it into Creator Studio to re-mine this video.",
+    mn: "Холбоос хуулагдлаа — Creator Studio дээр буулгаж дахин олборлоно уу.",
+    ko: "링크가 복사되었습니다 — Creator Studio에 붙여넣어 다시 마이닝하세요.",
+  },
   editMeta: { en: "Edit metadata", mn: "Мэдээлэл засах", ko: "메타데이터 편집" },
   save: { en: "Save", mn: "Хадгалах", ko: "저장" },
   cancel: { en: "Cancel", mn: "Болих", ko: "취소" },
@@ -633,7 +638,11 @@ function VideoCard({
           </button>
           <Link
             to="/creator"
-            search={{ url: item.source_url || `https://www.youtube.com/watch?v=${item.youtube_id}` }}
+            onClick={() => {
+              const url = item.source_url || `https://www.youtube.com/watch?v=${item.youtube_id}`;
+              void navigator.clipboard?.writeText(url).catch(() => undefined);
+              toast.info(t("remineHint"));
+            }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground"
           >
             <RefreshCw className="h-3.5 w-3.5" /> {t("remine")}
