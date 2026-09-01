@@ -1,5 +1,5 @@
 import { normalizeYoutubeUrl } from "@/lib/import-sources";
-import { normalizeChunkResult, type ChunkResult } from "@/lib/gemini";
+import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
 
 const miningPrompt = `You are building an AI Avatar (digital twin) from this personal-archive video.
 Analyze only the requested time range and return JSON only with these keys:
