@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { ClipboardList, Sparkles } from "lucide-react";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { Localized } from "@/components/localized";
 import {
   DEFAULT_ASSESSMENT,
   PRIMARY_FOCUSES,
@@ -181,7 +182,7 @@ export function MiningWizard({
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {c}
+              <Localized text={c} />
             </button>
           ))}
         </div>
@@ -201,7 +202,7 @@ export function MiningWizard({
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {f}
+              <Localized text={f} />
             </button>
           ))}
         </div>

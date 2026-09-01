@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { BottomNav } from "@/components/bottom-nav";
+import { LanguageSelector } from "@/components/language-selector";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setLocalScope,
@@ -21,6 +22,7 @@ import {
   migrateLegacyBrandKeys,
 } from "@/lib/user-scope";
 import { purgeLegacyKeyVaults, resetKeyCaches } from "@/lib/key-vault";
+import { clearTranslationCache } from "@/lib/dynamic-translate";
 import { installGlobalErrorInterceptors } from "@/lib/error-capture";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -158,6 +160,7 @@ function RootComponent() {
       if (!data.session?.user) {
         clearUserScopedLocalData();
         resetKeyCaches();
+        clearTranslationCache();
         queryClient.clear();
         setLocalScope(null);
         return;
@@ -186,6 +189,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {showNav && <LanguageSelector />}
       {showNav && <BottomNav />}
       <DiagnosticChat />
     </QueryClientProvider>

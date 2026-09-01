@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
-import { tr, pickCopy, type Lang } from "@/lib/i18n";
+import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
   checkDrive,
   checkFile,
@@ -345,6 +345,10 @@ function StepUpload({ lang }: { lang: Lang }) {
     setLog((prev) => [...prev, line].slice(-400));
   }, []);
 
+  // Live display layer: terminal lines are produced in English and rendered in
+  // the creator's active language without touching the stored payload.
+  const localizedLog = useDisplayTexts(log);
+
   useEffect(() => {
     const el = termRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -383,7 +387,7 @@ function StepUpload({ lang }: { lang: Lang }) {
             sourcePublishedAt: formatPublishedDate(m.publishedAt, lang),
             sourceDurationLabel: m.durationLabel || formatDuration(m.durationSec),
             sourceChannel: m.channel,
-            outputLanguage: lang,
+            outputLanguage: lang, // audience hint only — the stored JSON stays English
           }));
         })
         .catch(() => {
@@ -837,7 +841,7 @@ function StepUpload({ lang }: { lang: Lang }) {
               ref={termRef}
               className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-[11px] leading-relaxed text-muted-foreground"
             >
-              {log.join("\n")}
+              {localizedLog.join("\n")}
             </pre>
           </div>
         )}

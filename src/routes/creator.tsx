@@ -9,7 +9,8 @@ import { MindFeedback } from "@/components/mind-feedback";
 import { RobotDeploymentStudio } from "@/components/robot-deployment-studio";
 import { extractTrajectories } from "@/lib/embodied";
 import { GuidedStudio } from "@/components/guided-studio";
-import { tr, pickCopy, type Lang } from "@/lib/i18n";
+import { tr, pickCopy, useLang, type Lang } from "@/lib/i18n";
+import { LanguageSelector } from "@/components/language-selector";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
@@ -974,7 +975,7 @@ class QuotaPaused extends Error {
 
 
 function Index() {
-  const [lang, setLang] = useState<Lang>("en");
+  const { lang, setLang } = useLang();
   const [view, setView] = useState<"guided" | "advanced" | "versions" | "projects">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
@@ -1142,7 +1143,7 @@ function Index() {
     return () => clearTimeout(id);
   }, [hydrated, source, duration, model, ownership, chunks, results, log]);
 
-  const t = translations[lang];
+  const t = pickCopy(translations, lang);
 
   const statusConfig: Record<Status, { label: string; icon: React.ElementType; color: string }> = {
     ready: { label: t.ready, icon: CheckCircle2, color: "text-status-green" },
@@ -1817,32 +1818,7 @@ function Index() {
             <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
               {t.language}
             </label>
-            <div className="flex rounded-lg border border-border bg-muted p-1">
-              <button
-                onClick={() => setLang("en")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  lang === "en" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                English
-              </button>
-              <button
-                onClick={() => setLang("mn")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  lang === "mn" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Монгол
-              </button>
-              <button
-                onClick={() => setLang("ko")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  lang === "ko" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                한국어
-              </button>
-            </div>
+            <LanguageSelector variant="inline" />
           </div>
 
           <nav className="flex-1">
@@ -2567,8 +2543,8 @@ function Index() {
                   { id: "face", label: t.tabFace, icon: ScanFace },
                   { id: "voice", label: t.tabVoice, icon: AudioLines },
                   { id: "brain", label: t.tabBrain, icon: Brain },
-                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Sparkles },
-                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Cloud },
+                  { id: "studio", label: pickCopy(BRAIN_STUDIO_TAB_LABEL, lang), icon: Sparkles },
+                  { id: "cloud", label: pickCopy(CLOUD_HUB_TAB_LABEL, lang), icon: Cloud },
                   { id: "log", label: t.appLog, icon: Terminal },
                 ] as { id: Tab; label: string; icon: typeof Brain }[]
               ).map((tab) => (

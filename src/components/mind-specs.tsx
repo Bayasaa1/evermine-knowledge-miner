@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 export type MindSpec = {
   id: string;
@@ -121,7 +121,7 @@ export function MindSpecs({
   lang?: Lang;
   canEdit?: boolean;
 }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const { user } = useAuth();
   const [spec, setSpec] = useState<MindSpec | null>(null);
   const [reviews, setReviews] = useState<ReviewLite[]>([]);

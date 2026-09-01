@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MindReviews } from "@/components/mind-reviews";
 import { MindSpecs } from "@/components/mind-specs";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 
 type Comment = {
@@ -63,7 +63,7 @@ export function MindFeedback({
   /** Creator-side surfaces let the owner publish a new version + release notes. */
   canEditSpecs?: boolean;
 }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [tab, setTab] = useState<"comments" | "reviews">("comments");
 
   return (
@@ -101,7 +101,7 @@ export function MindFeedback({
 
 }
 
-function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)[Lang] }) {
+function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en"] }) {
   const { user, profile } = useAuth();
   const [items, setItems] = useState<Comment[]>([]);
   const [body, setBody] = useState("");

@@ -7,7 +7,7 @@ import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Item = { to: "/" | "/explore" | "/vaults" | "/profile"; label: string; icon: typeof Home };
 
-const ITEMS: Record<Lang, Item[]> = {
+const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
   en: [
     { to: "/", label: "Home", icon: Home },
     { to: "/explore", label: "Explore", icon: Compass },
@@ -32,7 +32,7 @@ const ITEMS: Record<Lang, Item[]> = {
 export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [wizard, setWizard] = useState(false);
-  const items = ITEMS[lang];
+  const items = pickCopy(ITEMS, lang);
   const left = items.slice(0, 2);
   const right = items.slice(2);
 

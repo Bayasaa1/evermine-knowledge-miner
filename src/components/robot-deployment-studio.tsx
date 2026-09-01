@@ -20,7 +20,7 @@ import {
 } from "@/lib/copyright";
 
 import coverFounder from "@/assets/cover-founder.jpg";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 
 const copy = {
@@ -108,7 +108,7 @@ export function RobotDeploymentStudio({
   chunks: ChunkResult[];
   isAuthenticated: boolean;
 }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const fetchDeployment = useServerFn(getDeployment);
   const pushDeployment = useServerFn(publishDeployment);
 

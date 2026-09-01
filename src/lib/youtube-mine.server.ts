@@ -1,3 +1,4 @@
+import { LANGUAGES } from "@/lib/languages";
 import { normalizeYoutubeUrl } from "@/lib/import-sources";
 import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
 
@@ -41,20 +42,22 @@ export type Assessment = {
   outputLanguage?: string;
 };
 
-const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  mn: "Mongolian (Монгол)",
-  ko: "Korean (한국어)",
-  ja: "Japanese (日本語)",
-  zh: "Chinese (中文)",
-  es: "Spanish (Español)",
-};
+const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
+  Object.values(LANGUAGES).map((l) => [l.code, `${l.name} (${l.native})`]),
+);
 
-/** Forces every generated string in the JSON into the creator's platform language. */
+/**
+ * The Core Brain is stored in English for AI stability and graph-schema
+ * integrity; the UI translates it into the viewer's language at render time.
+ * `code` is kept only so the model knows the creator's audience.
+ */
 function languageDirective(code: string | undefined): string {
-  const lang = LANGUAGE_NAMES[(code ?? "en").toLowerCase()];
-  if (!lang || (code ?? "en").toLowerCase() === "en") return "";
-  return `\n\nOUTPUT LANGUAGE — ${lang}\nGenerate all JSON properties, extracted thoughts, summaries, descriptions, emotions, skills, beliefs and persona outputs directly in ${lang}. Keep JSON keys in English, but every human-readable value must be written natively in ${lang}. The only exception is the verbatim "subtitle" speech and culturalVocabulary "phrase" fields, which stay in the original spoken language; their explanations, meanings and intents must still be in ${lang}.`;
+  const audience = LANGUAGE_NAMES[(code ?? "en").toLowerCase()];
+  return `\n\nCORE STORAGE LANGUAGE — ENGLISH\nWrite every human-readable JSON value in clear English, even when the video is spoken in another language. This English core is the canonical brain; the app translates it for display. The only exceptions are the verbatim "subtitle" speech and culturalVocabulary "phrase" fields, which stay in the original spoken language — their meanings, intents and usage notes must still be English.${
+    audience && (code ?? "en").toLowerCase() !== "en"
+      ? ` The creator's audience speaks ${audience}; keep names and culture-specific terms accurate in transliteration, but do not translate the JSON values.`
+      : ""
+  }`;
 }
 
 /** Auto-extracted YouTube metadata, given to the model as grounding context. */

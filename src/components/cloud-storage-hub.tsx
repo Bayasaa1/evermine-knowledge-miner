@@ -24,9 +24,9 @@ import {
 import { loadBrainDoc } from "@/lib/brain-studio";
 import type { MineResult } from "@/lib/mine-file";
 import { Cloud, HardDrive, Link2, Plus, RefreshCw, Trash2, Power, FolderSync, Search } from "lucide-react";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
-export const CLOUD_HUB_TAB_LABEL: Record<Lang, string> = {
+export const CLOUD_HUB_TAB_LABEL = {
   en: "☁️ Cloud Storage Hub",
   mn: "☁️ Үүлэн сан",
   ko: "☁️ 클라우드 저장소 허브",
@@ -128,7 +128,7 @@ type Props = {
 };
 
 export function CloudStorageHub({ lang, results, sourceName, sourceSize, onLog }: Props) {
-  const t = L[lang];
+  const t = pickCopy(L, lang);
   const [hub, setHub] = useState<CloudHub>(emptyHub());
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState("");

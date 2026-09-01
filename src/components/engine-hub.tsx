@@ -17,7 +17,7 @@ import {
 } from "@/lib/engines";
 import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
 import { useAuth } from "@/hooks/use-auth";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -95,7 +95,7 @@ const copy = {
 } as const;
 
 export function EngineHub({ lang }: { lang: Lang }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [stack, setStack] = useState<EngineStack>(freeStack);
   const [hydrated, setHydrated] = useState(false);
   const [testingKey, setTestingKey] = useState<string | null>(null);

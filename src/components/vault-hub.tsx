@@ -36,6 +36,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { Localized } from "@/components/localized";
 import {
   createPersona,
   deletePersona,
@@ -397,7 +398,9 @@ function PersonaWorkspace({
               {projects.map((p) => (
                 <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
                   <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-sm font-semibold text-foreground">{p.title}</span>
+                    <span className="block truncate text-sm font-semibold text-foreground">
+                      <Localized text={p.title} />
+                    </span>
                     <span className="block text-xs text-muted-foreground">
                       {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
                     </span>
@@ -565,7 +568,9 @@ function VideoCard({
           className="h-16 w-28 shrink-0 rounded-lg object-cover"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{item.title || item.youtube_id}</p>
+          <p className="truncate text-sm font-semibold text-foreground">
+            <Localized text={item.title || item.youtube_id} />
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {progress.percent}% {t("mined")}
             {progress.total > 0 ? ` · ${progress.done}/${progress.total} ${t("chunksLabel")}` : ""}

@@ -17,7 +17,7 @@ import {
   maskDestination,
   type PayoutSettings,
 } from "@/lib/payouts";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -114,7 +114,7 @@ function money(v: number, currency: string) {
 }
 
 export function AnalyticsPanel({ lang, ownership }: { lang: Lang; ownership: Ownership }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [data, setData] = useState<Analytics>(() => emptyAnalytics());
   const [now, setNow] = useState(() => Date.now());
   const [paying, setPaying] = useState(false);

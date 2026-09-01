@@ -17,6 +17,7 @@ import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
 import { chunkBuckets, dataTypeCards, type MindPayload } from "@/lib/mind-json";
 import { listMindVersions, saveMindVersion, type MindVersion } from "@/lib/mind-versions.functions";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { Localized } from "@/components/localized";
 
 const C = {
   title: { en: "Core Brain", mn: "Гол Тархи", ko: "코어 브레인" },
@@ -147,7 +148,9 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-[11px] font-semibold text-primary">
                   {versions.length - i}
                 </span>
-                <h4 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{v.title}</h4>
+                <h4 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                  <Localized text={v.title} />
+                </h4>
                 <Badge variant="secondary">{v.version}</Badge>
                 <Badge variant="outline">+{contribution}</Badge>
               </div>

@@ -16,7 +16,7 @@ import {
   type Project,
   type ProjectContent,
 } from "@/lib/projects";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -92,7 +92,7 @@ const copy = {
 
 /** Creator-side hub for unlimited Projects and their two content types. */
 export function ProjectManager({ lang = "en" }: { lang?: Lang }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
@@ -172,7 +172,7 @@ function ProjectCard({
   onChanged,
 }: {
   project: Project;
-  t: (typeof copy)[Lang];
+  t: (typeof copy)["en"];
   onChanged: () => void;
 }) {
   const { user } = useAuth();
