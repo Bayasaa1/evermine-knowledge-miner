@@ -274,7 +274,7 @@ function FeedCard({
       <div className="pointer-events-none absolute inset-0 hidden bg-black/40 md:block" />
 
       {/* Centered 9:16 player frame on desktop; full-bleed on mobile */}
-      <div className="relative h-[100dvh] w-full overflow-hidden md:h-[min(100dvh,900px)] md:w-auto md:max-w-[450px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
+      <div className="relative h-[100dvh] w-full overflow-hidden md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[450px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
         {item.youtubeId ? (
           <YouTubeStage
             videoId={item.youtubeId}
