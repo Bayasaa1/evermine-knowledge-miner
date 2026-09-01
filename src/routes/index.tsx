@@ -343,7 +343,7 @@ function FeedCard({
   }, [isActive, paused]);
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
-  const locked = () => toast.error("Purchase this mind to unlock this service.");
+  const locked = () => toast.error(c.locked);
 
   return (
     <section
@@ -404,12 +404,14 @@ function FeedCard({
             {activeMark && (
               <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
-                {activeMark.label}
+                {shownMarks[(item.timeline ?? []).indexOf(activeMark)] || activeMark.label}
               </p>
             )}
             {activeEmotion && (
               <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
-                {activeEmotion.emotion ?? activeEmotion.label}
+                {shownEmotions[(item.emotionTimeline ?? []).indexOf(activeEmotion)] ||
+                  activeEmotion.emotion ||
+                  activeEmotion.label}
               </span>
             )}
           </div>
@@ -421,7 +423,7 @@ function FeedCard({
       <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5 md:bottom-8">
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
-          <span className="text-[10px]">Like</span>
+          <span className="text-[10px]">{c.like}</span>
         </button>
 
         {has("chat") && (
@@ -429,7 +431,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <MessageCircle className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">{purchased ? "Text Chat" : "Preview Chat"}</span>
+            <span className="text-[10px]">{purchased ? c.textChat : c.previewChat}</span>
           </button>
         )}
 
@@ -443,7 +445,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <Phone className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Voice Call</span>
+            <span className="text-[10px]">{c.voiceCall}</span>
           </button>
         )}
 
@@ -457,7 +459,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <VideoIcon className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Video Call</span>
+            <span className="text-[10px]">{c.videoCall}</span>
           </button>
         )}
 
@@ -467,7 +469,7 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <Bot className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Deploy to Robot</span>
+            <span className="text-[10px]">{c.robot}</span>
           </button>
         )}
 
@@ -476,13 +478,13 @@ function FeedCard({
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
               <FolderOpen className="h-5 w-5" />
             </span>
-            <span className="text-[10px]">Assets</span>
+            <span className="text-[10px]">{c.assets}</span>
           </button>
         )}
 
         <button type="button" onClick={onFeedback} aria-label="Comments and reviews" className="flex flex-col items-center gap-1">
           <Star className="h-7 w-7" />
-          <span className="text-[10px]">Reviews</span>
+          <span className="text-[10px]">{c.reviews}</span>
         </button>
 
         {item.src && (
@@ -522,18 +524,18 @@ function FeedCard({
           >
             {buying && <Loader2 className="h-3 w-3 animate-spin" />}
             {purchased
-              ? primary.en
+              ? pickCopy(primary as unknown as { en: string }, lang)
               : item.price > 0
-                ? `Buy · ${item.currency} ${item.price}`
-                : "Get · Free"}
+                ? `${c.buy} · ${item.currency} ${item.price}`
+                : c.free}
           </button>
         </div>
-        <p className="line-clamp-2 text-sm font-medium">{item.title}</p>
-        <p className="mt-1 line-clamp-2 text-xs text-white/70">{item.description}</p>
+        <p className="line-clamp-2 text-sm font-medium">{shownTitle}</p>
+        <p className="mt-1 line-clamp-2 text-xs text-white/70">{shownDescription}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {item.tags.slice(0, 3).map((tag) => (
+          {item.tags.slice(0, 3).map((tag, ti) => (
             <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
-              #{tag}
+              #{shownTags[ti] || tag}
             </span>
           ))}
         </div>
@@ -543,15 +545,15 @@ function FeedCard({
       {/* Tablet dual-pane: mined knowledge, emotions, and reviews beside the video */}
       <aside className="hidden h-[min(100dvh-6rem,860px)] w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur md:ml-6 md:flex lg:hidden">
         <div className="border-b border-white/10 px-4 py-3">
-          <p className="truncate text-sm font-semibold">{item.title}</p>
+          <p className="truncate text-sm font-semibold">{shownTitle}</p>
           <p className="truncate text-xs text-white/60">{item.creator} · {item.handle}</p>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {item.timeline?.length ? (
             <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">Mined timeline</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">{c.minedTimeline}</h3>
               <ul className="space-y-1.5">
-                {item.timeline.map((m) => (
+                {item.timeline.map((m, mi) => (
                   <li
                     key={`${m.t}-${m.label}`}
                     className={`rounded-lg px-2.5 py-1.5 text-[11px] leading-snug ${
@@ -559,7 +561,7 @@ function FeedCard({
                     }`}
                   >
                     <span className="mr-1.5 font-mono text-primary">{stamp(m.t)}</span>
-                    {m.label}
+                    {shownMarks[mi] || m.label}
                   </li>
                 ))}
               </ul>
@@ -567,16 +569,16 @@ function FeedCard({
           ) : null}
           {item.emotionTimeline?.length ? (
             <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">Emotions</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">{c.emotions}</h3>
               <div className="flex flex-wrap gap-1.5">
-                {item.emotionTimeline.map((m) => (
+                {item.emotionTimeline.map((m, mi) => (
                   <span
                     key={`${m.t}-${m.label}`}
                     className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                       activeEmotion === m ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
                     }`}
                   >
-                    {stamp(m.t)} · {m.emotion ?? m.label}
+                    {stamp(m.t)} · {shownEmotions[mi] || m.emotion || m.label}
                   </span>
                 ))}
               </div>
