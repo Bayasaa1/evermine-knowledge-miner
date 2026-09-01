@@ -31,6 +31,7 @@ export type Assessment = {
   videoContext?: string;
   primaryFocus?: string;
   customInstructions?: string;
+  speakerIdentity?: string;
 };
 
 function assessmentDirective(a: Assessment | undefined): string {
@@ -39,7 +40,8 @@ function assessmentDirective(a: Assessment | undefined): string {
   if (a.videoContext) lines.push(`Video context: ${a.videoContext}. Interpret every scene through this lens.`);
   if (a.primaryFocus) lines.push(`Primary extraction focus: ${a.primaryFocus}. Weight the output heavily toward it.`);
   if (a.customInstructions) lines.push(`Creator instructions: ${a.customInstructions}`);
-  return lines.length ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}` : "";
+  const speaker = speakerIdentityDirective(a.speakerIdentity);
+  return lines.length || speaker ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}${speaker}` : "";
 }
 
 export async function analyzeYoutubeVideo(input: {
