@@ -106,9 +106,6 @@ function HomeFeed() {
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [buying, setBuying] = useState<string | null>(null);
 
-  useEffect(() => {
-    void loadFeed().then(setItems).catch(() => undefined);
-  }, []);
 
   const refreshPurchases = useCallback(async () => {
     if (!user) {
