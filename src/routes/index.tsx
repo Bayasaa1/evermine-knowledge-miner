@@ -28,8 +28,6 @@ import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
 import { useAuth } from "@/hooks/use-auth";
-import { homeFeedKey } from "@/hooks/use-personas";
-import { useQuery } from "@tanstack/react-query";
 
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
@@ -73,13 +71,7 @@ const mindKey = (item: FeedItem) => item.mindId ?? item.id;
 function HomeFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // Live feed: invalidating ["home-feed"] after a mine publishes instantly.
-  const { data: items = marketplaceFeed() } = useQuery({
-    queryKey: homeFeedKey,
-    queryFn: () => loadFeed(),
-    initialData: () => marketplaceFeed(),
-    refetchOnMount: "always",
-  });
+  const [items, setItems] = useState<FeedItem[]>(() => marketplaceFeed());
   const [muted, setMuted] = useState(true);
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
@@ -89,6 +81,9 @@ function HomeFeed() {
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [buying, setBuying] = useState<string | null>(null);
 
+  useEffect(() => {
+    void loadFeed().then(setItems).catch(() => undefined);
+  }, []);
 
   const refreshPurchases = useCallback(async () => {
     if (!user) {

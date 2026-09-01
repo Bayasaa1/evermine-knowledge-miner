@@ -17,7 +17,6 @@ import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
 import { chunkBuckets, dataTypeCards, type MindPayload } from "@/lib/mind-json";
 import { listMindVersions, saveMindVersion, type MindVersion } from "@/lib/mind-versions.functions";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { invalidatePersonaChain } from "@/hooks/use-personas";
 
 const C = {
   title: { en: "Core Brain", mn: "Гол Тархи", ko: "코어 브레인" },
@@ -97,8 +96,8 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
     },
     onSuccess: async () => {
       toast.success(t("saved"));
-      // Chunk erasure ripples into project content, analytics and the feed.
-      await invalidatePersonaChain(queryClient);
+      await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });

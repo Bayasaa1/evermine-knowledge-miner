@@ -54,7 +54,6 @@ import { MiningWizard } from "@/components/mining-wizard";
 import { DEFAULT_TARGET, ProjectTargetPicker, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject } from "@/lib/projects";
 import { activePersona } from "@/lib/personas";
-import { invalidatePersonaChain } from "@/hooks/use-personas";
 import { youtubeId } from "@/lib/import-sources";
 import { DEFAULT_ASSESSMENT, type Assessment, type VideoMetadata } from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
@@ -458,7 +457,6 @@ function StepUpload({ lang }: { lang: Lang }) {
         const created = await createProject(userId, {
           title: target.newTitle.trim() || title,
           description: mined.story.summary ?? "",
-          personaId: persona?.id ?? null,
           ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
         });
         projectId = created.project?.id ?? null;
@@ -472,9 +470,9 @@ function StepUpload({ lang }: { lang: Lang }) {
           title,
           description: assessment.sourceDescription?.slice(0, 500) || (mined.story.summary ?? ""),
           tags: mined.subconsciousness.skills.slice(0, 6),
-          mindId: vault.id,
         });
         await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
+        await queryClient.invalidateQueries({ queryKey: ["project-content", projectId] });
       }
 
       const goPublic = target.publishToFeed && target.contentKind === "VISUAL_CONTENT";
@@ -494,8 +492,8 @@ function StepUpload({ lang }: { lang: Lang }) {
         currency: "USD",
       });
       setSavedTitle(`${title} · ${saved.version}`);
-      // Persona → projects → vault content → core brain → feed all refresh live.
-      await invalidatePersonaChain(queryClient, projectId);
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
 
     },
     [lang, queryClient, target, userId, assessment],
