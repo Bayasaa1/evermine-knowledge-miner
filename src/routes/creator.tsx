@@ -2567,8 +2567,8 @@ function Index() {
                   { id: "face", label: t.tabFace, icon: ScanFace },
                   { id: "voice", label: t.tabVoice, icon: AudioLines },
                   { id: "brain", label: t.tabBrain, icon: Brain },
-                  { id: "studio", label: BRAIN_STUDIO_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Sparkles },
-                  { id: "cloud", label: CLOUD_HUB_TAB_LABEL[lang === "ko" ? "en" : lang], icon: Cloud },
+                  { id: "studio", label: pickCopy(BRAIN_STUDIO_TAB_LABEL, lang), icon: Sparkles },
+                  { id: "cloud", label: pickCopy(CLOUD_HUB_TAB_LABEL, lang), icon: Cloud },
                   { id: "log", label: t.appLog, icon: Terminal },
                 ] as { id: Tab; label: string; icon: typeof Brain }[]
               ).map((tab) => (
