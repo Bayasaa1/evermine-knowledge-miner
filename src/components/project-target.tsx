@@ -5,16 +5,18 @@
  * the video also lands on the public feed.
  */
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FolderPlus, Layers, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FolderPlus, Layers, Loader2, Plus, UserRound } from "lucide-react";
 
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { listMyProjects, type ContentKind } from "@/lib/projects";
+import { createPersona, listPersonas } from "@/lib/personas";
 import { useAuth } from "@/hooks/use-auth";
 
 export type UpdateIntent = "continuation" | "patch" | "expand";
 
 export type ProjectTarget = {
+  personaId: string | null;
   mode: "new" | "existing";
   projectId: string | null;
   newTitle: string;
@@ -25,6 +27,7 @@ export type ProjectTarget = {
 };
 
 export const DEFAULT_TARGET: ProjectTarget = {
+  personaId: null,
   mode: "new",
   projectId: null,
   newTitle: "",
@@ -33,6 +36,13 @@ export const DEFAULT_TARGET: ProjectTarget = {
   contentKind: "VISUAL_CONTENT",
   publishToFeed: true,
 };
+
+/** Step 2 is strictly hierarchical: persona -> project -> link. */
+export function isTargetReady(t: ProjectTarget): boolean {
+  if (!t.personaId) return false;
+  return t.mode === "existing" ? Boolean(t.projectId) : t.newTitle.trim().length > 0;
+}
+
 
 const copy = {
   en: {
