@@ -127,7 +127,10 @@ export function VaultHub({ lang = "en" }: { lang?: Lang }) {
   const [busy, setBusy] = useState(false);
 
   const loadPersonas = useCallback(async () => {
-    if (!userId) return setPersonas([]);
+    if (!userId) {
+      setPersonas([]);
+      return;
+    }
     setPersonas(await listPersonas(userId));
   }, [userId]);
 
@@ -157,7 +160,10 @@ export function VaultHub({ lang = "en" }: { lang?: Lang }) {
       avatarUrl: avatar || null,
     });
     setBusy(false);
-    if (error) return toast.error(error);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     setDraft("");
     setAvatar("");
     if (persona) await switchPersona(user.id, persona.id);
@@ -193,7 +199,10 @@ export function VaultHub({ lang = "en" }: { lang?: Lang }) {
             onActivate={async () => { await switchPersona(user.id, p.id); await loadPersonas(); }}
             onDelete={async () => {
               const error = await deletePersona(p.id);
-              if (error) return toast.error(error);
+              if (error) {
+                toast.error(error);
+                return;
+              }
               await loadPersonas();
               toast.success(t("removed"));
             }}
@@ -332,7 +341,10 @@ function PersonaWorkspace({
       creatorName: personaName,
     });
     setBusy(false);
-    if (error) return toast.error(error);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     setName("");
     toast.success(t("createdMsg"));
     void load();
@@ -529,7 +541,10 @@ function VideoCard({
       tags: tags.split(",").map((s) => s.trim()).filter(Boolean),
       kind,
     });
-    if (error) return toast.error(error);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     setEditing(false);
     toast.success(t("saved"));
     onChanged();
@@ -627,7 +642,10 @@ function VideoCard({
             type="button"
             onClick={async () => {
               const error = await deleteProjectContent(item.id);
-              if (error) return toast.error(error);
+              if (error) {
+                toast.error(error);
+                return;
+              }
               toast.success(t("removed"));
               onChanged();
             }}
