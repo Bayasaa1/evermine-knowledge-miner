@@ -9,7 +9,7 @@ import {
   type EmbodiedSettings,
 } from "@/lib/embodied";
 import type { VlaTrajectory } from "@/lib/embodied";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -66,7 +66,7 @@ export function EmbodiedAiCard({
   lang: Lang;
   trajectories?: VlaTrajectory[];
 }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [settings, setSettings] = useState<EmbodiedSettings>(defaultEmbodiedSettings);
   const [hydrated, setHydrated] = useState(false);
 

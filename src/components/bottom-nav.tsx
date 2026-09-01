@@ -32,7 +32,7 @@ const ITEMS: Record<Lang, Item[]> = {
 export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [wizard, setWizard] = useState(false);
-  const items = ITEMS[lang];
+  const items = pickCopy(ITEMS, lang);
   const left = items.slice(0, 2);
   const right = items.slice(2);
 

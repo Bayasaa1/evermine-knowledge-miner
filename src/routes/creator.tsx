@@ -1142,7 +1142,7 @@ function Index() {
     return () => clearTimeout(id);
   }, [hydrated, source, duration, model, ownership, chunks, results, log]);
 
-  const t = translations[lang];
+  const t = pickCopy(translations, lang);
 
   const statusConfig: Record<Status, { label: string; icon: React.ElementType; color: string }> = {
     ready: { label: t.ready, icon: CheckCircle2, color: "text-status-green" },

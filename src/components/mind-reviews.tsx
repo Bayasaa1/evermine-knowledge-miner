@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Review = {
   id: string;
@@ -75,7 +75,7 @@ const copy = {
  * "Paid Owner" or "Verified Tester" and aggregate into a public Trust Score.
  */
 export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: Lang }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const { user, profile } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [rating, setRating] = useState(5);

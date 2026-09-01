@@ -3,7 +3,7 @@ import { Compass, Hammer } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 
 export type AppRole = "creator" | "explorer";
@@ -35,7 +35,7 @@ const labels: Record<Lang, { creator: string; explorer: string }> = {
 
 export function ModeSwitch({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const t = labels[lang];
+  const t = pickCopy(labels, lang);
   const base =
     "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm";
 

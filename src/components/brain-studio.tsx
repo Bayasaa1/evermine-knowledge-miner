@@ -17,7 +17,7 @@ import {
 } from "@/lib/brain-studio";
 import { parseTimestamp } from "@/lib/voice-sample";
 import type { MineResult } from "@/lib/mine-file";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 import {
   Brain,
   Pencil,
@@ -212,7 +212,7 @@ export function BrainStudio({
   /** Isolates this Core Brain to a specific Mind Vault. */
   mindId?: string | null;
 }) {
-  const t = L[lang];
+  const t = pickCopy(L, lang);
   const [doc, setDoc] = useState<BrainDoc>(() => emptyBrainDoc());
   const [ready, setReady] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);

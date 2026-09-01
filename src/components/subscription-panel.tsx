@@ -10,7 +10,7 @@ import {
   splitRevenue,
   type SubscriptionPlan,
 } from "@/lib/subscription";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -79,7 +79,7 @@ const copy = {
 } as const;
 
 export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [plan, setPlan] = useState<SubscriptionPlan>(createPlan);
   const [hydrated, setHydrated] = useState(false);
   const [priceText, setPriceText] = useState("");

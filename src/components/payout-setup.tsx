@@ -9,7 +9,7 @@ import {
   type PayoutChannel,
   type PayoutSettings,
 } from "@/lib/payouts";
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -114,7 +114,7 @@ export function PayoutSetup({
   defaultEmail?: string;
   onConnected: (s: PayoutSettings) => void;
 }) {
-  const t = copy[lang];
+  const t = pickCopy(copy, lang);
   const [channel, setChannel] = useState<PayoutChannel>("stripe");
   const [destination, setDestination] = useState(defaultEmail);
   const [network, setNetwork] = useState<string>(CRYPTO_NETWORKS[0]);

@@ -10,7 +10,7 @@ import {
   type CreatorMind,
 } from "@/lib/mind-registry";
 
-import type { Lang } from "@/lib/i18n";
+import { pickCopy, type Lang } from "@/lib/i18n";
 
 const L = {
   en: {
@@ -68,7 +68,7 @@ export function MindManager({
   /** Called whenever the active mind changes (id of the active vault). */
   onChange?: (mind: CreatorMind) => void;
 }) {
-  const t = L[lang];
+  const t = pickCopy(L, lang);
   const [minds, setMinds] = useState<CreatorMind[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
