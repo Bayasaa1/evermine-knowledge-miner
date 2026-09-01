@@ -345,25 +345,28 @@ function PersonaWorkspace({
   userId,
   personaId,
   personaName,
-  onBack,
 }: {
   lang: Lang;
   userId: string;
   personaId: string | null;
   personaName: string;
-  onBack: () => void;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setProjects(await listProjectsByPersona(userId, personaId));
-  }, [userId, personaId]);
+  const { data: projects = [] } = useQuery({
+    queryKey: personaProjectsKey(userId, personaId),
+    queryFn: () => listProjectsByPersona(userId, personaId),
+    refetchOnMount: "always",
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  const load = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: personaProjectsKey(userId, personaId) }),
+    [queryClient, userId, personaId],
+  );
 
   const open = projects.find((p) => p.id === openId) ?? null;
 
@@ -387,9 +390,11 @@ function PersonaWorkspace({
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-2">
-        <button type="button" onClick={open ? () => setOpenId(null) : onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
-          <ArrowLeft className="h-3.5 w-3.5" /> {t("back")}
-        </button>
+        {open ? (
+          <button type="button" onClick={() => setOpenId(null)} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
+            <ArrowLeft className="h-3.5 w-3.5" /> {t("back")}
+          </button>
+        ) : null}
         <p className="min-w-0 truncate text-sm font-semibold text-foreground">
           {personaName}
           {open ? <span className="text-muted-foreground"> / {open.title}</span> : null}
