@@ -29,8 +29,22 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
+/** Product documentation the assistant answers "how do I…" questions from. */
+const PLATFORM_DOCS = [
+  `EVERMIND HANDBOOK (use this to answer product questions, not just errors):`,
+  `- Hierarchy: Persona → Project → Video. A Persona is a creator identity; every Project belongs to one Persona; mined videos live inside a Project.`,
+  `- Personas: create and switch them in My Vaults (persona grid) or with the persona switcher. New projects inherit the active persona's name and avatar.`,
+  `- Mining a video: press the centre "+" button, pick the Persona, then a new or existing Project, then paste a YouTube link (playlists supported). Title, description, duration and thumbnail are fetched automatically. The video is split into 5-minute checkpoints (chunks = ceil(duration / 300)); the live terminal shows each chunk and can be stopped and resumed.`,
+  `- Content type: VISUAL_CONTENT is published to the public Home Feed; TRAINING_ONLY stays private and only trains the mind.`,
+  `- Vaults: My Vaults shows personas, projects, mined videos, the Core Brain inspector (knowledge graph plus raw JSON with a chunk eraser), version history with rollback, analytics, earnings and reviews.`,
+  `- Search tab: search personas, projects, mined videos and topics across the network.`,
+  `- Feed: vertical TikTok-style stream with live mined timestamps and emotion tags; viewers can chat, call, review or deploy a purchased mind to a robot.`,
+  `- Storage: mined JSON is stored only in Evermind's own database in English; the interface translates it into the viewer's language at display time. There is no external backup.`,
+  `- Common problems: video must be Public or Unlisted; a stopped mining job can be resumed from the same wizard; an invalid or exhausted AI key shows HTTP 400/401/403/429; long videos simply produce more checkpoints.`,
+].join("\n");
+
 function systemPrompt(lang: Lang, errors: CapturedError[]): string {
-  const langName = lang === "mn" ? "Mongolian (Монгол)" : lang === "ko" ? "Korean (한국어)" : "English";
+  const langName = `${LANGUAGES[lang]?.name ?? "English"} (${LANGUAGES[lang]?.native ?? "English"})`;
   const errorBlock =
     errors.length === 0
       ? "No errors have been captured yet."
