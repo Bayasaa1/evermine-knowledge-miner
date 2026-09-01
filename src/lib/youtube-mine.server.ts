@@ -32,7 +32,25 @@ export type Assessment = {
   primaryFocus?: string;
   customInstructions?: string;
   speakerIdentity?: string;
+  sourceTitle?: string;
+  sourceDescription?: string;
+  sourcePublishedAt?: string;
+  sourceDurationLabel?: string;
+  sourceChannel?: string;
 };
+
+/** Auto-extracted YouTube metadata, given to the model as grounding context. */
+function metadataDirective(a: Assessment): string {
+  const rows = [
+    a.sourceTitle ? `Title: ${a.sourceTitle}` : "",
+    a.sourceChannel ? `Channel / author: ${a.sourceChannel}` : "",
+    a.sourcePublishedAt ? `Published: ${a.sourcePublishedAt}` : "",
+    a.sourceDurationLabel ? `Duration: ${a.sourceDurationLabel}` : "",
+    a.sourceDescription ? `Original description and tags:\n${a.sourceDescription.slice(0, 4_000)}` : "",
+  ].filter(Boolean);
+  if (!rows.length) return "";
+  return `\n\nSOURCE METADATA (from YouTube — use it for names, spelling, topics and chronology; never treat it as spoken content)\n${rows.join("\n")}`;
+}
 
 function assessmentDirective(a: Assessment | undefined): string {
   if (!a) return "";
@@ -41,8 +59,12 @@ function assessmentDirective(a: Assessment | undefined): string {
   if (a.primaryFocus) lines.push(`Primary extraction focus: ${a.primaryFocus}. Weight the output heavily toward it.`);
   if (a.customInstructions) lines.push(`Creator instructions: ${a.customInstructions}`);
   const speaker = speakerIdentityDirective(a.speakerIdentity);
-  return lines.length || speaker ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}${speaker}` : "";
+  const meta = metadataDirective(a);
+  return lines.length || speaker || meta
+    ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}${speaker}${meta}`
+    : "";
 }
+
 
 export async function analyzeYoutubeVideo(input: {
   url: string;
