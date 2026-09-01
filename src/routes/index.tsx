@@ -28,6 +28,8 @@ import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
 import { useAuth } from "@/hooks/use-auth";
+import { homeFeedKey } from "@/hooks/use-personas";
+import { useQuery } from "@tanstack/react-query";
 
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
