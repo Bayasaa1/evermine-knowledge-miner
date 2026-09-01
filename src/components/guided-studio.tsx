@@ -6,7 +6,7 @@
  * Every limit is stated up front and every failure surfaces as a plain-language
  * banner with a Retry button — never a raw log line.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
