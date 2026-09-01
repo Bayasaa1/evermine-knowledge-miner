@@ -20,6 +20,9 @@ const copy = {
     focus: "2. Primary focus",
     custom: "3. Custom analysis instructions",
     customPlaceholder: "e.g. Focus on the defensive shape and the coach's tactical calls.",
+    speaker: "Speaker identity — who is the Mind Owner / Host?",
+    speakerPlaceholder: "Host: Batbold, Guest: Elon Musk",
+    speakerHint: "Guest answers stay contextual knowledge; only the host shapes the Mind Vault identity.",
     start: "Start mining",
   },
   mn: {
@@ -29,6 +32,9 @@ const copy = {
     focus: "2. Гол анхаарах зүйл",
     custom: "3. Нэмэлт зааварчилгаа",
     customPlaceholder: "жишээ нь: Хамгаалалтын бүтэц, дасгалжуулагчийн шийдвэрт анхаараарай.",
+    speaker: "Ярианы эзэн — Mind эзэмшигч / хөтлөгч хэн бэ?",
+    speakerPlaceholder: "Хөтлөгч: Батболд, Зочин: Elon Musk",
+    speakerHint: "Зочны яриа зөвхөн нөхцөл байдлын мэдлэг болно; зөвхөн хөтлөгч Mind-ийн зан чанарыг бүрдүүлнэ.",
     start: "Шинжилгээ эхлүүлэх",
   },
   ko: {
@@ -38,6 +44,9 @@ const copy = {
     focus: "2. 주요 초점",
     custom: "3. 추가 분석 지침",
     customPlaceholder: "예: 수비 대형과 코치의 전술 지시에 집중해 주세요.",
+    speaker: "화자 식별 — 마인드 소유자 / 호스트는 누구인가요?",
+    speakerPlaceholder: "호스트: 바트볼드, 게스트: Elon Musk",
+    speakerHint: "게스트 발언은 맥락 지식으로만 저장되고, 호스트만 마인드 정체성을 형성합니다.",
     start: "분석 시작",
   },
 };
@@ -111,6 +120,19 @@ export function MiningWizard({
           ))}
         </div>
       </fieldset>
+
+      {state.videoContext === "Podcast" && (
+        <label className="mt-4 block">
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.speaker}</span>
+          <input
+            value={state.speakerIdentity}
+            onChange={(e) => update({ speakerIdentity: e.target.value.slice(0, 300) })}
+            placeholder={t.speakerPlaceholder}
+            className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+          />
+          <span className="mt-1 block text-xs text-muted-foreground">{t.speakerHint}</span>
+        </label>
+      )}
 
       <label className="mt-4 block">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.custom}</span>
