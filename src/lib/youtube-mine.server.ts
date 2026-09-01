@@ -37,7 +37,25 @@ export type Assessment = {
   sourcePublishedAt?: string;
   sourceDurationLabel?: string;
   sourceChannel?: string;
+  /** UI language code — the mined JSON must be written natively in it. */
+  outputLanguage?: string;
 };
+
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  mn: "Mongolian (Монгол)",
+  ko: "Korean (한국어)",
+  ja: "Japanese (日本語)",
+  zh: "Chinese (中文)",
+  es: "Spanish (Español)",
+};
+
+/** Forces every generated string in the JSON into the creator's platform language. */
+function languageDirective(code: string | undefined): string {
+  const lang = LANGUAGE_NAMES[(code ?? "en").toLowerCase()];
+  if (!lang || (code ?? "en").toLowerCase() === "en") return "";
+  return `\n\nOUTPUT LANGUAGE — ${lang}\nGenerate all JSON properties, extracted thoughts, summaries, descriptions, emotions, skills, beliefs and persona outputs directly in ${lang}. Keep JSON keys in English, but every human-readable value must be written natively in ${lang}. The only exception is the verbatim "subtitle" speech and culturalVocabulary "phrase" fields, which stay in the original spoken language; their explanations, meanings and intents must still be in ${lang}.`;
+}
 
 /** Auto-extracted YouTube metadata, given to the model as grounding context. */
 function metadataDirective(a: Assessment): string {
@@ -59,9 +77,10 @@ function assessmentDirective(a: Assessment | undefined): string {
   if (a.primaryFocus) lines.push(`Primary extraction focus: ${a.primaryFocus}. Weight the output heavily toward it.`);
   if (a.customInstructions) lines.push(`Creator instructions: ${a.customInstructions}`);
   const speaker = speakerIdentityDirective(a.speakerIdentity);
+  const language = languageDirective(a.outputLanguage);
   const meta = metadataDirective(a);
-  return lines.length || speaker || meta
-    ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}${speaker}${meta}`
+  return lines.length || speaker || meta || language
+    ? `\n\nCREATOR ASSESSMENT\n${lines.join("\n")}${speaker}${meta}${language}`
     : "";
 }
 
