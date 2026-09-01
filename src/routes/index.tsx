@@ -73,7 +73,13 @@ const mindKey = (item: FeedItem) => item.mindId ?? item.id;
 function HomeFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [items, setItems] = useState<FeedItem[]>(() => marketplaceFeed());
+  // Live feed: invalidating ["home-feed"] after a mine publishes instantly.
+  const { data: items = marketplaceFeed() } = useQuery({
+    queryKey: homeFeedKey,
+    queryFn: () => loadFeed(),
+    initialData: () => marketplaceFeed(),
+    refetchOnMount: "always",
+  });
   const [muted, setMuted] = useState(true);
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
