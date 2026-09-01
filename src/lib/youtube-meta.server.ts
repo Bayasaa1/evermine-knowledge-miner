@@ -35,11 +35,81 @@ export async function fetchPlaylistVideoIds(list: string, limit = 50): Promise<s
   return ids;
 }
 
+
+/**
+ * InnerTube player endpoint — the only YouTube surface that reliably returns
+ * duration, description and publish date from a server/edge runtime (the plain
+ * watch page is frequently served as a consent/bot wall to datacenter IPs).
+ */
+type PlayerMeta = {
+  title: string;
+  description: string;
+  durationSec: number;
+  channel: string;
+  publishedAt: string;
+  thumbnail: string;
+};
+
+export async function fetchPlayerMeta(videoId: string): Promise<Partial<PlayerMeta>> {
+  try {
+    const res = await fetch("https://www.youtube.com/youtubei/v1/player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": UA,
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      body: JSON.stringify({
+        videoId,
+        contentCheckOk: true,
+        racyCheckOk: true,
+        context: { client: { clientName: "WEB", clientVersion: "2.20240726.00.00", hl: "en", gl: "US" } },
+      }),
+    });
+    if (!res.ok) return {};
+    const j = (await res.json()) as {
+      videoDetails?: {
+        title?: string;
+        shortDescription?: string;
+        lengthSeconds?: string;
+        author?: string;
+        thumbnail?: { thumbnails?: { url?: string; width?: number }[] };
+      };
+      microformat?: { playerMicroformatRenderer?: { publishDate?: string; uploadDate?: string } };
+    };
+    const d = j.videoDetails;
+    const micro = j.microformat?.playerMicroformatRenderer;
+    const thumbs = d?.thumbnail?.thumbnails ?? [];
+    const best = thumbs.slice().sort((a, b) => (b.width ?? 0) - (a.width ?? 0))[0]?.url;
+    const len = Number(d?.lengthSeconds ?? 0);
+    return {
+      title: d?.title || undefined,
+      description: d?.shortDescription || undefined,
+      durationSec: Number.isFinite(len) && len > 0 ? len : undefined,
+      channel: d?.author || undefined,
+      publishedAt: micro?.publishDate || micro?.uploadDate || undefined,
+      thumbnail: best || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export async function fetchVideoMeta(videoId: string): Promise<VideoMeta> {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
   let title = videoId;
-  let durationSec = FALLBACK_DURATION_SEC;
+  let durationSec = 0;
+
+  const player = await fetchPlayerMeta(videoId);
+  if (player.durationSec) durationSec = player.durationSec;
+  if (player.title) title = player.title;
+  if (durationSec > 0) return { videoId, url, title, durationSec };
+
+  const complete = () =>
+    !!details.title && !!details.description && !!details.publishedAt && details.durationSec > 0;
+
   try {
+    if (complete()) return details;
     const html = await fetchText(url);
     const len = html.match(/"lengthSeconds":"(\d+)"/);
     if (len?.[1]) {
@@ -51,6 +121,7 @@ export async function fetchVideoMeta(videoId: string): Promise<VideoMeta> {
   } catch {
     // Metadata is best effort — the chunk plan falls back to a safe default.
   }
+  if (durationSec <= 0) durationSec = FALLBACK_DURATION_SEC;
   return { videoId, url, title, durationSec };
 }
 
@@ -88,7 +159,16 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
     channel: "",
   };
 
-  // oEmbed is the most reliable source for title + author.
+  // InnerTube first: it returns duration, description and publish date reliably.
+  const player = await fetchPlayerMeta(videoId);
+  if (player.title) details.title = player.title;
+  if (player.description) details.description = player.description;
+  if (player.durationSec) details.durationSec = player.durationSec;
+  if (player.channel) details.channel = player.channel;
+  if (player.publishedAt) details.publishedAt = player.publishedAt;
+  if (player.thumbnail) details.thumbnail = player.thumbnail;
+
+  // oEmbed is a reliable secondary source for title + author.
   try {
     const res = await fetch(
       `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
@@ -96,9 +176,10 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
     );
     if (res.ok) {
       const j = (await res.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
-      if (j.title) details.title = j.title;
-      if (j.author_name) details.channel = j.author_name;
-      if (j.thumbnail_url) details.thumbnail = j.thumbnail_url.replace("hqdefault", "maxresdefault");
+      if (j.title && !details.title) details.title = j.title;
+      if (j.author_name && !details.channel) details.channel = j.author_name;
+      if (j.thumbnail_url && !player.thumbnail)
+        details.thumbnail = j.thumbnail_url.replace("hqdefault", "maxresdefault");
     }
   } catch {
     // best effort
@@ -107,11 +188,11 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
   try {
     const html = await fetchText(url);
     const len = html.match(/"lengthSeconds":"(\d+)"/);
-    if (len?.[1]) {
+    if (len?.[1] && details.durationSec <= 0) {
       const n = Number(len[1]);
       if (Number.isFinite(n) && n > 0) details.durationSec = n;
     }
-    const desc =
+    const desc = details.description ? "" :
       html.match(/"shortDescription":"((?:[^"\\]|\\.)*)"/)?.[1] ??
       html.match(/<meta name="description" content="([^"]*)"/)?.[1] ??
       "";
@@ -127,7 +208,7 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
       html.match(/<meta itemprop="datePublished" content="([^"]+)"/)?.[1] ??
       html.match(/"uploadDate":"([^"]+)"/)?.[1] ??
       "";
-    if (published) details.publishedAt = published;
+    if (published && !details.publishedAt) details.publishedAt = published;
     if (!details.title) {
       const t = html.match(/<meta name="title" content="([^"]{1,200})"/);
       if (t?.[1]) details.title = decodeEntities(t[1]);
