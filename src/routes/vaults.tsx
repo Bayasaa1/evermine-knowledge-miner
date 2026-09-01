@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 
 import { MindManager } from "@/components/mind-manager";
+import { VaultHub } from "@/components/vault-hub";
+
 import { listVaults } from "@/lib/cloud-vault.functions";
 import { useAuth } from "@/hooks/use-auth";
 
