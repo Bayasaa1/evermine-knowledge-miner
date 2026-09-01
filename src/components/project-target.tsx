@@ -5,16 +5,18 @@
  * the video also lands on the public feed.
  */
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FolderPlus, Layers, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FolderPlus, Layers, Loader2, Plus, UserRound } from "lucide-react";
 
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { listMyProjects, type ContentKind } from "@/lib/projects";
+import { createPersona, listPersonas } from "@/lib/personas";
 import { useAuth } from "@/hooks/use-auth";
 
 export type UpdateIntent = "continuation" | "patch" | "expand";
 
 export type ProjectTarget = {
+  personaId: string | null;
   mode: "new" | "existing";
   projectId: string | null;
   newTitle: string;
@@ -25,6 +27,7 @@ export type ProjectTarget = {
 };
 
 export const DEFAULT_TARGET: ProjectTarget = {
+  personaId: null,
   mode: "new",
   projectId: null,
   newTitle: "",
@@ -34,8 +37,28 @@ export const DEFAULT_TARGET: ProjectTarget = {
   publishToFeed: true,
 };
 
+/** Step 2 is strictly hierarchical: persona -> project -> link. */
+export function isTargetReady(t: ProjectTarget): boolean {
+  if (!t.personaId) return false;
+  return t.mode === "existing" ? Boolean(t.projectId) : t.newTitle.trim().length > 0;
+}
+
+
 const copy = {
   en: {
+    stepA: "Step 2A · Persona",
+    personaQ: "Which Persona owns this content?",
+    personaSub: "Everything mined here is published under this identity.",
+    newPersona: "Create New Persona",
+    personaName: "Persona name",
+    personaPlaceholder: "e.g. Gremix",
+    save: "Save persona",
+    cancel: "Cancel",
+    noPersona: "No personas yet — create your first one.",
+    stepB: "Step 2B · Project",
+    lockedB: "Select a persona first.",
+    stepC: "Step 2C · Media & context",
+    lockedC: "Select a persona and project first.",
     title: "Where should this Mind go?",
     sub: "Pick a destination project first — everything mined from this video is filed there.",
     newOpt: "Create a Brand New Mind Project",
@@ -59,6 +82,19 @@ const copy = {
     publishOff: "Stays private — used only to train your Mind.",
   },
   mn: {
+    stepA: "Алхам 2A · Дүр",
+    personaQ: "Энэ контентыг аль дүр эзэмших вэ?",
+    personaSub: "Энд боловсруулсан бүхэн энэ дүрийн нэрээр нийтлэгдэнэ.",
+    newPersona: "Шинэ дүр үүсгэх",
+    personaName: "Дүрийн нэр",
+    personaPlaceholder: "жишээ нь: Gremix",
+    save: "Дүр хадгалах",
+    cancel: "Болих",
+    noPersona: "Дүр алга — эхнийхээ үүсгэнэ үү.",
+    stepB: "Алхам 2B · Төсөл",
+    lockedB: "Эхлээд дүрээ сонгоно уу.",
+    stepC: "Алхам 2C · Медиа ба нөхцөл",
+    lockedC: "Эхлээд дүр болон төслөө сонгоно уу.",
     title: "Энэ оюуныг хаана хадгалах вэ?",
     sub: "Эхлээд төслөө сонго — энэ видеоноос гарсан бүх мэдээлэл тэнд хадгалагдана.",
     newOpt: "Шинэ Mind төсөл үүсгэх",
@@ -82,6 +118,19 @@ const copy = {
     publishOff: "Хувийн хэвээр — зөвхөн оюуныг сургахад ашиглана.",
   },
   ko: {
+    stepA: "2A단계 · 페르소나",
+    personaQ: "이 콘텐츠는 어떤 페르소나의 것인가요?",
+    personaSub: "여기서 추출된 모든 내용은 이 정체성으로 게시됩니다.",
+    newPersona: "새 페르소나 만들기",
+    personaName: "페르소나 이름",
+    personaPlaceholder: "예: Gremix",
+    save: "페르소나 저장",
+    cancel: "취소",
+    noPersona: "페르소나가 없습니다 — 먼저 만들어 주세요.",
+    stepB: "2B단계 · 프로젝트",
+    lockedB: "먼저 페르소나를 선택하세요.",
+    stepC: "2C단계 · 미디어 및 컨텍스트",
+    lockedC: "먼저 페르소나와 프로젝트를 선택하세요.",
     title: "이 마인드를 어디에 저장할까요?",
     sub: "먼저 대상 프로젝트를 선택하세요 — 이 영상에서 추출된 모든 내용이 그곳에 저장됩니다.",
     newOpt: "새 마인드 프로젝트 만들기",
@@ -117,15 +166,28 @@ export function ProjectTargetPicker({
 }) {
   const t = pickCopy(copy, lang);
   const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [touchedPublish, setTouchedPublish] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [personaName, setPersonaName] = useState("");
+  const [savingPersona, setSavingPersona] = useState(false);
 
-  const { data: projects = [], isLoading } = useQuery({
+  const { data: personas = [], isLoading: personasLoading } = useQuery({
+    queryKey: ["my-personas", userId],
+    queryFn: () => listPersonas(userId as string),
+    enabled: Boolean(userId),
+  });
+
+  const { data: allProjects = [], isLoading } = useQuery({
     queryKey: ["my-projects", userId],
     queryFn: () => listMyProjects(userId as string),
     enabled: Boolean(userId),
   });
 
   const set = (patch: Partial<ProjectTarget>) => onChange({ ...value, ...patch });
+
+  // Step 2B only ever lists projects belonging to the persona chosen in 2A.
+  const projects = allProjects.filter((p) => (p.persona_id ?? null) === value.personaId);
 
   // Default publish state follows the content type until the creator overrides it.
   useEffect(() => {
@@ -135,12 +197,113 @@ export function ProjectTargetPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.contentKind, touchedPublish]);
 
+  // Preselect the only persona so single-identity creators aren't blocked.
+  useEffect(() => {
+    if (!value.personaId && personas.length === 1) set({ personaId: personas[0]!.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personas, value.personaId]);
+
+  const addPersona = async () => {
+    if (!userId || !personaName.trim()) return;
+    setSavingPersona(true);
+    const { persona } = await createPersona(userId, { name: personaName.trim() });
+    setSavingPersona(false);
+    if (persona) {
+      await queryClient.invalidateQueries({ queryKey: ["my-personas"] });
+      setPersonaName("");
+      setCreating(false);
+      set({ personaId: persona.id, projectId: null });
+    }
+  };
+
+  const personaChosen = Boolean(value.personaId);
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="text-sm font-semibold text-foreground">{t.title}</p>
       <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+      {/* ---- Step 2A: persona ---- */}
+      <p className="mt-5 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepA}</p>
+      <p className="mt-1 text-sm font-medium text-foreground">{t.personaQ}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{t.personaSub}</p>
+
+      {personasLoading ? (
+        <Loader2 className="mt-3 h-4 w-4 animate-spin text-muted-foreground" />
+      ) : (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {personas.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => set({ personaId: p.id, projectId: null })}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                value.personaId === p.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted/50"
+              }`}
+            >
+              {p.avatar_url ? (
+                <img src={p.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                  <UserRound className="h-4 w-4 text-muted-foreground" />
+                </span>
+              )}
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-foreground">{p.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">{p.handle}</span>
+              </span>
+            </button>
+          ))}
+
+          {creating ? (
+            <div className="rounded-xl border border-primary/50 p-3">
+              <input
+                value={personaName}
+                onChange={(e) => setPersonaName(e.target.value.slice(0, 60))}
+                placeholder={t.personaPlaceholder}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  disabled={savingPersona || !personaName.trim()}
+                  onClick={() => void addPersona()}
+                  className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  {savingPersona ? "…" : t.save}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreating(false)}
+                  className="rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground"
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3 text-left text-sm text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" /> {t.newPersona}
+            </button>
+          )}
+        </div>
+      )}
+      {!personasLoading && personas.length === 0 && !creating && (
+        <p className="mt-2 text-xs text-muted-foreground">{t.noPersona}</p>
+      )}
+
+      {/* ---- Step 2B: project (nested under the persona) ---- */}
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepB}</p>
+      {!personaChosen ? (
+        <p className="mt-2 text-xs text-muted-foreground">{t.lockedB}</p>
+      ) : (
+      <>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+
         {(
           [
             ["new", t.newOpt, t.newSub, FolderPlus],
@@ -237,8 +400,17 @@ export function ProjectTargetPicker({
           </label>
         </div>
       )}
+      </>
+      )}
 
-      <fieldset className="mt-4">
+      {/* ---- Step 2C: media type & publishing ---- */}
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepC}</p>
+      {!isTargetReady(value) ? (
+        <p className="mt-2 text-xs text-muted-foreground">{t.lockedC}</p>
+      ) : (
+      <>
+      <fieldset className="mt-3">
+
         <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.kind}</legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {(
@@ -278,6 +450,9 @@ export function ProjectTargetPicker({
           {value.publishToFeed ? t.publishOn : t.publishOff}
         </span>
       </label>
+      </>
+      )}
     </div>
+
   );
 }
