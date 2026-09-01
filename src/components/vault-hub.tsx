@@ -125,7 +125,7 @@ type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
 export function VaultHub({ lang = "en" }: { lang?: Lang }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
-  const { user, userId, isAuthenticated, personas, activePersonaId, setActive, isLoading } = usePersonas();
+  const { userId, isAuthenticated, personas, activePersonaId, setActive, isLoading } = usePersonas();
   // Which persona's workspace is on screen — defaults to the globally active one.
   const [viewing, setViewing] = useState<string | null | undefined>(undefined);
   const [draft, setDraft] = useState("");
@@ -137,7 +137,7 @@ export function VaultHub({ lang = "en" }: { lang?: Lang }) {
   const selected = personas.find((p) => p.id === selectedId) ?? null;
   const selectedName = selected?.name ?? t("master");
 
-  if (!isAuthenticated || !user || !userId) {
+  if (!isAuthenticated || !userId) {
     return <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{t("signIn")}</p>;
   }
 
