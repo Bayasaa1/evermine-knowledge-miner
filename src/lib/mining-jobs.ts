@@ -8,7 +8,34 @@ export type Assessment = {
   customInstructions: string;
   /** Podcast diarization hint, e.g. "Host: Batbold, Guest: Elon Musk". */
   speakerIdentity: string;
+  /** Auto-extracted YouTube metadata, injected into the Gemini context. */
+  sourceTitle: string;
+  sourceDescription: string;
+  sourcePublishedAt: string;
+  sourceDurationLabel: string;
+  sourceChannel: string;
 };
+
+/** Metadata auto-extracted from a pasted YouTube link. */
+export type VideoMetadata = {
+  videoId: string;
+  url: string;
+  title: string;
+  description: string;
+  publishedAt: string;
+  durationSec: number;
+  durationLabel: string;
+  thumbnail: string;
+  channel: string;
+};
+
+export function formatDuration(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return "";
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+}
 
 export const VIDEO_CONTEXTS = [
   "Podcast",
@@ -31,26 +58,69 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   primaryFocus: "Knowledge / QA",
   customInstructions: "",
   speakerIdentity: "",
+  sourceTitle: "",
+  sourceDescription: "",
+  sourcePublishedAt: "",
+  sourceDurationLabel: "",
+  sourceChannel: "",
 };
 
 const SPEAKER_MARKER = "[SPEAKER_IDENTITY]";
+const META_MARKER = "[SOURCE_META]";
 
-/** Folds the diarization hint into the stored instructions column. */
+type MetaFields = Pick<
+  Assessment,
+  "sourceTitle" | "sourceDescription" | "sourcePublishedAt" | "sourceDurationLabel" | "sourceChannel"
+>;
+
+const EMPTY_META: MetaFields = {
+  sourceTitle: "",
+  sourceDescription: "",
+  sourcePublishedAt: "",
+  sourceDurationLabel: "",
+  sourceChannel: "",
+};
+
+/** Folds the diarization hint and auto metadata into the stored instructions column. */
 export function packInstructions(a: Assessment): string {
-  return a.speakerIdentity.trim()
-    ? `${a.customInstructions}\n${SPEAKER_MARKER} ${a.speakerIdentity.trim()}`.trim()
-    : a.customInstructions;
+  let out = a.customInstructions ?? "";
+  if (a.speakerIdentity?.trim()) out = `${out}\n${SPEAKER_MARKER} ${a.speakerIdentity.trim()}`.trim();
+  const meta: MetaFields = {
+    sourceTitle: a.sourceTitle ?? "",
+    sourceDescription: (a.sourceDescription ?? "").slice(0, 4_000),
+    sourcePublishedAt: a.sourcePublishedAt ?? "",
+    sourceDurationLabel: a.sourceDurationLabel ?? "",
+    sourceChannel: a.sourceChannel ?? "",
+  };
+  if (Object.values(meta).some((v) => v)) out = `${out}\n${META_MARKER} ${JSON.stringify(meta)}`.trim();
+  return out;
 }
 
-/** Splits a stored instructions column back into instructions + identity. */
-export function unpackInstructions(raw: string): { customInstructions: string; speakerIdentity: string } {
-  const at = raw.indexOf(SPEAKER_MARKER);
-  if (at < 0) return { customInstructions: raw, speakerIdentity: "" };
+/** Splits a stored instructions column back into instructions + identity + metadata. */
+export function unpackInstructions(
+  raw: string,
+): { customInstructions: string; speakerIdentity: string } & MetaFields {
+  let rest = raw ?? "";
+  let meta: MetaFields = { ...EMPTY_META };
+  const metaAt = rest.indexOf(META_MARKER);
+  if (metaAt >= 0) {
+    const line = rest.slice(metaAt + META_MARKER.length).split("\n")[0] ?? "";
+    try {
+      meta = { ...meta, ...(JSON.parse(line.trim()) as Partial<MetaFields>) };
+    } catch {
+      /* stored line is not valid JSON — keep empty metadata */
+    }
+    rest = (rest.slice(0, metaAt) + rest.slice(metaAt + META_MARKER.length + line.length)).trim();
+  }
+  const at = rest.indexOf(SPEAKER_MARKER);
+  if (at < 0) return { customInstructions: rest, speakerIdentity: "", ...meta };
   return {
-    customInstructions: raw.slice(0, at).trim(),
-    speakerIdentity: raw.slice(at + SPEAKER_MARKER.length).trim(),
+    customInstructions: rest.slice(0, at).trim(),
+    speakerIdentity: rest.slice(at + SPEAKER_MARKER.length).trim(),
+    ...meta,
   };
 }
+
 
 export type MiningJobStatus = "queued" | "running" | "paused_quota" | "error" | "done";
 

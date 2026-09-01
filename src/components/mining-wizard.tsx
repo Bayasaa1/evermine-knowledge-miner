@@ -10,6 +10,7 @@ import {
   PRIMARY_FOCUSES,
   VIDEO_CONTEXTS,
   type Assessment,
+  type VideoMetadata,
 } from "@/lib/mining-jobs";
 
 const copy = {
@@ -24,6 +25,13 @@ const copy = {
     speakerPlaceholder: "Host: Batbold, Guest: Elon Musk",
     speakerHint: "Guest answers stay contextual knowledge; only the host shapes the Mind Vault identity.",
     start: "Start mining",
+    autoTitle: "Auto-filled from YouTube",
+    autoSub: "We pulled this straight from the link — edit only if something is off.",
+    fetching: "Reading video details…",
+    fTitle: "Video title",
+    fDesc: "Description (fed to the AI as context)",
+    fDate: "Published",
+    fDur: "Duration",
   },
   mn: {
     title: "Шинжилгээний өмнө — 3 богино асуулт",
@@ -36,6 +44,13 @@ const copy = {
     speakerPlaceholder: "Хөтлөгч: Батболд, Зочин: Elon Musk",
     speakerHint: "Зочны яриа зөвхөн нөхцөл байдлын мэдлэг болно; зөвхөн хөтлөгч Mind-ийн зан чанарыг бүрдүүлнэ.",
     start: "Шинжилгээ эхлүүлэх",
+    autoTitle: "YouTube-оос автоматаар бөглөгдсөн",
+    autoSub: "Холбоосоос шууд татсан — буруу зүйл байвал л засна уу.",
+    fetching: "Видеоны мэдээллийг уншиж байна…",
+    fTitle: "Видеоны нэр",
+    fDesc: "Тайлбар (AI-д нөхцөл болгон өгнө)",
+    fDate: "Нийтэлсэн огноо",
+    fDur: "Үргэлжлэх хугацаа",
   },
   ko: {
     title: "분석 전 — 3가지 빠른 질문",
@@ -48,6 +63,13 @@ const copy = {
     speakerPlaceholder: "호스트: 바트볼드, 게스트: Elon Musk",
     speakerHint: "게스트 발언은 맥락 지식으로만 저장되고, 호스트만 마인드 정체성을 형성합니다.",
     start: "분석 시작",
+    autoTitle: "YouTube에서 자동 입력됨",
+    autoSub: "링크에서 바로 가져왔습니다 — 잘못된 부분만 수정하세요.",
+    fetching: "영상 정보를 불러오는 중…",
+    fTitle: "영상 제목",
+    fDesc: "설명 (AI 컨텍스트로 전달)",
+    fDate: "게시일",
+    fDur: "재생 시간",
   },
 };
 
@@ -57,12 +79,16 @@ export function MiningWizard({
   onChange,
   onStart,
   busy,
+  meta,
+  metaLoading,
 }: {
   lang: Lang;
   value?: Assessment;
   onChange?: (a: Assessment) => void;
   onStart: (a: Assessment) => void;
   busy?: boolean;
+  meta?: VideoMetadata | null;
+  metaLoading?: boolean;
 }) {
   const t = pickCopy(copy, lang);
   const [local, setLocal] = useState<Assessment>(value ?? DEFAULT_ASSESSMENT);
@@ -80,6 +106,66 @@ export function MiningWizard({
         <ClipboardList className="h-4 w-4 text-primary" /> {t.title}
       </p>
       <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
+
+      {(metaLoading || meta) && (
+        <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+            {metaLoading ? t.fetching : t.autoTitle}
+          </p>
+          {meta && (
+            <>
+              <p className="mt-1 text-xs text-muted-foreground">{t.autoSub}</p>
+              <div className="mt-3 flex gap-3">
+                {meta.thumbnail && (
+                  <img
+                    src={meta.thumbnail}
+                    alt={meta.title}
+                    loading="lazy"
+                    className="h-16 w-28 shrink-0 rounded-lg object-cover"
+                  />
+                )}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <label className="block">
+                    <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t.fTitle}</span>
+                    <input
+                      value={state.sourceTitle}
+                      onChange={(e) => update({ sourceTitle: e.target.value.slice(0, 300) })}
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary/60"
+                    />
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t.fDate}</span>
+                      <input
+                        value={state.sourcePublishedAt}
+                        onChange={(e) => update({ sourcePublishedAt: e.target.value.slice(0, 64) })}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary/60"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t.fDur}</span>
+                      <input
+                        value={state.sourceDurationLabel}
+                        onChange={(e) => update({ sourceDurationLabel: e.target.value.slice(0, 32) })}
+                        className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary/60"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <label className="mt-2 block">
+                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t.fDesc}</span>
+                <textarea
+                  value={state.sourceDescription}
+                  onChange={(e) => update({ sourceDescription: e.target.value.slice(0, 4000) })}
+                  rows={4}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/60"
+                />
+              </label>
+            </>
+          )}
+        </div>
+      )}
 
       <fieldset className="mt-4">
         <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.context}</legend>

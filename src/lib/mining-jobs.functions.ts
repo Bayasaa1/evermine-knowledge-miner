@@ -12,6 +12,11 @@ const assessmentSchema = z.object({
   primaryFocus: z.string().max(120).default("Knowledge / QA"),
   customInstructions: z.string().max(2_000).default(""),
   speakerIdentity: z.string().max(300).default(""),
+  sourceTitle: z.string().max(300).default(""),
+  sourceDescription: z.string().max(4_000).default(""),
+  sourcePublishedAt: z.string().max(64).default(""),
+  sourceDurationLabel: z.string().max(32).default(""),
+  sourceChannel: z.string().max(200).default(""),
 });
 
 const startSchema = z.object({
