@@ -51,9 +51,9 @@ import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
-import { DEFAULT_TARGET, ProjectTargetPicker, type ProjectTarget } from "@/components/project-target";
+import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject } from "@/lib/projects";
-import { activePersona } from "@/lib/personas";
+import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
 import { DEFAULT_ASSESSMENT, type Assessment, type VideoMetadata } from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
@@ -451,12 +451,17 @@ function StepUpload({ lang }: { lang: Lang }) {
       }
 
       // File the video into the chosen Project (new or existing).
-      const persona = userId ? await activePersona(userId).catch(() => null) : null;
+      const persona = target.personaId
+        ? await getPersona(target.personaId).catch(() => null)
+        : userId
+          ? await activePersona(userId).catch(() => null)
+          : null;
       let projectId = target.mode === "existing" ? target.projectId : null;
       if (userId && !projectId) {
         const created = await createProject(userId, {
           title: target.newTitle.trim() || title,
           description: mined.story.summary ?? "",
+          personaId: target.personaId,
           ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
         });
         projectId = created.project?.id ?? null;
