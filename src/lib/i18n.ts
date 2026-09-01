@@ -289,33 +289,123 @@ export function pickCopy<C extends { en: unknown }>(copy: C, lang: Lang): C["en"
 const STORAGE_KEY = "evermind-lang";
 
 export function isLang(v: unknown): v is Lang {
-  return v === "en" || v === "mn" || v === "ko";
+  return isLangCode(v);
 }
 
-/** Reads/writes the active locale, shared across the app through localStorage. */
-export function useLang(): { lang: Lang; setLang: (l: Lang) => void; t: (key: string) => string } {
-  const [lang, setLangState] = useState<Lang>("en");
+/* ------------------------------------------------------------------ *
+ * Global language store — one source of truth for every tab and view. *
+ * Synchronises instantly across components and across browser tabs.   *
+ * ------------------------------------------------------------------ */
 
-  useEffect(() => {
-    const stored = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-    if (isLang(stored)) setLangState(stored);
-  }, []);
+let current: Lang = "en";
+const langListeners = new Set<() => void>();
+let hydrated = false;
 
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, l);
-      document.documentElement.lang = l;
-    } catch {
-      /* storage unavailable */
+function notifyLang() {
+  for (const l of langListeners) l();
+}
+
+function hydrate() {
+  if (hydrated || typeof window === "undefined") return;
+  hydrated = true;
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  if (isLang(stored) && stored !== current) {
+    current = stored;
+    document.documentElement.lang = stored;
+    document.documentElement.dir = LANGUAGES[stored].rtl ? "rtl" : "ltr";
+  }
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORAGE_KEY) return;
+    if (isLang(e.newValue) && e.newValue !== current) {
+      current = e.newValue;
+      document.documentElement.lang = current;
+      document.documentElement.dir = LANGUAGES[current].rtl ? "rtl" : "ltr";
+      notifyLang();
     }
-  }, []);
+  });
+}
 
-  const t = useCallback((key: string) => DICTS[lang][key] ?? DICTS.en[key] ?? key, [lang]);
+export function getLang(): Lang {
+  return current;
+}
+
+export function setGlobalLang(l: Lang) {
+  if (!isLang(l) || l === current) return;
+  current = l;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, l);
+    document.documentElement.lang = l;
+    document.documentElement.dir = LANGUAGES[l].rtl ? "rtl" : "ltr";
+  } catch {
+    /* storage unavailable */
+  }
+  notifyLang();
+}
+
+function subscribeLang(cb: () => void) {
+  hydrate();
+  langListeners.add(cb);
+  return () => langListeners.delete(cb);
+}
+
+/**
+ * Active locale + translator, shared globally. Strings missing from a hand
+ * written dictionary are streamed through the dynamic translation layer, so
+ * every one of the 20 languages renders natively without a static dictionary.
+ */
+export function useLang(): { lang: Lang; setLang: (l: Lang) => void; t: (key: string) => string } {
+  const lang = useSyncExternalStore(
+    subscribeLang,
+    () => current,
+    () => "en" as Lang,
+  );
+  useSyncExternalStore(subscribeTranslations, translationVersion, () => 0);
+
+  const setLang = useCallback((l: Lang) => setGlobalLang(l), []);
+  const t = useCallback((key: string) => tr(lang, key), [lang]);
 
   return { lang, setLang, t };
 }
 
+/** Subscribe to dynamic translation updates without needing the locale. */
+function subscribeTranslations(cb: () => void) {
+  return subscribeDynamic(cb);
+}
+
 export function tr(lang: Lang, key: string): string {
-  return DICTS[lang][key] ?? DICTS.en[key] ?? key;
+  const local = DICTS[lang]?.[key];
+  if (local) return local;
+  const source = DICTS.en?.[key] ?? key;
+  if (lang === "en") return source;
+  const cached = getCachedTranslation(source, lang);
+  if (cached) return cached;
+  requestTranslation(source, lang);
+  return source;
+}
+
+/**
+ * Translates arbitrary English content (mined titles, topics, notes, terminal
+ * logs) for display only — the stored JSON stays English.
+ */
+export function useDisplayText(text: string | null | undefined): string {
+  const { lang } = useLang();
+  if (!text) return "";
+  if (lang === "en") return text;
+  const cached = getCachedTranslation(text, lang);
+  if (cached) return cached;
+  requestTranslation(text, lang);
+  return text;
+}
+
+/** Batch variant of {@link useDisplayText}. */
+export function useDisplayTexts(texts: (string | null | undefined)[]): string[] {
+  const { lang } = useLang();
+  return texts.map((text) => {
+    if (!text) return "";
+    if (lang === "en") return text;
+    const cached = getCachedTranslation(text, lang);
+    if (cached) return cached;
+    requestTranslation(text, lang);
+    return text;
+  });
 }
