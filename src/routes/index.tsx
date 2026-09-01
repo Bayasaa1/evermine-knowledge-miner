@@ -317,6 +317,7 @@ function FeedCard({
 
   const caps = capabilitiesFor(item.category);
   const primary = primaryActionFor(item.category);
+  const shownPrimary = useDisplayText(primary.en);
   const has = (c: Capability) => caps.includes(c);
   const activeMark = markAt(item.timeline, now);
   const activeEmotion = markAt(item.emotionTimeline, now);
@@ -524,7 +525,7 @@ function FeedCard({
           >
             {buying && <Loader2 className="h-3 w-3 animate-spin" />}
             {purchased
-              ? pickCopy(primary as unknown as { en: string }, lang)
+              ? shownPrimary
               : item.price > 0
                 ? `${c.buy} · ${item.currency} ${item.price}`
                 : c.free}
