@@ -496,6 +496,13 @@ function StepUpload({ lang }: { lang: Lang }) {
       }
 
       const goPublic = target.publishToFeed && target.contentKind === "VISUAL_CONTENT";
+      // Visual content must be instantly visible in the public feed: the parent
+      // project has to be published for the public RLS read to return the clip.
+      if (goPublic && projectId) {
+        await updateProject(projectId, { published: true });
+        await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+        await queryClient.invalidateQueries({ queryKey: ["search-index"] });
+      }
       if (goPublic) await publishToFeed({
         id: `pub_${saved.vaultId}`,
         mindId: vault.id,
