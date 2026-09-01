@@ -663,11 +663,13 @@ function StepUpload({ lang }: { lang: Lang }) {
   );
 
 
+  const ready = isTargetReady(target);
+
   return (
     <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
       <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />
 
-      <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className={`rounded-xl border border-border bg-card p-4 sm:p-5 ${ready ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!ready}>
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(
             [
