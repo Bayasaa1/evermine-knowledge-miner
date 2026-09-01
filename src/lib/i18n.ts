@@ -282,8 +282,8 @@ export const DICTS: Partial<Record<Lang, Dict>> = { en, mn, ko };
  * Picks a component-local copy map entry for the active locale, falling back to
  * English so a partially translated map never renders an empty UI.
  */
-export function pickCopy<T>(copy: Partial<Record<Lang, T>>, lang: Lang): T {
-  return (copy[lang] ?? copy.en) as T;
+export function pickCopy<C extends { en: unknown }>(copy: C, lang: Lang): C["en"] {
+  return ((copy as Record<string, unknown>)[lang] ?? copy.en) as C["en"];
 }
 
 const STORAGE_KEY = "evermind-lang";

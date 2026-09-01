@@ -101,7 +101,7 @@ export function MindFeedback({
 
 }
 
-function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)[Lang] }) {
+function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en"] }) {
   const { user, profile } = useAuth();
   const [items, setItems] = useState<Comment[]>([]);
   const [body, setBody] = useState("");
