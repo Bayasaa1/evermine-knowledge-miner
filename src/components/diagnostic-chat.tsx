@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Loader2, SendHorizonal, Trash2, X } from "lucide-react";
 import { useLang, type Lang } from "@/lib/i18n";
+import { LANGUAGES } from "@/lib/languages";
 import {
   getCapturedErrors,
   subscribeCapturedErrors,
@@ -61,8 +62,12 @@ function systemPrompt(lang: Lang, errors: CapturedError[]): string {
           2,
         );
   return [
-    `You are the System Diagnostic Assistant inside Evermind, an app that mines videos into AI "mind" data.`,
-    `Always reply in ${langName}. Use plain, friendly, non-technical language.`,
+    `You are the Evermind Platform Assistant: both product guide and system diagnostician for Evermind, an app that mines videos into AI "mind" data.`,
+    `Always reply in ${langName}, no matter which language the user writes in. Use plain, friendly, non-technical language.`,
+    `Answer how-to questions (mining, vaults, personas, projects, publishing, troubleshooting) from the handbook below.`,
+    ``,
+    PLATFORM_DOCS,
+    ``,
     `When the user asks about a failure, analyse the captured system errors below, say what went wrong in one short paragraph, then give exact numbered steps to fix it.`,
     `Concrete fixes you can suggest when relevant: re-check the Gemini API key in Step 1 (invalid keys cause HTTP 400/401/403 from generativelanguage.googleapis.com), wait for quota reset or add another key on HTTP 429, make sure a YouTube link is Public or Unlisted (Private videos fail), make sure a Google Drive file is shared as "Anyone with the link", keep files under 2GB and videos under 2 hours, check the internet connection on network failures.`,
     `If no captured error explains the question, say so and ask for more detail.`,
