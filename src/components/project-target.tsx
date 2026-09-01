@@ -400,8 +400,17 @@ export function ProjectTargetPicker({
           </label>
         </div>
       )}
+      </>
+      )}
 
-      <fieldset className="mt-4">
+      {/* ---- Step 2C: media type & publishing ---- */}
+      <p className="mt-6 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepC}</p>
+      {!isTargetReady(value) ? (
+        <p className="mt-2 text-xs text-muted-foreground">{t.lockedC}</p>
+      ) : (
+      <>
+      <fieldset className="mt-3">
+
         <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.kind}</legend>
         <div className="mt-2 flex flex-wrap gap-2">
           {(
