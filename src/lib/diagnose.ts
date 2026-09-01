@@ -20,7 +20,10 @@ export type Diagnosis = {
   raw: string;
 };
 
-const LANG_NAME: Record<Lang, string> = { en: "English", mn: "Mongolian (Cyrillic)", ko: "Korean" };
+import { LANGUAGES } from "@/lib/languages";
+const LANG_NAME = new Proxy({} as Record<Lang, string>, {
+  get: (_t, k: string) => LANGUAGES[k as Lang]?.name ?? "English",
+});
 
 function fallback(lang: Lang, errorKey: string, raw: string): Diagnosis {
   return {

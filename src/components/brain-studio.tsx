@@ -678,4 +678,4 @@ export function BrainStudio({
   );
 }
 
-export const BRAIN_STUDIO_TAB_LABEL: Record<Lang, string> = { en: L.en.tab, mn: L.mn.tab, ko: L.ko.tab };
+export const BRAIN_STUDIO_TAB_LABEL: Partial<Record<Lang, string>> = { en: L.en.tab, mn: L.mn.tab, ko: L.ko.tab };

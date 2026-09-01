@@ -27,7 +27,7 @@ export function getStoredRole(): AppRole | null {
   }
 }
 
-const labels: Record<Lang, { creator: string; explorer: string }> = {
+const labels: Partial<Record<Lang, { creator: string; explorer: string }>> = {
   en: { creator: "Creator Mode", explorer: "Explorer Mode" },
   mn: { creator: "Бүтээгч горим", explorer: "Судлаач горим" },
   ko: { creator: "크리에이터 모드", explorer: "탐색자 모드" },

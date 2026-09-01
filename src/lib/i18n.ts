@@ -276,7 +276,7 @@ const ko: Dict = {
   successBody: "이 영상의 지식이 이제 당신의 AI 클론의 일부가 되었습니다.",
 };
 
-export const DICTS: Record<Lang, Dict> = { en, mn, ko };
+export const DICTS: Partial<Record<Lang, Dict>> = { en, mn, ko };
 
 /**
  * Picks a component-local copy map entry for the active locale, falling back to
