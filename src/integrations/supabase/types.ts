@@ -80,6 +80,66 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_personas: {
+        Row: {
+          avatar_url: string | null
+          bio: string
+          created_at: string
+          handle: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string
+          created_at?: string
+          handle?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string
+          created_at?: string
+          handle?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      featured_minds: {
+        Row: {
+          created_at: string
+          featured_by: string | null
+          mind_id: string
+          note: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          featured_by?: string | null
+          mind_id: string
+          note?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          featured_by?: string | null
+          mind_id?: string
+          note?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mind_comments: {
         Row: {
           author_name: string
@@ -472,6 +532,7 @@ export type Database = {
         Row: {
           cover_url: string | null
           created_at: string
+          creator_avatar_url: string | null
           creator_name: string
           currency: string
           description: string
@@ -485,6 +546,7 @@ export type Database = {
         Insert: {
           cover_url?: string | null
           created_at?: string
+          creator_avatar_url?: string | null
           creator_name?: string
           currency?: string
           description?: string
@@ -498,6 +560,7 @@ export type Database = {
         Update: {
           cover_url?: string | null
           created_at?: string
+          creator_avatar_url?: string | null
           creator_name?: string
           currency?: string
           description?: string
@@ -541,6 +604,33 @@ export type Database = {
           package?: Json
           published?: boolean
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_flags: {
+        Row: {
+          ban_reason: string
+          banned: boolean
+          created_at: string
+          unlimited_quota: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ban_reason?: string
+          banned?: boolean
+          created_at?: string
+          unlimited_quota?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ban_reason?: string
+          banned?: boolean
+          created_at?: string
+          unlimited_quota?: boolean
           updated_at?: string
           user_id?: string
         }

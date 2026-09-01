@@ -408,9 +408,19 @@ function FeedCard({
       {/* Creator overlay */}
       <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20 md:bottom-6 md:pr-16">
         <div className="mb-2 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
-            {item.creator.slice(0, 2).toUpperCase()}
-          </div>
+          {item.avatarUrl ? (
+            <img
+              src={item.avatarUrl}
+              alt={item.creator}
+              referrerPolicy="no-referrer"
+              className="h-9 w-9 rounded-full object-cover"
+            />
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
+              {item.creator.slice(0, 2).toUpperCase()}
+            </div>
+          )}
+
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{item.creator}</p>
             <p className="truncate text-[11px] text-white/60">{item.handle}</p>

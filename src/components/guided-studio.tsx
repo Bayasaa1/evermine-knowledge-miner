@@ -59,6 +59,7 @@ import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { DEFAULT_TARGET, ProjectTargetPicker, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject } from "@/lib/projects";
+import { activePersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
 import { DEFAULT_ASSESSMENT, type Assessment } from "@/lib/mining-jobs";
 import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
@@ -417,11 +418,13 @@ function StepUpload({ lang }: { lang: Lang }) {
       }
 
       // File the video into the chosen Project (new or existing).
+      const persona = userId ? await activePersona(userId).catch(() => null) : null;
       let projectId = target.mode === "existing" ? target.projectId : null;
       if (userId && !projectId) {
         const created = await createProject(userId, {
           title: target.newTitle.trim() || title,
           description: mined.story.summary ?? "",
+          ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
         });
         projectId = created.project?.id ?? null;
       }
@@ -443,8 +446,9 @@ function StepUpload({ lang }: { lang: Lang }) {
       if (goPublic) await publishToFeed({
         id: `pub_${saved.vaultId}`,
         mindId: vault.id,
-        creator: vault.title,
-        handle: `@${vault.title.toLowerCase().replace(/\s+/g, "")}`,
+        creator: persona?.name ?? vault.title,
+        handle: persona?.handle ?? `@${vault.title.toLowerCase().replace(/\s+/g, "")}`,
+        avatarUrl: persona?.avatar_url ?? null,
         title,
         description: mined.story.summary ?? "",
         category,

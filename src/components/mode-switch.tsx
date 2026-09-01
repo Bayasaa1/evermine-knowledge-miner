@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Compass, Hammer } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
+import { PersonaSwitcher } from "@/components/persona-switcher";
 import type { Lang } from "@/lib/i18n";
 
 
@@ -66,6 +67,7 @@ export function ModeSwitch({ lang = "en" }: { lang?: Lang }) {
           <span className="hidden sm:inline">{t.explorer}</span>
         </Link>
       </div>
+      <PersonaSwitcher compact />
       <AccountMenu compact />
     </div>
   );

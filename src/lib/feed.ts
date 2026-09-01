@@ -15,6 +15,8 @@ export type FeedItem = {
   mindId: string | null;
   creator: string;
   handle: string;
+  /** Persona / creator avatar shown on the feed card. */
+  avatarUrl?: string | null;
   title: string;
   description: string;
   category: CreationCategory;
@@ -89,6 +91,7 @@ export async function projectFeed(): Promise<FeedItem[]> {
       id: `project:${row.id}`,
       mindId: `project:${row.project_id}`,
       creator: row.project?.creator_name ?? "Evermind creator",
+      avatarUrl: row.project?.creator_avatar_url ?? null,
       handle: `@${(row.project?.title ?? "project").toLowerCase().replace(/\s+/g, "")}`,
       title: row.title,
       description: row.description,
