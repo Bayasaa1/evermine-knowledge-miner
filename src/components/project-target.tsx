@@ -116,8 +116,7 @@ export function ProjectTargetPicker({
   onChange: (t: ProjectTarget) => void;
 }) {
   const t = pickCopy(copy, lang);
-  const { user } = useAuth() as { user?: { id?: string } | null };
-  const userId = user?.id ?? null;
+  const { userId } = useAuth();
   const [touchedPublish, setTouchedPublish] = useState(false);
 
   const { data: projects = [], isLoading } = useQuery({
