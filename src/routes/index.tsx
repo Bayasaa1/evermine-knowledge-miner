@@ -485,7 +485,7 @@ function FeedCard({
               </div>
             </div>
           ) : null}
-          <div className="[&_*]:!text-white">
+          <div className="dark rounded-xl">
             <MindReviews mindId={item.mindId ?? item.id} />
           </div>
         </div>
