@@ -71,7 +71,32 @@ const mindKey = (item: FeedItem) => item.mindId ?? item.id;
 function HomeFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [items, setItems] = useState<FeedItem[]>(() => marketplaceFeed());
+  const queryClient = useQueryClient();
+  const { lang } = useLang();
+  const c = pickCopy(FEED_COPY, lang);
+  const { data: items = marketplaceFeed() } = useQuery({
+    queryKey: ["home-feed"],
+    queryFn: loadFeed,
+    refetchOnWindowFocus: true,
+    staleTime: 10_000,
+  });
+
+  // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
+  useEffect(() => {
+    const channel = supabase
+      .channel("home-feed-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_content" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, () => {
+        void queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   const [muted, setMuted] = useState(true);
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
