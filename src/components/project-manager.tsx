@@ -172,7 +172,7 @@ function ProjectCard({
   onChanged,
 }: {
   project: Project;
-  t: (typeof copy)[Lang];
+  t: (typeof copy)["en"];
   onChanged: () => void;
 }) {
   const { user } = useAuth();

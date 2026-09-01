@@ -26,7 +26,7 @@ import type { MineResult } from "@/lib/mine-file";
 import { Cloud, HardDrive, Link2, Plus, RefreshCw, Trash2, Power, FolderSync, Search } from "lucide-react";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
-export const CLOUD_HUB_TAB_LABEL: Partial<Record<Lang, string>> = {
+export const CLOUD_HUB_TAB_LABEL = {
   en: "☁️ Cloud Storage Hub",
   mn: "☁️ Үүлэн сан",
   ko: "☁️ 클라우드 저장소 허브",
