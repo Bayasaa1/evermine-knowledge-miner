@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VaultsRouteImport } from './routes/vaults'
 import { Route as AdminControlSessionRouteImport } from './routes/admin/control-session'
@@ -48,6 +49,11 @@ const ExploreRoute = ExploreRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/profile': typeof ProfileRoute
+  '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
   '/admin/control-session': typeof AdminControlSessionRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/profile': typeof ProfileRoute
+  '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
   '/admin/control-session': typeof AdminControlSessionRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/profile': typeof ProfileRoute
+  '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
   '/admin/control-session': typeof AdminControlSessionRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/creator'
     | '/explore'
     | '/profile'
+    | '/search'
     | '/sitemap.xml'
     | '/vaults'
     | '/admin/control-session'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/creator'
     | '/explore'
     | '/profile'
+    | '/search'
     | '/sitemap.xml'
     | '/vaults'
     | '/admin/control-session'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/creator'
     | '/explore'
     | '/profile'
+    | '/search'
     | '/sitemap.xml'
     | '/vaults'
     | '/admin/control-session'
@@ -215,6 +227,7 @@ export interface RootRouteChildren {
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
   ProfileRoute: typeof ProfileRoute
+  SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VaultsRoute: typeof VaultsRoute
   AdminControlSessionRoute: typeof AdminControlSessionRoute
@@ -262,6 +275,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap.xml': {
@@ -343,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
   ProfileRoute: ProfileRoute,
+  SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VaultsRoute: VaultsRoute,
   AdminControlSessionRoute: AdminControlSessionRoute,

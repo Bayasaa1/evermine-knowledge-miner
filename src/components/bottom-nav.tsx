@@ -1,28 +1,28 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Compass, Home, Boxes, Plus, User } from "lucide-react";
+import { Search, Home, Boxes, Plus, User } from "lucide-react";
 
 import { CreateWizard } from "@/components/create-wizard";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
-type Item = { to: "/" | "/explore" | "/vaults" | "/profile"; label: string; icon: typeof Home };
+type Item = { to: "/" | "/search" | "/vaults" | "/profile"; label: string; icon: typeof Home };
 
 const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
   en: [
     { to: "/", label: "Home", icon: Home },
-    { to: "/explore", label: "Explore", icon: Compass },
+    { to: "/search", label: "Search", icon: Search },
     { to: "/vaults", label: "My Vaults", icon: Boxes },
     { to: "/profile", label: "Profile", icon: User },
   ],
   mn: [
     { to: "/", label: "Нүүр", icon: Home },
-    { to: "/explore", label: "Судлах", icon: Compass },
+    { to: "/search", label: "Хайлт", icon: Search },
     { to: "/vaults", label: "Сангууд", icon: Boxes },
     { to: "/profile", label: "Профайл", icon: User },
   ],
   ko: [
     { to: "/", label: "홈", icon: Home },
-    { to: "/explore", label: "탐색", icon: Compass },
+    { to: "/search", label: "검색", icon: Search },
     { to: "/vaults", label: "내 보관함", icon: Boxes },
     { to: "/profile", label: "프로필", icon: User },
   ],
