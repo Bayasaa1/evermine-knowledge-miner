@@ -6,6 +6,8 @@ export type Assessment = {
   videoContext: string;
   primaryFocus: string;
   customInstructions: string;
+  /** Podcast diarization hint, e.g. "Host: Batbold, Guest: Elon Musk". */
+  speakerIdentity: string;
 };
 
 export const VIDEO_CONTEXTS = [
