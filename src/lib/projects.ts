@@ -16,6 +16,7 @@ export type Project = {
   description: string;
   cover_url: string | null;
   creator_name: string;
+  creator_avatar_url: string | null;
   price: number;
   currency: string;
   published: boolean;
@@ -48,7 +49,7 @@ export type ProjectContent = {
 };
 
 const PROJECT_COLS =
-  "id,user_id,title,description,cover_url,creator_name,price,currency,published,created_at,updated_at";
+  "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,created_at,updated_at";
 const CONTENT_COLS =
   "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,mind_id,created_at,updated_at";
 
@@ -63,7 +64,7 @@ export async function listMyProjects(userId: string): Promise<Project[]> {
 
 export async function createProject(
   userId: string,
-  input: { title: string; description?: string; creatorName?: string; price?: number },
+  input: { title: string; description?: string; creatorName?: string; creatorAvatarUrl?: string | null; price?: number },
 ): Promise<{ project: Project | null; error: string | null }> {
   const { data, error } = await supabase
     .from("projects")
@@ -72,6 +73,7 @@ export async function createProject(
       title: input.title.trim() || "Untitled Project",
       description: input.description?.trim() ?? "",
       creator_name: input.creatorName?.trim() || "Evermind creator",
+      creator_avatar_url: input.creatorAvatarUrl ?? null,
       price: input.price ?? 0,
     })
     .select(PROJECT_COLS)
@@ -130,11 +132,11 @@ export async function deleteProjectContent(id: string): Promise<string | null> {
 
 /** Public playable clips for the vertical feed, newest first. */
 export async function listPublicVisualContent(limit = 60): Promise<
-  Array<ProjectContent & { project: Pick<Project, "id" | "title" | "creator_name" | "price" | "currency"> | null }>
+  Array<ProjectContent & { project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency"> | null }>
 > {
   const { data } = await supabase
     .from("project_content")
-    .select(`${CONTENT_COLS},projects(id,title,creator_name,price,currency)`)
+    .select(`${CONTENT_COLS},projects(id,title,creator_name,creator_avatar_url,price,currency)`)
     .eq("kind", "VISUAL_CONTENT")
     .order("created_at", { ascending: false })
     .limit(limit);
