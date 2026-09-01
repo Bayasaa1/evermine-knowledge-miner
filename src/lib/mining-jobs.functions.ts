@@ -49,7 +49,7 @@ function toJob(row: JobRow): MiningJob {
     assessment: {
       videoContext: row.video_context,
       primaryFocus: row.primary_focus,
-      customInstructions: row.custom_instructions,
+      ...unpackInstructions(row.custom_instructions ?? ""),
     },
     chunks: (Array.isArray(row.chunks) ? row.chunks : []) as Chunk[],
     nextIndex: row.next_index,
