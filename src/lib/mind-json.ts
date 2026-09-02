@@ -121,6 +121,43 @@ export function eraseChunk(payload: MindPayload, index: number): MindPayload {
   return { ...payload, result, erasedChunks: erased };
 }
 
+/**
+ * Removes every mined record that came from one source video.
+ *
+ * Records rarely carry the video id themselves, so we match on the payload's
+ * own `source` marker first (the whole brain slice belongs to that video) and
+ * additionally drop any individual record that references the id or URL.
+ */
+export function stripSource(
+  payload: MindPayload,
+  source: { youtubeId?: string; sourceUrl?: string },
+): MindPayload {
+  const needles = [source.youtubeId, source.sourceUrl].filter((s): s is string => !!s && s.length > 3);
+  if (needles.length === 0) return payload;
+
+  const payloadSource = typeof payload['source'] === "string" ? (payload['source'] as string) : "";
+  const wholePayloadMatches = needles.some((n) => payloadSource.includes(n));
+
+  const result = { ...((payload.result ?? {}) as Record<string, unknown>) };
+  for (const { key } of COLLECTIONS) {
+    const items = arr(result[key]);
+    if (items.length === 0) continue;
+    result[key] = wholePayloadMatches
+      ? []
+      : items.filter((item) => {
+          const blob = JSON.stringify(item);
+          return !needles.some((n) => blob.includes(n));
+        });
+  }
+
+  return {
+    ...payload,
+    result,
+    scrubbedSources: [...new Set([...(Array.isArray(payload['scrubbedSources']) ? (payload['scrubbedSources'] as string[]) : []), ...needles])],
+  };
+}
+
+
 export function addAnnotation(payload: MindPayload, statement: string, overrule: string): MindPayload {
   const entry: Annotation = { id: newId(), statement, overrule, createdAt: new Date().toISOString() };
   return { ...payload, annotations: [...(payload.annotations ?? []), entry] };

@@ -6,10 +6,11 @@
  * and TRAINING_ONLY material, all feeding one Core Brain whose growth and
  * monetization show up in the same dashboard.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+
 import {
   ArrowLeft,
   BarChart3,
@@ -57,7 +58,10 @@ import {
   type Project,
   type ProjectContent,
 } from "@/lib/projects";
-import { listMiningJobs } from "@/lib/mining-jobs.functions";
+import { listMiningJobs, startMiningJobs } from "@/lib/mining-jobs.functions";
+import { DEFAULT_ASSESSMENT } from "@/lib/mining-jobs";
+import { scrubMindSource } from "@/lib/mind-versions.functions";
+
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
 import { MindReviews } from "@/components/mind-reviews";
@@ -94,11 +98,24 @@ const C = {
   emotions: { en: "Emotion points", mn: "Сэтгэл хөдлөл", ko: "감정 포인트" },
   del: { en: "Delete video", mn: "Видео устгах", ko: "영상 삭제" },
   remine: { en: "Re-mine", mn: "Дахин олборлох", ko: "재마이닝" },
-  remineHint: {
-    en: "Link copied — paste it into Creator Studio to re-mine this video.",
-    mn: "Холбоос хуулагдлаа — Creator Studio дээр буулгаж дахин олборлоно уу.",
-    ko: "링크가 복사되었습니다 — Creator Studio에 붙여넣어 다시 마이닝하세요.",
+  remineQueued: {
+    en: "Re-mining queued — progress updates live on this card.",
+    mn: "Дахин олборлолт дараалалд орлоо — явц энэ картан дээр шинэчлэгдэнэ.",
+    ko: "재마이닝이 대기열에 추가되었습니다 — 진행률이 이 카드에 표시됩니다.",
   },
+  deleteVideoConfirm: {
+    en: "Delete this video and erase its chunks from the Core Brain?",
+    mn: "Энэ видеог устгаж, түүний хэсгүүдийг Гол Тархинаас арилгах уу?",
+    ko: "이 영상을 삭제하고 코어 브레인에서 해당 청크를 지울까요?",
+  },
+  removedAndScrubbed: {
+    en: "Video deleted and Core Brain scrubbed",
+    mn: "Видео устаж, Гол Тархи цэвэрлэгдлээ",
+    ko: "영상이 삭제되고 코어 브레인이 정리되었습니다",
+  },
+  makePublic: { en: "Move to feed", mn: "Фийд рүү зөөх", ko: "피드로 이동" },
+  makeTraining: { en: "Hide from feed", mn: "Фийдээс нуух", ko: "피드에서 숨기기" },
+
   editMeta: { en: "Edit metadata", mn: "Мэдээлэл засах", ko: "메타데이터 편집" },
   save: { en: "Save", mn: "Хадгалах", ko: "저장" },
   cancel: { en: "Cancel", mn: "Болих", ko: "취소" },
@@ -126,21 +143,24 @@ type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
 export function VaultHub({ lang = "en" }: { lang?: Lang }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const { user, userId, isAuthenticated } = useAuth();
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<{ id: string | null; name: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [avatar, setAvatar] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const loadPersonas = useCallback(async () => {
-    if (!userId) {
-      setPersonas([]);
-      return;
-    }
-    setPersonas(await listPersonas(userId));
-  }, [userId]);
+  // One shared cache entry: every tab reads the same persona list.
+  const { data: personas = [] } = useQuery<Persona[]>({
+    queryKey: ["personas", userId],
+    queryFn: () => listPersonas(userId as string),
+    enabled: !!userId,
+  });
 
-  useEffect(() => { void loadPersonas(); }, [loadPersonas]);
+  const loadPersonas = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["personas", userId] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
 
   if (!isAuthenticated || !user) {
     return <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{t("signIn")}</p>;
@@ -326,16 +346,21 @@ function PersonaWorkspace({
   onBack: () => void;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setProjects(await listProjectsByPersona(userId, personaId));
-  }, [userId, personaId]);
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["projects", userId, personaId],
+    queryFn: () => listProjectsByPersona(userId, personaId),
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["projects", userId, personaId] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
 
   const open = projects.find((p) => p.id === openId) ?? null;
 
@@ -437,17 +462,22 @@ function PersonaWorkspace({
 
 function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: Project; onChanged: () => void }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
-  const [items, setItems] = useState<ProjectContent[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setItems(await listProjectContent(project.id));
-    setLoading(false);
-  }, [project.id]);
+  const { data: items = [], isLoading: loading } = useQuery<ProjectContent[]>({
+    queryKey: ["project-content", project.id],
+    queryFn: () => listProjectContent(project.id),
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  // Any mutation refreshes content, the Core Brain and the public feed together.
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["project-content", project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
+    await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
 
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({ queryKey: ["mining-jobs"], queryFn: () => fetchJobs() });
@@ -539,8 +569,73 @@ function VideoCard({
   const [description, setDescription] = useState(item.description);
   const [tags, setTags] = useState(item.tags.join(", "));
   const [kind, setKind] = useState<ContentKind>(item.kind);
+  const [working, setWorking] = useState(false);
+  const startMining = useServerFn(startMiningJobs);
+  const scrubSource = useServerFn(scrubMindSource);
 
   const topics = new Set(item.timeline.map((m) => m.label)).size;
+
+  const sourceUrl = item.source_url || `https://www.youtube.com/watch?v=${item.youtube_id}`;
+
+  /** Instantly flips a clip between the public feed and the hidden AI archive. */
+  const toggleVisibility = async () => {
+    const next: ContentKind = item.kind === "VISUAL_CONTENT" ? "TRAINING_ONLY" : "VISUAL_CONTENT";
+    setWorking(true);
+    const error = await updateProjectContent(item.id, { kind: next });
+    setWorking(false);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success(next === "VISUAL_CONTENT" ? t("visual") : t("training"));
+    onChanged();
+  };
+
+  /** Re-queues the same video through the real mining engine. */
+  const remine = async () => {
+    setWorking(true);
+    try {
+      await startMining({
+        data: {
+          url: sourceUrl,
+          assessment: {
+            ...DEFAULT_ASSESSMENT,
+            sourceTitle: item.title,
+            sourceDescription: item.description,
+            outputLanguage: lang,
+          },
+        },
+      });
+      toast.success(t("remineQueued"));
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  /** Deletes the clip AND scrubs its chunks out of the Core Brain. */
+  const remove = async () => {
+    if (!window.confirm(t("deleteVideoConfirm"))) return;
+    setWorking(true);
+    try {
+      await scrubSource({
+        data: { ...(item.mind_id ? { mindId: item.mind_id } : {}), youtubeId: item.youtube_id, sourceUrl: item.source_url },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+    const error = await deleteProjectContent(item.id);
+    setWorking(false);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success(t("removedAndScrubbed"));
+    onChanged();
+  };
+
 
   const save = async () => {
     const error = await updateProjectContent(item.id, {
@@ -641,32 +736,33 @@ function VideoCard({
           >
             <Pencil className="h-3.5 w-3.5" /> {t("editMeta")}
           </button>
-          <Link
-            to="/creator"
-            onClick={() => {
-              const url = item.source_url || `https://www.youtube.com/watch?v=${item.youtube_id}`;
-              void navigator.clipboard?.writeText(url).catch(() => undefined);
-              toast.info(t("remineHint"));
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> {t("remine")}
-          </Link>
           <button
             type="button"
-            onClick={async () => {
-              const error = await deleteProjectContent(item.id);
-              if (error) {
-                toast.error(error);
-                return;
-              }
-              toast.success(t("removed"));
-              onChanged();
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-destructive"
+            disabled={working}
+            onClick={() => void toggleVisibility()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground disabled:opacity-50"
+          >
+            {item.kind === "VISUAL_CONTENT" ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {item.kind === "VISUAL_CONTENT" ? t("makeTraining") : t("makePublic")}
+          </button>
+          <button
+            type="button"
+            disabled={working}
+            onClick={() => void remine()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground disabled:opacity-50"
+          >
+            {working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {t("remine")}
+          </button>
+          <button
+            type="button"
+            disabled={working}
+            onClick={() => void remove()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-destructive disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" /> {t("del")}
           </button>
+
         </div>
       )}
     </li>

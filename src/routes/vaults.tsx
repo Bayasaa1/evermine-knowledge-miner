@@ -8,6 +8,7 @@ import { VaultHub } from "@/components/vault-hub";
 
 import { listVaults } from "@/lib/cloud-vault.functions";
 import { useAuth } from "@/hooks/use-auth";
+import { useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/vaults")({
   head: () => ({
@@ -68,6 +69,7 @@ function SavedMinds() {
 }
 
 function VaultsPage() {
+  const { lang } = useLang();
   return (
     <div className="dark min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -75,9 +77,9 @@ function VaultsPage() {
         <p className="mb-6 mt-1 text-sm text-muted-foreground">
           Personas, projects, mined content, Core Brain, monetization and reviews — one ecosystem.
         </p>
-        <VaultHub lang="en" />
+        <VaultHub lang={lang} />
         <div className="mt-8 space-y-6 border-t border-border pt-6">
-          <MindManager lang="en" />
+          <MindManager lang={lang} />
           <SavedMinds />
         </div>
         <div className="mt-6 flex justify-end">

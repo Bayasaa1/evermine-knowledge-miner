@@ -109,3 +109,51 @@ export const deleteMindVersion = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/**
+ * Scrubs one source video out of the Core Brain.
+ *
+ * Every active version tied to `mindId` gets a new version whose mined records
+ * no longer reference the deleted video, so the AI stops answering from it
+ * while the full history stays intact.
+ */
+export const scrubMindSource = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { mindId?: string; youtubeId?: string; sourceUrl?: string }) => {
+    if (!input?.youtubeId && !input?.sourceUrl) throw new Error("A source video is required");
+    return input;
+  })
+  .handler(async ({ data, context }): Promise<{ scrubbed: number }> => {
+    const { stripSource } = await import("@/lib/mind-json");
+
+    let query = context.supabase
+      .from("mind_versions")
+      .select("id, vault_id, mind_id, title, payload")
+      .eq("user_id", context.userId)
+      .eq("is_active", true);
+    if (data.mindId) query = query.eq("mind_id", data.mindId);
+
+    const { data: rows, error } = await query.limit(50);
+    if (error) throw new Error(error.message);
+
+    let scrubbed = 0;
+    for (const row of rows ?? []) {
+      const payload = (row.payload ?? {}) as Record<string, unknown>;
+      if (!payload['result']) continue;
+      const next = stripSource(payload as never, {
+        ...(data.youtubeId ? { youtubeId: data.youtubeId } : {}),
+        ...(data.sourceUrl ? { sourceUrl: data.sourceUrl } : {}),
+      });
+      if (JSON.stringify(next) === JSON.stringify(payload)) continue;
+      const { error: saveError } = await context.supabase.rpc("save_mind_version", {
+        _vault_id: row.vault_id,
+        _title: row.title,
+        _payload: next as never,
+        _release_notes: `Removed source video ${data.youtubeId ?? data.sourceUrl ?? ""}`.slice(0, 4000),
+        _mind_id: row.mind_id ?? "",
+      });
+      if (saveError) throw new Error(saveError.message);
+      scrubbed += 1;
+    }
+    return { scrubbed };
+  });
