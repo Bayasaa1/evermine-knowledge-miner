@@ -296,6 +296,8 @@ export type Database = {
           id: string
           kind: string
           payload: Json
+          persona_id: string | null
+          project_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -305,6 +307,8 @@ export type Database = {
           id?: string
           kind?: string
           payload?: Json
+          persona_id?: string | null
+          project_id?: string | null
           title?: string
           updated_at?: string
           user_id: string
@@ -314,11 +318,28 @@ export type Database = {
           id?: string
           kind?: string
           payload?: Json
+          persona_id?: string | null
+          project_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "mind_vaults_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "creator_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mind_vaults_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mind_versions: {
         Row: {

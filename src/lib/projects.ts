@@ -162,8 +162,10 @@ export async function listPublicVisualContent(limit = 60): Promise<
 > {
   const { data } = await supabase
     .from("project_content")
-    .select(`${CONTENT_COLS},projects(id,title,creator_name,creator_avatar_url,price,currency)`)
+    // Only clips whose parent project is published reach the public feed.
+    .select(`${CONTENT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published)`)
     .eq("kind", "VISUAL_CONTENT")
+    .eq("projects.published", true)
     .order("created_at", { ascending: false })
     .limit(limit);
   const rows = (data as unknown as Array<Record<string, unknown>> | null) ?? [];
