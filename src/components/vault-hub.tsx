@@ -621,7 +621,7 @@ function VideoCard({
     setWorking(true);
     try {
       await scrubSource({
-        data: { mindId: item.mind_id || undefined, youtubeId: item.youtube_id, sourceUrl: item.source_url },
+        data: { ...(item.mind_id ? { mindId: item.mind_id } : {}), youtubeId: item.youtube_id, sourceUrl: item.source_url },
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
