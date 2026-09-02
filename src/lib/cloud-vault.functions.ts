@@ -16,25 +16,60 @@ export type VaultRow = {
   title: string;
   kind: string;
   payload: Json;
+  personaId: string | null;
+  projectId: string | null;
   updatedAt: string;
 };
 
-export const listVaults = createServerFn({ method: "GET" })
+export const listVaults = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<VaultRow[]> => {
-    const { data, error } = await context.supabase
+  .inputValidator((input?: { personaId?: string | null; projectId?: string | null; scoped?: boolean }) => input ?? {})
+  .handler(async ({ data, context }): Promise<VaultRow[]> => {
+    // Strict isolation: a saved mind only shows inside the persona / project it
+    // belongs to, never in a single shared dump of everything the user mined.
+    let query = context.supabase
       .from("mind_vaults")
-      .select("id, title, kind, payload, updated_at")
-      .eq("user_id", context.userId)
-      .order("updated_at", { ascending: false });
+      .select("id, title, kind, payload, persona_id, project_id, updated_at")
+      .eq("user_id", context.userId);
+    if (data.scoped) {
+      query = data.personaId ? query.eq("persona_id", data.personaId) : query.is("persona_id", null);
+      if (data.projectId) query = query.eq("project_id", data.projectId);
+    }
+    const { data: rows, error } = await query.order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return (data ?? []).map((r) => ({
+    return (rows ?? []).map((r) => ({
       id: r.id,
       title: r.title,
       kind: r.kind,
       payload: r.payload as Json,
+      personaId: r.persona_id ?? null,
+      projectId: r.project_id ?? null,
       updatedAt: r.updated_at,
     }));
+  });
+
+/** Renames a saved mind and/or re-assigns it to another persona / project. */
+export const updateVault = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { id: string; title?: string; personaId?: string | null; projectId?: string | null }) => {
+      if (!input?.id) throw new Error("A vault id is required");
+      return input;
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = {};
+    if (typeof data.title === "string" && data.title.trim()) patch['title'] = data.title.trim().slice(0, 200);
+    if (data.personaId !== undefined) patch['persona_id'] = data.personaId;
+    if (data.projectId !== undefined) patch['project_id'] = data.projectId;
+    if (Object.keys(patch).length === 0) return { ok: true };
+    const { error } = await context.supabase
+      .from("mind_vaults")
+      .update(patch as never)
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const upsertVault = createServerFn({ method: "POST" })
