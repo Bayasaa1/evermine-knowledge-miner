@@ -127,21 +127,24 @@ type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
 export function VaultHub({ lang = "en" }: { lang?: Lang }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const { user, userId, isAuthenticated } = useAuth();
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<{ id: string | null; name: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [avatar, setAvatar] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const loadPersonas = useCallback(async () => {
-    if (!userId) {
-      setPersonas([]);
-      return;
-    }
-    setPersonas(await listPersonas(userId));
-  }, [userId]);
+  // One shared cache entry: every tab reads the same persona list.
+  const { data: personas = [] } = useQuery<Persona[]>({
+    queryKey: ["personas", userId],
+    queryFn: () => listPersonas(userId as string),
+    enabled: !!userId,
+  });
 
-  useEffect(() => { void loadPersonas(); }, [loadPersonas]);
+  const loadPersonas = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["personas", userId] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
 
   if (!isAuthenticated || !user) {
     return <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{t("signIn")}</p>;
