@@ -6,10 +6,11 @@
  * and TRAINING_ONLY material, all feeding one Core Brain whose growth and
  * monetization show up in the same dashboard.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+
 import {
   ArrowLeft,
   BarChart3,
