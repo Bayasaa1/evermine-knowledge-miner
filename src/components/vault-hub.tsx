@@ -98,11 +98,24 @@ const C = {
   emotions: { en: "Emotion points", mn: "Сэтгэл хөдлөл", ko: "감정 포인트" },
   del: { en: "Delete video", mn: "Видео устгах", ko: "영상 삭제" },
   remine: { en: "Re-mine", mn: "Дахин олборлох", ko: "재마이닝" },
-  remineHint: {
-    en: "Link copied — paste it into Creator Studio to re-mine this video.",
-    mn: "Холбоос хуулагдлаа — Creator Studio дээр буулгаж дахин олборлоно уу.",
-    ko: "링크가 복사되었습니다 — Creator Studio에 붙여넣어 다시 마이닝하세요.",
+  remineQueued: {
+    en: "Re-mining queued — progress updates live on this card.",
+    mn: "Дахин олборлолт дараалалд орлоо — явц энэ картан дээр шинэчлэгдэнэ.",
+    ko: "재마이닝이 대기열에 추가되었습니다 — 진행률이 이 카드에 표시됩니다.",
   },
+  deleteVideoConfirm: {
+    en: "Delete this video and erase its chunks from the Core Brain?",
+    mn: "Энэ видеог устгаж, түүний хэсгүүдийг Гол Тархинаас арилгах уу?",
+    ko: "이 영상을 삭제하고 코어 브레인에서 해당 청크를 지울까요?",
+  },
+  removedAndScrubbed: {
+    en: "Video deleted and Core Brain scrubbed",
+    mn: "Видео устаж, Гол Тархи цэвэрлэгдлээ",
+    ko: "영상이 삭제되고 코어 브레인이 정리되었습니다",
+  },
+  makePublic: { en: "Move to feed", mn: "Фийд рүү зөөх", ko: "피드로 이동" },
+  makeTraining: { en: "Hide from feed", mn: "Фийдээс нуух", ko: "피드에서 숨기기" },
+
   editMeta: { en: "Edit metadata", mn: "Мэдээлэл засах", ko: "메타데이터 편집" },
   save: { en: "Save", mn: "Хадгалах", ko: "저장" },
   cancel: { en: "Cancel", mn: "Болих", ko: "취소" },
