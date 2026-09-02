@@ -736,32 +736,33 @@ function VideoCard({
           >
             <Pencil className="h-3.5 w-3.5" /> {t("editMeta")}
           </button>
-          <Link
-            to="/creator"
-            onClick={() => {
-              const url = item.source_url || `https://www.youtube.com/watch?v=${item.youtube_id}`;
-              void navigator.clipboard?.writeText(url).catch(() => undefined);
-              toast.info(t("remineHint"));
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> {t("remine")}
-          </Link>
           <button
             type="button"
-            onClick={async () => {
-              const error = await deleteProjectContent(item.id);
-              if (error) {
-                toast.error(error);
-                return;
-              }
-              toast.success(t("removed"));
-              onChanged();
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-destructive"
+            disabled={working}
+            onClick={() => void toggleVisibility()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground disabled:opacity-50"
+          >
+            {item.kind === "VISUAL_CONTENT" ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {item.kind === "VISUAL_CONTENT" ? t("makeTraining") : t("makePublic")}
+          </button>
+          <button
+            type="button"
+            disabled={working}
+            onClick={() => void remine()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-foreground disabled:opacity-50"
+          >
+            {working ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {t("remine")}
+          </button>
+          <button
+            type="button"
+            disabled={working}
+            onClick={() => void remove()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-destructive disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" /> {t("del")}
           </button>
+
         </div>
       )}
     </li>
