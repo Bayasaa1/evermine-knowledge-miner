@@ -553,8 +553,73 @@ function VideoCard({
   const [description, setDescription] = useState(item.description);
   const [tags, setTags] = useState(item.tags.join(", "));
   const [kind, setKind] = useState<ContentKind>(item.kind);
+  const [working, setWorking] = useState(false);
+  const startMining = useServerFn(startMiningJobs);
+  const scrubSource = useServerFn(scrubMindSource);
 
   const topics = new Set(item.timeline.map((m) => m.label)).size;
+
+  const sourceUrl = item.source_url || `https://www.youtube.com/watch?v=${item.youtube_id}`;
+
+  /** Instantly flips a clip between the public feed and the hidden AI archive. */
+  const toggleVisibility = async () => {
+    const next: ContentKind = item.kind === "VISUAL_CONTENT" ? "TRAINING_ONLY" : "VISUAL_CONTENT";
+    setWorking(true);
+    const error = await updateProjectContent(item.id, { kind: next });
+    setWorking(false);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success(next === "VISUAL_CONTENT" ? t("visual") : t("training"));
+    onChanged();
+  };
+
+  /** Re-queues the same video through the real mining engine. */
+  const remine = async () => {
+    setWorking(true);
+    try {
+      await startMining({
+        data: {
+          url: sourceUrl,
+          assessment: {
+            ...DEFAULT_ASSESSMENT,
+            sourceTitle: item.title,
+            sourceDescription: item.description,
+            outputLanguage: lang,
+          },
+        },
+      });
+      toast.success(t("remineQueued"));
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  /** Deletes the clip AND scrubs its chunks out of the Core Brain. */
+  const remove = async () => {
+    if (!window.confirm(t("deleteVideoConfirm"))) return;
+    setWorking(true);
+    try {
+      await scrubSource({
+        data: { mindId: item.mind_id || undefined, youtubeId: item.youtube_id, sourceUrl: item.source_url },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+    const error = await deleteProjectContent(item.id);
+    setWorking(false);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    toast.success(t("removedAndScrubbed"));
+    onChanged();
+  };
+
 
   const save = async () => {
     const error = await updateProjectContent(item.id, {
