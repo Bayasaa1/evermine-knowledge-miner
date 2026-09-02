@@ -446,17 +446,22 @@ function PersonaWorkspace({
 
 function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: Project; onChanged: () => void }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
-  const [items, setItems] = useState<ProjectContent[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setItems(await listProjectContent(project.id));
-    setLoading(false);
-  }, [project.id]);
+  const { data: items = [], isLoading: loading } = useQuery<ProjectContent[]>({
+    queryKey: ["project-content", project.id],
+    queryFn: () => listProjectContent(project.id),
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  // Any mutation refreshes content, the Core Brain and the public feed together.
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["project-content", project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
+    await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
 
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({ queryKey: ["mining-jobs"], queryFn: () => fetchJobs() });
