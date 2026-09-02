@@ -58,7 +58,10 @@ import {
   type Project,
   type ProjectContent,
 } from "@/lib/projects";
-import { listMiningJobs } from "@/lib/mining-jobs.functions";
+import { listMiningJobs, startMiningJobs } from "@/lib/mining-jobs.functions";
+import { DEFAULT_ASSESSMENT } from "@/lib/mining-jobs";
+import { scrubMindSource } from "@/lib/mind-versions.functions";
+
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
 import { MindReviews } from "@/components/mind-reviews";
