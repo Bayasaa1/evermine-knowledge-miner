@@ -101,6 +101,8 @@ export const deleteVault = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => input)
   .handler(async ({ data, context }) => {
+    // Cascade: the vault's version history goes with it.
+    await context.supabase.from("mind_versions").delete().eq("vault_id", data.id).eq("user_id", context.userId);
     const { error } = await context.supabase
       .from("mind_vaults")
       .delete()

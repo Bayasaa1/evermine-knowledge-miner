@@ -47,6 +47,7 @@ import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQueryClient } from "@tanstack/react-query";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
+import { updateVault } from "@/lib/cloud-vault.functions";
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
@@ -494,6 +495,16 @@ function StepUpload({ lang }: { lang: Lang }) {
         await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
         await queryClient.invalidateQueries({ queryKey: ["project-content", projectId] });
       }
+
+      // Bind the saved mind to its persona + project so vault views stay isolated.
+      await updateVault({
+        data: {
+          id: saved.vaultId,
+          personaId: target.personaId ?? persona?.id ?? null,
+          projectId: projectId ?? null,
+        },
+      }).catch(() => undefined);
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
 
       const goPublic = target.publishToFeed && target.contentKind === "VISUAL_CONTENT";
       // Visual content must be instantly visible in the public feed: the parent
