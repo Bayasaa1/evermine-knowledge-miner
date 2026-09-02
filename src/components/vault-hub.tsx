@@ -330,16 +330,21 @@ function PersonaWorkspace({
   onBack: () => void;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setProjects(await listProjectsByPersona(userId, personaId));
-  }, [userId, personaId]);
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["projects", userId, personaId],
+    queryFn: () => listProjectsByPersona(userId, personaId),
+  });
 
-  useEffect(() => { void load(); }, [load]);
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["projects", userId, personaId] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
 
   const open = projects.find((p) => p.id === openId) ?? null;
 
