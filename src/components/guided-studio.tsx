@@ -65,6 +65,7 @@ import {
 } from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
 import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
+import { withNetworkRetry } from "@/lib/retry";
 
 
 const MODEL = "gemini-2.5-flash";
@@ -564,6 +565,22 @@ function StepUpload({ lang }: { lang: Lang }) {
       min: pickCopy({ en: "min", mn: "мин", ko: "분" }, lang),
       chunk: pickCopy({ en: "chunk", mn: "хэсэг", ko: "청크" }, lang),
       streaming: pickCopy({ en: "streaming…", mn: "дамжуулж байна…", ko: "스트리밍 중…" }, lang),
+      reconnect: pickCopy(
+        {
+          en: "connection lost — reconnecting in 10s",
+          mn: "холболт тасарлаа — 10 секундын дараа дахин холбогдоно",
+          ko: "연결이 끊겼습니다 — 10초 후 재연결합니다",
+        },
+        lang,
+      ),
+      background: pickCopy(
+        {
+          en: "Mining runs on the server — you can close this page and come back later.",
+          mn: "Олборлолт сервер дээр ажиллана — та энэ хуудсыг хааж, дараа буцаж ирж болно.",
+          ko: "마이닝은 서버에서 실행됩니다 — 이 페이지를 닫고 나중에 돌아와도 됩니다.",
+        },
+        lang,
+      ),
       stopped: pickCopy(
         {
           en: "STOPPED by user — every finished checkpoint stays saved.",
@@ -579,10 +596,13 @@ function StepUpload({ lang }: { lang: Lang }) {
   /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
-      const jobs = await startMiningJobs({ data: { url: source.url, assessment } });
+      const jobs = await withNetworkRetry(() => startMiningJobs({ data: { url: source.url, assessment } }), {
+        onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
+      });
       setQueueTotal(jobs.length);
       setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
       say(`$ evermind mine --videos ${jobs.length}`);
+      say(`  # ${term.background}`);
       jobs.forEach((j, i) =>
         say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 5${term.min}`),
       );
@@ -599,7 +619,11 @@ function StepUpload({ lang }: { lang: Lang }) {
             return;
           }
           say(`\n### ${term.chunk} ${current.nextIndex + 1}/${current.totalChunks} — ${term.streaming}`);
-          const step = await runNextChunk({ data: { jobId: current.id } });
+          // Every checkpoint is stored server-side, so a dropped connection just
+          // reconnects — mining keeps running even if the app is closed.
+          const step = await withNetworkRetry(() => runNextChunk({ data: { jobId: current.id } }), {
+            onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
+          });
           current = step.job;
           if (step.chunk) {
             say("```json");
