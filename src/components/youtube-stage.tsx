@@ -72,7 +72,9 @@ export function YouTubeStage({
         player.current = new YT.Player(holder.current, {
           videoId,
           playerVars: {
-            autoplay: 0,
+            // Muted autoplay is the only form browsers allow without a gesture.
+            autoplay: 1,
+            mute: 1,
             controls: 0,
             modestbranding: 1,
             rel: 0,
@@ -80,7 +82,13 @@ export function YouTubeStage({
             loop: 1,
             playlist: videoId,
           },
-          events: { onReady: () => !cancelled && setReady(true) },
+          events: {
+            onReady: (e: { target: YTPlayer }) => {
+              if (cancelled) return;
+              e.target.mute();
+              setReady(true);
+            },
+          },
         });
       })
       .catch(() => undefined);
@@ -101,9 +109,20 @@ export function YouTubeStage({
   useEffect(() => {
     const p = player.current;
     if (!ready || !p) return;
-    if (active && !paused) p.playVideo();
-    else p.pauseVideo();
-  }, [active, paused, ready]);
+    if (active && !paused) {
+      // Always start muted so the browser cannot block playback, then restore
+      // the creator's sound preference once the video is actually rolling.
+      p.mute();
+      p.playVideo();
+      const restore = window.setTimeout(() => {
+        if (!muted) p.unMute();
+      }, 400);
+      return () => window.clearTimeout(restore);
+    }
+    p.pauseVideo();
+    return;
+  }, [active, paused, ready, muted]);
+
 
   useEffect(() => {
     if (!ready || !active || !onTime) return;
