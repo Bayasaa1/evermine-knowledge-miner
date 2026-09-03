@@ -85,8 +85,11 @@ export function SavedMinds({
   });
 
   const { data: vaults = [], isLoading } = useQuery<VaultRow[]>({
-    queryKey: ["cloud-vaults", personaId],
-    queryFn: () => fetchVaults({ data: personaId ? { scoped: true, personaId } : {} }),
+    queryKey: ["cloud-vaults", locked ? `locked:${personaId ?? "master"}` : personaId],
+    queryFn: () =>
+      fetchVaults({
+        data: locked || personaId ? { scoped: true, personaId } : {},
+      }),
     enabled: isAuthenticated,
     refetchOnMount: "always",
   });
@@ -122,19 +125,25 @@ export function SavedMinds({
         <CloudCheck className="h-4 w-4 text-primary" />
         <p className="text-sm font-semibold text-foreground">{t.title}</p>
         {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-        <select
-          value={personaId ?? ""}
-          onChange={(e) => setPersonaId(e.target.value || null)}
-          className="ml-auto rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground"
-          aria-label={t.persona}
-        >
-          <option value="">{t.all}</option>
-          {personas.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        {locked ? (
+          <span className="ml-auto rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-muted-foreground">
+            {forcedPersona?.name ?? t.all}
+          </span>
+        ) : (
+          <select
+            value={personaId ?? ""}
+            onChange={(e) => setPersonaId(e.target.value || null)}
+            className="ml-auto rounded-lg border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+            aria-label={t.persona}
+          >
+            <option value="">{t.all}</option>
+            {personas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {vaults.length > 0 ? (
