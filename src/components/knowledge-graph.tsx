@@ -550,7 +550,7 @@ function NodeInspector({
       ? await updateProject(node.meta.projectId!, { title: label })
       : await updateProjectContent(node.meta.contentId!, { title: label });
     setBusy(false);
-    if (error) return toast.error(error);
+    if (error) { toast.error(error); return; }
     toast.success(t("saved"));
     await onChanged();
     onClose();
@@ -564,7 +564,7 @@ function NodeInspector({
     else onHide(node.key);
     for (const id of customLinkIds) await deleteCustomLink(id);
     setBusy(false);
-    if (error) return toast.error(error);
+    if (error) { toast.error(error); return; }
     toast.success(t("removed"));
     await onChanged();
     await onLinksChanged();
