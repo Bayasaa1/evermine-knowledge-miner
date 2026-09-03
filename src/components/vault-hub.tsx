@@ -140,11 +140,26 @@ const C = {
 
 type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
 
-export function VaultHub({ lang = "en" }: { lang?: Lang }) {
+export type VaultPersonaSelection = { id: string | null; name: string } | null;
+
+export function VaultHub({
+  lang = "en",
+  selected: controlled,
+  onSelect,
+}: {
+  lang?: Lang;
+  selected?: VaultPersonaSelection;
+  onSelect?: (sel: VaultPersonaSelection) => void;
+}) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const { user, userId, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<{ id: string | null; name: string } | null>(null);
+  const [internal, setInternal] = useState<VaultPersonaSelection>(null);
+  const selected = controlled !== undefined ? controlled : internal;
+  const setSelected = (sel: VaultPersonaSelection) => {
+    setInternal(sel);
+    onSelect?.(sel);
+  };
   const [draft, setDraft] = useState("");
   const [avatar, setAvatar] = useState("");
   const [busy, setBusy] = useState(false);

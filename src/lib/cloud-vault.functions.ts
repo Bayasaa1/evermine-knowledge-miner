@@ -32,9 +32,10 @@ export const listVaults = createServerFn({ method: "POST" })
       .select("id, title, kind, payload, persona_id, project_id, updated_at")
       .eq("user_id", context.userId);
     if (data.scoped) {
-      // Persona view also surfaces not-yet-assigned minds so nothing stays hidden.
+      // Strict isolation: a persona only ever sees its own minds; unassigned
+      // minds live under the master (null) persona, nowhere else.
       query = data.personaId
-        ? query.or(`persona_id.eq.${data.personaId},persona_id.is.null`)
+        ? query.eq("persona_id", data.personaId)
         : query.is("persona_id", null);
       if (data.projectId) query = query.eq("project_id", data.projectId);
     }

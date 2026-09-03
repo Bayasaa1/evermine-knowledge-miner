@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { MindManager } from "@/components/mind-manager";
 import { SavedMinds } from "@/components/saved-minds";
-import { VaultHub } from "@/components/vault-hub";
+import { VaultHub, type VaultPersonaSelection } from "@/components/vault-hub";
 
 import { useLang } from "@/lib/i18n";
 
@@ -25,6 +26,9 @@ export const Route = createFileRoute("/vaults")({
 
 function VaultsPage() {
   const { lang } = useLang();
+  // The persona opened in the hub also scopes everything below it (Saved Minds),
+  // so entering CTS only ever shows CTS material — never another persona's.
+  const [persona, setPersona] = useState<VaultPersonaSelection>(null);
   return (
     <div className="dark min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -32,10 +36,10 @@ function VaultsPage() {
         <p className="mb-6 mt-1 text-sm text-muted-foreground">
           Personas, projects, mined content, Core Brain, monetization and reviews — one ecosystem.
         </p>
-        <VaultHub lang={lang} />
+        <VaultHub lang={lang} selected={persona} onSelect={setPersona} />
         <div className="mt-8 space-y-6 border-t border-border pt-6">
           <MindManager lang={lang} />
-          <SavedMinds lang={lang} />
+          <SavedMinds lang={lang} forcedPersona={persona ?? undefined} />
         </div>
         <div className="mt-6 flex justify-end">
           <Link
