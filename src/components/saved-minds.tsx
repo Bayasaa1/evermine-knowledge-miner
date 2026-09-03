@@ -24,7 +24,7 @@ export function SavedMinds({
 }: {
   lang: Lang;
   /** When set, the list is locked to this persona and the filter chips hide. */
-  forcedPersona?: { id: string | null; name: string } | null;
+  forcedPersona?: { id: string | null; name: string } | null | undefined;
 }) {
   const { isAuthenticated, user } = useAuth();
   const userId = user?.id ?? null;
