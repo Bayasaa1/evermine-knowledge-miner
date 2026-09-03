@@ -140,6 +140,47 @@ export type Database = {
         }
         Relationships: []
       }
+      graph_links: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          persona_id: string | null
+          source_key: string
+          target_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string
+          persona_id?: string | null
+          source_key: string
+          target_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          persona_id?: string | null
+          source_key?: string
+          target_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "graph_links_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "creator_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mind_comments: {
         Row: {
           author_name: string
