@@ -149,7 +149,7 @@ export function buildGraph(input: {
       kind: "content",
       label: vault.title,
       topic: "json",
-      meta: { vaultId: vault.id, projectId: vault.projectId ?? undefined, payload, detail: ".json.md core brain" },
+      meta: { vaultId: vault.id, ...(vault.projectId ? { projectId: vault.projectId } : {}), payload, detail: ".json.md core brain" },
     });
     link(vault.projectId ? `project:${vault.projectId}` : root, key);
 
