@@ -374,6 +374,8 @@ function PersonaWorkspace({
 
   const load = async () => {
     await queryClient.invalidateQueries({ queryKey: ["projects", userId, personaId] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-vaults", personaId] });
     await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
   };
 
@@ -494,6 +496,8 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
     await queryClient.invalidateQueries({ queryKey: ["project-content", project.id] });
     await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
     await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-vaults"] });
     await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
   };
 
