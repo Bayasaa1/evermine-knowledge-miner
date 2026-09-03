@@ -64,6 +64,7 @@ import { scrubMindSource } from "@/lib/mind-versions.functions";
 
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
+import { KnowledgeGraph } from "@/components/knowledge-graph";
 import { MindReviews } from "@/components/mind-reviews";
 
 const C = {
@@ -412,6 +413,9 @@ function PersonaWorkspace({
         <ProjectWorkspace lang={lang} project={open} onChanged={() => void load()} />
       ) : (
         <>
+          {/* Obsidian-style Core Brain graph, scoped strictly to this persona. */}
+          <KnowledgeGraph lang={lang} userId={userId} personaId={personaId} personaName={personaName} />
+
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
             <FolderPlus className="h-4 w-4 text-primary" />
             <input
