@@ -32,9 +32,13 @@ export const listVaults = createServerFn({ method: "POST" })
       .select("id, title, kind, payload, persona_id, project_id, updated_at")
       .eq("user_id", context.userId);
     if (data.scoped) {
-      query = data.personaId ? query.eq("persona_id", data.personaId) : query.is("persona_id", null);
+      // Persona view also surfaces not-yet-assigned minds so nothing stays hidden.
+      query = data.personaId
+        ? query.or(`persona_id.eq.${data.personaId},persona_id.is.null`)
+        : query.is("persona_id", null);
       if (data.projectId) query = query.eq("project_id", data.projectId);
     }
+
     const { data: rows, error } = await query.order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     return (rows ?? []).map((r) => ({
