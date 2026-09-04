@@ -563,15 +563,30 @@ function FeedCard({
                 : c.free}
           </button>
         </div>
-        <p className="line-clamp-2 text-sm font-medium">{shownTitle}</p>
-        <p className="mt-1 line-clamp-2 text-xs text-white/70">{shownDescription}</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {item.tags.slice(0, 3).map((tag, ti) => (
-            <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
-              #{shownTags[ti] || tag}
-            </span>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="pointer-events-auto block w-full text-left"
+          aria-expanded={expanded}
+        >
+          <p className={`text-sm font-medium ${expanded ? "" : "line-clamp-1"}`}>{shownTitle}</p>
+          {(expanded || !shownDescription) ? null : null}
+          {expanded && (
+            <>
+              <p className="mt-1 line-clamp-3 text-xs text-white/70">{shownDescription}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {item.tags.slice(0, 3).map((tag, ti) => (
+                  <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
+                    #{shownTags[ti] || tag}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+          {!expanded && (shownDescription || item.tags.length > 0) && (
+            <span className="mt-0.5 inline-block text-[11px] font-semibold text-white/60">More</span>
+          )}
+        </button>
       </div>
       </div>
 
