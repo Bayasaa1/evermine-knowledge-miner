@@ -430,17 +430,18 @@ function FeedCard({
           </button>
         )}
 
-        {/* Live mined knowledge + emotion tags, aligned to what is playing */}
+        {/* Live mined knowledge + emotion tags, aligned to what is playing.
+            Kept to a single compact chip so it never collides with the caption or header. */}
         {(activeMark || activeEmotion) && (
-          <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[62%] space-y-1.5">
+          <div className="pointer-events-none absolute left-3 top-16 z-20 flex max-w-[58%] items-center gap-1.5">
             {activeMark && (
-              <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
+              <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
                 {shownMarks[(item.timeline ?? []).indexOf(activeMark)] || activeMark.label}
               </p>
             )}
             {activeEmotion && (
-              <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
+              <span className="inline-flex shrink-0 items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
                 {shownEmotions[(item.emotionTimeline ?? []).indexOf(activeEmotion)] ||
                   activeEmotion.emotion ||
                   activeEmotion.label}
