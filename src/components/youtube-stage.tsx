@@ -58,7 +58,7 @@ export function YouTubeStage({
   active: boolean;
   muted: boolean;
   paused: boolean;
-  onTime?: (seconds: number) => void;
+  onTime?: (seconds: number, duration: number) => void;
   onToggle?: () => void;
 }) {
   const holder = useRef<HTMLDivElement>(null);
@@ -141,7 +141,7 @@ export function YouTubeStage({
     if (!ready || !active || !onTime) return;
     const id = window.setInterval(() => {
       const p = player.current;
-      if (p) onTime(p.getCurrentTime());
+      if (p) onTime(p.getCurrentTime(), typeof p.getDuration === "function" ? p.getDuration() : 0);
     }, 500);
     return () => window.clearInterval(id);
   }, [ready, active, onTime]);
