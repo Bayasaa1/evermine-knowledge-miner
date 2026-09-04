@@ -570,7 +570,6 @@ function FeedCard({
           aria-expanded={expanded}
         >
           <p className={`text-sm font-medium ${expanded ? "" : "line-clamp-1"}`}>{shownTitle}</p>
-          {(expanded || !shownDescription) ? null : null}
           {expanded && (
             <>
               <p className="mt-1 line-clamp-3 text-xs text-white/70">{shownDescription}</p>
