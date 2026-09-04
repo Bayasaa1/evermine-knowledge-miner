@@ -120,12 +120,20 @@ export function YouTubeStage({
     if (!ready || !p) return;
     if (active && !paused) {
       // Always start muted so the browser cannot block autoplay. If the viewer
-      // already asked for sound, the separate mute effect above restores it.
+      // already asked for sound (a real tap earlier), restore it once rolling.
       p.mute();
       p.playVideo();
+      if (!mutedRef.current) {
+        const restore = window.setTimeout(() => {
+          p.unMute();
+          p.setVolume(100);
+        }, 400);
+        return () => window.clearTimeout(restore);
+      }
     } else {
       p.pauseVideo();
     }
+    return;
   }, [active, paused, ready]);
 
 
