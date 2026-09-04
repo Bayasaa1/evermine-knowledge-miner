@@ -382,6 +382,7 @@ function FeedCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [captions, setCaptions] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
@@ -399,7 +400,8 @@ function FeedCard({
   const has = (c: Capability) => caps.includes(c);
   const activeMark = markAt(item.timeline, now);
   const activeEmotion = markAt(item.emotionTimeline, now);
-  const activeSubtitle = subtitleAt(item.transcript, now);
+  const timedCues = useMemo(() => buildCues(item.transcript, duration), [item.transcript, duration]);
+  const activeSubtitle = cueAt(timedCues, now);
 
 
   useEffect(() => {
@@ -449,7 +451,10 @@ function FeedCard({
             active={isActive}
             muted={muted}
             paused={paused}
-            onTime={setNow}
+            onTime={(seconds, total) => {
+              setNow(seconds);
+              if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
+            }}
             onToggle={toggle}
           />
         ) : item.src ? (
