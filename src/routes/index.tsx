@@ -118,7 +118,7 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
     const fallback = start + Math.max(2, Math.min(8, c.speech.length / 14));
     const end = ends[idx] ?? (next != null ? Math.min(next, fallback) : fallback);
     return { start, end: Math.max(end, start + 1.2), speech: c.speech, speaker: c.speaker };
-  });
+  }).sort((a, b) => a.start - b.start);
 }
 
 
