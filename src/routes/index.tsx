@@ -420,7 +420,7 @@ function FeedCard({
           </button>
         )}
         {captions && activeSubtitle && (
-          <p className="pointer-events-none absolute inset-x-10 bottom-44 z-30 rounded-md bg-background/85 px-3 py-2 text-center text-sm font-medium text-foreground shadow-lg md:bottom-28">
+          <p className="pointer-events-none absolute inset-x-10 bottom-[38%] z-30 line-clamp-2 rounded-md bg-background/85 px-3 py-2 text-center text-sm font-medium text-foreground shadow-lg md:bottom-28">
             {activeSubtitle.speech}
           </p>
         )}
