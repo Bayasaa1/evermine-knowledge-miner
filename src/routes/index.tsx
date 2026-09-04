@@ -426,7 +426,7 @@ function FeedCard({
           </p>
         )}
         {!!item.transcript?.length && (
-          <button type="button" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="absolute right-3 top-16 z-30 rounded-full bg-background/70 p-2 text-foreground backdrop-blur">
+          <button type="button" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="absolute right-3 top-28 z-30 rounded-full bg-background/70 p-2 text-foreground backdrop-blur">
             <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
           </button>
         )}
