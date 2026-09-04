@@ -325,6 +325,7 @@ function FeedCard({
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
   const [captions, setCaptions] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
