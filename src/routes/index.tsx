@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   FolderOpen,
@@ -50,19 +50,76 @@ function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | 
   return found;
 }
 
-function subtitleAt(cues: FeedItem["transcript"], now: number) {
-  if (!cues?.length) return null;
-  let found = null;
-  for (const cue of cues) {
-    const match = cue.timestamp.match(/(?:(\d+):)?(\d+):(\d+)/);
-    const seconds = match
-      ? Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0)
-      : 0;
-    if (seconds <= now + 0.5) found = cue;
-    else break;
-  }
-  return found;
+type TimedCue = { start: number; end: number; speech: string; speaker: string };
+
+/** Parse "MM:SS", "HH:MM:SS" or a "start - end" range. Returns null when unusable. */
+function parseStamp(raw: string): { start: number; end: number | null } | null {
+  const parts = String(raw ?? "").split(/[-–—>]+/).map((p) => p.trim()).filter(Boolean);
+  const toSec = (v: string) => {
+    const m = v.match(/(?:(\d+):)?(\d{1,2}):(\d{1,2})/);
+    if (m) return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+    const only = v.match(/^(\d+)(?:[.,]\d+)?$/);
+    return only ? Number(only[1]) : null;
+  };
+  if (!parts.length) return null;
+  const start = toSec(parts[0]!);
+  if (start == null) return null;
+  const end = parts[1] ? toSec(parts[1]) : null;
+  return { start, end };
 }
+
+/**
+ * Build playback-aligned cue windows.
+ * Cues mined without timestamps are spread across the video proportionally to
+ * their spoken length, so subtitles still advance instead of freezing on one line.
+ */
+function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
+  if (!cues?.length) return [];
+  const parsed = cues.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
+  const anyTimed = parsed.some((p) => p.time);
+  const total = duration > 0 ? duration : 0;
+
+  let starts: number[] = [];
+  let ends: (number | null)[] = [];
+
+  if (anyTimed) {
+    // Interpolate any gaps between known timestamps.
+    let last = 0;
+    starts = parsed.map((p) => {
+      if (p.time) last = p.time.start;
+      return p.time ? p.time.start : last;
+    });
+    ends = parsed.map((p) => (p.time ? p.time.end : null));
+  } else {
+    const weights = cues.map((c) => Math.max(8, c.speech.length));
+    const sum = weights.reduce((a, b) => a + b, 0);
+    const span = total > 0 ? total : cues.length * 5;
+    let acc = 0;
+    starts = weights.map((w) => {
+      const s = (acc / sum) * span;
+      acc += w;
+      return s;
+    });
+    ends = starts.map((_, i) => (i + 1 < starts.length ? starts[i + 1]! : span));
+  }
+
+  return cues.map((c, i) => {
+    const start = starts[i] ?? 0;
+    const next = starts[i + 1];
+    const end = ends[i] ?? (next != null ? next : start + Math.max(2, Math.min(8, c.speech.length / 14)));
+    return { start, end: Math.max(end, start + 1), speech: c.speech, speaker: c.speaker };
+  });
+}
+
+/** Active cue at the given playback position; null between cues. */
+function cueAt(cues: TimedCue[], now: number): TimedCue | null {
+  for (const cue of cues) {
+    if (now + 0.25 >= cue.start && now <= cue.end + 0.25) return cue;
+    if (cue.start > now + 0.25) break;
+  }
+  return null;
+}
+
 
 /** Feed chrome copy. Missing locales stream through the dynamic translator. */
 const FEED_COPY = {
@@ -325,6 +382,7 @@ function FeedCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [captions, setCaptions] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
@@ -342,7 +400,8 @@ function FeedCard({
   const has = (c: Capability) => caps.includes(c);
   const activeMark = markAt(item.timeline, now);
   const activeEmotion = markAt(item.emotionTimeline, now);
-  const activeSubtitle = subtitleAt(item.transcript, now);
+  const timedCues = useMemo(() => buildCues(item.transcript, duration), [item.transcript, duration]);
+  const activeSubtitle = cueAt(timedCues, now);
 
 
   useEffect(() => {
@@ -392,7 +451,10 @@ function FeedCard({
             active={isActive}
             muted={muted}
             paused={paused}
-            onTime={setNow}
+            onTime={(seconds, total) => {
+              setNow(seconds);
+              if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
+            }}
             onToggle={toggle}
           />
         ) : item.src ? (
