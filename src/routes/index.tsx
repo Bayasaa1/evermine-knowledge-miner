@@ -325,6 +325,7 @@ function FeedCard({
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
   const [captions, setCaptions] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
@@ -419,7 +420,7 @@ function FeedCard({
           </button>
         )}
         {captions && activeSubtitle && (
-          <p className="pointer-events-none absolute inset-x-10 bottom-44 z-30 rounded-md bg-background/85 px-3 py-2 text-center text-sm font-medium text-foreground shadow-lg md:bottom-28">
+          <p className="pointer-events-none absolute inset-x-10 bottom-[38%] z-30 line-clamp-2 rounded-md bg-background/85 px-3 py-2 text-center text-sm font-medium text-foreground shadow-lg md:bottom-28">
             {activeSubtitle.speech}
           </p>
         )}
@@ -429,17 +430,18 @@ function FeedCard({
           </button>
         )}
 
-        {/* Live mined knowledge + emotion tags, aligned to what is playing */}
+        {/* Live mined knowledge + emotion tags, aligned to what is playing.
+            Kept to a single compact chip so it never collides with the caption or header. */}
         {(activeMark || activeEmotion) && (
-          <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-[62%] space-y-1.5">
+          <div className="pointer-events-none absolute left-3 top-16 z-20 flex max-w-[58%] items-center gap-1.5">
             {activeMark && (
-              <p className="rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
+              <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
                 {shownMarks[(item.timeline ?? []).indexOf(activeMark)] || activeMark.label}
               </p>
             )}
             {activeEmotion && (
-              <span className="inline-flex items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
+              <span className="inline-flex shrink-0 items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
                 {shownEmotions[(item.emotionTimeline ?? []).indexOf(activeEmotion)] ||
                   activeEmotion.emotion ||
                   activeEmotion.label}
@@ -561,15 +563,29 @@ function FeedCard({
                 : c.free}
           </button>
         </div>
-        <p className="line-clamp-2 text-sm font-medium">{shownTitle}</p>
-        <p className="mt-1 line-clamp-2 text-xs text-white/70">{shownDescription}</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {item.tags.slice(0, 3).map((tag, ti) => (
-            <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
-              #{shownTags[ti] || tag}
-            </span>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="pointer-events-auto block w-full text-left"
+          aria-expanded={expanded}
+        >
+          <p className={`text-sm font-medium ${expanded ? "" : "line-clamp-1"}`}>{shownTitle}</p>
+          {expanded && (
+            <>
+              <p className="mt-1 line-clamp-3 text-xs text-white/70">{shownDescription}</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {item.tags.slice(0, 3).map((tag, ti) => (
+                  <span key={tag} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/80">
+                    #{shownTags[ti] || tag}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+          {!expanded && (shownDescription || item.tags.length > 0) && (
+            <span className="mt-0.5 inline-block text-[11px] font-semibold text-white/60">More</span>
+          )}
+        </button>
       </div>
       </div>
 
