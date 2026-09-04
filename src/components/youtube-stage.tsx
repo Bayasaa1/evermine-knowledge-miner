@@ -13,6 +13,7 @@ type YTPlayer = {
   unMute: () => void;
   setVolume: (volume: number) => void;
   getCurrentTime: () => number;
+  getDuration?: () => number;
   destroy: () => void;
 };
 
