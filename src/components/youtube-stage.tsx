@@ -100,29 +100,33 @@ export function YouTubeStage({
     };
   }, [videoId]);
 
+  // Mirror `muted` into a ref so the play/pause effect below never re-runs
+  // (and re-mutes) when the viewer toggles sound — the unmute must stay inside
+  // the tap gesture or mobile browsers silently block the audio.
+  const mutedRef = useRef(muted);
   useEffect(() => {
+    mutedRef.current = muted;
     const p = player.current;
     if (!ready || !p) return;
     if (muted) p.mute();
-    else p.unMute();
+    else {
+      p.unMute();
+      p.setVolume(100);
+    }
   }, [muted, ready]);
 
   useEffect(() => {
     const p = player.current;
     if (!ready || !p) return;
     if (active && !paused) {
-      // Always start muted so the browser cannot block playback, then restore
-      // the creator's sound preference once the video is actually rolling.
+      // Always start muted so the browser cannot block autoplay. If the viewer
+      // already asked for sound, the separate mute effect above restores it.
       p.mute();
       p.playVideo();
-      const restore = window.setTimeout(() => {
-        if (!muted) p.unMute();
-      }, 400);
-      return () => window.clearTimeout(restore);
+    } else {
+      p.pauseVideo();
     }
-    p.pauseVideo();
-    return;
-  }, [active, paused, ready, muted]);
+  }, [active, paused, ready]);
 
 
   useEffect(() => {
