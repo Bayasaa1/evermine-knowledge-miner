@@ -12,6 +12,7 @@ import {
   Sparkles,
   Star,
   Video as VideoIcon,
+  Captions,
   Volume2,
   VolumeX,
   X,
@@ -131,11 +132,12 @@ function HomeFeed() {
   const queryClient = useQueryClient();
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
-  const { data: items = marketplaceFeed() } = useQuery({
+  const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["home-feed"],
     queryFn: loadFeed,
     refetchOnWindowFocus: true,
-    staleTime: 10_000,
+    staleTime: 0,
+    retry: 2,
   });
 
   // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
@@ -223,6 +225,8 @@ function HomeFeed() {
       </header>
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
+        {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
+        {isError && <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"><p className="text-sm text-muted-foreground">Creator feed could not load.</p><button type="button" onClick={() => void refetch()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Retry</button></div>}
         {items.map((item, i) => (
           <FeedCard
             key={item.id}
@@ -306,6 +310,7 @@ function FeedCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
+  const [captions, setCaptions] = useState(true);
 
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
@@ -321,6 +326,7 @@ function FeedCard({
   const has = (c: Capability) => caps.includes(c);
   const activeMark = markAt(item.timeline, now);
   const activeEmotion = markAt(item.emotionTimeline, now);
+  const activeSubtitle = subtitleAt(item.transcript, now);
 
 
   useEffect(() => {
@@ -396,6 +402,16 @@ function FeedCard({
             className="absolute inset-0 flex items-center justify-center bg-black/20"
           >
             <Play className="h-14 w-14 opacity-80" />
+          </button>
+        )}
+        {captions && activeSubtitle && (
+          <p className="pointer-events-none absolute inset-x-10 bottom-44 z-30 rounded-md bg-background/85 px-3 py-2 text-center text-sm font-medium text-foreground shadow-lg md:bottom-28">
+            {activeSubtitle.speech}
+          </p>
+        )}
+        {!!item.transcript?.length && (
+          <button type="button" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="absolute right-3 top-16 z-30 rounded-full bg-background/70 p-2 text-foreground backdrop-blur">
+            <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
           </button>
         )}
 
