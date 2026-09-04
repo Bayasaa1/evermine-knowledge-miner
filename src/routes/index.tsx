@@ -224,19 +224,20 @@ function HomeFeed() {
 
   return (
     <div className="dark min-h-screen bg-black pb-28 text-white">
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between px-4 py-3">
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center px-4 py-3">
         <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
           <Sparkles className="h-3.5 w-3.5 text-primary" /> {c.headline}
         </h1>
-        <button
-          type="button"
-          onClick={() => setMuted((m) => !m)}
-          aria-label={muted ? "Unmute" : "Mute"}
-          className="pointer-events-auto rounded-full bg-black/40 p-2 backdrop-blur"
-        >
-          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-        </button>
       </header>
+      {/* Sits below the language selector so it is never covered by it */}
+      <button
+        type="button"
+        onClick={() => setMuted((m) => !m)}
+        aria-label={muted ? "Unmute" : "Mute"}
+        className="fixed right-3 top-16 z-40 rounded-full bg-black/40 p-2 backdrop-blur"
+      >
+        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+      </button>
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
         {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
