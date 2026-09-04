@@ -24,7 +24,7 @@ import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { MindReviews } from "@/components/mind-reviews";
 import { YouTubeStage } from "@/components/youtube-stage";
-import { loadFeed, marketplaceFeed, type FeedItem } from "@/lib/feed";
+import { loadFeed, type FeedItem } from "@/lib/feed";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
@@ -45,6 +45,20 @@ function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | 
   let found: TimelineMark | null = null;
   for (const m of marks) {
     if (m.t <= now + 0.5) found = m;
+    else break;
+  }
+  return found;
+}
+
+function subtitleAt(cues: FeedItem["transcript"], now: number) {
+  if (!cues?.length) return null;
+  let found = null;
+  for (const cue of cues) {
+    const match = cue.timestamp.match(/(?:(\d+):)?(\d+):(\d+)/);
+    const seconds = match
+      ? Number(match[1] ?? 0) * 3600 + Number(match[2] ?? 0) * 60 + Number(match[3] ?? 0)
+      : 0;
+    if (seconds <= now + 0.5) found = cue;
     else break;
   }
   return found;
