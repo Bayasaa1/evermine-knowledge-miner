@@ -161,7 +161,7 @@ function RootComponent() {
         clearUserScopedLocalData();
         resetKeyCaches();
         clearTranslationCache();
-        queryClient.clear();
+        queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "home-feed" });
         setLocalScope(null);
         return;
       }

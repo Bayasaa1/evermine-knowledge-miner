@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
+import { getPublicProjectMind } from "@/lib/project-mind.server";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
 
@@ -58,6 +59,20 @@ function buildSystemPrompt(mindId: string, lang: LangCode) {
     `- The Core Brain is stored in English. Respond strictly in the user's active UI language while keeping the persona's knowledge base and character style.`,
     `- Keep answers short: 2-5 sentences, or a tight markdown list. Use markdown (bold, lists, links, fenced code) when it genuinely helps.`,
   ].join("\n");
+}
+
+async function resolveSystemPrompt(mindId: string, lang: LangCode) {
+  const builtIn = buildSystemPrompt(mindId, lang);
+  if (builtIn) return builtIn;
+  const project = await getPublicProjectMind(mindId);
+  if (!project) return null;
+  return [
+    `You are the AI Mind of ${project.name}, trained only from their published Evermind project ${project.title}.`,
+    `Project description: ${project.description}`,
+    `Known topics and summaries:\n- ${project.knowledge.join("\n- ")}`,
+    `Verbatim source transcript:\n${project.transcript.join("\n")}`,
+    `Answer in first person, in ${LANGUAGES[lang].name}, using only this source knowledge. If it is not present, say that this Mind has not learned it yet. Keep answers concise.`,
+  ].join("\n\n");
 }
 
 type ProviderId = "gemini" | "openai" | "anthropic" | "deepseek";
@@ -173,7 +188,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         }
 
         const lang: LangCode = isLangCode(body.lang) ? body.lang : "en";
-        const system = body.mindId ? buildSystemPrompt(body.mindId, lang) : null;
+        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }

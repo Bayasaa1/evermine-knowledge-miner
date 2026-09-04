@@ -32,6 +32,7 @@ import {
   Trash2,
   UserSquare2,
   Video,
+  Captions,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -125,6 +126,9 @@ const C = {
   tagsField: { en: "Tags (comma separated)", mn: "Шошго (таслалаар)", ko: "태그 (쉼표 구분)" },
   moveTo: { en: "Move to", mn: "Зөөх", ko: "이동" },
   views: { en: "Views", mn: "Үзэлт", ko: "조회수" },
+  subtitles: { en: "Subtitles", mn: "Хадмал", ko: "자막" },
+  showTranscript: { en: "Show transcript", mn: "Хадмал харах", ko: "대본 보기" },
+  hideTranscript: { en: "Hide transcript", mn: "Хадмал нуух", ko: "대본 숨기기" },
   earnings: { en: "Earnings", mn: "Орлого", ko: "수익" },
   tokens: { en: "Token usage", mn: "Токен зарцуулалт", ko: "토큰 사용량" },
   rating: { en: "Avg. rating", mn: "Дундаж үнэлгээ", ko: "평균 평점" },
@@ -593,6 +597,7 @@ function VideoCard({
   const [tags, setTags] = useState(item.tags.join(", "));
   const [kind, setKind] = useState<ContentKind>(item.kind);
   const [working, setWorking] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
   const startMining = useServerFn(startMiningJobs);
   const scrubSource = useServerFn(scrubMindSource);
 
@@ -709,7 +714,29 @@ function VideoCard({
         <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
           <Eye className="h-3 w-3" /> {t("views")}: {item.view_count}
         </span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
+          <Captions className="h-3 w-3" /> {t("subtitles")}: {item.transcript.length}
+        </span>
       </div>
+
+      {!!item.transcript.length && (
+        <div className="mt-3">
+          <button type="button" onClick={() => setShowTranscript((value) => !value)} className="text-xs font-semibold text-primary">
+            {showTranscript ? t("hideTranscript") : t("showTranscript")}
+          </button>
+          {showTranscript && (
+            <ol className="mt-2 max-h-52 space-y-2 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3">
+              {item.transcript.map((cue, index) => (
+                <li key={`${cue.timestamp}-${index}`} className="text-xs leading-relaxed text-foreground">
+                  <span className="mr-2 font-mono text-primary">{cue.timestamp || "--:--"}</span>
+                  {cue.speaker && <span className="mr-1 font-semibold">{cue.speaker}:</span>}
+                  {cue.speech}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
 
       {editing ? (
         <div className="mt-3 space-y-2 rounded-lg border border-border bg-muted/40 p-3">

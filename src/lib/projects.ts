@@ -6,8 +6,10 @@
  *                    appears in the public feed.
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export type ContentKind = "VISUAL_CONTENT" | "TRAINING_ONLY";
+export type SubtitleCue = { timestamp: string; speech: string; speaker: string; role: string };
 
 export type Project = {
   id: string;
@@ -45,6 +47,7 @@ export type ProjectContent = {
   tags: string[];
   timeline: TimelineMark[];
   emotion_timeline: TimelineMark[];
+  transcript: SubtitleCue[];
   mind_id: string;
   view_count: number;
   created_at: string;
@@ -54,7 +57,7 @@ export type ProjectContent = {
 const PROJECT_COLS =
   "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,view_count,created_at,updated_at";
 const CONTENT_COLS =
-  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,mind_id,view_count,created_at,updated_at";
+  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,created_at,updated_at";
 
 export async function listMyProjects(userId: string): Promise<Project[]> {
   const { data } = await supabase
@@ -121,6 +124,9 @@ export async function addProjectContent(
     title: string;
     description?: string;
     tags?: string[];
+    timeline?: TimelineMark[];
+    emotionTimeline?: Json;
+    transcript?: SubtitleCue[];
   },
 ): Promise<string | null> {
   const { error } = await supabase.from("project_content").insert({
@@ -132,6 +138,9 @@ export async function addProjectContent(
     title: input.title.trim() || "Untitled clip",
     description: input.description?.trim() ?? "",
     tags: input.tags ?? [],
+    timeline: input.timeline ?? [],
+    emotion_timeline: input.emotionTimeline ?? [],
+    transcript: input.transcript ?? [],
   });
   return error?.message ?? null;
 }
@@ -160,7 +169,7 @@ export async function deleteProjectContent(id: string): Promise<string | null> {
 export async function listPublicVisualContent(limit = 60): Promise<
   Array<ProjectContent & { project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency"> | null }>
 > {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("project_content")
     // Only clips whose parent project is published reach the public feed.
     .select(`${CONTENT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published)`)
@@ -168,6 +177,7 @@ export async function listPublicVisualContent(limit = 60): Promise<
     .eq("projects.published", true)
     .order("created_at", { ascending: false })
     .limit(limit);
+  if (error) throw error;
   const rows = (data as unknown as Array<Record<string, unknown>> | null) ?? [];
   return rows.map((row) => ({
     ...(normalizeOne(row) as ProjectContent),
@@ -185,7 +195,23 @@ function normalizeOne(row: Record<string, unknown>): ProjectContent {
     tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
     timeline: marks(row["timeline"]),
     emotion_timeline: marks(row["emotion_timeline"]),
+    transcript: subtitleCues(row["transcript"]),
   };
+}
+
+function subtitleCues(value: unknown): SubtitleCue[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => {
+      const cue = (entry ?? {}) as Record<string, unknown>;
+      return {
+        timestamp: String(cue["timestamp"] ?? ""),
+        speech: String(cue["speech"] ?? ""),
+        speaker: String(cue["speaker"] ?? ""),
+        role: String(cue["role"] ?? "unknown"),
+      };
+    })
+    .filter((cue) => cue.speech.length > 0);
 }
 
 function marks(value: unknown): TimelineMark[] {
