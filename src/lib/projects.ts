@@ -6,6 +6,7 @@
  *                    appears in the public feed.
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 
 export type ContentKind = "VISUAL_CONTENT" | "TRAINING_ONLY";
 export type SubtitleCue = { timestamp: string; speech: string; speaker: string; role: string };
@@ -124,7 +125,7 @@ export async function addProjectContent(
     description?: string;
     tags?: string[];
     timeline?: TimelineMark[];
-    emotionTimeline?: unknown[];
+    emotionTimeline?: Json;
     transcript?: SubtitleCue[];
   },
 ): Promise<string | null> {
