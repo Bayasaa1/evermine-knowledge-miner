@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
+import { getPublicProjectMind } from "@/lib/project-mind.server";
 
 /**
  * Native voice dubbing: speaks the reply in the listener's own language using the
@@ -34,13 +35,21 @@ export const Route = createFileRoute("/api/mind-voice")({
         }
 
         const mind = body.mindId ? findMind(body.mindId) : null;
+        const projectMind = !mind && body.mindId ? await getPublicProjectMind(body.mindId) : null;
         const text = (body.text ?? "").trim();
-        if (!mind) return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
+        if (!mind && !projectMind) return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         if (!text) return new Response(JSON.stringify({ error: "No text" }), { status: 400 });
 
         const lang: LangCode = isLangCode(body.lang) ? body.lang : "en";
         const language = LANGUAGES[lang];
-        const vp = mind.voiceProfile;
+        const vp = mind?.voiceProfile ?? {
+          voice: "alloy",
+          timbre: "Natural, warm, conversational",
+          accent: "Preserve the source creator's language and phrasing",
+          emotion: "Responsive and authentic",
+          pace: "Natural",
+          speed: 1,
+        };
 
         // Dynamic emotion drives pitch, pace and delivery on top of the cloned voice.
         const allowed = ["HAPPY", "EXCITED", "SERIOUS", "SAD", "EMPATHETIC", "NEUTRAL"] as const;
@@ -81,7 +90,7 @@ export const Route = createFileRoute("/api/mind-voice")({
         }
 
         const instructions = [
-          `You are performing the cloned voice model of ${mind.name}, rebuilt from their Voice Sample Data.`,
+          `You are performing the AI Mind voice of ${mind?.name ?? projectMind?.name ?? "this creator"}.`,
           `Timbre and delivery: ${vp.timbre}`,
           `Accent characteristics to preserve: ${vp.accent}`,
           `Emotional signature: ${vp.emotion}`,
