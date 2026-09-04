@@ -544,6 +544,7 @@ export type Database = {
           tags: string[]
           timeline: Json
           title: string
+          transcript: Json
           updated_at: string
           user_id: string
           view_count: number
@@ -561,6 +562,7 @@ export type Database = {
           tags?: string[]
           timeline?: Json
           title?: string
+          transcript?: Json
           updated_at?: string
           user_id: string
           view_count?: number
@@ -578,6 +580,7 @@ export type Database = {
           tags?: string[]
           timeline?: Json
           title?: string
+          transcript?: Json
           updated_at?: string
           user_id?: string
           view_count?: number
