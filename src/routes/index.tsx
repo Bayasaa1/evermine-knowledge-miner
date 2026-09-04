@@ -75,41 +75,52 @@ function parseStamp(raw: string): { start: number; end: number | null } | null {
  */
 function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   if (!cues?.length) return [];
-  const parsed = cues.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
-  const anyTimed = parsed.some((p) => p.time);
-  const total = duration > 0 ? duration : 0;
+  // Drop duplicate lines the miner sometimes repeats with a coarser stamp.
+  const seen = new Set<string>();
+  const list = cues.filter((c) => {
+    const key = c.speech.trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!list.length) return [];
 
-  let starts: number[] = [];
-  let ends: (number | null)[] = [];
+  const parsed = list.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
+  const span = duration > 0 ? duration : Math.max(...parsed.map((p) => p.time?.end ?? p.time?.start ?? 0), list.length * 5);
 
-  if (anyTimed) {
-    // Interpolate any gaps between known timestamps.
-    let last = 0;
-    starts = parsed.map((p) => {
-      if (p.time) last = p.time.start;
-      return p.time ? p.time.start : last;
-    });
-    ends = parsed.map((p) => (p.time ? p.time.end : null));
-  } else {
-    const weights = cues.map((c) => Math.max(8, c.speech.length));
-    const sum = weights.reduce((a, b) => a + b, 0);
-    const span = total > 0 ? total : cues.length * 5;
-    let acc = 0;
-    starts = weights.map((w) => {
-      const s = (acc / sum) * span;
-      acc += w;
-      return s;
-    });
-    ends = starts.map((_, i) => (i + 1 < starts.length ? starts[i + 1]! : span));
+  // Anchor known timestamps, then spread untimed runs evenly between anchors.
+  const starts: number[] = new Array(list.length).fill(0);
+  const ends: (number | null)[] = new Array(list.length).fill(null);
+  let i = 0;
+  while (i < list.length) {
+    if (parsed[i]!.time) {
+      starts[i] = parsed[i]!.time!.start;
+      ends[i] = parsed[i]!.time!.end;
+      i += 1;
+      continue;
+    }
+    // Untimed run [i, j)
+    let j = i;
+    while (j < list.length && !parsed[j]!.time) j += 1;
+    const prev = i > 0 ? starts[i - 1]! + 1 : 0;
+    const next = j < list.length ? parsed[j]!.time!.start : span;
+    const step = Math.max(1.2, (next - prev) / (j - i + (j < list.length ? 1 : 0) || 1));
+    for (let k = i; k < j; k += 1) {
+      starts[k] = prev + step * (k - i);
+      ends[k] = prev + step * (k - i + 1);
+    }
+    i = j;
   }
 
-  return cues.map((c, i) => {
-    const start = starts[i] ?? 0;
-    const next = starts[i + 1];
-    const end = ends[i] ?? (next != null ? next : start + Math.max(2, Math.min(8, c.speech.length / 14)));
-    return { start, end: Math.max(end, start + 1), speech: c.speech, speaker: c.speaker };
-  });
+  return list.map((c, idx) => {
+    const start = starts[idx] ?? 0;
+    const next = starts[idx + 1];
+    const fallback = start + Math.max(2, Math.min(8, c.speech.length / 14));
+    const end = ends[idx] ?? (next != null ? Math.min(next, fallback) : fallback);
+    return { start, end: Math.max(end, start + 1.2), speech: c.speech, speaker: c.speaker };
+  }).sort((a, b) => a.start - b.start);
 }
+
 
 /** Active cue at the given playback position; null between cues. */
 function cueAt(cues: TimedCue[], now: number): TimedCue | null {
