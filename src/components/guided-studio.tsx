@@ -492,6 +492,8 @@ function StepUpload({ lang }: { lang: Lang }) {
           title,
           description: assessment.sourceDescription?.slice(0, 500) || (mined.story.summary ?? ""),
           tags: mined.subconsciousness.skills.slice(0, 6),
+          transcript: mined.transcript,
+          emotionTimeline: mined.emotionTimeline,
         });
         await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
         await queryClient.invalidateQueries({ queryKey: ["project-content", projectId] });
