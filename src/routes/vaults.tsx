@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { MindManager } from "@/components/mind-manager";
 import { SavedMinds } from "@/components/saved-minds";
+import { SubtitleHealth } from "@/components/subtitle-health";
 import { VaultHub, type VaultPersonaSelection } from "@/components/vault-hub";
 
 import { useLang } from "@/lib/i18n";
@@ -38,6 +39,7 @@ function VaultsPage() {
         </p>
         <VaultHub lang={lang} selected={persona} onSelect={setPersona} />
         <div className="mt-8 space-y-6 border-t border-border pt-6">
+          <SubtitleHealth />
           <MindManager lang={lang} />
           <SavedMinds lang={lang} forcedPersona={persona ?? undefined} />
         </div>
