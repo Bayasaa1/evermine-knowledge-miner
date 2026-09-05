@@ -1346,12 +1346,29 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         {(() => {
           const m = findMiner(miner.id);
           const limits = m?.limits;
+          const cat = getCreationCategory();
+          const catFit =
+            cat === "robot"
+              ? pickCopy(
+                  { en: "For a Robot Brain this AI contributes vision reasoning — trajectories, grasp and movement analysis.", mn: "Роботын тархинд энэ AI харааны сүүж өгнө — траектори, барих, хөдөлгөөний шинжилгээ.", ko: "로봇 브레인에는 이 AI가 시각 추론을 제공합니다 — 궤적, 파지, 움직임 분석." },
+                  lang,
+                )
+              : cat === "voice"
+                ? pickCopy(
+                    { en: "For a Voice Agent this AI contributes audio understanding — speech, tone and pacing.", mn: "Дуут агентэд энэ AI аудио ойлголт өгнө — яриа, өнгө, хэмнэл.", ko: "보이스 에이전트에는 이 AI가 오디오 이해를 제공합니다 — 음성, 톤, 속도." },
+                    lang,
+                  )
+                : pickCopy(
+                    { en: "For this Mind this AI thinks over the extracted transcript and emotion notes, adding topics, beliefs and knowledge.", mn: "Энэ Оюунд энэ AI гаргаж авсан транскрипт, сэтгэл хөдлөлийн тэмдэглэл дээр сэтгэн шинжилж, сэдэв, итгэл, мэдлэг нэмнэ.", ko: "이 마인드에는 이 AI가 추출된 대본과 감정 노트를 추론해 주제, 신념, 지식을 추가합니다." },
+                    lang,
+                  );
           return (
             <>
               <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 {t("limitsTitle")}
                 {m ? ` · ${m.label}` : ""}
               </p>
+              {m && <p className="mb-2 text-xs text-muted-foreground">{catFit}</p>}
               <ul className="space-y-1.5 text-sm text-muted-foreground">
                 <li className="flex gap-2">
                   <Youtube className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.youtube ?? t("limitYoutube")}
