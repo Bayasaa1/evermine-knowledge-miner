@@ -760,6 +760,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_banned: { Args: { _user_id: string }; Returns: boolean }
       rollback_mind_version: {
         Args: { _version_id: string }
         Returns: {
