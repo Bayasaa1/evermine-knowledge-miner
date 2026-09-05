@@ -140,7 +140,8 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   }, [choice.id]);
 
   const option = findMiner(choice.id);
-  const needsKey = !!option?.keyField && !hasKey;
+  // Gemini runs on the built-in engine, so a creator key is always optional.
+  const needsKey = !!option?.keyField && !hasKey && choice.id !== "gemini";
   const showKeyArea = !!option?.keyField || choice.id === "gemini";
 
 
