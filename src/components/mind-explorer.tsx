@@ -81,9 +81,9 @@ function Row({
   stamp,
   children,
 }: {
-  onPlay?: () => void;
+  onPlay?: (() => void) | undefined;
   playable: boolean;
-  stamp?: string;
+  stamp?: string | undefined;
   children: React.ReactNode;
 }) {
   return (
