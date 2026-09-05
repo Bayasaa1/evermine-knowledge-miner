@@ -410,6 +410,28 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     refetchOnMount: "always",
   });
 
+  // Mine mode: preselect the newest saved video so Start mining is usable at once.
+  useEffect(() => {
+    if (saveMode || pickedSourceId || pendingSources.length === 0) return;
+    const first = pendingSources[0]!;
+    setPickedSourceId(first.id);
+    setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
+    setUrl(first.payload.source.url);
+    const v = first.payload.video;
+    const stored = (first.payload.assessment ?? {}) as Partial<Assessment>;
+    setAssessment((prev) => ({
+      ...prev,
+      ...stored,
+      sourceTitle: v.title,
+      sourceDescription: v.description,
+      sourcePublishedAt: formatPublishedDate(v.publishedAt, lang),
+      sourceDurationLabel: v.durationLabel,
+      sourceChannel: v.channel,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveMode, pendingSources, pickedSourceId]);
+
+
   /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
   const saveLink = useCallback(async (answers?: Assessment) => {
     setErrorKey(null);
