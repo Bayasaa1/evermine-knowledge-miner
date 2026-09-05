@@ -70,12 +70,10 @@ function fillMissingTranscriptStamps(result: ChunkResult, chunkIndex: number): C
 }
 
 function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkResult {
-  const withStamps = fillMissingTranscriptStamps(result, chunkIndex);
-  if (chunkIndex === 0) return withStamps;
-  result = withStamps;
+  if (chunkIndex === 0) return fillMissingTranscriptStamps(result, 0);
 
   const stamp = (value: string) => wholeVideoStamp(value, chunkIndex);
-  return {
+  const shifted: ChunkResult = {
     ...result,
     transcript: result.transcript.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     story: { ...result.story, beats: result.story.beats.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
@@ -90,7 +88,10 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     emotionTimeline: result.emotionTimeline.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
     copyright: { ...result.copyright, signals: result.copyright.signals.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
   };
+  // Fill after shifting so generated windows land in whole-video time.
+  return fillMissingTranscriptStamps(shifted, chunkIndex);
 }
+
 
 function uniqueStrings(values: string[]): string[] {
   const seen = new Set<string>();
