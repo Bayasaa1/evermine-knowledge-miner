@@ -97,18 +97,31 @@ const copy = {
 
 const FREE_MINERS = new Set<MinerId>(["gemini", "groq", "mistral", "openrouter"]);
 
+const readyCopy = {
+  en: { ready: "Ready", setup: "Needs key", readyHint: "Ready to mine", setupHint: "Add a key to use this AI" },
+  mn: { ready: "Бэлэн", setup: "Түлхүүр хэрэгтэй", readyHint: "Олборлоход бэлэн", setupHint: "Түлхүүр нэмнэ үү" },
+  ko: { ready: "준비됨", setup: "키 필요", readyHint: "마이닝 준비 완료", setupHint: "키를 추가하세요" },
+};
+
 export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: MinerChoice) => void }) {
   const t = pickCopy(copy, lang);
+  const r = pickCopy(readyCopy, lang);
   const [choice, setChoice] = useState<MinerChoice>(DEFAULT_MINER);
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [ready, setReady] = useState<Partial<Record<MinerId, boolean>>>({});
+
+  const refreshReady = () => {
+    void minerReadiness(choice).then(setReady);
+  };
 
   useEffect(() => {
     void loadMinerChoice().then((c) => {
       setChoice(c);
       onChange?.(c);
+      void minerReadiness(c).then(setReady);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -128,6 +141,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   const option = findMiner(choice.id);
   const needsKey = !!option?.keyField && !hasKey;
   const showKeyArea = !!option?.keyField || choice.id === "gemini";
+
 
   const persist = async () => {
     if (needsKey && !apiKey.trim()) {
