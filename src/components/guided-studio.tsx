@@ -1074,14 +1074,27 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             <button
               type="button"
               onClick={() => void run(assessment)}
-              disabled={busy || !url.trim()}
+              disabled={busy}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {pickCopy({ en: "Start mining", mn: "Шинжилгээ эхлүүлэх", ko: "분석 시작" }, lang)}
             </button>
+            {!url.trim() && (
+              <p className="text-xs text-amber-500">
+                {pickCopy(
+                  {
+                    en: "Pick one of your saved videos above first.",
+                    mn: "Эхлээд дээрх хадгалсан видеонуудаас нэгийг сонгоно уу.",
+                    ko: "먼저 위에서 저장된 영상을 선택하세요.",
+                  },
+                  lang,
+                )}
+              </p>
+            )}
           </div>
         )}
+
 
 
         {busy && (
