@@ -352,17 +352,11 @@ export async function storeKeyFor(id: MinerId, value: string): Promise<void> {
  */
 export async function minerReadiness(choice?: MinerChoice): Promise<Record<MinerId, boolean>> {
   const stack = await loadStack();
-  const { hasGeminiOauth } = await import("./google-gemini-auth");
-  let geminiOauth = false;
-  try {
-    geminiOauth = await hasGeminiOauth();
-  } catch {
-    geminiOauth = false;
-  }
   const ready = {} as Record<MinerId, boolean>;
   for (const m of MINERS) {
     const key = m.keyField ? !!(stack.keys[m.keyField] ?? "").trim() : false;
-    if (m.id === "gemini") ready[m.id] = geminiOauth || !!(stack.keys["GEMINI_API_KEY"] ?? "").trim();
+    // Gemini mining runs on Evermind's built-in engine — no creator key required.
+    if (m.id === "gemini") ready[m.id] = true;
     else if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
     else ready[m.id] = key;
   }
