@@ -13,10 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VaultsRouteImport } from './routes/vaults'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AdminControlSessionRouteImport } from './routes/admin/control-session'
 import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
@@ -46,6 +48,11 @@ const ExploreRoute = ExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -66,6 +73,12 @@ const VaultsRoute = VaultsRouteImport.update({
   path: '/vaults',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminControlSessionRoute = AdminControlSessionRouteImport.update({
   id: '/admin/control-session',
   path: '/admin/control-session',
@@ -114,10 +127,12 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/mcp': typeof McpRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
@@ -132,10 +147,12 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/mcp': typeof McpRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
@@ -151,10 +168,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/mcp': typeof McpRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/vaults': typeof VaultsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
@@ -171,10 +190,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/mcp'
     | '/profile'
     | '/search'
     | '/sitemap.xml'
     | '/vaults'
+    | '/.well-known/oauth-protected-resource'
     | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
@@ -189,10 +210,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/mcp'
     | '/profile'
     | '/search'
     | '/sitemap.xml'
     | '/vaults'
+    | '/.well-known/oauth-protected-resource'
     | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
@@ -207,10 +230,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/mcp'
     | '/profile'
     | '/search'
     | '/sitemap.xml'
     | '/vaults'
+    | '/.well-known/oauth-protected-resource'
     | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
@@ -226,10 +251,12 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
+  McpRoute: typeof McpRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VaultsRoute: typeof VaultsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AdminControlSessionRoute: typeof AdminControlSessionRoute
   ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
@@ -270,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -296,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/vaults'
       fullPath: '/vaults'
       preLoaderRoute: typeof VaultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/control-session': {
@@ -362,10 +403,13 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
+  McpRoute: McpRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VaultsRoute: VaultsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AdminControlSessionRoute: AdminControlSessionRoute,
   ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
