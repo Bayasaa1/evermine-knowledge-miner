@@ -172,12 +172,9 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       const existing = await existingKeyFor(choice.id);
       const key = apiKey.trim() || existing;
       if (choice.id === "gemini" && !key) {
-        if (await hasGeminiOauth()) {
-          refreshReady();
-          toast.success(t.testOk);
-        } else {
-          toast.error(t.geminiNoAuth);
-        }
+        // Built-in Gemini engine — nothing to validate.
+        refreshReady();
+        toast.success(t.testOk);
         return;
       }
       await testMinerKey(choice, key);
