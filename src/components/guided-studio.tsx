@@ -57,6 +57,7 @@ import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { MinerPool } from "@/components/miner-pool";
 import { DEFAULT_MINER, findMiner, type MinerChoice } from "@/lib/miner-pool";
+import { runUnderstandingPass } from "@/lib/miner-reason";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject, updateProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
@@ -668,7 +669,22 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
   /** Local checkpoint + growth stats, then cloud vault / feed persistence. */
   const finishMined = useCallback(
-    async (mined: ChunkResult, source: ImportSource) => {
+    async (rawMined: ChunkResult, source: ImportSource) => {
+      // Stage 2 — the understanding pass: the AI picked in step 3 (or an AI
+      // team) thinks over the material the built-in engine extracted and adds
+      // topics, beliefs and knowledge it missed. Never fatal: on any failure
+      // the stage-1 result stands on its own.
+      let mined = rawMined;
+      try {
+        const category = getCreationCategory();
+        const pass = await runUnderstandingPass(rawMined, miner, category, abortRef.current?.signal ?? undefined);
+        mined = pass.result;
+        for (const report of pass.reports) {
+          setLog((prev) => [...prev, `\n> ${report.label}: ${report.status} — ${report.detail}`]);
+        }
+      } catch {
+        /* stage-1 result stands on its own */
+      }
       await idbSet(STORES.SESSION, "guided-last-mine", {
         source: source.label,
         minedAt: Date.now(),
@@ -681,7 +697,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       });
       await persist(mined, source);
     },
-    [persist],
+    [persist, miner],
   );
 
 
@@ -1092,7 +1108,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </div>
         ) : (
           <div className="mt-4 space-y-4">
-            <MinerPool lang={lang} onChange={setMiner} />
+            <MinerPool lang={lang} onChange={setMiner} category={getCreationCategory()} />
             <button
               type="button"
               onClick={() => void run(assessment)}
