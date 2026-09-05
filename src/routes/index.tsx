@@ -155,16 +155,21 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
       i += 1;
       continue;
     }
-    // Untimed run [i, j)
+    // Untimed run [i, j): share the gap by how much is actually said in each
+    // line, so long lines hold longer and short ones flash by.
     let j = i;
     while (j < list.length && !parsed[j]!.time) j += 1;
     const prev = i > 0 ? starts[i - 1]! + 1 : 0;
     const next = j < list.length ? parsed[j]!.time!.start : span;
-    const step = Math.max(1.2, (next - prev) / (j - i + (j < list.length ? 1 : 0) || 1));
+    const gap = Math.max(next - prev, (j - i) * 1.2);
+    const weights = list.slice(i, j).map((c) => Math.max(1, c.speech.trim().length));
+    const total = weights.reduce((sum, w) => sum + w, 0) || 1;
+    let used = 0;
     for (let k = i; k < j; k += 1) {
-      starts[k] = prev + step * (k - i);
-      ends[k] = prev + step * (k - i + 1);
-    }
+      starts[k] = prev + (gap * used) / total;
+      used += weights[k - i]!;
+      ends[k] = prev + (gap * used) / total;
+
     i = j;
   }
 
