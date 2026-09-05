@@ -10,7 +10,15 @@ import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
 import { loadStack, saveStack } from "./engines";
 
-export type MinerId = "gemini" | "claude" | "chatgpt" | "kimi" | "groq" | "custom";
+export type MinerId =
+  | "gemini"
+  | "claude"
+  | "chatgpt"
+  | "kimi"
+  | "groq"
+  | "mistral"
+  | "openrouter"
+  | "custom";
 
 export type MinerOption = {
   id: MinerId;
@@ -19,6 +27,18 @@ export type MinerOption = {
   /** Engine-stack key field. Empty means no key is required. */
   keyField: string;
   keyPlaceholder: string;
+  /** Where the creator gets an API key. */
+  keyUrl: string;
+  /** Plain-language steps to obtain the key. */
+  guidance: string;
+  /** What this AI can mine — shown in the "What you can mine" panel. */
+  capability: string;
+  /** Honest trade-off of this AI. */
+  downside: string;
+  /** OpenAI-compatible base URL used for the key test (empty = provider-specific). */
+  baseUrl: string;
+  /** Cheap model used for the key test. */
+  testModel: string;
 };
 
 export const MINERS: MinerOption[] = [
@@ -28,13 +48,207 @@ export const MINERS: MinerOption[] = [
     note: "Default · reads video natively · free tier",
     keyField: "",
     keyPlaceholder: "",
+    keyUrl: "https://aistudio.google.com/apikey",
+    guidance:
+      "Free key at Google AI Studio → Get API key → Create API key. Signing in with Google in step 1 links it automatically, so no key is needed.",
+    capability:
+      "Mines video natively: subtitles with timestamps, faces, emotions, voice prints, topics, story beats — the only engine that sees the footage itself.",
+    downside: "Free tier has a daily quota; long queues of videos may pause until the quota resets.",
+    baseUrl: "",
+    testModel: "gemini-2.5-flash",
   },
-  { id: "chatgpt", label: "ChatGPT", note: "OpenAI · reliable extraction", keyField: "OPENAI_API_KEY", keyPlaceholder: "sk-..." },
-  { id: "claude", label: "Claude", note: "Anthropic · deepest reasoning", keyField: "ANTHROPIC_API_KEY", keyPlaceholder: "sk-ant-..." },
-  { id: "kimi", label: "Kimi", note: "Moonshot · very long context", keyField: "MOONSHOT_API_KEY", keyPlaceholder: "sk-..." },
-  { id: "groq", label: "Groq", note: "Fastest · low cost", keyField: "GROQ_API_KEY", keyPlaceholder: "gsk_..." },
-  { id: "custom", label: "Add my own AI", note: "Any OpenAI-compatible endpoint", keyField: "CUSTOM_AI_API_KEY", keyPlaceholder: "your key" },
+  {
+    id: "chatgpt",
+    label: "ChatGPT",
+    note: "OpenAI · reliable extraction",
+    keyField: "OPENAI_API_KEY",
+    keyPlaceholder: "sk-...",
+    keyUrl: "https://platform.openai.com/api-keys",
+    guidance: "platform.openai.com → API keys → Create new secret key. Requires a paid OpenAI balance.",
+    capability: "Mines transcripts and text: subtitles, topics, story summaries and speaking style with very reliable structure.",
+    downside: "Cannot read video or faces directly — it works from the transcript Gemini extracts. No free tier.",
+    baseUrl: "https://api.openai.com/v1",
+    testModel: "gpt-4o-mini",
+  },
+  {
+    id: "claude",
+    label: "Claude",
+    note: "Anthropic · deepest reasoning",
+    keyField: "ANTHROPIC_API_KEY",
+    keyPlaceholder: "sk-ant-...",
+    keyUrl: "https://console.anthropic.com/settings/keys",
+    guidance: "console.anthropic.com → Settings → API Keys → Create Key. Requires prepaid Anthropic credits.",
+    capability: "Best reasoning over transcripts: nuanced beliefs, tone and story analysis, very long videos.",
+    downside: "No native video or voice reading — works from transcripts. No free tier.",
+    baseUrl: "https://api.anthropic.com",
+    testModel: "claude-3-5-haiku-latest",
+  },
+  {
+    id: "kimi",
+    label: "Kimi",
+    note: "Moonshot · very long context",
+    keyField: "MOONSHOT_API_KEY",
+    keyPlaceholder: "sk-...",
+    keyUrl: "https://platform.moonshot.ai/console/api-keys",
+    guidance: "platform.moonshot.ai → API Keys → Create. New accounts get free starter credit.",
+    capability: "Mines extremely long transcripts in one pass — whole podcasts and 2-hour videos without losing context.",
+    downside: "No video, face or emotion reading — transcript text only.",
+    baseUrl: "https://api.moonshot.ai/v1",
+    testModel: "kimi-k2-0711-preview",
+  },
+  {
+    id: "groq",
+    label: "Groq",
+    note: "Fastest · generous free tier",
+    keyField: "GROQ_API_KEY",
+    keyPlaceholder: "gsk_...",
+    keyUrl: "https://console.groq.com/keys",
+    guidance: "console.groq.com → API Keys → Create API Key. Completely free tier with high daily limits.",
+    capability: "Mines transcripts at extreme speed — subtitles, topics and story come back in seconds. Free tier rivals Gemini.",
+    downside: "No video, faces or emotions — text only, and shorter context than Kimi or Claude.",
+    baseUrl: "https://api.groq.com/openai/v1",
+    testModel: "llama-3.3-70b-versatile",
+  },
+  {
+    id: "mistral",
+    label: "Mistral AI",
+    note: "Free experiment tier · European",
+    keyField: "MISTRAL_API_KEY",
+    keyPlaceholder: "...",
+    keyUrl: "https://console.mistral.ai/api-keys",
+    guidance: "console.mistral.ai → API keys → Create new key. The free Experiment tier works for mining.",
+    capability: "Mines transcripts for free: topics, story and style. Strong multilingual understanding (great for mixed-language videos).",
+    downside: "Transcript text only — no video, face or voice reading. Free tier rate limits are modest.",
+    baseUrl: "https://api.mistral.ai/v1",
+    testModel: "mistral-small-latest",
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    note: "One key · many free models",
+    keyField: "OPENROUTER_API_KEY",
+    keyPlaceholder: "sk-or-...",
+    keyUrl: "https://openrouter.ai/keys",
+    guidance: "openrouter.ai → Keys → Create Key. Models marked “:free” cost nothing — a free Gemini competitor.",
+    capability: "One key unlocks dozens of free models for transcript mining — subtitles, topics and story — easy to switch brains later.",
+    downside: "No video or face reading. Free models can be busy and slightly slower at peak times.",
+    baseUrl: "https://openrouter.ai/api/v1",
+    testModel: "meta-llama/llama-3.3-70b-instruct:free",
+  },
+  {
+    id: "custom",
+    label: "Add my own AI",
+    note: "Any OpenAI-compatible endpoint",
+    keyField: "CUSTOM_AI_API_KEY",
+    keyPlaceholder: "your key",
+    keyUrl: "",
+    guidance: "Point at any OpenAI-compatible endpoint — your own server, Ollama (http://localhost:11434/v1), a company gateway. Enter its key and model name below.",
+    capability: "Whatever your endpoint can do — Evermind sends the transcript and your model mines it.",
+    downside: "No video, face or emotion reading unless your endpoint supports it. You manage its costs and uptime.",
+    baseUrl: "",
+    testModel: "",
+  },
 ];
+
+/** OpenAI-compatible bases for direct browser key tests. */
+const TEST_BASES: Partial<Record<MinerId, string>> = Object.fromEntries(
+  MINERS.filter((m) => m.baseUrl).map((m) => [m.id, m.baseUrl]),
+);
+
+/**
+ * Minimal connectivity test: one tiny chat completion. Throws a readable error
+ * when the key is rejected or the endpoint is unreachable.
+ */
+export async function testMinerKey(choice: MinerChoice, apiKey: string): Promise<void> {
+  const key = apiKey.trim();
+  if (!key) throw new Error("Add the API key first.");
+
+  if (choice.id === "chatgpt" || choice.id === "kimi" || choice.id === "groq" || choice.id === "mistral" || choice.id === "openrouter") {
+    const opt = findMiner(choice.id)!;
+    const res = await fetch(`${TEST_BASES[choice.id]}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: opt.testModel,
+        max_tokens: 8,
+        messages: [{ role: "user", content: "Reply with exactly: ok" }],
+      }),
+    });
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => "")).slice(0, 200);
+      throw new Error(
+        res.status === 401 || res.status === 403
+          ? `${opt.label} rejected this key (HTTP ${res.status}). Check it and try again.`
+          : `${opt.label} test failed (HTTP ${res.status}). ${detail}`,
+      );
+    }
+    return;
+  }
+
+  if (choice.id === "claude") {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-haiku-latest",
+        max_tokens: 8,
+        messages: [{ role: "user", content: "Reply with exactly: ok" }],
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(
+        res.status === 401 || res.status === 403
+          ? `Claude rejected this key (HTTP ${res.status}). Check it and try again.`
+          : `Claude test failed (HTTP ${res.status}).`,
+      );
+    }
+    return;
+  }
+
+  if (choice.id === "gemini") {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Reply with exactly: ok" }] }] }),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(
+        res.status === 400 || res.status === 403
+          ? "Gemini rejected this key. Check it and try again."
+          : `Gemini test failed (HTTP ${res.status}).`,
+      );
+    }
+    return;
+  }
+
+  // Custom OpenAI-compatible endpoint.
+  const base = choice.custom.endpoint.trim().replace(/\/+$/, "");
+  if (!base) throw new Error("Enter the endpoint URL first.");
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: choice.custom.model.trim() || "gpt-4o-mini",
+      max_tokens: 8,
+      messages: [{ role: "user", content: "Reply with exactly: ok" }],
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(
+      res.status === 401 || res.status === 403
+        ? "The endpoint rejected this key. Check it and try again."
+        : `Endpoint test failed (HTTP ${res.status}). Check the URL and model name.`,
+    );
+  }
+}
 
 export type CustomMiner = { label: string; endpoint: string; model: string };
 

@@ -23,6 +23,7 @@ import {
   KeyRound,
   Square,
   Terminal as TerminalIcon,
+  BrainCircuit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
@@ -55,6 +56,7 @@ import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { MinerPool } from "@/components/miner-pool";
+import { DEFAULT_MINER, findMiner, type MinerChoice } from "@/lib/miner-pool";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject, updateProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
@@ -361,6 +363,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [saveNote, setSaveNote] = useState<string | null>(null);
   /** Saved-Mind row currently selected for mining (step 3). */
   const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+  const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
 
   const lib = {
     saveTitle: pickCopy(
@@ -1067,7 +1070,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </div>
         ) : (
           <div className="mt-4 space-y-4">
-            <MinerPool lang={lang} />
+            <MinerPool lang={lang} onChange={setMiner} />
             <button
               type="button"
               onClick={() => void run(assessment)}
@@ -1300,6 +1303,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           <li className="flex gap-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitLangs")}
           </li>
+          {(() => {
+            const m = findMiner(miner.id);
+            if (!m) return null;
+            return (
+              <li className="flex gap-2">
+                <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>
+                  <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
+                  <span className="text-muted-foreground/80">{m.downside}</span>
+                </span>
+              </li>
+            );
+          })()}
         </ul>
       </div>
     </StepShell>
