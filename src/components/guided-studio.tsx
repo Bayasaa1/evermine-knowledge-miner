@@ -749,12 +749,13 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     [lang],
   );
 
-  /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
-  const runYoutubeJobs = useCallback(
-    async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
-      const jobs = await withNetworkRetry(() => startMiningJobs({ data: { url: source.url, assessment } }), {
-        onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
-      });
+  /**
+   * Drives a list of server-side mining jobs to completion, one 5-minute
+   * checkpoint at a time. Used both for freshly started videos and for jobs
+   * picked back up after the tab was closed.
+   */
+  const driveJobs = useCallback(
+    async (jobs: MiningJob[]) => {
       setQueueTotal(jobs.length);
       setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
       say(`$ evermind mine --videos ${jobs.length}`);
@@ -766,10 +767,22 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
       for (let q = 0; q < jobs.length; q++) {
         let current = jobs[q]!;
+        const source: ImportSource & { kind: "youtube" } = {
+          kind: "youtube",
+          url: current.sourceUrl,
+          label: current.sourceLabel,
+        };
+        activeJobId.current = current.id;
         setQueueIndex(q + 1);
         setStatusNote(current.sourceLabel);
         say(`\n## ${current.sourceLabel}`);
-        while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
+        while (
+          current.status !== "done" &&
+          current.status !== "paused_quota" &&
+          current.status !== "error" &&
+          current.status !== "stopped" &&
+          current.status !== "paused_user"
+        ) {
           if (stopRef.current) {
             say(`\n> ${term.stopped}`);
             return;
@@ -818,11 +831,30 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         if (current.status === "error") {
           throw new Error(current.lastError ?? "Mining failed.");
         }
-        if (lastMerged) await finishMined(lastMerged, source);
+        if (current.status === "stopped" || current.status === "paused_user") {
+          say(`\n> ${term.stopped}`);
+          break;
+        }
+        if (lastMerged) {
+          const vaultId = await finishMined(lastMerged, source);
+          if (vaultId) await attachMiningJobVault({ data: { jobId: current.id, vaultId } }).catch(() => undefined);
+        }
         lastMerged = null;
       }
+      activeJobId.current = null;
     },
     [lang, term, finishMined, say],
+  );
+
+  /** YouTube: plan the server-side checkpoint jobs, then mine them. */
+  const runYoutubeJobs = useCallback(
+    async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
+      const jobs = await withNetworkRetry(() => startMiningJobs({ data: { url: source.url, assessment } }), {
+        onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
+      });
+      await driveJobs(jobs);
+    },
+    [driveJobs, say, term],
   );
 
   const run = useCallback(
