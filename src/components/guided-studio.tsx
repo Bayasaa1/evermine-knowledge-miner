@@ -22,6 +22,7 @@ import {
   Sparkles,
   KeyRound,
   Square,
+  Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
 } from "lucide-react";
@@ -68,9 +69,17 @@ import {
   formatPublishedDate,
   type Assessment,
   type VideoMetadata,
+  type MiningJob,
 } from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
-import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
+import {
+  attachMiningJobVault,
+  getMiningJobResults,
+  listMiningJobs,
+  runNextChunk,
+  setMiningJobState,
+  startMiningJobs,
+} from "@/lib/mining-jobs.functions";
 import { withNetworkRetry } from "@/lib/retry";
 
 
@@ -363,7 +372,11 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [justSaved, setJustSaved] = useState<SavedSource[]>([]);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   /** Saved-Mind row currently selected for mining (step 3). */
-  const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+  // Multi-selection: every ticked saved video is mined, one after another.
+  const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const pickedSourceId = pickedIds[0] ?? null;
+  const activeJobId = useRef<string | null>(null);
+  const [pausing, setPausing] = useState(false);
   const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
 
   const lib = {
@@ -661,7 +674,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       setSavedTitle(`${title} · ${saved.version}`);
       await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
-
+      return saved.vaultId;
     },
     [lang, queryClient, target, userId, assessment],
   );
@@ -669,7 +682,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
   /** Local checkpoint + growth stats, then cloud vault / feed persistence. */
   const finishMined = useCallback(
-    async (rawMined: ChunkResult, source: ImportSource) => {
+    async (rawMined: ChunkResult, source: ImportSource): Promise<string | null> => {
       // Stage 2 — the understanding pass: the AI picked in step 3 (or an AI
       // team) thinks over the material the built-in engine extracted and adds
       // topics, beliefs and knowledge it missed. Never fatal: on any failure
@@ -695,7 +708,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         skills: mined.subconsciousness.skills.length,
         memories: mined.transcript.length,
       });
-      await persist(mined, source);
+      return await persist(mined, source);
     },
     [persist, miner],
   );
