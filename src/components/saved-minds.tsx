@@ -9,9 +9,12 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CloudCheck, Eye, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { CloudCheck, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { MindExplorer } from "@/components/mind-explorer";
+import type { MindPayload } from "@/lib/mind-json";
+import { saveMindVersion } from "@/lib/mind-versions.functions";
 import { deleteVault, listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import { listProjectsByPersona, type Project } from "@/lib/projects";
@@ -194,24 +197,26 @@ export function SavedMinds({
       )}
 
       {inspect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
-          <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-[12px] border border-border bg-card">
-            <div className="flex items-center gap-2 border-b border-border p-3">
-              <p className="truncate text-sm font-semibold text-foreground">{inspect.title}</p>
-              <button
-                type="button"
-                onClick={() => setInspect(null)}
-                aria-label={t.close}
-                className="ml-auto rounded-md border border-border p-1.5 text-muted-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <pre className="overflow-auto p-3 text-[11px] leading-relaxed text-muted-foreground">
-              {JSON.stringify(inspect.payload, null, 2).slice(0, 200_000)}
-            </pre>
-          </div>
-        </div>
+        <MindExplorer
+          lang={lang}
+          open={!!inspect}
+          onOpenChange={(o) => { if (!o) setInspect(null); }}
+          title={inspect.title}
+          payload={(inspect.payload ?? {}) as MindPayload}
+          onSave={async (next, notes) => {
+            await saveVersion({
+              data: {
+                vaultId: inspect.id,
+                title: inspect.title,
+                payload: next as never,
+                releaseNotes: notes,
+                ...(inspect.mindId ? { mindId: inspect.mindId } : {}),
+              },
+            });
+            await refresh();
+            await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
+          }}
+        />
       )}
 
       {editing && (
