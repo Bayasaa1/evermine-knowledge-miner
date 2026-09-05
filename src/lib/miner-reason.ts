@@ -47,7 +47,11 @@ function buildBrief(mined: ChunkResult, category: string): string {
     .join("\n");
   const emotions = mined.emotionTimeline
     .slice(0, 120)
-    .map((e) => `[${e.timestamp ?? ""}] ${e.emotion}${e.trigger ? ` — ${e.trigger}` : ""}`)
+    .map(
+      (e) =>
+        `[${e.timestamp_start ?? ""}→${e.timestamp_end ?? ""}] ${e.primary_emotion} (${Math.round((e.expression_intensity ?? 0) * 100)}%)` +
+        `${e.facial_trigger ? ` — ${e.facial_trigger}` : ""}${e.evidence ? ` — ${e.evidence}` : ""}`,
+    )
     .join("\n");
   const scenes = mined.scenes
     .slice(0, 120)
