@@ -75,6 +75,13 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
   const stamp = (value: string) => wholeVideoStamp(value, chunkIndex);
   const shifted: ChunkResult = {
     ...result,
+    gaming: {
+      ...result.gaming,
+      skills: result.gaming.skills.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+      tactics: result.gaming.tactics.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+      decisions: result.gaming.decisions.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+      tutorials: result.gaming.tutorials.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+    },
     transcript: result.transcript.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     story: { ...result.story, beats: result.story.beats.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
     faceData: result.faceData.map((item) => ({ ...item, timestamp: stamp(item.timestamp), clipStart: stamp(item.clipStart), clipEnd: stamp(item.clipEnd) })),
@@ -176,6 +183,14 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
       originality: flagged ? "third-party" : firstNonEmpty((r) => r.copyright.originality) || "original",
       signals,
       summary: uniqueStrings(normalized.map((r) => r.copyright.summary)).join(" "),
+    },
+    gaming: {
+      skills: uniqueBy(normalized.flatMap((r) => r.gaming.skills), (s) => s.name.toLowerCase()),
+      tactics: uniqueBy(normalized.flatMap((r) => r.gaming.tactics), (t) => t.name.toLowerCase()),
+      decisions: normalized.flatMap((r) => r.gaming.decisions),
+      tutorials: uniqueBy(normalized.flatMap((r) => r.gaming.tutorials), (t) => t.title.toLowerCase()),
+      commentaryStyle: uniqueStrings(normalized.flatMap((r) => r.gaming.commentaryStyle)),
+      mistakes: uniqueStrings(normalized.flatMap((r) => r.gaming.mistakes)),
     },
   };
 }
