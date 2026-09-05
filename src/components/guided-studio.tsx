@@ -47,7 +47,9 @@ import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQueryClient } from "@tanstack/react-query";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
-import { updateVault } from "@/lib/cloud-vault.functions";
+import { listVaults, updateVault } from "@/lib/cloud-vault.functions";
+import { markSourceStatus, saveSourcesToVault, type SavedSource, type SourcePayload } from "@/lib/source-vault.functions";
+
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
