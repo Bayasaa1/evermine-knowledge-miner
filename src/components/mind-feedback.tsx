@@ -50,7 +50,7 @@ const copy = {
   },
 } as const;
 
-/** Dual feedback surface: open comments for everyone, reviews for buyers only. */
+/** Dual feedback surface: comments react to the content; reviews rate the mind's chat/voice/video-call experience. */
 export function MindFeedback({
   mindId,
   lang = "en",

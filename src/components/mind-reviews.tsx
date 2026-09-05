@@ -70,9 +70,9 @@ const copy = {
 } as const;
 
 /**
- * Try-before-you-buy review section: any signed-in user who tried the free demo,
- * a voice call or a visual preview can rate the project. Reviews are badged as
- * "Paid Owner" or "Verified Tester" and aggregate into a public Trust Score.
+ * Reviews rate the MIND, not the source video: any signed-in user who chatted,
+ * voice-called or video-called this mind can rate the conversation. Reviews are
+ * badged as "Paid Owner" or "Verified Tester" and aggregate into a public Mind Trust Score.
  */
 export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: Lang }) {
   const t = pickCopy(copy, lang);
