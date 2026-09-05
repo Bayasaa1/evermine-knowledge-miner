@@ -428,7 +428,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   useEffect(() => {
     if (saveMode || pickedSourceId || pendingSources.length === 0) return;
     const first = pendingSources[0]!;
-    setPickedSourceId(first.id);
+    setPickedIds([first.id]);
     setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
     setUrl(first.payload.source.url);
     const v = first.payload.video;
@@ -959,16 +959,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             <ul className="mt-3 space-y-2">
               {pendingSources.map((s) => {
                 const v = s.payload.video;
-                const on = pickedSourceId === s.id;
+                const on = pickedIds.includes(s.id);
                 return (
                   <li key={s.id}>
                     <button
                       type="button"
                       onClick={() => {
-                        setPickedSourceId(s.id);
+                        // Tick as many videos as you like — they mine one by one.
+                        const next = on ? pickedIds.filter((id) => id !== s.id) : [...pickedIds, s.id];
+                        setPickedIds(next);
+                        setErrorKey(null);
+                        if (on) return;
                         setTab(s.payload.source.kind === "drive" ? "drive" : "youtube");
                         setUrl(s.payload.source.url);
-                        setErrorKey(null);
                         const stored = (s.payload.assessment ?? {}) as Partial<Assessment>;
                         setAssessment((prev) => ({
                           ...prev,
@@ -1004,7 +1007,14 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                           {[v.channel, v.durationLabel].filter(Boolean).join(" · ")}
                         </span>
                       </span>
-                      {on && <span className="shrink-0 text-xs font-medium text-primary">{lib.selected}</span>}
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[10px] ${
+                          on ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                        }`}
+                        aria-hidden
+                      >
+                        {on ? "✓" : ""}
+                      </span>
                     </button>
                   </li>
                 );
