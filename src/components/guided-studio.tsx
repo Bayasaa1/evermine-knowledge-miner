@@ -353,6 +353,93 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const termRef = useRef<HTMLPreElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  // ---- Library step (step 2): saving links, no analysis -------------------
+  const saveMode = mode === "save";
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState<SavedSource[]>([]);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+  /** Saved-Mind row currently selected for mining (step 3). */
+  const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+
+  const lib = {
+    saveTitle: pickCopy(
+      { en: "Save to Saved Minds", mn: "Хадгалсан оюунд хадгалах", ko: "저장된 마인드에 저장" },
+      lang,
+    ),
+    saving: pickCopy({ en: "Saving…", mn: "Хадгалж байна…", ko: "저장 중…" }, lang),
+    savedOk: pickCopy({ en: "Saved to your vault", mn: "Сан руу хадгаллаа", ko: "보관함에 저장됨" }, lang),
+    dupes: pickCopy({ en: "already saved", mn: "аль хэдийн хадгалсан", ko: "이미 저장됨" }, lang),
+    pickTitle: pickCopy(
+      { en: "Saved videos ready to mine", mn: "Олборлоход бэлэн хадгалсан видеонууд", ko: "마이닝 대기 중인 저장 영상" },
+      lang,
+    ),
+    pickEmpty: pickCopy(
+      {
+        en: "Nothing saved yet — go back to step 2 and paste a link first.",
+        mn: "Хадгалсан зүйл алга — 2-р алхам руу буцаж холбоос оруулна уу.",
+        ko: "저장된 항목이 없습니다 — 2단계로 돌아가 링크를 붙여넣으세요.",
+      },
+      lang,
+    ),
+    selected: pickCopy({ en: "Selected", mn: "Сонгосон", ko: "선택됨" }, lang),
+    viewVault: pickCopy({ en: "Open My Vaults", mn: "Миний сан нээх", ko: "내 보관함 열기" }, lang),
+    saveHint: pickCopy(
+      {
+        en: "Paste a video or a whole playlist — every video is stored with its title, description, thumbnail and playtime. Mining happens in step 3.",
+        mn: "Видео эсвэл бүтэн жагсаалт оруулна уу — гарчиг, тайлбар, зураг, хугацаа бүхэлдээ хадгалагдана. Олборлолт 3-р алхамд хийгдэнэ.",
+        ko: "영상 또는 재생목록 전체를 붙여넣으세요 — 제목, 설명, 썸네일, 재생 시간이 함께 저장됩니다. 마이닝은 3단계에서 진행됩니다.",
+      },
+      lang,
+    ),
+  };
+
+  const { data: pendingSources = [], refetch: refetchPending } = useQuery({
+    queryKey: ["pending-sources"],
+    queryFn: async () => {
+      const rows = await listVaults({ data: {} });
+      return rows
+        .filter((r) => r.kind === "source")
+        .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }))
+        .filter((r) => r.payload?.status !== "mined");
+    },
+    enabled: signedIn && !saveMode,
+    refetchOnMount: "always",
+  });
+
+  /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
+  const saveLink = useCallback(async () => {
+    setErrorKey(null);
+    setSaveNote(null);
+    if (!signedIn) {
+      setErrorKey("errNoKey");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await saveSourcesToVault({
+        data: {
+          url: url.trim(),
+          personaId: target.personaId ?? null,
+          projectId: target.mode === "existing" ? target.projectId : null,
+        },
+      });
+      setJustSaved((prev) => [...res.saved, ...prev]);
+      setSaveNote(
+        `${res.saved.length} ${lib.savedOk}${res.skipped ? ` · ${res.skipped} ${lib.dupes}` : ""}`,
+      );
+      if (res.saved.length > 0) setUrl("");
+      toast.success(lib.savedOk);
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      await queryClient.invalidateQueries({ queryKey: ["pending-sources"] });
+    } catch (err) {
+      explainRef.current?.(err, url);
+    } finally {
+      setSaving(false);
+    }
+  }, [signedIn, url, target, queryClient, lib]);
+
+
+
   /** Appends one line to the live mining terminal and keeps it scrolled down. */
   const say = useCallback((line: string) => {
     setLog((prev) => [...prev, line].slice(-400));
