@@ -1327,32 +1327,40 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       )}
 
       <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-        <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("limitsTitle")}</p>
-        <ul className="space-y-1.5 text-sm text-muted-foreground">
-          <li className="flex gap-2">
-            <Youtube className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitYoutube")}
-          </li>
-          <li className="flex gap-2">
-            <HardDrive className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitDrive")}
-          </li>
-          <li className="flex gap-2">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitLangs")}
-          </li>
-          {(() => {
-            const m = findMiner(miner.id);
-            if (!m) return null;
-            return (
-              <li className="flex gap-2">
-                <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>
-                  <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
-                  <span className="text-muted-foreground/80">{m.downside}</span>
-                </span>
-              </li>
-            );
-          })()}
-        </ul>
+        {(() => {
+          const m = findMiner(miner.id);
+          const limits = m?.limits;
+          return (
+            <>
+              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                {t("limitsTitle")}
+                {m ? ` · ${m.label}` : ""}
+              </p>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <Youtube className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.youtube ?? t("limitYoutube")}
+                </li>
+                <li className="flex gap-2">
+                  <HardDrive className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.files ?? t("limitDrive")}
+                </li>
+                <li className="flex gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.langs ?? t("limitLangs")}
+                </li>
+                {m && (
+                  <li className="flex gap-2">
+                    <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span>
+                      <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
+                      <span className="text-muted-foreground/80">{m.downside}</span>
+                    </span>
+                  </li>
+                )}
+              </ul>
+            </>
+          );
+        })()}
       </div>
+
     </StepShell>
   );
 }
