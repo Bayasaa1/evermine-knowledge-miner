@@ -857,6 +857,45 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     [driveJobs, say, term],
   );
 
+  /**
+   * Mining never dies with the tab: on return we finish saving any job the
+   * background worker completed, and pick the still-running ones back up.
+   * Creator-paused and stopped jobs are left exactly as they were.
+   */
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (saveMode || !signedIn || resumedRef.current) return;
+    resumedRef.current = true;
+    void (async () => {
+      const jobs = await listMiningJobs().catch(() => [] as MiningJob[]);
+      const unsaved = jobs.filter((j) => j.status === "done" && !j.vaultId);
+      for (const job of unsaved) {
+        const merged = await getMiningJobResults({ data: { jobId: job.id } }).catch(() => null);
+        if (!merged) continue;
+        const vaultId = await finishMined(merged, {
+          kind: "youtube",
+          url: job.sourceUrl,
+          label: job.sourceLabel,
+        }).catch(() => null);
+        if (vaultId) await attachMiningJobVault({ data: { jobId: job.id, vaultId } }).catch(() => undefined);
+      }
+      const live = jobs.filter(
+        (j) => j.status === "queued" || j.status === "running" || j.status === "paused_quota",
+      );
+      if (live.length === 0) return;
+      stopRef.current = false;
+      setBusy(true);
+      try {
+        await driveJobs(live);
+      } catch {
+        /* the background worker keeps the job alive regardless */
+      } finally {
+        setBusy(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveMode, signedIn]);
+
   const run = useCallback(
     async (assessment: Assessment) => {
       setErrorKey(null);
