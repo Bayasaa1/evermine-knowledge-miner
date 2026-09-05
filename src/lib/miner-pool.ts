@@ -52,7 +52,7 @@ export const MINERS: MinerOption[] = [
     keyPlaceholder: "",
     keyUrl: "https://aistudio.google.com/apikey",
     guidance:
-      "Free key at Google AI Studio → Get API key → Create API key. Signing in with Google in step 1 links it automatically, so no key is needed.",
+      "No key needed — Gemini mining is included with your Evermind account. You can still add your own free key from Google AI Studio → Get API key if you prefer to use your own quota.",
     capability:
       "Mines video natively: subtitles with timestamps, faces, emotions, voice prints, topics, story beats — the only engine that sees the footage itself.",
     downside: "Free tier has a daily quota; long queues of videos may pause until the quota resets.",
