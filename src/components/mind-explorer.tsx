@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
-import { buildMindView, clock, type Segment } from "@/lib/mind-explore";
+import { buildMindView, clock, secondsOf, type Segment } from "@/lib/mind-explore";
 import type { MindPayload } from "@/lib/mind-json";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -137,6 +137,12 @@ export function MindExplorer({
 
   const playable = !!view.youtubeId;
   const play = (seg: Segment) => setClip({ start: Math.max(0, Math.floor(seg.start)), end: seg.end ? Math.ceil(seg.end) : null });
+  /** Play a "MM:SS - MM:SS" string range from gaming records. */
+  const playRange = (start: string, end: string): (() => void) | undefined => {
+    const s = secondsOf(start);
+    if (s === null) return undefined;
+    return () => play({ start: s, end: secondsOf(end) });
+  };
 
   const needle = q.trim().toLowerCase();
   const match = (...parts: (string | undefined | null)[]) =>
