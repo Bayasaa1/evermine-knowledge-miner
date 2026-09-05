@@ -13,7 +13,7 @@
  * merged. Keys stay on the device, inside the per-account engine stack.
  */
 import { idbGet, idbSet, STORES } from "./store";
-import { scopedKey } from "./user-scope";
+import { scopedKey, whenScopeReady } from "./user-scope";
 import { loadStack, saveStack } from "./engines";
 
 export type Sense = "text" | "image" | "audio" | "video";
@@ -488,7 +488,10 @@ export function findMiner(id: string | undefined): MinerOption | undefined {
 const VALID_SENSES = new Set<Sense>(["text", "image", "audio", "video"]);
 
 export async function loadMinerChoice(): Promise<MinerChoice> {
-  const raw = await idbGet<unknown>(STORES.SETTINGS, MINER_KEY());
+  await whenScopeReady();
+  const raw =
+    (await idbGet<unknown>(STORES.SETTINGS, MINER_KEY())) ??
+    (MINER_KEY() === "anon:miner-choice" ? null : await idbGet<unknown>(STORES.SETTINGS, "anon:miner-choice"));
   if (typeof raw !== "object" || raw === null) return DEFAULT_MINER;
   const v = raw as Record<string, unknown>;
   const c = (v['custom'] ?? {}) as Record<string, unknown>;
@@ -511,6 +514,7 @@ export async function loadMinerChoice(): Promise<MinerChoice> {
 }
 
 export async function saveMinerChoice(choice: MinerChoice): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, MINER_KEY(), choice);
 }
 
