@@ -45,7 +45,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 import { listVaults, updateVault } from "@/lib/cloud-vault.functions";
 import { markSourceStatus, saveSourcesToVault, type SavedSource, type SourcePayload } from "@/lib/source-vault.functions";
