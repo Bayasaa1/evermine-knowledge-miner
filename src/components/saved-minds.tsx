@@ -157,11 +157,14 @@ export function SavedMinds({
         )}
       </div>
 
-      {vaults.length > 0 ? (
+      {groups.length > 0 ? (
         <ul className="mt-3 space-y-2">
-          {vaults.map((v) => {
-            const src = v.kind === "source" ? (v.payload as unknown as SourcePayload) : null;
+          {groups.map((g) => {
+            const v = g.primary;
+            const src = g.source ? (g.source.payload as unknown as SourcePayload) : null;
             const video = src?.video;
+            const mined = Boolean(g.mined) || src?.status === "mined";
+            const openRow = g.mined ?? v;
             return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
@@ -174,28 +177,20 @@ export function SavedMinds({
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{v.title}</p>
-                  {src ? (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
-                        {" · "}
-                        <span className={src.status === "mined" ? "text-emerald-500" : "text-amber-500"}>
-                          {src.status === "mined" ? t.mined : t.pending}
-                        </span>
-                      </p>
-                      {video?.description && (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {v.kind} · {new Date(v.updatedAt).toLocaleString()}
-                      {v.projectId ? ` · ${projects.find((p) => p.id === v.projectId)?.title ?? t.project}` : ""}
-                    </p>
+                  <p className="truncate text-sm font-medium text-foreground">{g.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
+                    {video ? " · " : ""}
+                    <span className={mined ? "text-emerald-500" : "text-amber-500"}>
+                      {mined ? t.mined : t.pending}
+                    </span>
+                    {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
+                  </p>
+                  {video?.description && (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
                   )}
                 </div>
-                {src && src.status !== "mined" ? (
+                {!mined ? (
                   <Link
                     to="/creator"
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
@@ -205,7 +200,7 @@ export function SavedMinds({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setInspect(v)}
+                    onClick={() => setInspect(openRow)}
                     title={t.view}
                     className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                   >
@@ -224,7 +219,7 @@ export function SavedMinds({
                   type="button"
                   disabled={drop.isPending}
                   onClick={() => {
-                    if (window.confirm(t.confirm)) drop.mutate(v.id);
+                    if (window.confirm(t.confirm)) drop.mutate(g.rows.map((r) => r.id));
                   }}
                   title={t.del}
                   className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
@@ -236,6 +231,7 @@ export function SavedMinds({
             );
           })}
         </ul>
+
 
       ) : (
         !isLoading && <p className="mt-3 text-sm text-muted-foreground">{t.empty}</p>
