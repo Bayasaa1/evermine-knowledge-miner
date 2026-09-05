@@ -33,6 +33,9 @@ export const Route = createFileRoute("/api/mind-coach")({
             tactics?: { name?: string; when?: string; steps?: string[] }[];
             commentaryStyle?: string[];
             mistakes?: string[];
+            communication?: { kind?: string; quote?: string; context?: string }[];
+            mindset?: string[];
+            emotions?: { trigger?: string; reaction?: string; quote?: string }[];
           };
         };
         try {
@@ -68,6 +71,29 @@ export const Route = createFileRoute("/api/mind-coach")({
             : []),
           ...(brain.mistakes?.length
             ? [`TYPICAL MISTAKES TO WATCH FOR: ${brain.mistakes.slice(0, 8).join("; ")}`]
+            : []),
+          ...(brain.communication?.length
+            ? [
+                `HOW ${name} TALKS IN GAME (copy this voice):`,
+                ...list(
+                  brain.communication,
+                  (c: { kind?: string; quote?: string; context?: string }) => `- [${c.kind ?? ""}] "${c.quote ?? ""}" (${c.context ?? ""})`,
+                  10,
+                ),
+              ]
+            : []),
+          ...(brain.mindset?.length
+            ? [`MINDSET: ${brain.mindset.slice(0, 8).join("; ")}`]
+            : []),
+          ...(brain.emotions?.length
+            ? [
+                `EMOTIONAL REACTIONS (match this energy):`,
+                ...list(
+                  brain.emotions,
+                  (e: { trigger?: string; reaction?: string; quote?: string }) => `- on ${e.trigger ?? ""}: ${e.reaction ?? ""}${e.quote ? ` — "${e.quote}"` : ""}`,
+                  8,
+                ),
+              ]
             : []),
           ``,
           `RULES:`,
