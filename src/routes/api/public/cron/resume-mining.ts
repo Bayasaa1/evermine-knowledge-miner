@@ -15,7 +15,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
     handlers: {
       POST: async ({ request }) => {
         const denied = await authenticateCronRequest(request);
-        if (denied) return denied;
+        if (denied) {
+          // Also accept the project-owned mining cron key (LOVABLE_CRON_SECRET
+          // is platform-managed and unreadable, so pg_cron uses this one).
+          const projectKey = process.env["MINING_CRON_SECRET"];
+          const token = /^Bearer ([^\s,]+)$/.exec(
+            request.headers.get("authorization") ?? "",
+          )?.[1];
+          if (!projectKey || !token || token !== projectKey) return denied;
+        }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
