@@ -54,6 +54,7 @@ function normalize(raw: unknown): ApiKeyEntry[] {
 
 /** Loads the signed-in account's key pool. Never falls back to another account's keys. */
 export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
+  await whenScopeReady();
   const list = normalize(await idbGet<unknown>(STORES.SETTINGS, KEYS_ID()));
   if (list.length > 0) return list;
   const legacy = await idbGet<string>(STORES.SETTINGS, KEY_ID());
