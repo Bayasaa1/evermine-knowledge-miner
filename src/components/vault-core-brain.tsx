@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
+import { MindExplorer } from "@/components/mind-explorer";
 import { chunkBuckets, dataTypeCards, type MindPayload } from "@/lib/mind-json";
 import { listMindVersions, saveMindVersion, type MindVersion } from "@/lib/mind-versions.functions";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -57,6 +58,7 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
   const load = useServerFn(listMindVersions);
   const saveFn = useServerFn(saveMindVersion);
   const [editing, setEditing] = useState<MindVersion | null>(null);
+  const [exploring, setExploring] = useState<MindVersion | null>(null);
   const [showRaw, setShowRaw] = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ["mind-versions"], queryFn: () => load() });
@@ -199,6 +201,19 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
           payload={(editing.payload ?? {}) as MindPayload}
           onSave={async (next, notes) => {
             await patch.mutateAsync({ version: editing, payload: next as MindPayload, notes });
+          }}
+        />
+      ) : null}
+
+      {exploring ? (
+        <MindExplorer
+          lang={lang}
+          open={!!exploring}
+          onOpenChange={(o) => { if (!o) setExploring(null); }}
+          title={exploring.title}
+          payload={(exploring.payload ?? {}) as MindPayload}
+          onSave={async (next, notes) => {
+            await patch.mutateAsync({ version: exploring, payload: next as MindPayload, notes });
           }}
         />
       ) : null}
