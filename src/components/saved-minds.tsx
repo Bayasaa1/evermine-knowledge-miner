@@ -35,6 +35,7 @@ export function SavedMinds({
   const fetchVaults = useServerFn(listVaults);
   const saveVault = useServerFn(updateVault);
   const removeVault = useServerFn(deleteVault);
+  const saveVersion = useServerFn(saveMindVersion);
 
   const locked = forcedPersona !== undefined;
   const [picked, setPicked] = useState<string | null>(null);
@@ -210,7 +211,6 @@ export function SavedMinds({
                 title: inspect.title,
                 payload: next as never,
                 releaseNotes: notes,
-                ...(inspect.mindId ? { mindId: inspect.mindId } : {}),
               },
             });
             await refresh();
