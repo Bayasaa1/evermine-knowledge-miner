@@ -168,6 +168,9 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => setExploring(v)}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> {t("explore")}
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setEditing(v)}>
                   <FileJson className="mr-1.5 h-3.5 w-3.5" /> {t("edit")}
                 </Button>
