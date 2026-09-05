@@ -997,20 +997,79 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </p>
         )}
 
-        <div className="mt-4">
-          <MiningWizard
-            lang={lang}
-            value={assessment}
-            onChange={setAssessment}
-            busy={busy}
-            meta={meta}
-            metaLoading={metaLoading}
-            onStart={(a) => {
-              setAssessment(a);
-              void run(a);
-            }}
-          />
-        </div>
+        {saveMode ? (
+          <div className="mt-4 space-y-3">
+            {(metaLoading || meta) && (
+              <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                {metaLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  meta?.thumbnail && (
+                    <img src={meta.thumbnail} alt="" loading="lazy" className="h-14 w-24 rounded-lg object-cover" />
+                  )
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{meta?.title ?? ""}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[meta?.channel, meta?.durationLabel].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => void saveLink()}
+              disabled={saving || !url.trim()}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {saving ? lib.saving : lib.saveTitle}
+            </button>
+            {saveNote && <p className="text-xs text-emerald-500">{saveNote}</p>}
+            {justSaved.length > 0 && (
+              <ul className="space-y-2">
+                {justSaved.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 rounded-xl border border-border bg-background p-2.5">
+                    {s.thumbnail && (
+                      <img src={s.thumbnail} alt="" loading="lazy" className="h-12 w-20 rounded-lg object-cover" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{s.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[s.channel, s.durationLabel].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {justSaved.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/vaults" })}
+                className="rounded-xl border border-border px-4 py-2 text-sm text-foreground transition-colors hover:bg-accent"
+              >
+                {lib.viewVault}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <MiningWizard
+              lang={lang}
+              value={assessment}
+              onChange={setAssessment}
+              busy={busy}
+              meta={meta}
+              metaLoading={metaLoading}
+              onStart={(a) => {
+                setAssessment(a);
+                void run(a);
+              }}
+            />
+          </div>
+        )}
+
 
         {busy && (
           <div className="mt-3">
