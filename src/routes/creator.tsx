@@ -1059,6 +1059,12 @@ function Index() {
   useEffect(() => {
     void (async () => {
       const pool = await loadApiKeys();
+      // A paid Gemini key saved in step 3 (AI pool) feeds the miner directly.
+      const byo = await existingKeyFor("gemini");
+      if (byo && !pool.some((k) => k.value === byo)) {
+        pool.unshift(makeKeyEntry(byo, "Gemini (paid)"));
+        void saveApiKeys(pool);
+      }
       keysRef.current = pool;
       setKeys(pool);
       if (pool.length > 0) setKeyState("valid");
