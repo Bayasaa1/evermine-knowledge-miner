@@ -996,6 +996,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             />
           </label>
         )}
+        </>
+        )}
 
         {!hasAuth && (
           <p className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-500">
