@@ -67,15 +67,18 @@ export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
 }
 
 export async function saveApiKeys(keys: ApiKeyEntry[]): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, KEYS_ID(), keys);
   await idbSet(STORES.SETTINGS, KEY_ID(), keys[0]?.value ?? "");
 }
 
 export async function saveApiKey(key: string): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, KEY_ID(), key);
 }
 
 export async function loadApiKey(): Promise<string | null> {
+  await whenScopeReady();
   return await idbGet<string>(STORES.SETTINGS, KEY_ID());
 }
 
