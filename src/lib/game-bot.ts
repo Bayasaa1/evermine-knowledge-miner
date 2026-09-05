@@ -10,8 +10,6 @@ import type { GamingExtraction } from "@/lib/gemini";
  * Coach's job.
  */
 
-const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
-
 export function buildTeammateBotSource(mindName: string, gaming: GamingExtraction): string {
   const brain = {
     minedBy: "Evermind Gaming Mind",
@@ -21,98 +19,104 @@ export function buildTeammateBotSource(mindName: string, gaming: GamingExtractio
     commentaryStyle: gaming.commentaryStyle,
     mistakes: gaming.mistakes,
   };
+  const botName = `${mindName.replace(/[^A-Za-z0-9]+/g, "_")}_Bot`.slice(0, 30);
 
-  return `// ${mindName} — Evermind Teammate Bot (Minecraft Java)
-// Generated from your mined Gaming Mind. The Teammate PLAYS with you; it
-// cannot watch your screen (that is the Coach, inside Evermind).
-//
-// Setup:
-//   npm install mineflayer mineflayer-pathfinder mineflayer-collectblock
-//   node teammate-bot.js --host <server> --port 25565
-//
-// Behaviour is seeded from the mined brain below — edit it freely.
-
-const mineflayer = require("mineflayer");
-const { pathfinder, Movements, goals } = require("mineflayer-pathfinder");
-const { GoalFollow, GoalNear } = goals;
-
-const BRAIN = ${JSON.stringify(brain, null, 2)};
-
-const args = process.argv.slice(2);
-const arg = (name, fallback) => {
-  const i = args.indexOf("--" + name);
-  return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
-};
-
-const bot = mineflayer.createBot({
-  host: arg("host", "localhost"),
-  port: Number(arg("port", "25565")),
-  username: arg("name", ${"`${esc(mindName).replace(/\s+/g, "_")}_Bot`"}),
-  version: arg("version", false),
-});
-
-bot.loadPlugin(pathfinder);
-
-bot.once("spawn", () => {
-  const moves = new Movements(bot);
-  bot.pathfinder.setMovements(moves);
-  bot.chat(\`Hey — ${esc(mindName)}'s teammate reporting in. Say "follow", "stay", "tactic <name>" or "skills".\`);
-});
-
-// Follow the player who asked, like a partner sticking with you.
-let following = null;
-
-bot.on("chat", (username, message) => {
-  if (username === bot.username) return;
-  const msg = message.toLowerCase();
-
-  if (msg === "follow") {
-    const target = bot.players[username]?.entity;
-    if (!target) return bot.chat("I can't see you — come closer.");
-    following = username;
-    bot.pathfinder.setGoal(new GoalFollow(target, 2), true);
-    bot.chat(\`On your tail, \${username}.\`);
-  } else if (msg === "stay") {
-    following = null;
-    bot.pathfinder.setGoal(null);
-    bot.chat("Holding position.");
-  } else if (msg === "skills") {
-    const names = BRAIN.skills.map((s) => s.name).join(", ") || "still learning";
-    bot.chat(\`Skills I mined: \${names}\`);
-  } else if (msg.startsWith("tactic")) {
-    const name = message.slice(6).trim().toLowerCase();
-    const tactic = BRAIN.tactics.find((t) => t.name.toLowerCase().includes(name));
-    if (!tactic) return bot.chat("I don't know that tactic yet — ask for 'skills' to see what I mined.");
-    bot.chat(\`Tactic "\${tactic.name}" — use when: \${tactic.when}\`);
-    tactic.steps.forEach((step, i) => setTimeout(() => bot.chat(\`\${i + 1}. \${step}\`), 800 * (i + 1)));
-  } else if (msg === "guard") {
-    // Simple combat behaviour: attack hostile mobs near the followed player.
-    bot.chat("Guarding.");
-    const interval = setInterval(() => {
-      if (following === null) return clearInterval(interval);
-      const mob = bot.nearestEntity(
-        (e) => e.type === "hostile" && e.position.distanceTo(bot.entity.position) < 12,
-      );
-      if (mob) bot.attack(mob);
-    }, 1000);
-  }
-});
-
-// Narrate in the mined commentary style now and then — partner banter.
-bot.on("physicsTick", () => {
-  if (!following || Math.random() > 0.0004 || BRAIN.commentaryStyle.length === 0) return;
-  const line = BRAIN.commentaryStyle[Math.floor(Math.random() * BRAIN.commentaryStyle.length)];
-  bot.chat(line.slice(0, 200));
-});
-
-bot.on("death", () => {
-  const mistake = BRAIN.mistakes[0];
-  bot.chat(mistake ? \`Classic mistake — \${mistake.slice(0, 150)}\` : "That went badly. Regrouping.");
-});
-
-bot.on("error", (err) => console.error("Bot error:", err));
-bot.on("end", () => console.log("Teammate disconnected."));
-`;
+  // The generated file uses only plain string concatenation so this template
+  // never nests backticks.
+  const lines = [
+    `// ${mindName} — Evermind Teammate Bot (Minecraft Java)`,
+    "// Generated from your mined Gaming Mind. The Teammate PLAYS with you; it",
+    "// cannot watch your screen (that is the Coach, inside Evermind).",
+    "//",
+    "// Setup:",
+    "//   npm install mineflayer mineflayer-pathfinder",
+    "//   node teammate-bot.js --host <server> --port 25565",
+    "",
+    'const mineflayer = require("mineflayer");',
+    'const { pathfinder, Movements, goals } = require("mineflayer-pathfinder");',
+    "",
+    "const BRAIN = " + JSON.stringify(brain, null, 2) + ";",
+    "",
+    "const args = process.argv.slice(2);",
+    "const arg = (name, fallback) => {",
+    '  const i = args.indexOf("--" + name);',
+    "  return i >= 0 && args[i + 1] ? args[i + 1] : fallback;",
+    "};",
+    "",
+    "const bot = mineflayer.createBot({",
+    '  host: arg("host", "localhost"),',
+    '  port: Number(arg("port", "25565")),',
+    `  username: arg("name", ${JSON.stringify(botName)}),`,
+    '  version: arg("version", false),',
+    "});",
+    "",
+    "bot.loadPlugin(pathfinder);",
+    "",
+    'bot.once("spawn", () => {',
+    "  const moves = new Movements(bot);",
+    "  bot.pathfinder.setMovements(moves);",
+    `  bot.chat(${JSON.stringify(`${mindName}'s teammate reporting in. `)} + '"follow", "stay", "guard", "skills" or "tactic <name>".');`,
+    "});",
+    "",
+    "let following = null;",
+    "let guardTimer = null;",
+    "",
+    'bot.on("chat", (username, message) => {',
+    "  if (username === bot.username) return;",
+    "  const msg = message.toLowerCase();",
+    "",
+    '  if (msg === "follow") {',
+    "    const target = bot.players[username] && bot.players[username].entity;",
+    '    if (!target) return bot.chat("I cannot see you — come closer.");',
+    "    following = username;",
+    "    bot.pathfinder.setGoal(new goals.GoalFollow(target, 2), true);",
+    '    bot.chat("On your tail, " + username + ".");',
+    '  } else if (msg === "stay") {',
+    "    following = null;",
+    "    if (guardTimer) { clearInterval(guardTimer); guardTimer = null; }",
+    "    bot.pathfinder.setGoal(null);",
+    '    bot.chat("Holding position.");',
+    '  } else if (msg === "skills") {',
+    '    const names = BRAIN.skills.map((s) => s.name).join(", ") || "still learning";',
+    '    bot.chat("Skills I mined: " + names);',
+    '  } else if (msg.indexOf("tactic") === 0) {',
+    "    const name = message.slice(6).trim().toLowerCase();",
+    "    const tactic = BRAIN.tactics.find((t) => t.name.toLowerCase().indexOf(name) >= 0);",
+    '    if (!tactic) return bot.chat("I do not know that tactic yet — try skills.");',
+    '    bot.chat("Tactic " + tactic.name + " — use when: " + tactic.when);',
+    "    tactic.steps.forEach((step, i) =>",
+    "      setTimeout(() => bot.chat((i + 1) + '. ' + step), 800 * (i + 1)),",
+    "    );",
+    '  } else if (msg === "guard") {',
+    '    bot.chat("Guarding you.");',
+    "    if (guardTimer) clearInterval(guardTimer);",
+    "    guardTimer = setInterval(() => {",
+    "      if (!following) { clearInterval(guardTimer); guardTimer = null; return; }",
+    "      const mob = bot.nearestEntity((e) =>",
+    '        e.type === "hostile" && e.position.distanceTo(bot.entity.position) < 12,',
+    "      );",
+    "      if (mob) bot.attack(mob);",
+    "    }, 1000);",
+    "  }",
+    "});",
+    "",
+    "// Partner banter in the mined commentary style, now and then.",
+    'bot.on("physicsTick", () => {',
+    "  if (!following || BRAIN.commentaryStyle.length === 0 || Math.random() > 0.0004) return;",
+    "  const line = BRAIN.commentaryStyle[Math.floor(Math.random() * BRAIN.commentaryStyle.length)];",
+    "  bot.chat(line.slice(0, 200));",
+    "});",
+    "",
+    'bot.on("death", () => {',
+    "  const mistake = BRAIN.mistakes[0];",
+    '  bot.chat(mistake ? "Classic mistake — " + String(mistake).slice(0, 150) : "That went badly. Regrouping.");',
+    "});",
+    "",
+    'bot.on("error", (err) => console.error("Bot error:", err));',
+    'bot.on("end", () => console.log("Teammate disconnected."));',
+    "",
+  ];
+  return lines.join("\n");
 }
 
 /** Trigger a browser download of the teammate bot source. */
