@@ -887,7 +887,21 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
       try {
         if (source.kind === "youtube") {
-          await runYoutubeJobs(source, assessment);
+          // Every ticked saved video becomes its own server-side job, and they
+          // are mined one after another without touching this page again.
+          const picked = pendingSources.filter(
+            (p) => pickedIds.includes(p.id) && p.payload.source.kind === "youtube",
+          );
+          const urls = picked.length ? picked.map((p) => p.payload.source.url) : [source.url];
+          if (urls.length === 1) {
+            await runYoutubeJobs({ ...source, url: urls[0]! }, assessment);
+          } else {
+            const jobs: MiningJob[] = [];
+            for (const u of urls) {
+              jobs.push(...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment } }))));
+            }
+            await driveJobs(jobs);
+          }
         } else {
           const mined =
             source.kind === "file"
@@ -914,8 +928,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           await finishMined(mined, source);
         }
         // The saved library entry is now mined — it leaves the "ready to mine" list.
-        if (pickedSourceId) {
-          await markSourceStatus({ data: { id: pickedSourceId, status: "mined" } }).catch(() => undefined);
+        const doneIds = pickedIds.length ? pickedIds : pickedSourceId ? [pickedSourceId] : [];
+        if (doneIds.length && !stopRef.current) {
+          for (const id of doneIds) {
+            await markSourceStatus({ data: { id, status: "mined" } }).catch(() => undefined);
+          }
+          setPickedIds([]);
           await refetchPending();
           await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
         }
@@ -930,7 +948,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         abortRef.current = null;
       }
     },
-    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined, pickedSourceId, refetchPending, queryClient],
+    [
+      resolveSource,
+      explain,
+      signedIn,
+      runYoutubeJobs,
+      driveJobs,
+      finishMined,
+      pickedIds,
+      pickedSourceId,
+      pendingSources,
+      refetchPending,
+      queryClient,
+    ],
 
   );
 
