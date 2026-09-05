@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "sdk_version": "2.0.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://koprmchwjjhgtyrqslaj.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "evermine-your-mind-s-vault",
+      "version": "0.1.0",
+      "title": "Evermine: Your Mind's Vault"
+    },
+    "tools": [
+      {
+        "name": "list_personas",
+        "title": "List personas",
+        "description": "List the signed-in creator's Evermind personas (creator identities).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_projects",
+        "title": "List projects",
+        "description": "List the signed-in creator's Evermind projects, optionally filtered to one persona.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "persona_id": {
+              "description": "Only return projects belonging to this persona id.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_content",
+        "title": "List mined content",
+        "description": "List mined videos inside one of the signed-in creator's projects, with titles, tags and source links.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "project_id": {
+              "type": "string",
+              "description": "Project id to list content for."
+            }
+          },
+          "required": [
+            "project_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_minds",
+        "title": "List Mind Vaults",
+        "description": "List the signed-in creator's saved Mind Vaults (mined .json.md brains), newest first.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "persona_id": {
+              "description": "Only return minds belonging to this persona id.",
+              "type": "string"
+            },
+            "project_id": {
+              "description": "Only return minds belonging to this project id.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_mind",
+        "title": "Get a Mind Vault",
+        "description": "Read the full mined payload (story, transcript, topics, emotions, traits) of one Mind Vault owned by the signed-in creator.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "mind_id": {
+              "type": "string",
+              "description": "Mind Vault id, from list_minds."
+            }
+          },
+          "required": [
+            "mind_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_feed",
+        "title": "Search published minds",
+        "description": "Search Evermind's published marketplace projects by title or description.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Words to look for in project titles and descriptions."
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
