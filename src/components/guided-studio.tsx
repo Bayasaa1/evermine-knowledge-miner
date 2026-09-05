@@ -929,6 +929,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       )}
 
       <div className={`mt-4 rounded-xl border border-border bg-card p-4 sm:p-5 ${gate ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!gate}>
+        {saveMode && (
+        <>
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(
             [
