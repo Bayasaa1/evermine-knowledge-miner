@@ -15,7 +15,10 @@ const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "n
 const strList = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
 
+/** Seconds for a timestamp value; blank or unparseable values yield null. */
 export function secondsOf(v: unknown): number | null {
+  if (typeof v === "string" && !v.trim()) return null;
+  if (v === null || v === undefined) return null;
   return parseTimestamp(v);
 }
 
@@ -94,26 +97,54 @@ export function sourceLabelOf(payload: MindPayload): string {
   return "";
 }
 
-/** Builds subtitle cues, filling in end times and dropping duplicate lines. */
+/**
+ * Builds subtitle cues in document order.
+ *
+ * The miner sometimes returns lines without timestamps. Rather than collapsing
+ * them all onto 0:00, untimed runs are spread evenly between the surrounding
+ * timestamped anchors so every line still points at a real moment.
+ */
 function buildCues(items: Record<string, unknown>[]): Cue[] {
-  const cues: Cue[] = [];
+  type Raw = { start: number | null; end: number | null; text: string; speaker: string };
+  const raws: Raw[] = [];
   let seen = "";
   for (const item of items) {
     const text = (str(item['speech']) || str(item['text']) || str(item['line'])).trim();
     if (!text || text === seen) continue;
     seen = text;
-    const raw = item['timestamp'] ?? item['start'] ?? item['time'];
-    const start = secondsOf(typeof raw === "string" ? raw.split("-")[0]!.trim() : raw);
+    const stamp = item['timestamp'] ?? item['start'] ?? item['time'];
+    const startRaw = typeof stamp === "string" && stamp.includes("-") ? stamp.split("-")[0]!.trim() : stamp;
     const endRaw =
-      item['end'] ?? (typeof raw === "string" && raw.includes("-") ? raw.split("-")[1]!.trim() : undefined);
-    cues.push({
-      start: start ?? 0,
+      item['end'] ?? (typeof stamp === "string" && stamp.includes("-") ? stamp.split("-")[1]!.trim() : undefined);
+    raws.push({
+      start: secondsOf(startRaw),
       end: secondsOf(endRaw),
       text,
       speaker: str(item['speaker']) || str(item['speaker_label']),
     });
   }
-  cues.sort((a, b) => a.start - b.start);
+
+  // Interpolate untimed runs between known anchors.
+  const anchors = raws.map((r, i) => (r.start !== null ? i : -1)).filter((i) => i >= 0);
+  if (anchors.length > 0) {
+    for (let i = 0; i < raws.length; i++) {
+      if (raws[i]!.start !== null) continue;
+      const before = [...anchors].reverse().find((a) => a < i);
+      const after = anchors.find((a) => a > i);
+      if (before !== undefined && after !== undefined) {
+        const span = (raws[after]!.start! - raws[before]!.start!) / (after - before);
+        raws[i]!.start = raws[before]!.start! + span * (i - before);
+      } else if (before !== undefined) {
+        raws[i]!.start = raws[before]!.start! + (i - before) * 8;
+      } else if (after !== undefined) {
+        // Nothing timed before this line: spread the opening run from 0 up to
+        // the first known anchor so early lines don't all pile onto 0:00.
+        raws[i]!.start = (raws[after]!.start! * i) / Math.max(1, after);
+      }
+    }
+  }
+
+  const cues: Cue[] = raws.map((r) => ({ ...r, start: Math.max(0, Math.round(r.start ?? 0)) }));
   return cues.map((c, i) => ({ ...c, end: c.end ?? cues[i + 1]?.start ?? c.start + 5 }));
 }
 
