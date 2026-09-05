@@ -344,3 +344,27 @@ export async function storeKeyFor(id: MinerId, value: string): Promise<void> {
   const stack = await loadStack();
   await saveStack({ ...stack, keys: { ...stack.keys, [field]: value.trim() } });
 }
+
+/**
+ * Which AIs are ready to mine right now: a key is stored on this device (or,
+ * for Gemini, the Google account is linked). Used to visually separate ready
+ * brains from ones that still need setup.
+ */
+export async function minerReadiness(choice?: MinerChoice): Promise<Record<MinerId, boolean>> {
+  const stack = await loadStack();
+  const { hasGeminiOauth } = await import("./google-gemini-auth");
+  let geminiOauth = false;
+  try {
+    geminiOauth = await hasGeminiOauth();
+  } catch {
+    geminiOauth = false;
+  }
+  const ready = {} as Record<MinerId, boolean>;
+  for (const m of MINERS) {
+    const key = m.keyField ? !!(stack.keys[m.keyField] ?? "").trim() : false;
+    if (m.id === "gemini") ready[m.id] = geminiOauth || !!(stack.keys["GEMINI_API_KEY"] ?? "").trim();
+    else if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
+    else ready[m.id] = key;
+  }
+  return ready;
+}
