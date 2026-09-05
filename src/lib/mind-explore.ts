@@ -134,7 +134,9 @@ function buildCues(items: Record<string, unknown>[]): Cue[] {
       } else if (before !== undefined) {
         raws[i]!.start = raws[before]!.start! + (i - before) * 8;
       } else if (after !== undefined) {
-        raws[i]!.start = Math.max(0, raws[after]!.start! - (after - i) * 8);
+        // Nothing timed before this line: spread the opening run from 0 up to
+        // the first known anchor so early lines don't all pile onto 0:00.
+        raws[i]!.start = (raws[after]!.start! * i) / Math.max(1, after);
       }
     }
   }
