@@ -291,10 +291,28 @@ const STACK_KEY = () => scopedKey("engine-stack");
 const LEGACY_STACK_KEY = "engine-stack";
 
 export async function loadStack(): Promise<EngineStack> {
-  return normalizeStack(await idbGet<unknown>(STORES.SETTINGS, STACK_KEY()));
+  // Wait until the signed-in account is known, otherwise a page reload reads the
+  // signed-out vault and the creator's saved API keys look lost.
+  await whenScopeReady();
+  const key = STACK_KEY();
+  const own = await idbGet<unknown>(STORES.SETTINGS, key);
+  if (own) return normalizeStack(own);
+  // Keys typed before the session finished restoring landed in the signed-out
+  // vault — adopt them once, then keep them with the account.
+  if (key !== "anon:engine-stack") {
+    const pending = await idbGet<unknown>(STORES.SETTINGS, "anon:engine-stack");
+    if (pending) {
+      const adopted = normalizeStack(pending);
+      await idbSet(STORES.SETTINGS, key, adopted);
+      await idbDelete(STORES.SETTINGS, "anon:engine-stack");
+      return adopted;
+    }
+  }
+  return normalizeStack(null);
 }
 
 export async function saveStack(stack: EngineStack): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, STACK_KEY(), stack);
 }
 
