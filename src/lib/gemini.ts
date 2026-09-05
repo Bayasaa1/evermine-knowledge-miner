@@ -1084,6 +1084,19 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })),
     commentaryStyle: strings(gm['commentaryStyle']),
     mistakes: strings(gm['mistakes']),
+    communication: arr<Record<string, unknown>>(gm['communication']).map((c) => ({
+      timestamp: String(c?.['timestamp'] ?? ""),
+      kind: String(c?.['kind'] ?? "callout"),
+      quote: String(c?.['quote'] ?? ""),
+      context: String(c?.['context'] ?? ""),
+    })),
+    mindset: strings(gm['mindset']),
+    emotions: arr<Record<string, unknown>>(gm['emotions']).map((e) => ({
+      timestamp: String(e?.['timestamp'] ?? ""),
+      trigger: String(e?.['trigger'] ?? ""),
+      reaction: String(e?.['reaction'] ?? ""),
+      quote: String(e?.['quote'] ?? ""),
+    })),
   };
   return {
 

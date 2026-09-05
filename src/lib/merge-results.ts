@@ -81,6 +81,8 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
       tactics: result.gaming.tactics.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
       decisions: result.gaming.decisions.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
       tutorials: result.gaming.tutorials.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+      communication: result.gaming.communication.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+      emotions: result.gaming.emotions.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     },
     transcript: result.transcript.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     story: { ...result.story, beats: result.story.beats.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
@@ -191,6 +193,9 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
       tutorials: uniqueBy(normalized.flatMap((r) => r.gaming.tutorials), (t) => t.title.toLowerCase()),
       commentaryStyle: uniqueStrings(normalized.flatMap((r) => r.gaming.commentaryStyle)),
       mistakes: uniqueStrings(normalized.flatMap((r) => r.gaming.mistakes)),
+      communication: normalized.flatMap((r) => r.gaming.communication),
+      mindset: uniqueStrings(normalized.flatMap((r) => r.gaming.mindset)),
+      emotions: normalized.flatMap((r) => r.gaming.emotions),
     },
   };
 }
