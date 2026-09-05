@@ -84,7 +84,18 @@ export function youtubeIdFromPayload(payload: MindPayload): string | null {
         ? str((source as Record<string, unknown>)['label']) || str((source as Record<string, unknown>)['url'])
         : "";
   const m = label.match(YT);
-  return m ? m[1]! : null;
+  if (m) return m[1]!;
+  // Some older rows stored only the bare video id as the label.
+  const bare = label.trim().match(/^[A-Za-z0-9_-]{11}$/);
+  if (bare) return bare[0];
+  const video = payload['video'];
+  if (video && typeof video === "object") {
+    const vid = str((video as Record<string, unknown>)['id']) || str((video as Record<string, unknown>)['url']);
+    const vm = vid.match(YT);
+    if (vm) return vm[1]!;
+    if (/^[A-Za-z0-9_-]{11}$/.test(vid.trim())) return vid.trim();
+  }
+  return null;
 }
 
 export function sourceLabelOf(payload: MindPayload): string {
