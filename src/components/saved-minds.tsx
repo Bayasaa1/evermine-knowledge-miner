@@ -8,7 +8,10 @@
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import type { SourcePayload } from "@/lib/source-vault.functions";
+
 import { CloudCheck, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -74,6 +77,10 @@ export function SavedMinds({
     none: pickCopy({ en: "Unassigned", mn: "Хуваарилаагүй", ko: "미지정" }, lang),
     save: pickCopy({ en: "Save", mn: "Хадгалах", ko: "저장" }, lang),
     close: pickCopy({ en: "Close", mn: "Хаах", ko: "닫기" }, lang),
+    mine: pickCopy({ en: "Mine", mn: "Олборлох", ko: "마이닝" }, lang),
+    mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
+    pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
+
   };
 
   const { data: personas = [] } = useQuery<Persona[]>({
@@ -152,24 +159,59 @@ export function SavedMinds({
 
       {vaults.length > 0 ? (
         <ul className="mt-3 space-y-2">
-          {vaults.map((v) => (
+          {vaults.map((v) => {
+            const src = v.kind === "source" ? (v.payload as unknown as SourcePayload) : null;
+            const video = src?.video;
+            return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
+                {video?.thumbnail && (
+                  <img
+                    src={video.thumbnail}
+                    alt=""
+                    loading="lazy"
+                    className="h-12 w-20 shrink-0 rounded-md object-cover"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{v.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {v.kind} · {new Date(v.updatedAt).toLocaleString()}
-                    {v.projectId ? ` · ${projects.find((p) => p.id === v.projectId)?.title ?? t.project}` : ""}
-                  </p>
+                  {src ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
+                        {" · "}
+                        <span className={src.status === "mined" ? "text-emerald-500" : "text-amber-500"}>
+                          {src.status === "mined" ? t.mined : t.pending}
+                        </span>
+                      </p>
+                      {video?.description && (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {v.kind} · {new Date(v.updatedAt).toLocaleString()}
+                      {v.projectId ? ` · ${projects.find((p) => p.id === v.projectId)?.title ?? t.project}` : ""}
+                    </p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setInspect(v)}
-                  title={t.view}
-                  className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                </button>
+                {src && src.status !== "mined" ? (
+                  <Link
+                    to="/creator"
+                    className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
+                  >
+                    {t.mine}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setInspect(v)}
+                    title={t.view}
+                    className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setEditing(v)}
@@ -191,8 +233,10 @@ export function SavedMinds({
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
+
       ) : (
         !isLoading && <p className="mt-3 text-sm text-muted-foreground">{t.empty}</p>
       )}

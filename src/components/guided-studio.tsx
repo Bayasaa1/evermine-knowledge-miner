@@ -45,9 +45,11 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
-import { updateVault } from "@/lib/cloud-vault.functions";
+import { listVaults, updateVault } from "@/lib/cloud-vault.functions";
+import { markSourceStatus, saveSourcesToVault, type SavedSource, type SourcePayload } from "@/lib/source-vault.functions";
+
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
@@ -163,12 +165,16 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
           <StepGoogle lang={lang} />
         </StepShell>
       )}
-      {step === 2 && <StepUpload lang={lang} />}
+      {step === 2 && <StepUpload lang={lang} mode="save" />}
       {step === 3 && (
-        <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
-          <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
-        </StepShell>
+        <div className="space-y-8">
+          <StepUpload lang={lang} mode="mine" />
+          <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
+            <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
+          </StepShell>
+        </div>
       )}
+
 
       <div className="flex items-center justify-between pt-2">
         <button
@@ -311,8 +317,13 @@ function StepGoogle({ lang }: { lang: Lang }) {
   );
 }
 
-/** Step 2 — paste a YouTube/Drive link (or drop a file) and mine it directly. */
-function StepUpload({ lang }: { lang: Lang }) {
+/**
+ * Step 2 (`mode="save"`) — paste a link and file every video behind it, with all
+ * of its details, into Saved Minds. Nothing is analysed yet.
+ * Step 3 (`mode="mine"`) — pick a saved video and run the mining pipeline on it.
+ */
+function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
+
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -341,6 +352,93 @@ function StepUpload({ lang }: { lang: Lang }) {
   const stopRef = useRef(false);
   const termRef = useRef<HTMLPreElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // ---- Library step (step 2): saving links, no analysis -------------------
+  const saveMode = mode === "save";
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState<SavedSource[]>([]);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+  /** Saved-Mind row currently selected for mining (step 3). */
+  const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+
+  const lib = {
+    saveTitle: pickCopy(
+      { en: "Save to Saved Minds", mn: "Хадгалсан оюунд хадгалах", ko: "저장된 마인드에 저장" },
+      lang,
+    ),
+    saving: pickCopy({ en: "Saving…", mn: "Хадгалж байна…", ko: "저장 중…" }, lang),
+    savedOk: pickCopy({ en: "Saved to your vault", mn: "Сан руу хадгаллаа", ko: "보관함에 저장됨" }, lang),
+    dupes: pickCopy({ en: "already saved", mn: "аль хэдийн хадгалсан", ko: "이미 저장됨" }, lang),
+    pickTitle: pickCopy(
+      { en: "Saved videos ready to mine", mn: "Олборлоход бэлэн хадгалсан видеонууд", ko: "마이닝 대기 중인 저장 영상" },
+      lang,
+    ),
+    pickEmpty: pickCopy(
+      {
+        en: "Nothing saved yet — go back to step 2 and paste a link first.",
+        mn: "Хадгалсан зүйл алга — 2-р алхам руу буцаж холбоос оруулна уу.",
+        ko: "저장된 항목이 없습니다 — 2단계로 돌아가 링크를 붙여넣으세요.",
+      },
+      lang,
+    ),
+    selected: pickCopy({ en: "Selected", mn: "Сонгосон", ko: "선택됨" }, lang),
+    viewVault: pickCopy({ en: "Open My Vaults", mn: "Миний сан нээх", ko: "내 보관함 열기" }, lang),
+    saveHint: pickCopy(
+      {
+        en: "Paste a video or a whole playlist — every video is stored with its title, description, thumbnail and playtime. Mining happens in step 3.",
+        mn: "Видео эсвэл бүтэн жагсаалт оруулна уу — гарчиг, тайлбар, зураг, хугацаа бүхэлдээ хадгалагдана. Олборлолт 3-р алхамд хийгдэнэ.",
+        ko: "영상 또는 재생목록 전체를 붙여넣으세요 — 제목, 설명, 썸네일, 재생 시간이 함께 저장됩니다. 마이닝은 3단계에서 진행됩니다.",
+      },
+      lang,
+    ),
+  };
+
+  const { data: pendingSources = [], refetch: refetchPending } = useQuery({
+    queryKey: ["pending-sources"],
+    queryFn: async () => {
+      const rows = await listVaults({ data: {} });
+      return rows
+        .filter((r) => r.kind === "source")
+        .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }))
+        .filter((r) => r.payload?.status !== "mined");
+    },
+    enabled: signedIn && !saveMode,
+    refetchOnMount: "always",
+  });
+
+  /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
+  const saveLink = useCallback(async () => {
+    setErrorKey(null);
+    setSaveNote(null);
+    if (!signedIn) {
+      setErrorKey("errNoKey");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await saveSourcesToVault({
+        data: {
+          url: url.trim(),
+          personaId: target.personaId ?? null,
+          projectId: target.mode === "existing" ? target.projectId : null,
+        },
+      });
+      setJustSaved((prev) => [...res.saved, ...prev]);
+      setSaveNote(
+        `${res.saved.length} ${lib.savedOk}${res.skipped ? ` · ${res.skipped} ${lib.dupes}` : ""}`,
+      );
+      if (res.saved.length > 0) setUrl("");
+      toast.success(lib.savedOk);
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      await queryClient.invalidateQueries({ queryKey: ["pending-sources"] });
+    } catch (err) {
+      setErrorKey(errorKeyFor(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [signedIn, url, target, queryClient, lib]);
+
+
 
   /** Appends one line to the live mining terminal and keeps it scrolled down. */
   const say = useCallback((line: string) => {
@@ -727,6 +825,12 @@ function StepUpload({ lang }: { lang: Lang }) {
           setResult(mined);
           await finishMined(mined, source);
         }
+        // The saved library entry is now mined — it leaves the "ready to mine" list.
+        if (pickedSourceId) {
+          await markSourceStatus({ data: { id: pickedSourceId, status: "mined" } }).catch(() => undefined);
+          await refetchPending();
+          await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+        }
       } catch (err) {
         if ((err as Error)?.name === "AbortError") {
           setProgress(0);
@@ -738,23 +842,95 @@ function StepUpload({ lang }: { lang: Lang }) {
         abortRef.current = null;
       }
     },
-    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined],
+    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined, pickedSourceId, refetchPending, queryClient],
+
   );
 
 
   const ready = isTargetReady(target);
+  const gate = saveMode ? ready : true;
 
   return (
-    <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
-      <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />
+    <StepShell
+      title={
+        saveMode
+          ? t("step2Title")
+          : pickCopy({ en: "Mine your saved videos", mn: "Хадгалсан видеогоо олборлох", ko: "저장한 영상 마이닝" }, lang)
+      }
+      sub={saveMode ? t("step2Sub") : lib.pickTitle}
+      tip={saveMode ? lib.saveHint : t("tipSource")}
+    >
+      {saveMode && <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />}
 
-      <div className={`rounded-xl border border-border bg-card p-4 sm:p-5 ${ready ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!ready}>
+      {!saveMode && (
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
+          {pendingSources.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">{lib.pickEmpty}</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {pendingSources.map((s) => {
+                const v = s.payload.video;
+                const on = pickedSourceId === s.id;
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPickedSourceId(s.id);
+                        setTab(s.payload.source.kind === "drive" ? "drive" : "youtube");
+                        setUrl(s.payload.source.url);
+                        setErrorKey(null);
+                        setAssessment((prev) => ({
+                          ...prev,
+                          sourceTitle: v.title,
+                          sourceDescription: v.description,
+                          sourcePublishedAt: formatPublishedDate(v.publishedAt, lang),
+                          sourceDurationLabel: v.durationLabel,
+                          sourceChannel: v.channel,
+                        }));
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${
+                        on ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      {v.thumbnail ? (
+                        <img
+                          src={v.thumbnail}
+                          alt=""
+                          loading="lazy"
+                          className="h-12 w-20 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
+                          <Youtube className="h-4 w-4 text-muted-foreground" />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {v.title || s.payload.source.label}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {[v.channel, v.durationLabel].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      {on && <span className="shrink-0 text-xs font-medium text-primary">{lib.selected}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className={`mt-4 rounded-xl border border-border bg-card p-4 sm:p-5 ${gate ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!gate}>
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(
             [
               ["youtube", t("sourceYoutube"), Youtube],
               ["drive", t("sourceDrive"), HardDrive],
-              ["file", t("sourceFile"), Upload],
+              ...(saveMode ? [] : [["file", t("sourceFile"), Upload] as const]),
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -772,6 +948,7 @@ function StepUpload({ lang }: { lang: Lang }) {
             </button>
           ))}
         </div>
+
 
         {tab === "file" ? (
           <div>
@@ -820,20 +997,79 @@ function StepUpload({ lang }: { lang: Lang }) {
           </p>
         )}
 
-        <div className="mt-4">
-          <MiningWizard
-            lang={lang}
-            value={assessment}
-            onChange={setAssessment}
-            busy={busy}
-            meta={meta}
-            metaLoading={metaLoading}
-            onStart={(a) => {
-              setAssessment(a);
-              void run(a);
-            }}
-          />
-        </div>
+        {saveMode ? (
+          <div className="mt-4 space-y-3">
+            {(metaLoading || meta) && (
+              <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                {metaLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                ) : (
+                  meta?.thumbnail && (
+                    <img src={meta.thumbnail} alt="" loading="lazy" className="h-14 w-24 rounded-lg object-cover" />
+                  )
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{meta?.title ?? ""}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {[meta?.channel, meta?.durationLabel].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => void saveLink()}
+              disabled={saving || !url.trim()}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {saving ? lib.saving : lib.saveTitle}
+            </button>
+            {saveNote && <p className="text-xs text-emerald-500">{saveNote}</p>}
+            {justSaved.length > 0 && (
+              <ul className="space-y-2">
+                {justSaved.map((s) => (
+                  <li key={s.id} className="flex items-center gap-3 rounded-xl border border-border bg-background p-2.5">
+                    {s.thumbnail && (
+                      <img src={s.thumbnail} alt="" loading="lazy" className="h-12 w-20 rounded-lg object-cover" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{s.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[s.channel, s.durationLabel].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {justSaved.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/vaults" })}
+                className="rounded-xl border border-border px-4 py-2 text-sm text-foreground transition-colors hover:bg-accent"
+              >
+                {lib.viewVault}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <MiningWizard
+              lang={lang}
+              value={assessment}
+              onChange={setAssessment}
+              busy={busy}
+              meta={meta}
+              metaLoading={metaLoading}
+              onStart={(a) => {
+                setAssessment(a);
+                void run(a);
+              }}
+            />
+          </div>
+        )}
+
 
         {busy && (
           <div className="mt-3">
