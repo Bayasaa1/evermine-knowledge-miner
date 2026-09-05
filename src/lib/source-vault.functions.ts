@@ -43,6 +43,8 @@ export type SourcePayload = {
     thumbnail: string;
   };
   playlistId?: string | null;
+  /** Step-2 questionnaire answers, replayed when the video is mined later. */
+  assessment?: Record<string, unknown> | null;
   savedAt: string;
 };
 
@@ -51,6 +53,7 @@ const saveSchema = z.object({
   personaId: z.string().uuid().nullable().optional(),
   projectId: z.string().uuid().nullable().optional(),
   limit: z.number().int().min(1).max(50).optional(),
+  assessment: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 /** Saves a pasted link (or every video of a playlist) into Saved Minds. */
@@ -111,6 +114,7 @@ export const saveSourcesToVault = createServerFn({ method: "POST" })
             thumbnail: d.thumbnail || `https://i.ytimg.com/vi/${d.videoId}/hqdefault.jpg`,
           },
           playlistId: list,
+          assessment: data.assessment ?? null,
           savedAt: new Date().toISOString(),
         });
       }
@@ -134,6 +138,7 @@ export const saveSourcesToVault = createServerFn({ method: "POST" })
             thumbnail: "",
           },
           playlistId: null,
+          assessment: data.assessment ?? null,
           savedAt: new Date().toISOString(),
         });
     }

@@ -79,6 +79,7 @@ export function MiningWizard({
   value,
   onChange,
   onStart,
+  startLabel,
   busy,
   meta,
   metaLoading,
@@ -87,6 +88,8 @@ export function MiningWizard({
   value?: Assessment;
   onChange?: (a: Assessment) => void;
   onStart: (a: Assessment) => void;
+  /** Overrides the primary button label (step 2 saves instead of mining). */
+  startLabel?: string;
   busy?: boolean;
   meta?: VideoMetadata | null;
   metaLoading?: boolean;
@@ -238,7 +241,7 @@ export function MiningWizard({
         disabled={busy}
         className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
       >
-        <Sparkles className="h-4 w-4" /> {t.start}
+        <Sparkles className="h-4 w-4" /> {startLabel ?? t.start}
       </button>
     </div>
   );
