@@ -1222,17 +1222,47 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
         {busy && (
           <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => {
-                stopRef.current = true;
-                abortRef.current?.abort();
-                setLog((prev) => [...prev, `\n> ${t("stopRequested")}`]);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-colors hover:opacity-90"
-            >
-              <Square className="h-4 w-4" /> {t("stopMining")}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={pausing}
+                onClick={() => {
+                  setPausing(true);
+                  stopRef.current = true;
+                  abortRef.current?.abort();
+                  const id = activeJobId.current;
+                  if (id) void setMiningJobState({ data: { jobId: id, action: "pause" } }).catch(() => undefined);
+                  setLog((prev) => [
+                    ...prev,
+                    `\n> ${pickCopy(
+                      {
+                        en: "PAUSED — finished checkpoints are saved. Press Start mining to continue.",
+                        mn: "Түр зогсоолоо — дуусгасан хэсгүүд хадгалагдсан. Үргэлжлүүлэхийн тулд дахин эхлүүлнэ үү.",
+                        ko: "일시중지 — 완료된 체크포인트는 저장되었습니다. 다시 시작하면 이어집니다.",
+                      },
+                      lang,
+                    )}`,
+                  ]);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                <Pause className="h-4 w-4" />
+                {pickCopy({ en: "Pause", mn: "Түр зогсоох", ko: "일시중지" }, lang)}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  stopRef.current = true;
+                  abortRef.current?.abort();
+                  const id = activeJobId.current;
+                  if (id) void setMiningJobState({ data: { jobId: id, action: "stop" } }).catch(() => undefined);
+                  setLog((prev) => [...prev, `\n> ${t("stopRequested")}`]);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-colors hover:opacity-90"
+              >
+                <Square className="h-4 w-4" /> {t("stopMining")}
+              </button>
+            </div>
           </div>
         )}
 
