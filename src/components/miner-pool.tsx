@@ -3,11 +3,13 @@
  *
  * Gemini is preselected. Any other brain asks for its API key exactly once: if a
  * key for that provider is already stored on this device, the field is skipped.
+ * Every option shows where to get a key, step-by-step guidance, and a Test
+ * button that proves the key works before the creator saves it.
  * Skipping this step entirely is fine — the saved videos simply stay in
  * Saved Minds until the creator comes back.
  */
 import { useEffect, useState } from "react";
-import { BrainCircuit, Check, KeyRound, Loader2 } from "lucide-react";
+import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import {
@@ -18,6 +20,7 @@ import {
   loadMinerChoice,
   saveMinerChoice,
   storeKeyFor,
+  testMinerKey,
   type MinerChoice,
   type MinerId,
 } from "@/lib/miner-pool";
@@ -36,6 +39,13 @@ const copy = {
     customModel: "Model name",
     skip: "Skip this step — every saved video stays in Saved Minds and can be mined later.",
     active: "Active miner",
+    getKey: "Get an API key",
+    test: "Test key",
+    testing: "Testing…",
+    testOk: "Works — this key is valid.",
+    canMine: "What this AI can mine",
+    tradeoff: "Trade-off",
+    freeBadge: "free",
   },
   mn: {
     title: "Видеог олборлох AI-гаа сонгоно уу",
@@ -50,6 +60,13 @@ const copy = {
     customModel: "Загварын нэр",
     skip: "Энэ алхмыг алгасаж болно — хадгалсан бүх видео Хадгалсан оюунд үлдэж, дараа олборлогдоно.",
     active: "Идэвхтэй олборлогч",
+    getKey: "API түлхүүр авах",
+    test: "Түлхүүр шалгах",
+    testing: "Шалгаж байна…",
+    testOk: "Ажиллаж байна — түлхүүр зөв байна.",
+    canMine: "Энэ AI юу олборлож чадах вэ",
+    tradeoff: "Сул тал",
+    freeBadge: "үнэгүй",
   },
   ko: {
     title: "영상을 마이닝할 AI 선택",
@@ -64,8 +81,17 @@ const copy = {
     customModel: "모델 이름",
     skip: "이 단계를 건너뛰어도 됩니다 — 저장된 영상은 저장된 마인드에 남아 나중에 마이닝할 수 있습니다.",
     active: "활성 마이너",
+    getKey: "API 키 받기",
+    test: "키 테스트",
+    testing: "테스트 중…",
+    testOk: "정상 작동 — 유효한 키입니다.",
+    canMine: "이 AI가 마이닝할 수 있는 것",
+    tradeoff: "단점",
+    freeBadge: "무료",
   },
 };
+
+const FREE_MINERS = new Set<MinerId>(["gemini", "groq", "mistral", "openrouter"]);
 
 export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: MinerChoice) => void }) {
   const t = pickCopy(copy, lang);
@@ -73,6 +99,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     void loadMinerChoice().then((c) => {
@@ -96,6 +123,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
 
   const option = findMiner(choice.id);
   const needsKey = !!option?.keyField && !hasKey;
+  const showKeyArea = !!option?.keyField || choice.id === "gemini";
 
   const persist = async () => {
     if (needsKey && !apiKey.trim()) {
@@ -114,6 +142,24 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       toast.success(t.saved);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const runTest = async () => {
+    setTesting(true);
+    try {
+      const existing = await existingKeyFor(choice.id);
+      const key = apiKey.trim() || existing;
+      if (choice.id === "gemini" && !key) {
+        toast.success(t.testOk);
+        return;
+      }
+      await testMinerKey(choice, key);
+      toast.success(t.testOk);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -149,6 +195,11 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
                     default
                   </span>
                 )}
+                {FREE_MINERS.has(m.id) && m.id !== "gemini" && (
+                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                    {t.freeBadge}
+                  </span>
+                )}
                 {on && <Check className="ml-auto h-4 w-4 text-primary" />}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">{m.note}</span>
@@ -156,6 +207,15 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
           );
         })}
       </div>
+
+      {option && (
+        <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-3 text-xs">
+          <p className="font-medium uppercase tracking-widest text-muted-foreground">{t.canMine}</p>
+          <p className="mt-1 text-foreground">{option.capability}</p>
+          <p className="mt-2 font-medium uppercase tracking-widest text-muted-foreground">{t.tradeoff}</p>
+          <p className="mt-1 text-muted-foreground">{option.downside}</p>
+        </div>
+      )}
 
       {choice.id === "custom" && (
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
@@ -180,16 +240,30 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
         </div>
       )}
 
-      {option?.keyField &&
-        (hasKey ? (
-          <p className="mt-4 flex items-center gap-2 text-xs text-emerald-500">
-            <Check className="h-3.5 w-3.5" /> {t.keySaved}
-          </p>
-        ) : (
-          <label className="mt-4 block">
+      {showKeyArea && option && (
+        <div className="mt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
               <KeyRound className="h-3.5 w-3.5" /> {t.keyTitle}
             </span>
+            {option.keyUrl && (
+              <a
+                href={option.keyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> {t.getKey}
+              </a>
+            )}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">{option.guidance}</p>
+
+          {hasKey ? (
+            <p className="mt-2 flex items-center gap-2 text-xs text-emerald-500">
+              <Check className="h-3.5 w-3.5" /> {t.keySaved}
+            </p>
+          ) : option.keyField ? (
             <input
               value={apiKey}
               type="password"
@@ -197,18 +271,30 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
               placeholder={option.keyPlaceholder}
               className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
             />
-          </label>
-        ))}
+          ) : null}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           onClick={() => void persist()}
-          disabled={busy}
+          disabled={busy || testing}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t.save}
         </button>
+        {choice.id === "gemini" || option?.keyField || choice.id === "custom" ? (
+          <button
+            type="button"
+            onClick={() => void runTest()}
+            disabled={busy || testing || (needsKey && !apiKey.trim())}
+            className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+          >
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+            {testing ? t.testing : t.test}
+          </button>
+        ) : null}
         <span className="text-xs text-muted-foreground">
           {t.active}: {option?.label ?? "Gemini"}
         </span>
