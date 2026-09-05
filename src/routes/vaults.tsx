@@ -39,6 +39,7 @@ function VaultsPage() {
         </p>
         <VaultHub lang={lang} selected={persona} onSelect={setPersona} />
         <div className="mt-8 space-y-6 border-t border-border pt-6">
+          <SubtitleHealth />
           <MindManager lang={lang} />
           <SavedMinds lang={lang} forcedPersona={persona ?? undefined} />
         </div>
