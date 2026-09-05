@@ -35,6 +35,8 @@ export type MinerOption = {
   capability: string;
   /** Honest trade-off of this AI. */
   downside: string;
+  /** Per-AI source limits, shown in the "What you can mine" panel. */
+  limits: { youtube: string; files: string; langs: string };
   /** OpenAI-compatible base URL used for the key test (empty = provider-specific). */
   baseUrl: string;
   /** Cheap model used for the key test. */
