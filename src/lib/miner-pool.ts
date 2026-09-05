@@ -47,12 +47,12 @@ export const MINERS: MinerOption[] = [
   {
     id: "gemini",
     label: "Gemini",
-    note: "Default · reads video natively · free tier",
-    keyField: "",
-    keyPlaceholder: "",
+    note: "Default · reads video natively · free tier, or your own paid key",
+    keyField: "GEMINI_API_KEY",
+    keyPlaceholder: "AIza...",
     keyUrl: "https://aistudio.google.com/apikey",
     guidance:
-      "No key needed — Gemini mining is included with your Evermind account. You can still add your own free key from Google AI Studio → Get API key if you prefer to use your own quota.",
+      "Optional. Mining works without a key on the built-in engine. Add your own key from Google AI Studio → Get API key (paid tier) to mine on your own quota — no daily free-tier limits, faster queues. Paid keys bill to your Google account; Evermind adds nothing.",
     capability:
       "Mines video natively: subtitles with timestamps, faces, emotions, voice prints, topics, story beats — the only engine that sees the footage itself.",
     downside: "Free tier has a daily quota; long queues of videos may pause until the quota resets.",
