@@ -31,6 +31,8 @@ import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
 import { buildMindView, clock, secondsOf, type Segment } from "@/lib/mind-explore";
 import type { MindPayload } from "@/lib/mind-json";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { GameCoach } from "@/components/game-coach";
+import { downloadTeammateBot } from "@/lib/game-bot";
 
 const C = {
   title: { en: "Mind Explorer", mn: "Оюун Судлаач", ko: "마인드 탐색기" },
@@ -59,6 +61,12 @@ const C = {
   gameWhen: { en: "When", mn: "Хэзээ", ko: "상황" },
   gameCounter: { en: "Counter", mn: "Эсрэг арга", ko: "카운터" },
   gameOutcome: { en: "Outcome", mn: "Үр дүн", ko: "결과" },
+  teammate: { en: "Download Teammate bot", mn: "Хамтрагч бот татах", ko: "팀메이트 봇 다운로드" },
+  teammateHint: {
+    en: "A Mineflayer bot for Minecraft Java that plays beside you, seeded with this Mind's skills and tactics.",
+    mn: "Minecraft Java-д таны хажууд тоглодог Mineflayer бот — энэ Оюуны ур чадвар, тактикаар тэжээгдсэн.",
+    ko: "이 마인드의 스킬과 전술로 움직이는 Minecraft Java용 Mineflayer 봇입니다.",
+  },
   fix: { en: "Fix & patch", mn: "Засах", ko: "수정 및 패치" },
   play: { en: "Play", mn: "Тоглуулах", ko: "재생" },
   noVideo: {
@@ -428,6 +436,14 @@ export function MindExplorer({
             </TabsContent>
 
             <TabsContent value="gameplay" className="space-y-6 pt-4">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+                <GameCoach lang={lang} mindName={title} brain={view.gaming} />
+                <Button size="sm" variant="outline" onClick={() => downloadTeammateBot(title, view.gaming)}>
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {t("teammate")}
+                </Button>
+                <p className="w-full text-xs text-muted-foreground">{t("teammateHint")}</p>
+              </div>
               <section className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameSkills")}</p>
                 {view.gaming.skills.length === 0 ? (
