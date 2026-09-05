@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { MindManager } from "@/components/mind-manager";
 import { SavedMinds } from "@/components/saved-minds";
+import { SubtitleHealth } from "@/components/subtitle-health";
 import { VaultHub, type VaultPersonaSelection } from "@/components/vault-hub";
 
 import { useLang } from "@/lib/i18n";
