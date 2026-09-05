@@ -77,6 +77,10 @@ export function SavedMinds({
     none: pickCopy({ en: "Unassigned", mn: "Хуваарилаагүй", ko: "미지정" }, lang),
     save: pickCopy({ en: "Save", mn: "Хадгалах", ko: "저장" }, lang),
     close: pickCopy({ en: "Close", mn: "Хаах", ko: "닫기" }, lang),
+    mine: pickCopy({ en: "Mine", mn: "Олборлох", ko: "마이닝" }, lang),
+    mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
+    pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
+
   };
 
   const { data: personas = [] } = useQuery<Persona[]>({
