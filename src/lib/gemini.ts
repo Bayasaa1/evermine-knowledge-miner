@@ -385,6 +385,59 @@ export type ChunkResult = {
   emotionTimeline: EmotionMoment[];
   /** Copyright & authenticity check for this segment. */
   copyright: CopyrightAudit;
+  /** Gaming Mind: player clone material mined from gameplay footage. */
+  gaming: GamingExtraction;
+};
+
+/** A distinct, repeatable play skill the player demonstrates. */
+export type GameSkill = {
+  name: string;
+  /** combat | building | movement | resource | strategy | other */
+  kind: string;
+  detail: string;
+  timestamp_start: string;
+  timestamp_end: string;
+  confidence_score: number;
+};
+
+/** A named tactic or setup worth reusing. */
+export type GameTactic = {
+  name: string;
+  when: string;
+  steps: string[];
+  counter: string;
+  timestamp_start: string;
+  timestamp_end: string;
+};
+
+/** A decision moment: situation, choice, and why it worked or failed. */
+export type GameDecision = {
+  timestamp: string;
+  situation: string;
+  action: string;
+  why: string;
+  outcome: "worked" | "failed" | "unknown";
+};
+
+/** A step-by-step tutorial pulled out of the footage. */
+export type GameTutorial = {
+  title: string;
+  goal: string;
+  steps: string[];
+  timestamp_start: string;
+  timestamp_end: string;
+};
+
+/** Gaming Mind extraction: what the clone needs to coach, teach and play. */
+export type GamingExtraction = {
+  skills: GameSkill[];
+  tactics: GameTactic[];
+  decisions: GameDecision[];
+  tutorials: GameTutorial[];
+  /** Humour, catchphrases, pacing, how the player explains plays. */
+  commentaryStyle: string[];
+  /** Typical mistakes the player made and how they recovered. */
+  mistakes: string[];
 };
 
 
@@ -653,6 +706,74 @@ const responseSchema = {
       },
       required: ["flagged", "originality", "summary", "signals"],
     },
+    // Only filled for the Gaming Mind category; omitted otherwise so other
+    // categories don't pay tokens for gameplay fields.
+    gaming: {
+      type: "object",
+      properties: {
+        skills: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              kind: { type: "string" },
+              detail: { type: "string" },
+              timestamp_start: { type: "string" },
+              timestamp_end: { type: "string" },
+              confidence_score: { type: "number" },
+            },
+            required: ["name", "kind", "detail", "timestamp_start", "timestamp_end", "confidence_score"],
+          },
+        },
+        tactics: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              when: { type: "string" },
+              steps: { type: "array", items: { type: "string" } },
+              counter: { type: "string" },
+              timestamp_start: { type: "string" },
+              timestamp_end: { type: "string" },
+            },
+            required: ["name", "when", "steps", "counter", "timestamp_start", "timestamp_end"],
+          },
+        },
+        decisions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              situation: { type: "string" },
+              action: { type: "string" },
+              why: { type: "string" },
+              outcome: { type: "string", enum: ["worked", "failed", "unknown"] },
+            },
+            required: ["timestamp", "situation", "action", "why", "outcome"],
+          },
+        },
+        tutorials: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              goal: { type: "string" },
+              steps: { type: "array", items: { type: "string" } },
+              timestamp_start: { type: "string" },
+              timestamp_end: { type: "string" },
+            },
+            required: ["title", "goal", "steps", "timestamp_start", "timestamp_end"],
+          },
+        },
+        commentaryStyle: { type: "array", items: { type: "string" } },
+        mistakes: { type: "array", items: { type: "string" } },
+      },
+      required: ["skills", "tactics", "decisions", "tutorials", "commentaryStyle", "mistakes"],
+    },
   },
 
   required: [
@@ -741,9 +862,20 @@ Map every diarized voice onto these names in "speakers". The Mind Owner / Host i
 }
 
 /** Category-strict mining directives selected in the "+" Create hub. */
-export type MiningCategory = "knowledge" | "robot" | "voice" | "sales";
+export type MiningCategory = "knowledge" | "robot" | "voice" | "sales" | "gaming";
 
 export function categoryDirective(category: MiningCategory | undefined): string {
+  if (category === "gaming") {
+    return `\n\nCATEGORY: GAMING MIND / PLAYER CLONE — GAMEPLAY MODE (STRICT).
+This footage is gameplay (e.g. Minecraft). In addition to everything above, fill the "gaming" object so a clone can coach, teach and play like this player:
+- "skills": one entry per distinct, repeatable play skill (combat, building, movement, resource gathering, strategy). Give "name", "kind", a precise "detail" of HOW they execute it, tight whole-video-relative "timestamp_start"/"timestamp_end", and an honest "confidence_score" (below 0.8 when you are inferring).
+- "tactics": named tactics or setups worth reusing: "name", "when" (the situation that calls for it), ordered "steps", and "counter" (what beats it), with timestamps.
+- "decisions": decision moments — "timestamp", the "situation", the "action" taken, "why" it was right or wrong (from commentary or the visible result), and "outcome" (worked | failed | unknown).
+- "tutorials": any step-by-step teaching the player does — "title", "goal", ordered "steps", timestamps.
+- "commentaryStyle": how this player talks — humour, catchphrases, pacing, how they explain plays. Short quotes are welcome.
+- "mistakes": typical mistakes they made on camera and how they recovered.
+Only claim what the footage actually shows. Never invent mechanics the video does not demonstrate.`;
+  }
   if (category === "robot") {
     return `\n\nCATEGORY: ROBOT BRAIN / EMBODIED VLA — STRICT SPATIAL MODE.
 "knowledgeNodes" is the primary output of this run. Emit one node for EVERY distinct physical manipulation, and always fill "spatial_action" with object_name, coordinates_xyz (3 normalized numbers, camera space), grasp_type and movement_vector (3 normalized numbers). Timestamps must be tight (under 8 seconds per node). Give an honest "confidence_score"; anything you infer rather than see must stay below 0.8 so it is discarded. Prefer fewer, exact nodes over many approximate ones.`;
@@ -892,6 +1024,41 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     signals,
     summary: typeof cp['summary'] === "string" ? cp['summary'] : "",
   };
+  const gm = (v['gaming'] ?? {}) as Record<string, unknown>;
+  const gaming: GamingExtraction = {
+    skills: arr<Record<string, unknown>>(gm['skills']).map((s) => ({
+      name: String(s?.['name'] ?? ""),
+      kind: String(s?.['kind'] ?? "other"),
+      detail: String(s?.['detail'] ?? ""),
+      timestamp_start: String(s?.['timestamp_start'] ?? ""),
+      timestamp_end: String(s?.['timestamp_end'] ?? ""),
+      confidence_score: num(s?.['confidence_score']),
+    })),
+    tactics: arr<Record<string, unknown>>(gm['tactics']).map((t) => ({
+      name: String(t?.['name'] ?? ""),
+      when: String(t?.['when'] ?? ""),
+      steps: strings(t?.['steps']),
+      counter: String(t?.['counter'] ?? ""),
+      timestamp_start: String(t?.['timestamp_start'] ?? ""),
+      timestamp_end: String(t?.['timestamp_end'] ?? ""),
+    })),
+    decisions: arr<Record<string, unknown>>(gm['decisions']).map((d) => ({
+      timestamp: String(d?.['timestamp'] ?? ""),
+      situation: String(d?.['situation'] ?? ""),
+      action: String(d?.['action'] ?? ""),
+      why: String(d?.['why'] ?? ""),
+      outcome: (d?.['outcome'] === "worked" || d?.['outcome'] === "failed" ? d['outcome'] : "unknown") as GameDecision["outcome"],
+    })),
+    tutorials: arr<Record<string, unknown>>(gm['tutorials']).map((t) => ({
+      title: String(t?.['title'] ?? ""),
+      goal: String(t?.['goal'] ?? ""),
+      steps: strings(t?.['steps']),
+      timestamp_start: String(t?.['timestamp_start'] ?? ""),
+      timestamp_end: String(t?.['timestamp_end'] ?? ""),
+    })),
+    commentaryStyle: strings(gm['commentaryStyle']),
+    mistakes: strings(gm['mistakes']),
+  };
   return {
 
     speakers,
@@ -923,7 +1090,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     knowledgeNodes,
     emotionTimeline,
     copyright,
-
+    gaming,
   };
 }
 

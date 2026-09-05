@@ -12,6 +12,8 @@ import {
   Brain,
   Captions,
   Code2,
+  Download,
+  Gamepad2,
   Music4,
   Play,
   Scissors,
@@ -27,9 +29,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
-import { buildMindView, clock, type Segment } from "@/lib/mind-explore";
+import { buildMindView, clock, secondsOf, type Segment } from "@/lib/mind-explore";
 import type { MindPayload } from "@/lib/mind-json";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { GameCoach } from "@/components/game-coach";
+import { downloadTeammateBot } from "@/lib/game-bot";
 
 const C = {
   title: { en: "Mind Explorer", mn: "Оюун Судлаач", ko: "마인드 탐색기" },
@@ -48,6 +52,22 @@ const C = {
   audio: { en: "Audio", mn: "Аудио", ko: "오디오" },
   persona: { en: "Persona", mn: "Дүр", ko: "페르소나" },
   raw: { en: "Raw JSON", mn: "Түүхий JSON", ko: "원본 JSON" },
+  gameplay: { en: "Gameplay", mn: "Тоглолт", ko: "게임플레이" },
+  gameSkills: { en: "Play skills", mn: "Тоглох ур чадвар", ko: "플레이 스킬" },
+  gameTactics: { en: "Tactics", mn: "Тактик", ko: "전술" },
+  gameDecisions: { en: "Decision moments", mn: "Шийдвэрийн мөчүүд", ko: "의사결정 순간" },
+  gameTutorials: { en: "Tutorials", mn: "Заавар", ko: "튜토리얼" },
+  gameStyle: { en: "Commentary style", mn: "Тайлбарын хэв маяг", ko: "해설 스타일" },
+  gameMistakes: { en: "Mistakes & recovery", mn: "Алдаа ба сэргээлт", ko: "실수와 회복" },
+  gameWhen: { en: "When", mn: "Хэзээ", ko: "상황" },
+  gameCounter: { en: "Counter", mn: "Эсрэг арга", ko: "카운터" },
+  gameOutcome: { en: "Outcome", mn: "Үр дүн", ko: "결과" },
+  teammate: { en: "Download Teammate bot", mn: "Хамтрагч бот татах", ko: "팀메이트 봇 다운로드" },
+  teammateHint: {
+    en: "A Mineflayer bot for Minecraft Java that plays beside you, seeded with this Mind's skills and tactics.",
+    mn: "Minecraft Java-д таны хажууд тоглодог Mineflayer бот — энэ Оюуны ур чадвар, тактикаар тэжээгдсэн.",
+    ko: "이 마인드의 스킬과 전술로 움직이는 Minecraft Java용 Mineflayer 봇입니다.",
+  },
   fix: { en: "Fix & patch", mn: "Засах", ko: "수정 및 패치" },
   play: { en: "Play", mn: "Тоглуулах", ko: "재생" },
   noVideo: {
@@ -126,6 +146,12 @@ export function MindExplorer({
 
   const playable = !!view.youtubeId;
   const play = (seg: Segment) => setClip({ start: Math.max(0, Math.floor(seg.start)), end: seg.end ? Math.ceil(seg.end) : null });
+  /** Play a "MM:SS - MM:SS" string range from gaming records. */
+  const playRange = (start: string, end: string): (() => void) | undefined => {
+    const s = secondsOf(start);
+    if (s === null) return undefined;
+    return () => play({ start: s, end: secondsOf(end) });
+  };
 
   const needle = q.trim().toLowerCase();
   const match = (...parts: (string | undefined | null)[]) =>
@@ -189,6 +215,9 @@ export function MindExplorer({
               <TabsTrigger value="face"><UserSquare2 className="mr-1.5 h-3.5 w-3.5" />{t("face")} {view.counts['face']}</TabsTrigger>
               <TabsTrigger value="emotions"><Smile className="mr-1.5 h-3.5 w-3.5" />{t("emotions")} {view.counts['emotions']}</TabsTrigger>
               <TabsTrigger value="audio"><Music4 className="mr-1.5 h-3.5 w-3.5" />{t("audio")}</TabsTrigger>
+              {view.counts['gameSkills']! + view.counts['gameTutorials']! > 0 || view.gaming.skills.length > 0 || view.gaming.tactics.length > 0 ? (
+                <TabsTrigger value="gameplay"><Gamepad2 className="mr-1.5 h-3.5 w-3.5" />{t("gameplay")}</TabsTrigger>
+              ) : null}
               <TabsTrigger value="persona">{t("persona")}</TabsTrigger>
               <TabsTrigger value="raw"><Code2 className="mr-1.5 h-3.5 w-3.5" />{t("raw")}</TabsTrigger>
             </TabsList>
@@ -405,6 +434,103 @@ export function MindExplorer({
                   ))}
                 </ul>
               )}
+            </TabsContent>
+
+            <TabsContent value="gameplay" className="space-y-6 pt-4">
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+                <GameCoach lang={lang} mindName={title} brain={view.gaming} />
+                <Button size="sm" variant="outline" onClick={() => downloadTeammateBot(title, view.gaming)}>
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {t("teammate")}
+                </Button>
+                <p className="w-full text-xs text-muted-foreground">{t("teammateHint")}</p>
+              </div>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameSkills")}</p>
+                {view.gaming.skills.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.skills.map((s, i) => (
+                      <Row key={i} stamp={s.timestamp_start} playable={playable} onPlay={playRange(s.timestamp_start, s.timestamp_end)}>
+                        <p className="font-medium text-foreground">{s.name} <Badge variant="outline">{s.kind}</Badge></p>
+                        <p className="text-muted-foreground">{s.detail}</p>
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameTactics")}</p>
+                {view.gaming.tactics.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.tactics.map((tc, i) => (
+                      <Row key={i} stamp={tc.timestamp_start} playable={playable} onPlay={playRange(tc.timestamp_start, tc.timestamp_end)}>
+                        <p className="font-medium text-foreground">{tc.name}</p>
+                        {tc.when ? <p className="text-muted-foreground">{t("gameWhen")}: {tc.when}</p> : null}
+                        {tc.steps.length > 0 ? (
+                          <ol className="list-decimal space-y-0.5 pl-5 text-muted-foreground">
+                            {tc.steps.map((st, j) => <li key={j}>{st}</li>)}
+                          </ol>
+                        ) : null}
+                        {tc.counter ? <p className="text-xs text-muted-foreground">{t("gameCounter")}: {tc.counter}</p> : null}
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameDecisions")}</p>
+                {view.gaming.decisions.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.decisions.map((d, i) => (
+                      <Row key={i} stamp={d.timestamp} playable={playable} onPlay={playRange(d.timestamp, "")}>
+                        <p className="text-foreground">{d.situation}</p>
+                        <p className="text-muted-foreground">{d.action} — {d.why}</p>
+                        <Badge variant={d.outcome === "failed" ? "destructive" : "secondary"}>{t("gameOutcome")}: {d.outcome}</Badge>
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameTutorials")}</p>
+                {view.gaming.tutorials.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.tutorials.map((tu, i) => (
+                      <Row key={i} stamp={tu.timestamp_start} playable={playable} onPlay={playRange(tu.timestamp_start, tu.timestamp_end)}>
+                        <p className="font-medium text-foreground">{tu.title}</p>
+                        {tu.goal ? <p className="text-muted-foreground">{tu.goal}</p> : null}
+                        <ol className="list-decimal space-y-0.5 pl-5 text-muted-foreground">
+                          {tu.steps.map((st, j) => <li key={j}>{st}</li>)}
+                        </ol>
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              {view.gaming.commentaryStyle.length > 0 || view.gaming.mistakes.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameStyle")}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {view.gaming.commentaryStyle.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}
+                  </div>
+                  {view.gaming.mistakes.length > 0 ? (
+                    <>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameMistakes")}</p>
+                      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                        {view.gaming.mistakes.map((m, i) => <li key={i}>{m}</li>)}
+                      </ul>
+                    </>
+                  ) : null}
+                </section>
+              ) : null}
             </TabsContent>
 
             <TabsContent value="persona" className="space-y-4 pt-4">

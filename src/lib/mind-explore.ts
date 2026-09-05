@@ -9,6 +9,7 @@
  */
 import { parseTimestamp } from "@/lib/mind-json";
 import type { MindPayload } from "@/lib/mind-json";
+import type { GamingExtraction } from "@/lib/gemini";
 
 const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
 const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
@@ -60,6 +61,8 @@ export type MindView = {
   knowledge: string[];
   voice: VoiceClip[];
   face: FaceClip[];
+  /** Gaming Mind: skills/tactics/decisions/tutorials mined from gameplay. */
+  gaming: GamingExtraction;
   emotions: EmotionPoint[];
   music: MusicSegment[];
   musicTracks: string[];
@@ -244,6 +247,7 @@ export function buildMindView(payload: MindPayload): MindView {
     knowledge: strList(result['knowledge']),
     voice,
     face,
+    gaming: gamingOf(result['gaming']),
     emotions,
     music,
     musicTracks: strList(audio['tracks']) ,
@@ -261,6 +265,57 @@ export function buildMindView(payload: MindPayload): MindView {
       face: face.length,
       emotions: emotions.length,
       beats: beats.length,
+      gameSkills: gamingOf(result['gaming']).skills.length,
+      gameTutorials: gamingOf(result['gaming']).tutorials.length,
     },
+  };
+}
+
+const EMPTY_GAMING: GamingExtraction = {
+  skills: [],
+  tactics: [],
+  decisions: [],
+  tutorials: [],
+  commentaryStyle: [],
+  mistakes: [],
+};
+
+/** Coerce a raw gaming object into the typed shape; empty when absent. */
+function gamingOf(raw: unknown): GamingExtraction {
+  if (!raw || typeof raw !== "object") return EMPTY_GAMING;
+  const g = raw as Record<string, unknown>;
+  return {
+    skills: arr(g['skills']).map((s) => ({
+      name: str(s['name']),
+      kind: str(s['kind']) || "other",
+      detail: str(s['detail']),
+      timestamp_start: str(s['timestamp_start']),
+      timestamp_end: str(s['timestamp_end']),
+      confidence_score: typeof s['confidence_score'] === "number" ? s['confidence_score'] : 0,
+    })),
+    tactics: arr(g['tactics']).map((t) => ({
+      name: str(t['name']),
+      when: str(t['when']),
+      steps: strList(t['steps']),
+      counter: str(t['counter']),
+      timestamp_start: str(t['timestamp_start']),
+      timestamp_end: str(t['timestamp_end']),
+    })),
+    decisions: arr(g['decisions']).map((d) => ({
+      timestamp: str(d['timestamp']),
+      situation: str(d['situation']),
+      action: str(d['action']),
+      why: str(d['why']),
+      outcome: (d['outcome'] === "worked" || d['outcome'] === "failed" ? d['outcome'] : "unknown") as "worked" | "failed" | "unknown",
+    })),
+    tutorials: arr(g['tutorials']).map((t) => ({
+      title: str(t['title']),
+      goal: str(t['goal']),
+      steps: strList(t['steps']),
+      timestamp_start: str(t['timestamp_start']),
+      timestamp_end: str(t['timestamp_end']),
+    })),
+    commentaryStyle: strList(g['commentaryStyle']),
+    mistakes: strList(g['mistakes']),
   };
 }

@@ -336,6 +336,9 @@ const CATEGORY_POOLS: Record<string, MinerId[]> = {
   sales: ["gemini", "groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
   robot: ["gemini", "qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
   voice: ["gemini", "whisper-groq", "mistral", "chatgpt", "qwen-audio", "gemini-pro", "openrouter", "custom"],
+  // Gameplay must be SEEN: skills, tactics and movement come from the picture,
+  // so only AIs with eyes appear — same shape as the Robot Brain pool.
+  gaming: ["gemini", "qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
 };
 
 /** Which senses a creation type needs from its AIs. */
@@ -344,6 +347,7 @@ const CATEGORY_SENSES: Record<string, Sense[]> = {
   sales: ["text", "image"],
   robot: ["video"],
   voice: ["audio"],
+  gaming: ["video"],
 };
 
 /** The 8-option pool for a creation type, ordered free → paid → manual. */
@@ -359,7 +363,7 @@ export function sensesForCategory(category: string): Sense[] {
 
 /** Team mode (2–3 thinking AIs) is offered for reasoning-heavy types. */
 export function isTeamEligible(category: string): boolean {
-  return category === "knowledge" || category === "sales";
+  return category === "knowledge" || category === "sales" || category === "gaming";
 }
 
 /** OpenAI-compatible bases for direct browser key tests. */

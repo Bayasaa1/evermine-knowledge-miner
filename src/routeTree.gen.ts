@@ -22,6 +22,7 @@ import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } fr
 import { Route as AdminControlSessionRouteImport } from './routes/admin/control-session'
 import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
+import { Route as ApiMindCoachRouteImport } from './routes/api/mind-coach'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
@@ -95,6 +96,11 @@ const ApiMindChatRoute = ApiMindChatRouteImport.update({
   path: '/api/mind-chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMindCoachRoute = ApiMindCoachRouteImport.update({
+  id: '/api/mind-coach',
+  path: '/api/mind-coach',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMindVoiceRoute = ApiMindVoiceRouteImport.update({
   id: '/api/mind-voice',
   path: '/api/mind-voice',
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
+  '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
+  '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/admin/control-session': typeof AdminControlSessionRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
+  '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
@@ -208,6 +217,7 @@ export interface FileRouteTypes {
     | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
+    | '/api/mind-coach'
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/.lovable/oauth/consent'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
+    | '/api/mind-coach'
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/.lovable/oauth/consent'
@@ -250,6 +261,7 @@ export interface FileRouteTypes {
     | '/admin/control-session'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
+    | '/api/mind-coach'
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/.lovable/oauth/consent'
@@ -272,6 +284,7 @@ export interface RootRouteChildren {
   AdminControlSessionRoute: typeof AdminControlSessionRoute
   ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
+  ApiMindCoachRoute: typeof ApiMindCoachRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
@@ -373,6 +386,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMindChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mind-coach': {
+      id: '/api/mind-coach'
+      path: '/api/mind-coach'
+      fullPath: '/api/mind-coach'
+      preLoaderRoute: typeof ApiMindCoachRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mind-voice': {
       id: '/api/mind-voice'
       path: '/api/mind-voice'
@@ -433,6 +453,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminControlSessionRoute: AdminControlSessionRoute,
   ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
+  ApiMindCoachRoute: ApiMindCoachRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
