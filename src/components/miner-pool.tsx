@@ -19,6 +19,7 @@ import {
   existingKeyFor,
   findMiner,
   loadMinerChoice,
+  minerReadiness,
   saveMinerChoice,
   storeKeyFor,
   testMinerKey,
