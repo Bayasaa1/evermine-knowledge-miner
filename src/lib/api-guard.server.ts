@@ -71,10 +71,10 @@ export async function requireApiUser(request: Request): Promise<ApiUser | Respon
  * requireSupabaseAuth. Throws when the account is suspended.
  */
 export async function assertNotBanned(
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown }> },
+  supabase: { rpc: (fn: never, args: never) => PromiseLike<{ data: unknown }> },
   userId: string,
 ): Promise<void> {
-  const { data } = await supabase.rpc("is_banned", { _user_id: userId });
+  const { data } = await supabase.rpc("is_banned" as never, { _user_id: userId } as never);
   if (data) throw new Error("This account has been suspended.");
 }
 
