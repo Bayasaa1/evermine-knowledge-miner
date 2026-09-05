@@ -1302,6 +1302,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           <li className="flex gap-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitLangs")}
           </li>
+          {(() => {
+            const m = findMiner(miner.id);
+            if (!m) return null;
+            return (
+              <li className="flex gap-2">
+                <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>
+                  <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
+                  <span className="text-muted-foreground/80">{m.downside}</span>
+                </span>
+              </li>
+            );
+          })()}
         </ul>
       </div>
     </StepShell>
