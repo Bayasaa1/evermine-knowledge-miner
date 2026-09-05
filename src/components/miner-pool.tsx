@@ -15,10 +15,11 @@
  * Saved Minds until the creator comes back.
  */
 import { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle, Users } from "lucide-react";
+import { BrainCircuit, Check, ExternalLink, KeyRound, Lightbulb, Loader2, PlayCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import {
+  companionHint,
   DEFAULT_MINER,
   existingKeyFor,
   findMiner,

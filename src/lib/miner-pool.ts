@@ -569,13 +569,6 @@ export type SensePlan = {
   selfSufficient: boolean;
 };
 
-const CATEGORY_SENSES: Record<string, Sense[]> = {
-  knowledge: ["text"],
-  sales: ["text"],
-  voice: ["text", "audio"],
-  robot: ["text", "image", "video"],
-};
-
 export function sensePlan(choice: MinerChoice, category = "knowledge"): SensePlan {
   const opt = findMiner(choice.id);
   const senses = choice.id === "custom" ? choice.custom.senses : (opt?.senses ?? ["text"]);
