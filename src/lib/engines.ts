@@ -5,7 +5,7 @@
  * run entirely on the user's own API key (BYO).
  */
 import { idbGet, idbSet, idbDelete, STORES } from "./store";
-import { scopedKey } from "./user-scope";
+import { scopedKey, whenScopeReady } from "./user-scope";
 
 export type EngineSlot = "llm" | "tts" | "avatar";
 export type EngineTier = "free" | "premium";

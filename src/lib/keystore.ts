@@ -1,5 +1,5 @@
 import { idbGet, idbSet, idbDelete, STORES } from "./store";
-import { scopedKey } from "./user-scope";
+import { scopedKey, whenScopeReady } from "./user-scope";
 
 // API keys are stored per signed-in account. Switching accounts switches vaults;
 // no account ever reads another's keys.
