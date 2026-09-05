@@ -348,7 +348,7 @@ const CATEGORY_SENSES: Record<string, Sense[]> = {
 
 /** The 8-option pool for a creation type, ordered free → paid → manual. */
 export function minersForCategory(category: string): MinerOption[] {
-  const ids = CATEGORY_POOLS[category] ?? CATEGORY_POOLS.knowledge!;
+  const ids = CATEGORY_POOLS[category] ?? CATEGORY_POOLS["knowledge"]!;
   return ids.map((id) => MINERS.find((m) => m.id === id)!).filter(Boolean);
 }
 
