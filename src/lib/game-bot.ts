@@ -18,6 +18,10 @@ export function buildTeammateBotSource(mindName: string, gaming: GamingExtractio
     tactics: gaming.tactics.map((t) => ({ name: t.name, when: t.when, steps: t.steps, counter: t.counter })),
     commentaryStyle: gaming.commentaryStyle,
     mistakes: gaming.mistakes,
+    // The soul of the clone: how the player talks, thinks, and feels in game.
+    communication: gaming.communication.map((c) => ({ kind: c.kind, quote: c.quote, context: c.context })),
+    mindset: gaming.mindset,
+    emotions: gaming.emotions.map((e) => ({ trigger: e.trigger, reaction: e.reaction, quote: e.quote })),
   };
   const botName = `${mindName.replace(/[^A-Za-z0-9]+/g, "_")}_Bot`.slice(0, 30);
 
