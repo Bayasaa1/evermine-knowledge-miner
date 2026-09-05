@@ -38,7 +38,7 @@ export function rateLimit(scope: string, userId: string, limit = DEFAULT_LIMIT):
 }
 
 /**
- * Validates the request's Supabase bearer token.
+ * Validates the request's Supabase bearer token and rejects banned accounts.
  * Returns the user on success, or a Response to return straight to the caller.
  */
 export async function requireApiUser(request: Request): Promise<ApiUser | Response> {
@@ -52,13 +52,30 @@ export async function requireApiUser(request: Request): Promise<ApiUser | Respon
     return jsonError("Sign in to use this feature.", 401);
   }
 
+  // User-scoped client: every query runs as the caller, so RLS applies.
   const supabase = createClient(url, key, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
   const { data, error } = await supabase.auth.getClaims(token);
   const userId = data?.claims?.sub;
   if (error || !userId) return jsonError("Sign in to use this feature.", 401);
+
+  const { data: banned } = await supabase.rpc("is_banned", { _user_id: userId });
+  if (banned) return jsonError("This account has been suspended.", 403);
   return { userId };
+}
+
+/**
+ * Ban enforcement for createServerFn handlers that already went through
+ * requireSupabaseAuth. Throws when the account is suspended.
+ */
+export async function assertNotBanned(
+  supabase: { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown }> },
+  userId: string,
+): Promise<void> {
+  const { data } = await supabase.rpc("is_banned", { _user_id: userId });
+  if (data) throw new Error("This account has been suspended.");
 }
 
 /** Auth + rate limit in one call. Returns a Response when the request must stop. */
