@@ -32,14 +32,16 @@ You are right: Groq cannot watch a video, so it can never build a Robot Brain. T
 - The manual "add your own AI" form asks the creator to tick what their AI can handle (text / image / audio / video); it then joins the pools that match.
 - The "What you can mine" panel stays per-AI and also states what that AI produces for the current creation type, and what it cannot.
 
-## How mining uses the choice (this is what is missing today)
+## How mining uses the choice (this answers the blind-AI problem)
 
-Right now the pick is saved but every job still runs on Gemini. Mining becomes two stages:
+A blind AI never touches the footage. Mining always runs in two stages:
 
-1. Sight and sound pass — a vision engine reads the footage and produces transcript, timestamps, faces, emotion and voice segments.
-2. Understanding pass — the AI the creator picked turns that material into the schema for their creation type (knowledge, robot, voice or sales), using the creator's stored key, falling back to the built-in engine when no key exists.
+1. **Sight and sound pass — always the built-in Gemini engine**, regardless of the picked AI. It watches the video and produces the raw senses as text: transcript with timestamps, face and movement descriptions, emotion readings, voice segments. This stage is free for the creator and needs no key.
+2. **Understanding pass — the AI the creator picked.** It receives stage 1's text material and turns it into the final schema for the creation type (knowledge, robot, voice or sales), using the creator's stored key, falling back to the built-in engine when no key exists.
 
-For text-only AIs (Knowledge and Sales), stage 1 shrinks to transcript extraction, so a creator's free Groq or Mistral key genuinely does the mining work.
+So Groq can build a Knowledge Mind: Gemini sees the video, extracts emotion and movement notes as text, and Groq does the reasoning. What Groq still cannot do is the Robot Brain — trajectories and 3D grasp need a vision model doing the *analysis*, not just the extraction — which is why only vision AIs appear in that pool.
+
+For Knowledge and Sales minds, stage 2 is where the picked AI genuinely works. For Robot and Voice, the picked vision/audio AI is involved in both stages.
 
 ## Technical notes
 
