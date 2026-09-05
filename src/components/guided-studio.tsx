@@ -22,6 +22,7 @@ import {
   Sparkles,
   KeyRound,
   Square,
+  Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
 } from "lucide-react";
@@ -68,9 +69,17 @@ import {
   formatPublishedDate,
   type Assessment,
   type VideoMetadata,
+  type MiningJob,
 } from "@/lib/mining-jobs";
 import { getYoutubeMetadata } from "@/lib/youtube-meta.functions";
-import { runNextChunk, startMiningJobs } from "@/lib/mining-jobs.functions";
+import {
+  attachMiningJobVault,
+  getMiningJobResults,
+  listMiningJobs,
+  runNextChunk,
+  setMiningJobState,
+  startMiningJobs,
+} from "@/lib/mining-jobs.functions";
 import { withNetworkRetry } from "@/lib/retry";
 
 
@@ -363,7 +372,11 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [justSaved, setJustSaved] = useState<SavedSource[]>([]);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   /** Saved-Mind row currently selected for mining (step 3). */
-  const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+  // Multi-selection: every ticked saved video is mined, one after another.
+  const [pickedIds, setPickedIds] = useState<string[]>([]);
+  const pickedSourceId = pickedIds[0] ?? null;
+  const activeJobId = useRef<string | null>(null);
+  const [pausing, setPausing] = useState(false);
   const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
 
   const lib = {
@@ -415,7 +428,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   useEffect(() => {
     if (saveMode || pickedSourceId || pendingSources.length === 0) return;
     const first = pendingSources[0]!;
-    setPickedSourceId(first.id);
+    setPickedIds([first.id]);
     setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
     setUrl(first.payload.source.url);
     const v = first.payload.video;
@@ -661,7 +674,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       setSavedTitle(`${title} · ${saved.version}`);
       await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
-
+      return saved.vaultId;
     },
     [lang, queryClient, target, userId, assessment],
   );
@@ -669,7 +682,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
   /** Local checkpoint + growth stats, then cloud vault / feed persistence. */
   const finishMined = useCallback(
-    async (rawMined: ChunkResult, source: ImportSource) => {
+    async (rawMined: ChunkResult, source: ImportSource): Promise<string | null> => {
       // Stage 2 — the understanding pass: the AI picked in step 3 (or an AI
       // team) thinks over the material the built-in engine extracted and adds
       // topics, beliefs and knowledge it missed. Never fatal: on any failure
@@ -695,7 +708,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         skills: mined.subconsciousness.skills.length,
         memories: mined.transcript.length,
       });
-      await persist(mined, source);
+      return await persist(mined, source);
     },
     [persist, miner],
   );
@@ -736,12 +749,13 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     [lang],
   );
 
-  /** YouTube: server-side 5-minute checkpoint pipeline (playlists included). */
-  const runYoutubeJobs = useCallback(
-    async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
-      const jobs = await withNetworkRetry(() => startMiningJobs({ data: { url: source.url, assessment } }), {
-        onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
-      });
+  /**
+   * Drives a list of server-side mining jobs to completion, one 5-minute
+   * checkpoint at a time. Used both for freshly started videos and for jobs
+   * picked back up after the tab was closed.
+   */
+  const driveJobs = useCallback(
+    async (jobs: MiningJob[]) => {
       setQueueTotal(jobs.length);
       setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
       say(`$ evermind mine --videos ${jobs.length}`);
@@ -753,10 +767,22 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
       for (let q = 0; q < jobs.length; q++) {
         let current = jobs[q]!;
+        const source: ImportSource & { kind: "youtube" } = {
+          kind: "youtube",
+          url: current.sourceUrl,
+          label: current.sourceLabel,
+        };
+        activeJobId.current = current.id;
         setQueueIndex(q + 1);
         setStatusNote(current.sourceLabel);
         say(`\n## ${current.sourceLabel}`);
-        while (current.status !== "done" && current.status !== "paused_quota" && current.status !== "error") {
+        while (
+          current.status !== "done" &&
+          current.status !== "paused_quota" &&
+          current.status !== "error" &&
+          current.status !== "stopped" &&
+          current.status !== "paused_user"
+        ) {
           if (stopRef.current) {
             say(`\n> ${term.stopped}`);
             return;
@@ -805,12 +831,70 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         if (current.status === "error") {
           throw new Error(current.lastError ?? "Mining failed.");
         }
-        if (lastMerged) await finishMined(lastMerged, source);
+        if (current.status === "stopped" || current.status === "paused_user") {
+          say(`\n> ${term.stopped}`);
+          break;
+        }
+        if (lastMerged) {
+          const vaultId = await finishMined(lastMerged, source);
+          if (vaultId) await attachMiningJobVault({ data: { jobId: current.id, vaultId } }).catch(() => undefined);
+        }
         lastMerged = null;
       }
+      activeJobId.current = null;
     },
     [lang, term, finishMined, say],
   );
+
+  /** YouTube: plan the server-side checkpoint jobs, then mine them. */
+  const runYoutubeJobs = useCallback(
+    async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
+      const jobs = await withNetworkRetry(() => startMiningJobs({ data: { url: source.url, assessment } }), {
+        onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
+      });
+      await driveJobs(jobs);
+    },
+    [driveJobs, say, term],
+  );
+
+  /**
+   * Mining never dies with the tab: on return we finish saving any job the
+   * background worker completed, and pick the still-running ones back up.
+   * Creator-paused and stopped jobs are left exactly as they were.
+   */
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (saveMode || !signedIn || resumedRef.current) return;
+    resumedRef.current = true;
+    void (async () => {
+      const jobs = await listMiningJobs().catch(() => [] as MiningJob[]);
+      const unsaved = jobs.filter((j) => j.status === "done" && !j.vaultId);
+      for (const job of unsaved) {
+        const merged = await getMiningJobResults({ data: { jobId: job.id } }).catch(() => null);
+        if (!merged) continue;
+        const vaultId = await finishMined(merged, {
+          kind: "youtube",
+          url: job.sourceUrl,
+          label: job.sourceLabel,
+        }).catch(() => null);
+        if (vaultId) await attachMiningJobVault({ data: { jobId: job.id, vaultId } }).catch(() => undefined);
+      }
+      const live = jobs.filter(
+        (j) => j.status === "queued" || j.status === "running" || j.status === "paused_quota",
+      );
+      if (live.length === 0) return;
+      stopRef.current = false;
+      setBusy(true);
+      try {
+        await driveJobs(live);
+      } catch {
+        /* the background worker keeps the job alive regardless */
+      } finally {
+        setBusy(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveMode, signedIn]);
 
   const run = useCallback(
     async (assessment: Assessment) => {
@@ -842,7 +926,21 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
       try {
         if (source.kind === "youtube") {
-          await runYoutubeJobs(source, assessment);
+          // Every ticked saved video becomes its own server-side job, and they
+          // are mined one after another without touching this page again.
+          const picked = pendingSources.filter(
+            (p) => pickedIds.includes(p.id) && p.payload.source.kind === "youtube",
+          );
+          const urls = picked.length ? picked.map((p) => p.payload.source.url) : [source.url];
+          if (urls.length === 1) {
+            await runYoutubeJobs({ ...source, url: urls[0]! }, assessment);
+          } else {
+            const jobs: MiningJob[] = [];
+            for (const u of urls) {
+              jobs.push(...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment } }))));
+            }
+            await driveJobs(jobs);
+          }
         } else {
           const mined =
             source.kind === "file"
@@ -869,8 +967,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           await finishMined(mined, source);
         }
         // The saved library entry is now mined — it leaves the "ready to mine" list.
-        if (pickedSourceId) {
-          await markSourceStatus({ data: { id: pickedSourceId, status: "mined" } }).catch(() => undefined);
+        const doneIds = pickedIds.length ? pickedIds : pickedSourceId ? [pickedSourceId] : [];
+        if (doneIds.length && !stopRef.current) {
+          for (const id of doneIds) {
+            await markSourceStatus({ data: { id, status: "mined" } }).catch(() => undefined);
+          }
+          setPickedIds([]);
           await refetchPending();
           await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
         }
@@ -885,7 +987,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         abortRef.current = null;
       }
     },
-    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined, pickedSourceId, refetchPending, queryClient],
+    [
+      resolveSource,
+      explain,
+      signedIn,
+      runYoutubeJobs,
+      driveJobs,
+      finishMined,
+      pickedIds,
+      pickedSourceId,
+      pendingSources,
+      refetchPending,
+      queryClient,
+    ],
 
   );
 
@@ -914,16 +1028,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             <ul className="mt-3 space-y-2">
               {pendingSources.map((s) => {
                 const v = s.payload.video;
-                const on = pickedSourceId === s.id;
+                const on = pickedIds.includes(s.id);
                 return (
                   <li key={s.id}>
                     <button
                       type="button"
                       onClick={() => {
-                        setPickedSourceId(s.id);
+                        // Tick as many videos as you like — they mine one by one.
+                        const next = on ? pickedIds.filter((id) => id !== s.id) : [...pickedIds, s.id];
+                        setPickedIds(next);
+                        setErrorKey(null);
+                        if (on) return;
                         setTab(s.payload.source.kind === "drive" ? "drive" : "youtube");
                         setUrl(s.payload.source.url);
-                        setErrorKey(null);
                         const stored = (s.payload.assessment ?? {}) as Partial<Assessment>;
                         setAssessment((prev) => ({
                           ...prev,
@@ -959,7 +1076,14 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                           {[v.channel, v.durationLabel].filter(Boolean).join(" · ")}
                         </span>
                       </span>
-                      {on && <span className="shrink-0 text-xs font-medium text-primary">{lib.selected}</span>}
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[10px] ${
+                          on ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                        }`}
+                        aria-hidden
+                      >
+                        {on ? "✓" : ""}
+                      </span>
                     </button>
                   </li>
                 );
@@ -1137,17 +1261,47 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
         {busy && (
           <div className="mt-3">
-            <button
-              type="button"
-              onClick={() => {
-                stopRef.current = true;
-                abortRef.current?.abort();
-                setLog((prev) => [...prev, `\n> ${t("stopRequested")}`]);
-              }}
-              className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-colors hover:opacity-90"
-            >
-              <Square className="h-4 w-4" /> {t("stopMining")}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={pausing}
+                onClick={() => {
+                  setPausing(true);
+                  stopRef.current = true;
+                  abortRef.current?.abort();
+                  const id = activeJobId.current;
+                  if (id) void setMiningJobState({ data: { jobId: id, action: "pause" } }).catch(() => undefined);
+                  setLog((prev) => [
+                    ...prev,
+                    `\n> ${pickCopy(
+                      {
+                        en: "PAUSED — finished checkpoints are saved. Press Start mining to continue.",
+                        mn: "Түр зогсоолоо — дуусгасан хэсгүүд хадгалагдсан. Үргэлжлүүлэхийн тулд дахин эхлүүлнэ үү.",
+                        ko: "일시중지 — 완료된 체크포인트는 저장되었습니다. 다시 시작하면 이어집니다.",
+                      },
+                      lang,
+                    )}`,
+                  ]);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+              >
+                <Pause className="h-4 w-4" />
+                {pickCopy({ en: "Pause", mn: "Түр зогсоох", ko: "일시중지" }, lang)}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  stopRef.current = true;
+                  abortRef.current?.abort();
+                  const id = activeJobId.current;
+                  if (id) void setMiningJobState({ data: { jobId: id, action: "stop" } }).catch(() => undefined);
+                  setLog((prev) => [...prev, `\n> ${t("stopRequested")}`]);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-colors hover:opacity-90"
+              >
+                <Square className="h-4 w-4" /> {t("stopMining")}
+              </button>
+            </div>
           </div>
         )}
 

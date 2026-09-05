@@ -15,10 +15,11 @@
  * Saved Minds until the creator comes back.
  */
 import { useEffect, useMemo, useState } from "react";
-import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle, Users } from "lucide-react";
+import { BrainCircuit, Check, ExternalLink, KeyRound, Lightbulb, Loader2, PlayCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import {
+  companionHint,
   DEFAULT_MINER,
   existingKeyFor,
   findMiner,
@@ -326,6 +327,25 @@ export function MinerPool({
           <p className="mt-1 text-muted-foreground">{option.downside}</p>
         </div>
       )}
+
+      {/* What else (if anything) the creator should switch on for this pick. */}
+      {(() => {
+        const hint = companionHint(choice, category);
+        const tone =
+          hint.tone === "ok"
+            ? "border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-600 dark:text-emerald-400"
+            : hint.tone === "warn"
+              ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+              : "border-primary/30 bg-primary/5 text-primary";
+        return (
+          <div className={`mt-3 rounded-xl border p-3 text-xs ${tone}`}>
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Lightbulb className="h-3.5 w-3.5" /> {hint.title}
+            </p>
+            <p className="mt-1 text-muted-foreground">{hint.body}</p>
+          </div>
+        );
+      })()}
 
       {choice.id === "custom" && (
         <div className="mt-4 space-y-2">

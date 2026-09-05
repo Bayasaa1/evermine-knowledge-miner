@@ -17,6 +17,7 @@ import { LanguageSelector } from "@/components/language-selector";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setLocalScope,
+  markScopeResolved,
   getLocalScope,
   clearUserScopedLocalData,
   migrateLegacyBrandKeys,
@@ -163,9 +164,11 @@ function RootComponent() {
         clearTranslationCache();
         queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "home-feed" });
         setLocalScope(null);
+        markScopeResolved();
         return;
       }
       setLocalScope(data.session.user.id);
+      markScopeResolved();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
@@ -178,6 +181,7 @@ function RootComponent() {
         clearUserScopedLocalData();
       }
       setLocalScope(nextId);
+      markScopeResolved();
       router.invalidate();
       if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });

@@ -21,10 +21,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
 
         const nowIso = new Date().toISOString();
+        // Single-flight lease: a job touched in the last 3 minutes is being mined
+        // by an open tab or a previous run, so this worker leaves it alone.
+        const leaseIso = new Date(Date.now() - 3 * 60_000).toISOString();
         const { data: jobs, error } = await supabaseAdmin
           .from("mining_jobs")
+          // Creator-paused and stopped jobs are deliberately excluded.
           .select("*")
           .in("status", ["paused_quota", "queued", "running"])
+          .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           .order("updated_at", { ascending: true })
           .limit(MAX_JOBS_PER_RUN);

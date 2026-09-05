@@ -39,6 +39,31 @@ export function setLocalScope(userId: string | null): void {
   else window.localStorage.removeItem(SCOPE_KEY);
 }
 
+/**
+ * Account-scope readiness gate.
+ *
+ * On a page reload the signed-in account id is only known after Supabase
+ * restores the session. Anything that reads device-local per-account data
+ * (API keys, engine stack, miner choice) must wait for that, otherwise it
+ * reads the "anon:" vault and looks like the app forgot the saved key.
+ */
+let scopeResolved = false;
+let releaseScope: () => void = () => undefined;
+const scopeGate = new Promise<void>((resolve) => {
+  releaseScope = resolve;
+});
+
+/** Called by the app shell once the session (or its absence) is known. */
+export function markScopeResolved(): void {
+  scopeResolved = true;
+  releaseScope();
+}
+
+export async function whenScopeReady(): Promise<void> {
+  if (typeof window === "undefined" || scopeResolved) return;
+  await Promise.race([scopeGate, new Promise<void>((r) => window.setTimeout(r, 4000))]);
+}
+
 export function getLocalScope(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(SCOPE_KEY);

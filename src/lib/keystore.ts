@@ -1,5 +1,5 @@
 import { idbGet, idbSet, idbDelete, STORES } from "./store";
-import { scopedKey } from "./user-scope";
+import { scopedKey, whenScopeReady } from "./user-scope";
 
 // API keys are stored per signed-in account. Switching accounts switches vaults;
 // no account ever reads another's keys.
@@ -54,6 +54,7 @@ function normalize(raw: unknown): ApiKeyEntry[] {
 
 /** Loads the signed-in account's key pool. Never falls back to another account's keys. */
 export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
+  await whenScopeReady();
   const list = normalize(await idbGet<unknown>(STORES.SETTINGS, KEYS_ID()));
   if (list.length > 0) return list;
   const legacy = await idbGet<string>(STORES.SETTINGS, KEY_ID());
@@ -66,15 +67,18 @@ export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
 }
 
 export async function saveApiKeys(keys: ApiKeyEntry[]): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, KEYS_ID(), keys);
   await idbSet(STORES.SETTINGS, KEY_ID(), keys[0]?.value ?? "");
 }
 
 export async function saveApiKey(key: string): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, KEY_ID(), key);
 }
 
 export async function loadApiKey(): Promise<string | null> {
+  await whenScopeReady();
   return await idbGet<string>(STORES.SETTINGS, KEY_ID());
 }
 
