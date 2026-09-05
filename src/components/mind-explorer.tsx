@@ -534,6 +534,54 @@ export function MindExplorer({
                   ) : null}
                 </section>
               ) : null}
+              {view.gaming.communication.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameComm")}</p>
+                  <div className="space-y-2">
+                    {view.gaming.communication.map((c, i) => (
+                      <div key={i} className="rounded-lg border border-border bg-card p-2.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {c.timestamp ? (
+                            playable ? (
+                              <button type="button" onClick={playRange(c.timestamp, "")} className="inline-flex items-center gap-1 rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium hover:bg-secondary/70">
+                                <Play className="h-3 w-3" /> {c.timestamp}
+                              </button>
+                            ) : <span className="text-[11px] text-muted-foreground">{c.timestamp}</span>
+                          ) : null}
+                          <Badge variant="outline" className="text-[10px]">{c.kind}</Badge>
+                        </div>
+                        <p className="mt-1 text-sm italic">"{c.quote}"</p>
+                        {c.context ? <p className="text-xs text-muted-foreground">{c.context}</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+              {view.gaming.mindset.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameMindset")}</p>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {view.gaming.mindset.map((m, i) => <li key={i}>{m}</li>)}
+                  </ul>
+                </section>
+              ) : null}
+              {view.gaming.emotions.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameEmotions")}</p>
+                  <div className="space-y-2">
+                    {view.gaming.emotions.map((e, i) => (
+                      <div key={i} className="rounded-lg border border-border bg-card p-2.5 text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {e.timestamp ? <span className="text-[11px] text-muted-foreground">{e.timestamp}</span> : null}
+                          <Badge variant="secondary" className="text-[10px]">{e.trigger}</Badge>
+                        </div>
+                        <p className="mt-1">{e.reaction}</p>
+                        {e.quote ? <p className="text-xs italic text-muted-foreground">"{e.quote}"</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
             </TabsContent>
 
             <TabsContent value="persona" className="space-y-4 pt-4">
