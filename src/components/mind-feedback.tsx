@@ -20,7 +20,7 @@ type Comment = {
 const copy = {
   en: {
     comments: "Comments",
-    reviews: "Verified Reviews",
+    reviews: "Mind Reviews",
     placeholder: "Ask a question or share a reaction…",
     post: "Post",
     signIn: "Sign in to join the conversation.",
@@ -50,7 +50,7 @@ const copy = {
   },
 } as const;
 
-/** Dual feedback surface: open comments for everyone, reviews for buyers only. */
+/** Dual feedback surface: comments react to the content; reviews rate the mind's chat/voice/video-call experience. */
 export function MindFeedback({
   mindId,
   lang = "en",

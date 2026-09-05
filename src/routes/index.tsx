@@ -589,7 +589,7 @@ function FeedCard({
           </button>
         )}
 
-        <button type="button" onClick={onFeedback} aria-label="Comments and reviews" className="flex flex-col items-center gap-1">
+        <button type="button" onClick={onFeedback} aria-label="Comments and mind reviews" className="flex flex-col items-center gap-1">
           <Star className="h-7 w-7" />
           <span className="text-[10px]">{c.reviews}</span>
         </button>
