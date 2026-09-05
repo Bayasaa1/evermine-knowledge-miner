@@ -30,8 +30,50 @@ function wholeVideoStamp(raw: string, chunkIndex: number): string {
   return values.map((value) => value == null ? "" : stampAt(value + chunkStart)).filter(Boolean).join(" - ");
 }
 
+/**
+ * Some checkpoints come back with spoken lines but no timestamp at all. Spread
+ * those lines across the checkpoint's own 5-minute window (weighted by how much
+ * was said) so captions stay near the audio instead of being guessed later
+ * against the whole video.
+ */
+function fillMissingTranscriptStamps(result: ChunkResult, chunkIndex: number): ChunkResult {
+  const lines = result.transcript;
+  if (!lines.length || lines.every((l) => String(l.timestamp ?? "").trim())) return result;
+  const chunkStart = chunkIndex * CHUNK_SECONDS;
+  const anchors = lines.map((l) => {
+    const raw = String(l.timestamp ?? "").trim();
+    return raw ? stampSeconds(raw) : null;
+  });
+  const weights = lines.map((l) => Math.max(1, String(l.speech ?? "").length));
+
+  const filled = lines.map((line, index) => {
+    if (anchors[index] != null) return line;
+    // Nearest known stamps on either side bound the gap; fall back to the chunk window.
+    let before = chunkStart;
+    for (let i = index - 1; i >= 0; i -= 1) if (anchors[i] != null) { before = anchors[i]!; break; }
+    let afterIndex = lines.length;
+    let after = chunkStart + CHUNK_SECONDS;
+    for (let i = index + 1; i < lines.length; i += 1) if (anchors[i] != null) { afterIndex = i; after = anchors[i]!; break; }
+    let startOfRun = index;
+    while (startOfRun > 0 && anchors[startOfRun - 1] == null) startOfRun -= 1;
+    const runWeights = weights.slice(startOfRun, afterIndex);
+    const total = runWeights.reduce((sum, w) => sum + w, 0) || 1;
+    const consumed = weights.slice(startOfRun, index).reduce((sum, w) => sum + w, 0);
+    const span = Math.max(after - before, runWeights.length * 2);
+    const start = before + (span * consumed) / total;
+    const end = before + (span * (consumed + weights[index]!)) / total;
+    anchors[index] = start;
+    return { ...line, timestamp: `${stampAt(start)} - ${stampAt(Math.max(end, start + 1))}` };
+  });
+
+  return { ...result, transcript: filled };
+}
+
 function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkResult {
-  if (chunkIndex === 0) return result;
+  const withStamps = fillMissingTranscriptStamps(result, chunkIndex);
+  if (chunkIndex === 0) return withStamps;
+  result = withStamps;
+
   const stamp = (value: string) => wholeVideoStamp(value, chunkIndex);
   return {
     ...result,
