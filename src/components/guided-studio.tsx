@@ -163,12 +163,16 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
           <StepGoogle lang={lang} />
         </StepShell>
       )}
-      {step === 2 && <StepUpload lang={lang} />}
+      {step === 2 && <StepUpload lang={lang} mode="save" />}
       {step === 3 && (
-        <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
-          <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
-        </StepShell>
+        <div className="space-y-8">
+          <StepUpload lang={lang} mode="mine" />
+          <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
+            <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
+          </StepShell>
+        </div>
       )}
+
 
       <div className="flex items-center justify-between pt-2">
         <button
