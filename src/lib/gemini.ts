@@ -428,6 +428,23 @@ export type GameTutorial = {
   timestamp_end: string;
 };
 
+/** A verbatim communication moment: what they said, to whom, and why. */
+export type GameComm = {
+  timestamp: string;
+  /** callout | command | banter | encouragement | tilt | teaching */
+  kind: string;
+  quote: string;
+  context: string;
+};
+
+/** A game-triggered emotional reaction. */
+export type GameEmotion = {
+  timestamp: string;
+  trigger: string;
+  reaction: string;
+  quote: string;
+};
+
 /** Gaming Mind extraction: what the clone needs to coach, teach and play. */
 export type GamingExtraction = {
   skills: GameSkill[];
@@ -438,6 +455,12 @@ export type GamingExtraction = {
   commentaryStyle: string[];
   /** Typical mistakes the player made and how they recovered. */
   mistakes: string[];
+  /** How they talk in game: calls, commands, banter, encouragement, tilt. */
+  communication: GameComm[];
+  /** How they think: risk appetite, planning, tilt control, leadership. */
+  mindset: string[];
+  /** Emotional reactions to in-game events (clutch, death, win, fail). */
+  emotions: GameEmotion[];
 };
 
 
@@ -771,8 +794,35 @@ const responseSchema = {
         },
         commentaryStyle: { type: "array", items: { type: "string" } },
         mistakes: { type: "array", items: { type: "string" } },
+        communication: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              kind: { type: "string" },
+              quote: { type: "string" },
+              context: { type: "string" },
+            },
+            required: ["timestamp", "kind", "quote", "context"],
+          },
+        },
+        mindset: { type: "array", items: { type: "string" } },
+        emotions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              trigger: { type: "string" },
+              reaction: { type: "string" },
+              quote: { type: "string" },
+            },
+            required: ["timestamp", "trigger", "reaction", "quote"],
+          },
+        },
       },
-      required: ["skills", "tactics", "decisions", "tutorials", "commentaryStyle", "mistakes"],
+      required: ["skills", "tactics", "decisions", "tutorials", "commentaryStyle", "mistakes", "communication", "mindset", "emotions"],
     },
   },
 
@@ -874,6 +924,9 @@ This footage is gameplay (e.g. Minecraft). In addition to everything above, fill
 - "tutorials": any step-by-step teaching the player does — "title", "goal", ordered "steps", timestamps.
 - "commentaryStyle": how this player talks — humour, catchphrases, pacing, how they explain plays. Short quotes are welcome.
 - "mistakes": typical mistakes they made on camera and how they recovered.
+- "communication": verbatim in-game communication moments — "timestamp", "kind" (callout | command | banter | encouragement | tilt | teaching), the exact "quote", and the "context" it happened in. This is the heart of the clone: how they talk to teammates and chat.
+- "mindset": how the player THINKS — risk appetite, planning habits, tilt control, leadership, competitive drive, how they frame wins and losses. One sentence each, grounded in what they said or did.
+- "emotions": game-triggered emotional reactions — "timestamp", the "trigger" (clutch, death, betrayal, win, fail), the visible/audible "reaction", and a "quote" if they said something.
 Only claim what the footage actually shows. Never invent mechanics the video does not demonstrate.`;
   }
   if (category === "robot") {
@@ -1058,6 +1111,19 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     })),
     commentaryStyle: strings(gm['commentaryStyle']),
     mistakes: strings(gm['mistakes']),
+    communication: arr<Record<string, unknown>>(gm['communication']).map((c) => ({
+      timestamp: String(c?.['timestamp'] ?? ""),
+      kind: String(c?.['kind'] ?? "callout"),
+      quote: String(c?.['quote'] ?? ""),
+      context: String(c?.['context'] ?? ""),
+    })),
+    mindset: strings(gm['mindset']),
+    emotions: arr<Record<string, unknown>>(gm['emotions']).map((e) => ({
+      timestamp: String(e?.['timestamp'] ?? ""),
+      trigger: String(e?.['trigger'] ?? ""),
+      reaction: String(e?.['reaction'] ?? ""),
+      quote: String(e?.['quote'] ?? ""),
+    })),
   };
   return {
 

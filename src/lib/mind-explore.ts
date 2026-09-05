@@ -278,6 +278,9 @@ const EMPTY_GAMING: GamingExtraction = {
   tutorials: [],
   commentaryStyle: [],
   mistakes: [],
+  communication: [],
+  mindset: [],
+  emotions: [],
 };
 
 /** Coerce a raw gaming object into the typed shape; empty when absent. */
@@ -317,5 +320,18 @@ function gamingOf(raw: unknown): GamingExtraction {
     })),
     commentaryStyle: strList(g['commentaryStyle']),
     mistakes: strList(g['mistakes']),
+    communication: arr(g['communication']).map((c) => ({
+      timestamp: str(c['timestamp']),
+      kind: str(c['kind']) || "callout",
+      quote: str(c['quote']),
+      context: str(c['context']),
+    })),
+    mindset: strList(g['mindset']),
+    emotions: arr(g['emotions']).map((e) => ({
+      timestamp: str(e['timestamp']),
+      trigger: str(e['trigger']),
+      reaction: str(e['reaction']),
+      quote: str(e['quote']),
+    })),
   };
 }
