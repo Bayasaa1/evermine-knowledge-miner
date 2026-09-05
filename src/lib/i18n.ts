@@ -50,7 +50,7 @@ const en: Dict = {
   analyzing: "Analysing video…",
   cancel: "Cancel",
 
-  limitsTitle: "What you can upload",
+  limitsTitle: "What you can mine",
   limitYoutube: "YouTube: public or unlisted links, up to 2 hours.",
   limitDrive: "Google Drive / file upload: MP4 or MOV, max 2GB.",
   limitLangs: "Languages: native recognition for English, Mongolian and all global languages.",
@@ -137,7 +137,7 @@ const mn: Dict = {
   analyzing: "Бичлэгийг задалж байна…",
   cancel: "Цуцлах",
 
-  limitsTitle: "Юу оруулах боломжтой вэ",
+  limitsTitle: "Юу олборлож болох вэ",
   limitYoutube: "YouTube: Public эсвэл Unlisted линк, 2 цаг хүртэл.",
   limitDrive: "Google Drive / файл: MP4 эсвэл MOV, дээд тал нь 2GB.",
   limitLangs: "Хэл: Англи, Монгол болон дэлхийн бүх хэлийг төрөлх байдлаар таньдаг.",
