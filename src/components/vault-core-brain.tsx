@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AudioLines, Brain, Code2, FileJson, Loader2, Move3d, Smile } from "lucide-react";
+import { AudioLines, Brain, Code2, FileJson, Loader2, Move3d, Smile, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ const C = {
   raw: { en: "Raw .json.md", mn: "Түүхий .json.md", ko: "원본 .json.md" },
   hideRaw: { en: "Hide raw", mn: "Нуух", ko: "숨기기" },
   edit: { en: "Chunk Eraser & FAQ patches", mn: "Хэсэг устгах ба FAQ нөхөөс", ko: "청크 삭제 및 FAQ 패치" },
+  explore: { en: "Open Mind Explorer", mn: "Оюун Судлаач нээх", ko: "마인드 탐색기 열기" },
   saved: { en: "Core Brain patched", mn: "Гол тархи засагдлаа", ko: "코어 브레인이 패치되었습니다" },
 } as const;
 
