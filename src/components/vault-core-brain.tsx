@@ -8,12 +8,13 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AudioLines, Brain, Code2, FileJson, Loader2, Move3d, Smile } from "lucide-react";
+import { AudioLines, Brain, Code2, FileJson, Loader2, Move3d, Smile, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
+import { MindExplorer } from "@/components/mind-explorer";
 import { chunkBuckets, dataTypeCards, type MindPayload } from "@/lib/mind-json";
 import { listMindVersions, saveMindVersion, type MindVersion } from "@/lib/mind-versions.functions";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -40,6 +41,7 @@ const C = {
   raw: { en: "Raw .json.md", mn: "Түүхий .json.md", ko: "원본 .json.md" },
   hideRaw: { en: "Hide raw", mn: "Нуух", ko: "숨기기" },
   edit: { en: "Chunk Eraser & FAQ patches", mn: "Хэсэг устгах ба FAQ нөхөөс", ko: "청크 삭제 및 FAQ 패치" },
+  explore: { en: "Open Mind Explorer", mn: "Оюун Судлаач нээх", ko: "마인드 탐색기 열기" },
   saved: { en: "Core Brain patched", mn: "Гол тархи засагдлаа", ko: "코어 브레인이 패치되었습니다" },
 } as const;
 
@@ -56,6 +58,7 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
   const load = useServerFn(listMindVersions);
   const saveFn = useServerFn(saveMindVersion);
   const [editing, setEditing] = useState<MindVersion | null>(null);
+  const [exploring, setExploring] = useState<MindVersion | null>(null);
   const [showRaw, setShowRaw] = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ["mind-versions"], queryFn: () => load() });
@@ -168,6 +171,9 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => setExploring(v)}>
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5" /> {t("explore")}
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => setEditing(v)}>
                   <FileJson className="mr-1.5 h-3.5 w-3.5" /> {t("edit")}
                 </Button>
@@ -195,6 +201,19 @@ export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[
           payload={(editing.payload ?? {}) as MindPayload}
           onSave={async (next, notes) => {
             await patch.mutateAsync({ version: editing, payload: next as MindPayload, notes });
+          }}
+        />
+      ) : null}
+
+      {exploring ? (
+        <MindExplorer
+          lang={lang}
+          open={!!exploring}
+          onOpenChange={(o) => { if (!o) setExploring(null); }}
+          title={exploring.title}
+          payload={(exploring.payload ?? {}) as MindPayload}
+          onSave={async (next, notes) => {
+            await patch.mutateAsync({ version: exploring, payload: next as MindPayload, notes });
           }}
         />
       ) : null}
