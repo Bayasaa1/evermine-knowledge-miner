@@ -55,6 +55,7 @@ import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { MinerPool } from "@/components/miner-pool";
+import { DEFAULT_MINER, findMiner, type MinerChoice } from "@/lib/miner-pool";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject, updateProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
@@ -1068,7 +1069,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </div>
         ) : (
           <div className="mt-4 space-y-4">
-            <MinerPool lang={lang} />
+            <MinerPool lang={lang} onChange={setMiner} />
             <button
               type="button"
               onClick={() => void run(assessment)}
