@@ -12,6 +12,7 @@ import {
   Brain,
   Captions,
   Code2,
+  Gamepad2,
   Music4,
   Play,
   Scissors,
