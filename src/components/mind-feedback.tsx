@@ -20,7 +20,7 @@ type Comment = {
 const copy = {
   en: {
     comments: "Comments",
-    reviews: "Verified Reviews",
+    reviews: "Mind Reviews",
     placeholder: "Ask a question or share a reaction…",
     post: "Post",
     signIn: "Sign in to join the conversation.",
