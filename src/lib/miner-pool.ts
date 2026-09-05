@@ -551,3 +551,79 @@ export async function minerReadiness(choice?: MinerChoice): Promise<Record<Miner
   }
   return ready;
 }
+
+/**
+ * What the picked AI (plus team) can perceive on its own, and what the
+ * built-in engine still has to supply.
+ *
+ * Used to stop paying twice for the same work: a sense the picked AI already
+ * covers is never re-requested from another AI, and when the pick covers
+ * everything the second thinking pass is skipped entirely.
+ */
+export type SensePlan = {
+  /** Senses the picked AI handles itself. */
+  covers: Sense[];
+  /** Senses the built-in Evermind engine has to fill in. */
+  gaps: Sense[];
+  /** True when nothing else has to run after the picked AI. */
+  selfSufficient: boolean;
+};
+
+const CATEGORY_SENSES: Record<string, Sense[]> = {
+  knowledge: ["text"],
+  sales: ["text"],
+  voice: ["text", "audio"],
+  robot: ["text", "image", "video"],
+};
+
+export function sensePlan(choice: MinerChoice, category = "knowledge"): SensePlan {
+  const opt = findMiner(choice.id);
+  const senses = choice.id === "custom" ? choice.custom.senses : (opt?.senses ?? ["text"]);
+  const needed = CATEGORY_SENSES[category] ?? ["text"];
+  const covers = needed.filter((s) => senses.includes(s));
+  const gaps = needed.filter((s) => !senses.includes(s));
+  // The built-in engine is Gemini: picking Gemini means one engine does it all.
+  const selfSufficient = gaps.length === 0 && (choice.id === "gemini" || choice.id === "gemini-pro");
+  return { covers, gaps, selfSufficient };
+}
+
+/**
+ * Plain-language coaching for the picked AI: what it cannot do on its own,
+ * what Evermind already covers for free, and what else is worth turning on.
+ */
+export function companionHint(
+  choice: MinerChoice,
+  category = "knowledge",
+): { title: string; body: string; tone: "ok" | "info" | "warn" } {
+  const opt = findMiner(choice.id);
+  const label = choice.id === "custom" ? choice.custom.label || "your AI" : (opt?.label ?? "This AI");
+  const plan = sensePlan(choice, category);
+
+  if (plan.selfSufficient) {
+    return {
+      title: "Nothing else to turn on",
+      body: `${label} watches and listens to the video by itself. No second AI is called, so no extra key or quota is spent.`,
+      tone: "ok",
+    };
+  }
+  if (plan.gaps.length === 0) {
+    return {
+      title: "Ready as it is",
+      body: `${label} covers everything this creation type needs. Evermind's built-in engine only fills in what ${label} cannot reach.`,
+      tone: "ok",
+    };
+  }
+  const eyes = plan.gaps.includes("video") || plan.gaps.includes("image");
+  const ears = plan.gaps.includes("audio");
+  const missing = [eyes ? "see the picture" : "", ears ? "hear the voice" : ""].filter(Boolean).join(" or ");
+  return {
+    title: `${label} cannot ${missing || "perceive the footage"} — and that is already handled`,
+    body:
+      `Evermind's built-in engine watches and listens once, and hands ${label} the transcript, faces and emotion notes to think over. ` +
+      `You do not need to turn on another AI or add a second key. ` +
+      (category === "robot"
+        ? "For a Robot Brain, pick a vision AI (Gemini, Qwen-VL, ChatGPT or Claude) so trajectories and grasps come from an AI that truly sees."
+        : "Want deeper coverage? Turn on AI team and add one more thinker — it costs that AI's own quota, nothing more."),
+    tone: eyes && category === "robot" ? "warn" : "info",
+  };
+}
