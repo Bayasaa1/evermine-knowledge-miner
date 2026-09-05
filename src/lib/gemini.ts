@@ -794,8 +794,35 @@ const responseSchema = {
         },
         commentaryStyle: { type: "array", items: { type: "string" } },
         mistakes: { type: "array", items: { type: "string" } },
+        communication: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              kind: { type: "string" },
+              quote: { type: "string" },
+              context: { type: "string" },
+            },
+            required: ["timestamp", "kind", "quote", "context"],
+          },
+        },
+        mindset: { type: "array", items: { type: "string" } },
+        emotions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              trigger: { type: "string" },
+              reaction: { type: "string" },
+              quote: { type: "string" },
+            },
+            required: ["timestamp", "trigger", "reaction", "quote"],
+          },
+        },
       },
-      required: ["skills", "tactics", "decisions", "tutorials", "commentaryStyle", "mistakes"],
+      required: ["skills", "tactics", "decisions", "tutorials", "commentaryStyle", "mistakes", "communication", "mindset", "emotions"],
     },
   },
 
