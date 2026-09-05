@@ -315,8 +315,13 @@ function StepGoogle({ lang }: { lang: Lang }) {
   );
 }
 
-/** Step 2 — paste a YouTube/Drive link (or drop a file) and mine it directly. */
-function StepUpload({ lang }: { lang: Lang }) {
+/**
+ * Step 2 (`mode="save"`) — paste a link and file every video behind it, with all
+ * of its details, into Saved Minds. Nothing is analysed yet.
+ * Step 3 (`mode="mine"`) — pick a saved video and run the mining pipeline on it.
+ */
+function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
+
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
