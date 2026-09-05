@@ -39,13 +39,14 @@ type JobRow = {
   next_index: number;
   total_chunks: number;
   status: string;
+  vault_id: string | null;
   last_error: string | null;
   retry_after: string | null;
   updated_at: string;
 };
 
 const SELECT =
-  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, last_error, retry_after, updated_at";
+  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at";
 
 function toJob(row: JobRow): MiningJob {
   return {
@@ -63,6 +64,7 @@ function toJob(row: JobRow): MiningJob {
     nextIndex: row.next_index,
     totalChunks: row.total_chunks,
     status: row.status as MiningJobStatus,
+    vaultId: row.vault_id,
     lastError: row.last_error,
     retryAfter: row.retry_after,
     updatedAt: row.updated_at,
@@ -146,6 +148,11 @@ export const runNextChunk = createServerFn({ method: "POST" })
 
     const job = toJob(row as JobRow);
     const results = storedResults(row as JobRow);
+
+    // A creator stop/pause wins over any tab still driving the job.
+    if (job.status === "stopped" || job.status === "paused_user") {
+      return { job, chunk: null, merged: mergeChunkResults(results), done: false };
+    }
 
     if (job.nextIndex >= job.chunks.length) {
       return { job: { ...job, status: "done" }, chunk: null, merged: mergeChunkResults(results), done: true };
@@ -235,4 +242,39 @@ export const getMiningJobResults = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!row) return null;
     return mergeChunkResults(storedResults(row as JobRow));
+  });
+
+/**
+ * Creator control over a running job. Pause and stop are stored server-side,
+ * so the background worker honours them even after the tab is closed.
+ */
+export const setMiningJobState = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ jobId: z.string().uuid(), action: z.enum(["pause", "stop", "resume"]) }).parse(input),
+  )
+  .handler(async ({ data, context }): Promise<{ status: MiningJobStatus }> => {
+    const status: MiningJobStatus =
+      data.action === "pause" ? "paused_user" : data.action === "stop" ? "stopped" : "queued";
+    const { error } = await context.supabase
+      .from("mining_jobs")
+      .update({ status, retry_after: null, last_error: null })
+      .eq("id", data.jobId)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { status };
+  });
+
+/** Records the Mind vault a finished job was written into (prevents double saves). */
+export const attachMiningJobVault = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ jobId: z.string().uuid(), vaultId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    const { error } = await context.supabase
+      .from("mining_jobs")
+      .update({ vault_id: data.vaultId, status: "done" })
+      .eq("id", data.jobId)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

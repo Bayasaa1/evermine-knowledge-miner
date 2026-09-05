@@ -154,7 +154,16 @@ export function unpackInstructions(
 }
 
 
-export type MiningJobStatus = "queued" | "running" | "paused_quota" | "error" | "done";
+export type MiningJobStatus =
+  | "queued"
+  | "running"
+  | "paused_quota"
+  /** Paused by the creator — the background worker leaves it alone until resumed. */
+  | "paused_user"
+  /** Stopped by the creator — finished checkpoints stay, nothing more is mined. */
+  | "stopped"
+  | "error"
+  | "done";
 
 export type MiningJob = {
   id: string;
@@ -167,6 +176,8 @@ export type MiningJob = {
   nextIndex: number;
   totalChunks: number;
   status: MiningJobStatus;
+  /** Set once the finished job has been written into a Mind vault. */
+  vaultId: string | null;
   lastError: string | null;
   retryAfter: string | null;
   updatedAt: string;
