@@ -43,6 +43,15 @@ So Groq can build a Knowledge Mind: Gemini sees the video, extracts emotion and 
 
 For Knowledge and Sales minds, stage 2 is where the picked AI genuinely works. For Robot and Voice, the picked vision/audio AI is involved in both stages.
 
+## AI teams (multiple AIs working together)
+
+Yes — and this is where the design pays off. Step 3 gets a team mode:
+
+- **Single AI** (default): one thinking AI, as above.
+- **AI team**: the creator picks 2–3 thinking AIs from the pool. Each one independently analyzes the same stage-1 material, then a merger pass (run by the default pick, or the built-in engine) cross-checks the answers: agreements become high-confidence facts, disagreements are resolved by the strongest reasoner, and the union of topics, beliefs and Q&A pairs is kept.
+
+Benefits shown honestly to the creator: better coverage and fewer mistakes; trade-off: slower and it spends a key quota on each member, so the panel shows the cost before starting. Team mode is offered for Knowledge and Sales minds; Robot and Voice stay single-AI (vision stage dominates and team reasoning adds little).
+
 ## Technical notes
 
 - `src/lib/miner-pool.ts`: add `senses: ("text"|"image"|"audio"|"video")[]` per entry; add the new providers (OpenRouter vision/audio free-tier variants, Groq Whisper); add `minersForCategory(category)` returning exactly the 8-option pool; extend `MinerChoice.custom` with a senses declaration.
