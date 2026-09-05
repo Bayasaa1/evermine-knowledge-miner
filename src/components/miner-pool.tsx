@@ -12,7 +12,6 @@ import { useEffect, useState } from "react";
 import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { hasGeminiOauth } from "@/lib/google-gemini-auth";
 import {
   DEFAULT_MINER,
   MINERS,
