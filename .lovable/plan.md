@@ -1,51 +1,50 @@
-# Match each AI to what it can actually mine
+# Give every creation type its own pool of 8 AIs
 
-You are right. The four creation types need different senses, so the AI list in step 3 should change depending on what the creator is building — and an AI that cannot see the video must not be offered for a Robot Brain.
+You are right: Groq cannot watch a video, so it can never build a Robot Brain. The fix is one catalog where every AI declares what it can perceive, and each of the 4 creation types offers its own pool of exactly 8 options: **3 free, 4 paid, 1 manual (add your own)** — with only AIs whose senses can do the job.
 
-## The rule per creation type
+## The pools per creation type
 
-| Creation type | What mining needs | AIs allowed |
-|---|---|---|
-| AI Assistant / Knowledge Mind | words only | all of them |
-| Robot Brain / Embodied VLA | must watch the footage (movement, grasp, space) | vision AIs only |
-| Voice Calling Agent | must hear the audio (tone, pace, voice print) | audio-capable AIs, plus text AIs for the script layer |
-| Product & Service Sales Mind | words, plus product shots if available | all; vision AIs get a richer result |
+**AI Assistant / Knowledge Mind** (words only — every AI qualifies)
+- Free: Gemini (default), Groq, Mistral
+- Paid: ChatGPT, Claude, Kimi, OpenRouter
+- Manual: add your own AI
 
-## The pool: 3 free, 4 paid, 1 manual
+**Robot Brain / Embodied VLA** (must SEE the footage)
+- Free: Gemini (default), Qwen-VL via OpenRouter free tier, LLaVA-style vision via OpenRouter free tier
+- Paid: ChatGPT (vision), Claude (vision), Gemini paid key, OpenRouter paid vision models
+- Manual: add your own AI (declared as vision-capable)
 
-Free tier
-- Gemini — sees video and hears audio. Default, and the only free one able to do Robot Brain and Voice.
-- Groq — text only, extremely fast.
-- Mistral — text only, free tier.
+**Voice Calling Agent** (must HEAR the audio)
+- Free: Gemini (default), Whisper-compatible via OpenRouter free tier, Groq Whisper
+- Paid: ChatGPT (audio), Gemini paid key, OpenRouter audio models, ElevenLabs-style voice service
+- Manual: add your own AI (declared as audio-capable)
 
-Paid
-- ChatGPT — text, plus image and audio understanding.
-- Claude — text and images, deepest reasoning.
-- Kimi — text, very long videos in one pass.
-- OpenRouter — one key, many models; capability follows the model chosen.
+**Product & Service Sales Mind** (words, bonus from images)
+- Free: Gemini (default), Groq, Mistral
+- Paid: ChatGPT, Claude, Kimi, OpenRouter
+- Manual: add your own AI
 
-Manual
-- Add your own AI — the creator declares what it can handle (text / images / audio / video) so the same rules apply to it.
+## How it works
 
-## What the creator sees
+- One catalog in `src/lib/miner-pool.ts`: every AI entry declares its senses — text / image / audio / video.
+- Each creation type maps to required senses: knowledge → text; robot → video; voice → audio; sales → text (+image bonus).
+- Step 3 receives the active creation type and lists only the 8 matching options, grouped free → paid → manual. Text-only AIs never appear for Robot Brain at all, so an impossible job can't be started.
+- The manual "add your own AI" form asks the creator to tick what their AI can handle (text / image / audio / video); it then joins the pools that match.
+- The "What you can mine" panel stays per-AI and also states what that AI produces for the current creation type, and what it cannot.
 
-- Step 3 lists every AI, but any AI that cannot do the selected creation type appears locked, greyed, with a plain reason: "Groq cannot watch video, so it cannot build a Robot Brain."
-- Locked AIs cannot be selected, so Start mining can never begin an impossible job.
-- The "What you can mine" panel already reacts to the chosen AI; it will also state what this AI contributes to *this* creation type.
-- If a creator picks a text-only AI for a type that partly needs sight or sound, the panel says exactly what will be missing.
+## How mining uses the choice (this is what is missing today)
 
-## How mining actually uses the choice
+Right now the pick is saved but every job still runs on Gemini. Mining becomes two stages:
 
-Today the choice is saved but every job still runs on Gemini. This changes to two stages:
+1. Sight and sound pass — a vision engine reads the footage and produces transcript, timestamps, faces, emotion and voice segments.
+2. Understanding pass — the AI the creator picked turns that material into the schema for their creation type (knowledge, robot, voice or sales), using the creator's stored key, falling back to the built-in engine when no key exists.
 
-1. Sight and sound pass — Gemini reads the footage and produces transcript, timestamps, faces, emotion and voice segments. Always runs when the type needs it.
-2. Understanding pass — the AI the creator picked turns that material into the schema for their creation type (knowledge, robot, voice or sales).
-
-For a text-only AI on a Knowledge or Sales mind, stage 1 shrinks to transcript extraction only, so the creator's free Groq or Mistral key genuinely does the work.
+For text-only AIs (Knowledge and Sales), stage 1 shrinks to transcript extraction, so a creator's free Groq or Mistral key genuinely does the mining work.
 
 ## Technical notes
 
-- Add a `modalities` field (`text` / `image` / `audio` / `video`) and a `supports: CreationCategory[]` derivation to each entry in `src/lib/miner-pool.ts`; add the same declaration to the custom-AI form.
-- `minerReadiness()` gains a category argument so a card is Ready only when it has a key *and* fits the current creation type.
-- `src/components/miner-pool.tsx` renders locked cards with the reason; `src/components/guided-studio.tsx` passes the active creation category in and blocks Start mining on a locked pick.
-- Mining pipeline (`src/lib/gemini.ts`, `src/lib/mine-file.ts` and the mining server functions) splits into the extraction stage and a provider-routed reasoning stage that calls the selected provider with the creator's stored key, falling back to the built-in engine when no key exists.
+- `src/lib/miner-pool.ts`: add `senses: ("text"|"image"|"audio"|"video")[]` per entry; add the new providers (OpenRouter vision/audio free-tier variants, Groq Whisper); add `minersForCategory(category)` returning exactly the 8-option pool; extend `MinerChoice.custom` with a senses declaration.
+- `src/components/miner-pool.tsx`: render the filtered pool with free/paid/manual grouping; keep ready/needs-key badges and per-AI test buttons.
+- `src/components/guided-studio.tsx`: pass the active creation category into the pool; Start mining requires a ready pick from that pool.
+- Mining pipeline (`src/lib/gemini.ts`, `src/lib/mine-file.ts`, mining server functions): split extraction from provider-routed reasoning, route stage 2 to the selected provider with the stored key, built-in fallback preserved.
+- Copy for all new cards and reasons in en / mn / ko.
