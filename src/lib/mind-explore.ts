@@ -278,6 +278,9 @@ const EMPTY_GAMING: GamingExtraction = {
   tutorials: [],
   commentaryStyle: [],
   mistakes: [],
+  communication: [],
+  mindset: [],
+  emotions: [],
 };
 
 /** Coerce a raw gaming object into the typed shape; empty when absent. */
