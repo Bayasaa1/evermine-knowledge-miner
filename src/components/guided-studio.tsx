@@ -54,6 +54,7 @@ import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
+import { MinerPool } from "@/components/miner-pool";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import { addProjectContent, createProject, updateProject } from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
@@ -407,7 +408,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   });
 
   /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
-  const saveLink = useCallback(async () => {
+  const saveLink = useCallback(async (answers?: Assessment) => {
     setErrorKey(null);
     setSaveNote(null);
     if (!signedIn) {
@@ -421,6 +422,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           url: url.trim(),
           personaId: target.personaId ?? null,
           projectId: target.mode === "existing" ? target.projectId : null,
+          assessment: (answers ?? null) as Record<string, unknown> | null,
         },
       });
       setJustSaved((prev) => [...res.saved, ...prev]);
@@ -881,8 +883,10 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                         setTab(s.payload.source.kind === "drive" ? "drive" : "youtube");
                         setUrl(s.payload.source.url);
                         setErrorKey(null);
+                        const stored = (s.payload.assessment ?? {}) as Partial<Assessment>;
                         setAssessment((prev) => ({
                           ...prev,
+                          ...stored,
                           sourceTitle: v.title,
                           sourceDescription: v.description,
                           sourcePublishedAt: formatPublishedDate(v.publishedAt, lang),
@@ -1016,15 +1020,19 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                 </div>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => void saveLink()}
-              disabled={saving || !url.trim()}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {saving ? lib.saving : lib.saveTitle}
-            </button>
+            <MiningWizard
+              lang={lang}
+              value={assessment}
+              onChange={setAssessment}
+              busy={saving || !url.trim()}
+              meta={meta}
+              metaLoading={metaLoading}
+              startLabel={saving ? lib.saving : lib.saveTitle}
+              onStart={(a) => {
+                setAssessment(a);
+                void saveLink(a);
+              }}
+            />
             {saveNote && <p className="text-xs text-emerald-500">{saveNote}</p>}
             {justSaved.length > 0 && (
               <ul className="space-y-2">
@@ -1054,19 +1062,17 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             )}
           </div>
         ) : (
-          <div className="mt-4">
-            <MiningWizard
-              lang={lang}
-              value={assessment}
-              onChange={setAssessment}
-              busy={busy}
-              meta={meta}
-              metaLoading={metaLoading}
-              onStart={(a) => {
-                setAssessment(a);
-                void run(a);
-              }}
-            />
+          <div className="mt-4 space-y-4">
+            <MinerPool lang={lang} />
+            <button
+              type="button"
+              onClick={() => void run(assessment)}
+              disabled={busy || !url.trim()}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {pickCopy({ en: "Start mining", mn: "Шинжилгээ эхлүүлэх", ko: "분석 시작" }, lang)}
+            </button>
           </div>
         )}
 
