@@ -158,6 +158,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       }
       await saveMinerChoice(choice);
       onChange?.(choice);
+      refreshReady();
       toast.success(t.saved);
     } finally {
       setBusy(false);
@@ -171,6 +172,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       const key = apiKey.trim() || existing;
       if (choice.id === "gemini" && !key) {
         if (await hasGeminiOauth()) {
+          refreshReady();
           toast.success(t.testOk);
         } else {
           toast.error(t.geminiNoAuth);
@@ -178,6 +180,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
         return;
       }
       await testMinerKey(choice, key);
+      refreshReady();
       toast.success(t.testOk);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
