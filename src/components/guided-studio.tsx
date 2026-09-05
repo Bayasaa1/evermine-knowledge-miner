@@ -23,6 +23,7 @@ import {
   KeyRound,
   Square,
   Terminal as TerminalIcon,
+  BrainCircuit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
