@@ -56,16 +56,36 @@ function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | 
 
 type TimedCue = { start: number; end: number; speech: string; speaker: string };
 
-const MAX_SUBTITLE_WORDS = 9;
+const MAX_SUBTITLE_WORDS = 7;
+const MAX_SUBTITLE_CHARS = 46;
 
-/** Break dense mined transcript lines into readable caption-sized phrases. */
+/** Break dense mined transcript lines into readable caption-sized phrases.
+ *  Splits on word count AND character length so long words / CJK text still fit. */
 function splitSubtitle(speech: string): string[] {
-  const words = speech.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= MAX_SUBTITLE_WORDS) return speech.trim() ? [speech.trim()] : [];
+  const text = speech.trim();
+  if (!text) return [];
+  const words = text.split(/\s+/).filter(Boolean);
   const parts: string[] = [];
-  for (let i = 0; i < words.length; i += MAX_SUBTITLE_WORDS) {
-    parts.push(words.slice(i, i + MAX_SUBTITLE_WORDS).join(" "));
+  let current: string[] = [];
+  let length = 0;
+  const flush = () => {
+    if (current.length) parts.push(current.join(" "));
+    current = [];
+    length = 0;
+  };
+  for (const word of words) {
+    const next = length + word.length + (current.length ? 1 : 0);
+    if (current.length && (current.length >= MAX_SUBTITLE_WORDS || next > MAX_SUBTITLE_CHARS)) flush();
+    // A single oversized token: hard-wrap it so it can never overflow the frame.
+    if (word.length > MAX_SUBTITLE_CHARS) {
+      flush();
+      for (let i = 0; i < word.length; i += MAX_SUBTITLE_CHARS) parts.push(word.slice(i, i + MAX_SUBTITLE_CHARS));
+      continue;
+    }
+    current.push(word);
+    length = next;
   }
+  flush();
   return parts;
 }
 
@@ -512,7 +532,7 @@ function FeedCard({
       <div className="pointer-events-none absolute inset-0 hidden bg-black/40 lg:block" />
 
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
-      <div className="relative h-[100dvh] w-full overflow-hidden md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[480px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
+      <div className="relative h-[100dvh] w-full overflow-hidden @container md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[480px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
         {item.youtubeId ? (
           <YouTubeStage
             videoId={item.youtubeId}
@@ -554,8 +574,8 @@ function FeedCard({
         )}
         {captions && activeSubtitle && (
           <p
-            className="pointer-events-none absolute inset-x-12 z-30 mx-auto max-w-[82%] rounded-md bg-background/85 px-3 py-2 text-center font-semibold leading-snug text-foreground shadow-lg"
-            style={{ bottom: `${subtitlePosition}%`, fontSize: `${subtitleSize}px` }}
+            className="pointer-events-none absolute inset-x-3 z-30 mx-auto line-clamp-3 w-fit max-w-[92%] overflow-hidden rounded-md bg-background/85 px-3 py-1.5 text-center font-semibold leading-snug text-balance break-words hyphens-auto text-foreground shadow-lg sm:inset-x-6"
+            style={{ bottom: `${subtitlePosition}%`, fontSize: `min(${subtitleSize}px, ${(subtitleSize / 4).toFixed(2)}cqw)` }}
           >
             {activeSubtitle.speech}
           </p>
