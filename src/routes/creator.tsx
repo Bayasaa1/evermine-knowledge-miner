@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
+import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { SubscriptionPanel } from "@/components/subscription-panel";
 import { EngineHub } from "@/components/engine-hub";
 import { EmbodiedAiCard } from "@/components/embodied-ai-card";
@@ -2532,6 +2533,8 @@ function Index() {
           <MindFeedback mindId={ownership.mindId} lang={lang} purchased canEditSpecs />
 
           <AnalyticsPanel lang={lang} ownership={ownership} />
+
+          <TokenUsagePanel lang={lang} />
 
 
           <section ref={resultsRef} id="results" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">

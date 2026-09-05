@@ -14,6 +14,7 @@
  * survive. A member that fails (bad key, rate limit) is skipped, never fatal.
  */
 import type { ChunkResult } from "./gemini";
+import { recordUsage, readTokens } from "./token-usage";
 import {
   existingKeyFor,
   findMiner,
@@ -81,6 +82,7 @@ Rules: no invented facts — only what the material supports. Short strings, one
 
 /** One chat completion against an OpenAI-compatible endpoint, parsed leniently. */
 async function thinkOpenAICompatible(
+  provider: string,
   base: string,
   key: string,
   model: string,
@@ -102,6 +104,7 @@ async function thinkOpenAICompatible(
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
+  void recordUsage({ provider, model, stage: "thinking", ...readTokens(data) });
   const text: string = data?.choices?.[0]?.message?.content ?? "";
   return parseThinkerJson(text);
 }
@@ -125,6 +128,7 @@ async function thinkClaude(key: string, brief: string, signal?: AbortSignal): Pr
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
+  void recordUsage({ provider: "claude", model: "claude-3-5-haiku-latest", stage: "thinking", ...readTokens(data) });
   const text: string = (data?.content ?? []).map((p: { text?: string }) => p.text ?? "").join("");
   return parseThinkerJson(text);
 }
@@ -144,6 +148,7 @@ async function thinkGemini(key: string, brief: string, signal?: AbortSignal): Pr
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
+  void recordUsage({ provider: "gemini", model: "gemini-2.5-flash", stage: "thinking", ...readTokens(data) });
   const text: string =
     data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   return parseThinkerJson(text);
@@ -175,13 +180,13 @@ async function thinkWith(
   if (id === "custom") {
     const key = await existingKeyFor("custom");
     if (!key || !choice.custom.endpoint.trim()) throw new Error("no key or endpoint");
-    return thinkOpenAICompatible(choice.custom.endpoint, key, choice.custom.model || "gpt-4o-mini", brief, signal);
+    return thinkOpenAICompatible("custom", choice.custom.endpoint, key, choice.custom.model || "gpt-4o-mini", brief, signal);
   }
   const key = await existingKeyFor(id);
   if (!key) throw new Error("no key");
   if (id === "claude") return thinkClaude(key, brief, signal);
   if (id === "gemini" || id === "gemini-pro") return thinkGemini(key, brief, signal);
-  return thinkOpenAICompatible(opt.baseUrl, key, opt.testModel, brief, signal);
+  return thinkOpenAICompatible(id, opt.baseUrl, key, opt.testModel, brief, signal);
 }
 
 function dedupe(list: string[]): string[] {

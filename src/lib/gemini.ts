@@ -1,6 +1,8 @@
 import { getGeminiAccessToken } from "./google-gemini-auth";
 import type { Lang } from "./i18n";
 
+import { recordUsage, readTokens } from "@/lib/token-usage";
+
 const BASE = "https://generativelanguage.googleapis.com";
 
 /**
@@ -969,6 +971,7 @@ export async function mineChunk(
   );
   if (!res.ok) throw await readError(res);
   const data = await res.json();
+  void recordUsage({ provider: "gemini-builtin", model, stage: "perception", ...readTokens(data) });
   const text: string =
     data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   if (!text.trim()) throw new GeminiError("Gemini returned an empty response for this piece", 500);
@@ -1032,6 +1035,7 @@ export async function mineUrlSegment(
   );
   if (!res.ok) throw await readError(res);
   const data = await res.json();
+  void recordUsage({ provider: "gemini-builtin", model, stage: "perception", ...readTokens(data) });
   const text: string =
     data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   if (!text.trim()) throw new GeminiError("Gemini returned an empty response for this video", 500);
