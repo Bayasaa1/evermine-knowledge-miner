@@ -18,6 +18,7 @@ import {
   existingKeyFor,
   findMiner,
   isTeamEligible,
+  sensePlan,
   type MinerChoice,
   type MinerId,
   type MinerOption,
@@ -214,6 +215,22 @@ export async function runUnderstandingPass(
   const thinkers: MinerId[] = teamMode
     ? dedupe([choice.id, ...choice.team] as string[]).slice(0, 3).map((id) => id as MinerId)
     : [choice.id];
+
+  // Token discipline: when the picked AI already perceives everything this
+  // creation type needs, no other AI is called at all — one engine, one bill.
+  if (!teamMode && sensePlan(choice, category).selfSufficient) {
+    return {
+      result: mined,
+      reports: [
+        {
+          id: choice.id,
+          label: findMiner(choice.id)?.label ?? choice.id,
+          status: "skipped",
+          detail: "already did the thinking in stage 1 — no second AI called",
+        },
+      ],
+    };
+  }
 
   // The default Gemini pick already reasoned in stage 1 — nothing to add
   // unless team mode brings other brains in.
