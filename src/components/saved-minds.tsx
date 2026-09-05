@@ -145,17 +145,42 @@ export function SavedMinds({
         text.match(/^([\w-]{11})$/);
       return m?.[1] ?? null;
     };
-    const keyOf = (v: VaultRow): string => {
+    const norm = (text: string) => text.trim().toLowerCase().replace(/\s+/g, " ");
+    const idOf = (v: VaultRow): string | null => {
       const payload = (v.payload ?? {}) as Record<string, unknown>;
       const video = (payload['video'] ?? {}) as Record<string, unknown>;
       const source = (payload['source'] ?? {}) as Record<string, unknown>;
-      const id =
+      return (
         youtubeId(typeof video['videoId'] === "string" ? video['videoId'] : null) ??
         youtubeId(typeof video['url'] === "string" ? video['url'] : null) ??
-        youtubeId(typeof source['label'] === "string" ? source['label'] : null);
+        youtubeId(typeof source['label'] === "string" ? source['label'] : null)
+      );
+    };
+    const labelOf = (v: VaultRow): string => {
+      const payload = (v.payload ?? {}) as Record<string, unknown>;
+      const source = (payload['source'] ?? {}) as Record<string, unknown>;
+      const video = (payload['video'] ?? {}) as Record<string, unknown>;
+      return typeof video['title'] === "string" && video['title']
+        ? video['title']
+        : typeof source['label'] === "string" && source['label']
+          ? source['label']
+          : v.title;
+    };
+
+    // Rows that know their YouTube id teach the others: a mined row often only
+    // carries the video title, so titles are mapped back onto the same video.
+    const alias = new Map<string, string>();
+    for (const v of vaults) {
+      const id = idOf(v);
+      if (!id) continue;
+      alias.set(norm(v.title), id);
+      alias.set(norm(labelOf(v)), id);
+    }
+
+    const keyOf = (v: VaultRow): string => {
+      const id = idOf(v) ?? alias.get(norm(labelOf(v))) ?? alias.get(norm(v.title));
       if (id) return `yt:${id}`;
-      const label = typeof source['label'] === "string" ? source['label'] : "";
-      return `t:${(label || v.title).trim().toLowerCase()}`;
+      return `t:${norm(labelOf(v))}`;
     };
 
     const map = new Map<string, VaultRow[]>();
@@ -165,6 +190,7 @@ export function SavedMinds({
       if (list) list.push(v);
       else map.set(k, [v]);
     }
+
     return [...map.values()].map((rows) => {
       const source = rows.find((r) => r.kind === "source") ?? null;
       const mined = rows.find((r) => r.kind !== "source") ?? null;
