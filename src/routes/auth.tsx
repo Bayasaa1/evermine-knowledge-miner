@@ -48,6 +48,9 @@ function AuthPage() {
 
   const next =
     typeof window !== "undefined" ? sanitizeNext(new URLSearchParams(window.location.search).get("next")) : "/";
+  // Preserve the page the visitor was heading to (e.g. an app-connection consent
+  // screen) across provider round-trips and emailed links.
+  const returnUrl = typeof window !== "undefined" ? `${window.location.origin}${next}` : "/";
 
   useEffect(() => {
     if (!loading && isAuthenticated) void navigate({ to: next, replace: true });
@@ -57,7 +60,7 @@ function AuthPage() {
     setBusy(provider);
     try {
       const result = await lovable.auth.signInWithOAuth(provider, {
-        redirect_uri: window.location.origin,
+        redirect_uri: returnUrl,
         // Google sign-in also links the creator's free-tier Gemini API and a
         // single-app Drive folder for Mind backups — zero API keys, zero setup.
         ...(provider === "google"
@@ -88,7 +91,7 @@ function AuthPage() {
       if (mode === "magic") {
         const { error } = await supabase.auth.signInWithOtp({
           email: email.trim(),
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo: returnUrl },
         });
         if (error) throw error;
         setSent("magic");
@@ -98,7 +101,7 @@ function AuthPage() {
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: returnUrl,
             data: { full_name: name.trim() || email.trim().split("@")[0] },
           },
         });
