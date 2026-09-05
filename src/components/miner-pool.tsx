@@ -389,7 +389,10 @@ export function MinerPool({
             </p>
             <button
               type="button"
-              onClick={() => set({ team: choice.team.length ? [] : teamCandidates()[0] ? [teamCandidates()[0]!] : [] })}
+              onClick={() => {
+                const first = teamCandidates()[0]?.id;
+                set({ team: choice.team.length ? [] : first ? [first] : [] });
+              }}
               className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
                 choice.team.length
                   ? "border-primary bg-primary/10 text-primary"
