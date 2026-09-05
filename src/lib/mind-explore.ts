@@ -15,7 +15,10 @@ const str = (v: unknown): string => (typeof v === "string" ? v : typeof v === "n
 const strList = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
 
+/** Seconds for a timestamp value; blank or unparseable values yield null. */
 export function secondsOf(v: unknown): number | null {
+  if (typeof v === "string" && !v.trim()) return null;
+  if (v === null || v === undefined) return null;
   return parseTimestamp(v);
 }
 
