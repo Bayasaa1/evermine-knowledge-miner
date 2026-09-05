@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { analyzeTiming, type TimingHealth, type TranscriptLine } from "@/lib/subtitle-health";
+import { repairTimingsLocal } from "@/lib/repair-timings";
 import { retimeTranscript } from "@/lib/retime.server";
 
 export type SubtitleHealthRow = {
@@ -37,49 +38,70 @@ export const listSubtitleHealth = createServerFn({ method: "POST" })
     }));
   });
 
+async function loadContent(context: Ctx, contentId: string) {
+  const { data: row, error } = await context.supabase
+    .from("project_content")
+    .select("id, title, youtube_id, source_url, transcript, updated_at")
+    .eq("id", contentId)
+    .eq("user_id", context.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!row) throw new Error("That video is not in your vault.");
+  return row;
+}
+
+async function saveTimings(context: Ctx, row: any, repaired: TranscriptLine[]): Promise<SubtitleHealthRow> {
+  const { error: writeError } = await context.supabase
+    .from("project_content")
+    .update({ transcript: repaired as never })
+    .eq("id", row.id)
+    .eq("user_id", context.userId);
+  if (writeError) throw new Error(writeError.message);
+
+  await syncVaults(context, row.youtube_id ?? "", row.title, repaired);
+
+  return {
+    contentId: row.id,
+    title: row.title,
+    youtubeId: row.youtube_id ?? "",
+    sourceUrl: row.source_url ?? "",
+    updatedAt: new Date().toISOString(),
+    ...analyzeTiming(repaired),
+  };
+}
+
 /**
- * Re-mines the timing layer of one video and writes the repaired timestamps
- * back to the feed content, the saved mind and its versions, so subtitles line
- * up everywhere without touching any other mined data.
+ * Free repair (no AI credits): fills zero-time lines by spreading them across
+ * the gaps between timed neighbours, weighted by speech length.
+ */
+export const repairTimings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ contentId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<SubtitleHealthRow> => {
+    const row = await loadContent(context, data.contentId);
+    const original = lines(row.transcript);
+    if (!original.length) throw new Error("There is no transcript to repair — mine this video first.");
+    return saveTimings(context, row, repairTimingsLocal(original));
+  });
+
+/**
+ * Precise repair (uses AI credits): the video is re-watched once so each
+ * already-transcribed line gets its real timestamp. Only the timing layer is
+ * touched — the words, story and brain stay untouched.
  */
 export const retimeContent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ contentId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }): Promise<SubtitleHealthRow> => {
-    const { data: row, error } = await context.supabase
-      .from("project_content")
-      .select("id, title, youtube_id, source_url, transcript, updated_at")
-      .eq("id", data.contentId)
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!row) throw new Error("That video is not in your vault.");
+    const row = await loadContent(context, data.contentId);
+    const original = lines(row.transcript);
+    if (!original.length) throw new Error("There is no transcript to re-time — mine this video first.");
 
     const url = row.source_url || (row.youtube_id ? `https://www.youtube.com/watch?v=${row.youtube_id}` : "");
     if (!url) throw new Error("This mind has no linked YouTube source to re-watch.");
 
-    const original = lines(row.transcript);
-    if (!original.length) throw new Error("There is no transcript to re-time — mine this video first.");
-
     const repaired = await retimeTranscript(url, original);
-
-    const { error: writeError } = await context.supabase
-      .from("project_content")
-      .update({ transcript: repaired as never })
-      .eq("id", row.id)
-      .eq("user_id", context.userId);
-    if (writeError) throw new Error(writeError.message);
-
-    await syncVaults(context, row.youtube_id ?? "", row.title, repaired);
-
-    return {
-      contentId: row.id,
-      title: row.title,
-      youtubeId: row.youtube_id ?? "",
-      sourceUrl: url,
-      updatedAt: new Date().toISOString(),
-      ...analyzeTiming(repaired),
-    };
+    return saveTimings(context, row, repaired);
   });
 
 type Ctx = { supabase: { from: (t: string) => any }; userId: string };
