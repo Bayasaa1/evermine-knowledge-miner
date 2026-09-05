@@ -579,7 +579,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       const category = getCreationCategory();
       const title = assessment.sourceTitle?.trim() || mined.story.summary?.slice(0, 60) || source.label || "New Mind";
       const payload = {
-        source: { kind: source.kind, label: source.label },
+        source: { kind: source.kind, label: source.label, url: source.url ?? "" },
         category,
         minedAt: new Date().toISOString(),
         result: mined,
