@@ -432,7 +432,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       await queryClient.invalidateQueries({ queryKey: ["pending-sources"] });
     } catch (err) {
-      explainRef.current?.(err, url);
+      setErrorKey(errorKeyFor(err));
     } finally {
       setSaving(false);
     }
