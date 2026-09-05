@@ -29,6 +29,8 @@ export const claimMind = createServerFn({ method: "POST" })
     return { mindId: input.mindId, category: String(input.category || "knowledge").slice(0, 40) };
   })
   .handler(async ({ data, context }): Promise<PurchaseResult> => {
+    const { assertNotBanned } = await import("@/lib/api-guard.server");
+    await assertNotBanned(context.supabase, context.userId);
     const listed = catalogPrice(data.mindId);
     // Creator-published minds that are not in the paid catalogue are free previews.
     const price = listed?.price ?? 0;

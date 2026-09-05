@@ -47,6 +47,8 @@ export const publishDeployment = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }): Promise<DeployedPackage> => {
+    const { assertNotBanned } = await import("@/lib/api-guard.server");
+    await assertNotBanned(context.supabase, context.userId);
     const { data: row, error } = await context.supabase
       .from("robot_packages")
       .upsert(

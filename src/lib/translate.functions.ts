@@ -17,6 +17,18 @@ export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(async ({ data }) => {
     if (data.target === "en") return { texts: data.texts };
+
+    // Abuse guard: anonymous callers share a per-IP sliding window so a script
+    // cannot drain the shared AI credit balance. Over the limit we return the
+    // original English text instead of spending credits.
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const { rateLimit } = await import("@/lib/api-guard.server");
+    const ip =
+      getRequestHeader("cf-connecting-ip") ??
+      getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    if (rateLimit("translate", ip, 30)) return { texts: data.texts };
+
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) return { texts: data.texts };
 
