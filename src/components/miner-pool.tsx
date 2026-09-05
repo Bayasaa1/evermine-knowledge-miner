@@ -1,6 +1,12 @@
 /**
  * Step 3 — pick the AI that mines the saved videos.
  *
+ * The pool is filtered by the active creation type: each type offers exactly
+ * 8 options (3 free, 4 paid, 1 manual) containing only AIs whose senses can
+ * do the job — text-only AIs never appear for Robot Brain. Knowledge and
+ * Sales minds also offer team mode: 2–3 thinking AIs analyze the same
+ * material and their answers are merged.
+ *
  * Gemini is preselected. Any other brain asks for its API key exactly once: if a
  * key for that provider is already stored on this device, the field is skipped.
  * Every option shows where to get a key, step-by-step guidance, and a Test
@@ -8,22 +14,24 @@
  * Skipping this step entirely is fine — the saved videos simply stay in
  * Saved Minds until the creator comes back.
  */
-import { useEffect, useState } from "react";
-import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import {
   DEFAULT_MINER,
-  MINERS,
   existingKeyFor,
   findMiner,
+  isTeamEligible,
   loadMinerChoice,
   minerReadiness,
+  minersForCategory,
   saveMinerChoice,
   storeKeyFor,
   testMinerKey,
   type MinerChoice,
   type MinerId,
+  type Sense,
 } from "@/lib/miner-pool";
 
 const copy = {
@@ -38,6 +46,7 @@ const copy = {
     customLabel: "AI name",
     customEndpoint: "Endpoint URL (OpenAI-compatible)",
     customModel: "Model name",
+    customSenses: "What can your AI perceive?",
     skip: "Skip this step — every saved video stays in Saved Minds and can be mined later.",
     active: "Active miner",
     getKey: "Get an API key",
@@ -47,6 +56,14 @@ const copy = {
     canMine: "What this AI can mine",
     tradeoff: "Trade-off",
     freeBadge: "free",
+    groupFree: "Free",
+    groupPaid: "Paid",
+    groupManual: "Add your own",
+    teamTitle: "AI team (optional)",
+    teamSub: "Pick up to 2 extra thinkers. Each analyzes the same material, then their answers are merged — better coverage, fewer mistakes. Slower, and each member spends its own key quota.",
+    teamOn: "Team mode on",
+    teamOff: "Single AI",
+    teamMax: "Team is full (3 AIs).",
   },
   mn: {
     title: "Видеог олборлох AI-гаа сонгоно уу",
@@ -59,6 +76,7 @@ const copy = {
     customLabel: "AI-ийн нэр",
     customEndpoint: "Endpoint хаяг (OpenAI-тэй нийцтэй)",
     customModel: "Загварын нэр",
+    customSenses: "Таны AI юуг мэдэрч чадах вэ?",
     skip: "Энэ алхмыг алгасаж болно — хадгалсан бүх видео Хадгалсан оюунд үлдэж, дараа олборлогдоно.",
     active: "Идэвхтэй олборлогч",
     getKey: "API түлхүүр авах",
@@ -68,6 +86,14 @@ const copy = {
     canMine: "Энэ AI юу олборлож чадах вэ",
     tradeoff: "Сул тал",
     freeBadge: "үнэгүй",
+    groupFree: "Үнэгүй",
+    groupPaid: "Төлбөртэй",
+    groupManual: "Өөрийн AI нэмэх",
+    teamTitle: "AI баг (заавал биш)",
+    teamSub: "2 хүртэл нэмэлт бодогч сонгоорой. Бүгд ижил материалыг шинжилж, хариунууд нэгдэнэ — илүү бүрэн, цөөн алдаатай. Удаан, гишүүн бүр өөрийн түлхүүрийн хэмжээг зарцуулна.",
+    teamOn: "Багийн горим",
+    teamOff: "Ганц AI",
+    teamMax: "Баг дүүрсэн (3 AI).",
   },
   ko: {
     title: "영상을 마이닝할 AI 선택",
@@ -80,6 +106,7 @@ const copy = {
     customLabel: "AI 이름",
     customEndpoint: "엔드포인트 URL (OpenAI 호환)",
     customModel: "모델 이름",
+    customSenses: "AI가 인식할 수 있는 것은?",
     skip: "이 단계를 건너뛰어도 됩니다 — 저장된 영상은 저장된 마인드에 남아 나중에 마이닝할 수 있습니다.",
     active: "활성 마이너",
     getKey: "API 키 받기",
@@ -89,10 +116,23 @@ const copy = {
     canMine: "이 AI가 마이닝할 수 있는 것",
     tradeoff: "단점",
     freeBadge: "무료",
+    groupFree: "무료",
+    groupPaid: "유료",
+    groupManual: "직접 추가",
+    teamTitle: "AI 팀 (선택)",
+    teamSub: "최대 2개의 추가 사고 AI를 선택하세요. 각각 같은 자료를 분석하고 답변이 병합됩니다 — 더 넓은 커버리지, 더 적은 오류. 느리고 각 멤버가 자체 키 할당량을 사용합니다.",
+    teamOn: "팀 모드",
+    teamOff: "단일 AI",
+    teamMax: "팀이 가득 찼습니다 (3 AI).",
   },
 };
 
-const FREE_MINERS = new Set<MinerId>(["gemini", "groq", "mistral", "openrouter"]);
+const SENSE_LABELS: Record<Sense, { en: string; mn: string; ko: string }> = {
+  text: { en: "Text", mn: "Текст", ko: "텍스트" },
+  image: { en: "Images", mn: "Зураг", ko: "이미지" },
+  audio: { en: "Audio", mn: "Аудио", ko: "오디오" },
+  video: { en: "Video", mn: "Видео", ko: "영상" },
+};
 
 const readyCopy = {
   en: { ready: "Ready", setup: "Needs key", readyHint: "Ready to mine", setupHint: "Add a key to use this AI" },
@@ -100,7 +140,15 @@ const readyCopy = {
   ko: { ready: "준비됨", setup: "키 필요", readyHint: "마이닝 준비 완료", setupHint: "키를 추가하세요" },
 };
 
-export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: MinerChoice) => void }) {
+export function MinerPool({
+  lang,
+  onChange,
+  category = "knowledge",
+}: {
+  lang: Lang;
+  onChange?: (choice: MinerChoice) => void;
+  category?: string;
+}) {
   const t = pickCopy(copy, lang);
   const r = pickCopy(readyCopy, lang);
   const [choice, setChoice] = useState<MinerChoice>(DEFAULT_MINER);
@@ -109,6 +157,10 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [ready, setReady] = useState<Partial<Record<MinerId, boolean>>>({});
+
+  // Only the 8 AIs whose senses can do this creation type, ordered free → paid → manual.
+  const pool = useMemo(() => minersForCategory(category), [category]);
+  const teamEligible = isTeamEligible(category);
 
   const refreshReady = () => {
     void minerReadiness(choice).then(setReady);
@@ -140,8 +192,8 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   const needsKey = !!option?.keyField && !hasKey && choice.id !== "gemini";
   const showKeyArea = !!option?.keyField || choice.id === "gemini";
 
-
-  const persist = async () => {
+  const persist = async (nextChoice?: MinerChoice) => {
+    const toSave = nextChoice ?? choice;
     if (needsKey && !apiKey.trim()) {
       toast.error(t.keyNeeded);
       return;
@@ -149,12 +201,12 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
     setBusy(true);
     try {
       if (apiKey.trim()) {
-        await storeKeyFor(choice.id, apiKey.trim());
+        await storeKeyFor(toSave.id, apiKey.trim());
         setHasKey(true);
         setApiKey("");
       }
-      await saveMinerChoice(choice);
-      onChange?.(choice);
+      await saveMinerChoice(toSave);
+      onChange?.(toSave);
       refreshReady();
       toast.success(t.saved);
     } finally {
@@ -189,6 +241,21 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
     onChange?.(next);
   };
 
+  const toggleTeamMember = (id: MinerId) => {
+    const team = choice.team.includes(id)
+      ? choice.team.filter((m) => m !== id)
+      : choice.team.length >= 2
+        ? (toast.error(t.teamMax), choice.team)
+        : [...choice.team, id];
+    set({ team });
+  };
+
+  const groups: { key: "free" | "paid" | "manual"; label: string }[] = [
+    { key: "free", label: t.groupFree },
+    { key: "paid", label: t.groupPaid },
+    { key: "manual", label: t.groupManual },
+  ];
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -196,52 +263,60 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       </p>
       <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {MINERS.map((m) => {
-          const on = choice.id === m.id;
-          const isReady = !!ready[m.id];
-          return (
-            <button
-              key={m.id}
-              type="button"
-              title={isReady ? r.readyHint : r.setupHint}
-              onClick={() => set({ id: m.id as MinerId })}
-              className={`rounded-xl border p-3 text-left transition-colors ${
-                on
-                  ? "border-primary bg-primary/5"
-                  : isReady
-                    ? "border-emerald-500/50 bg-emerald-500/[0.04] hover:border-emerald-500"
-                    : "border-dashed border-border/70 opacity-70 hover:border-primary/40 hover:opacity-100"
-              }`}
-            >
-              <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                {m.label}
-                {m.id === "gemini" && (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-primary">
-                    default
-                  </span>
-                )}
-                {FREE_MINERS.has(m.id) && m.id !== "gemini" && (
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
-                    {t.freeBadge}
-                  </span>
-                )}
-                {on && <Check className="ml-auto h-4 w-4 text-primary" />}
-              </span>
-              <span className="mt-1 block text-xs text-muted-foreground">{m.note}</span>
-              <span
-                className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
-                  isReady ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {isReady ? <Check className="h-3 w-3" /> : <KeyRound className="h-3 w-3" />}
-                {isReady ? r.ready : r.setup}
-              </span>
-            </button>
-          );
-        })}
-
-      </div>
+      {groups.map((g) => {
+        const members = pool.filter((m) => m.price === g.key);
+        if (members.length === 0) return null;
+        return (
+          <div key={g.key} className="mt-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{g.label}</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {members.map((m) => {
+                const on = choice.id === m.id;
+                const isReady = !!ready[m.id];
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    title={isReady ? r.readyHint : r.setupHint}
+                    onClick={() => set({ id: m.id })}
+                    className={`rounded-xl border p-3 text-left transition-colors ${
+                      on
+                        ? "border-primary bg-primary/5"
+                        : isReady
+                          ? "border-emerald-500/50 bg-emerald-500/[0.04] hover:border-emerald-500"
+                          : "border-dashed border-border/70 opacity-70 hover:border-primary/40 hover:opacity-100"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      {m.label}
+                      {m.id === "gemini" && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-primary">
+                          default
+                        </span>
+                      )}
+                      {m.price === "free" && m.id !== "gemini" && (
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                          {t.freeBadge}
+                        </span>
+                      )}
+                      {on && <Check className="ml-auto h-4 w-4 text-primary" />}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{m.note}</span>
+                    <span
+                      className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
+                        isReady ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {isReady ? <Check className="h-3 w-3" /> : <KeyRound className="h-3 w-3" />}
+                      {isReady ? r.ready : r.setup}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
 
       {option && (
         <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-3 text-xs">
@@ -253,25 +328,103 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       )}
 
       {choice.id === "custom" && (
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <input
-            value={choice.custom.label}
-            onChange={(e) => set({ custom: { ...choice.custom, label: e.target.value.slice(0, 60) } })}
-            placeholder={t.customLabel}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-          />
-          <input
-            value={choice.custom.endpoint}
-            onChange={(e) => set({ custom: { ...choice.custom, endpoint: e.target.value.slice(0, 300) } })}
-            placeholder={t.customEndpoint}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-          />
-          <input
-            value={choice.custom.model}
-            onChange={(e) => set({ custom: { ...choice.custom, model: e.target.value.slice(0, 80) } })}
-            placeholder={t.customModel}
-            className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-          />
+        <div className="mt-4 space-y-2">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <input
+              value={choice.custom.label}
+              onChange={(e) => set({ custom: { ...choice.custom, label: e.target.value.slice(0, 60) } })}
+              placeholder={t.customLabel}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <input
+              value={choice.custom.endpoint}
+              onChange={(e) => set({ custom: { ...choice.custom, endpoint: e.target.value.slice(0, 300) } })}
+              placeholder={t.customEndpoint}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <input
+              value={choice.custom.model}
+              onChange={(e) => set({ custom: { ...choice.custom, model: e.target.value.slice(0, 80) } })}
+              placeholder={t.customModel}
+              className="rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t.customSenses}</span>
+            {(["text", "image", "audio", "video"] as Sense[]).map((s) => {
+              const on = choice.custom.senses.includes(s);
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() =>
+                    set({
+                      custom: {
+                        ...choice.custom,
+                        senses: on
+                          ? choice.custom.senses.filter((x) => x !== s)
+                          : [...choice.custom.senses, s],
+                      },
+                    })
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    on
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  {pickCopy(SENSE_LABELS[s], lang)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {teamEligible && (
+        <div className="mt-4 rounded-xl border border-border/60 bg-muted/20 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex items-center gap-2 text-xs font-semibold text-foreground">
+              <Users className="h-3.5 w-3.5 text-primary" /> {t.teamTitle}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const first = teamCandidates()[0]?.id;
+                set({ team: choice.team.length ? [] : first ? [first] : [] });
+              }}
+              className={`rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                choice.team.length
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary/50"
+              }`}
+            >
+              {choice.team.length ? t.teamOn : t.teamOff}
+            </button>
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">{t.teamSub}</p>
+          {choice.team.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {teamCandidates().map((m) => {
+                const on = choice.team.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleTeamMember(m.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      on
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50"
+                    }`}
+                  >
+                    {on && <Check className="h-3 w-3" />}
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -338,4 +491,9 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       <p className="mt-3 text-xs text-muted-foreground">{t.skip}</p>
     </div>
   );
+
+  /** Other pool members that are ready and not the main pick — team candidates. */
+  function teamCandidates() {
+    return pool.filter((m) => m.id !== choice.id && m.id !== "custom" && !!ready[m.id]);
+  }
 }
