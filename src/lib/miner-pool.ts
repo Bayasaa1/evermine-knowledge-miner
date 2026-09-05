@@ -52,7 +52,7 @@ export const MINERS: MinerOption[] = [
     keyPlaceholder: "",
     keyUrl: "https://aistudio.google.com/apikey",
     guidance:
-      "Free key at Google AI Studio → Get API key → Create API key. Signing in with Google in step 1 links it automatically, so no key is needed.",
+      "No key needed — Gemini mining is included with your Evermind account. You can still add your own free key from Google AI Studio → Get API key if you prefer to use your own quota.",
     capability:
       "Mines video natively: subtitles with timestamps, faces, emotions, voice prints, topics, story beats — the only engine that sees the footage itself.",
     downside: "Free tier has a daily quota; long queues of videos may pause until the quota resets.",
@@ -352,17 +352,11 @@ export async function storeKeyFor(id: MinerId, value: string): Promise<void> {
  */
 export async function minerReadiness(choice?: MinerChoice): Promise<Record<MinerId, boolean>> {
   const stack = await loadStack();
-  const { hasGeminiOauth } = await import("./google-gemini-auth");
-  let geminiOauth = false;
-  try {
-    geminiOauth = await hasGeminiOauth();
-  } catch {
-    geminiOauth = false;
-  }
   const ready = {} as Record<MinerId, boolean>;
   for (const m of MINERS) {
     const key = m.keyField ? !!(stack.keys[m.keyField] ?? "").trim() : false;
-    if (m.id === "gemini") ready[m.id] = geminiOauth || !!(stack.keys["GEMINI_API_KEY"] ?? "").trim();
+    // Gemini mining runs on Evermind's built-in engine — no creator key required.
+    if (m.id === "gemini") ready[m.id] = true;
     else if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
     else ready[m.id] = key;
   }

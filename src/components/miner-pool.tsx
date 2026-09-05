@@ -12,7 +12,6 @@ import { useEffect, useState } from "react";
 import { BrainCircuit, Check, ExternalLink, KeyRound, Loader2, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { hasGeminiOauth } from "@/lib/google-gemini-auth";
 import {
   DEFAULT_MINER,
   MINERS,
@@ -48,7 +47,6 @@ const copy = {
     canMine: "What this AI can mine",
     tradeoff: "Trade-off",
     freeBadge: "free",
-    geminiNoAuth: "Sign in with Google (step 1) first — that links Gemini automatically.",
   },
   mn: {
     title: "Видеог олборлох AI-гаа сонгоно уу",
@@ -70,7 +68,6 @@ const copy = {
     canMine: "Энэ AI юу олборлож чадах вэ",
     tradeoff: "Сул тал",
     freeBadge: "үнэгүй",
-    geminiNoAuth: "Эхлээд 1-р алхамд Google-ээр нэвтэрнэ үү — ингэвэл Gemini автоматаар холбогдоно.",
   },
   ko: {
     title: "영상을 마이닝할 AI 선택",
@@ -92,7 +89,6 @@ const copy = {
     canMine: "이 AI가 마이닝할 수 있는 것",
     tradeoff: "단점",
     freeBadge: "무료",
-    geminiNoAuth: "먼저 1단계에서 Google로 로그인하세요 — Gemini가 자동으로 연결됩니다.",
   },
 };
 
@@ -140,7 +136,8 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   }, [choice.id]);
 
   const option = findMiner(choice.id);
-  const needsKey = !!option?.keyField && !hasKey;
+  // Gemini runs on the built-in engine, so a creator key is always optional.
+  const needsKey = !!option?.keyField && !hasKey && choice.id !== "gemini";
   const showKeyArea = !!option?.keyField || choice.id === "gemini";
 
 
@@ -171,12 +168,9 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       const existing = await existingKeyFor(choice.id);
       const key = apiKey.trim() || existing;
       if (choice.id === "gemini" && !key) {
-        if (await hasGeminiOauth()) {
-          refreshReady();
-          toast.success(t.testOk);
-        } else {
-          toast.error(t.geminiNoAuth);
-        }
+        // Built-in Gemini engine — nothing to validate.
+        refreshReady();
+        toast.success(t.testOk);
         return;
       }
       await testMinerKey(choice, key);
