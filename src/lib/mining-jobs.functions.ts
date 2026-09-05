@@ -81,6 +81,8 @@ export const startMiningJobs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => startSchema.parse(input))
   .handler(async ({ data, context }): Promise<MiningJob[]> => {
+    const { assertNotBanned } = await import("@/lib/api-guard.server");
+    await assertNotBanned(context.supabase, context.userId);
     const { playlistId, fetchPlaylistVideoIds, fetchVideoMeta } = await import("@/lib/youtube-meta.server");
     const { youtubeId } = await import("@/lib/import-sources");
 
@@ -131,6 +133,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }): Promise<ChunkStepResult> => {
+    const { assertNotBanned } = await import("@/lib/api-guard.server");
+    await assertNotBanned(context.supabase, context.userId);
     const { data: row, error } = await context.supabase
       .from("mining_jobs")
       .select(SELECT)
