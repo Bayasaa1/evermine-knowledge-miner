@@ -16,6 +16,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,6 +33,9 @@ import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
 import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
@@ -51,6 +55,19 @@ function markAt(marks: TimelineMark[] | undefined, now: number): TimelineMark | 
 }
 
 type TimedCue = { start: number; end: number; speech: string; speaker: string };
+
+const MAX_SUBTITLE_WORDS = 9;
+
+/** Break dense mined transcript lines into readable caption-sized phrases. */
+function splitSubtitle(speech: string): string[] {
+  const words = speech.trim().split(/\s+/).filter(Boolean);
+  if (words.length <= MAX_SUBTITLE_WORDS) return speech.trim() ? [speech.trim()] : [];
+  const parts: string[] = [];
+  for (let i = 0; i < words.length; i += MAX_SUBTITLE_WORDS) {
+    parts.push(words.slice(i, i + MAX_SUBTITLE_WORDS).join(" "));
+  }
+  return parts;
+}
 
 /** Parse "MM:SS", "HH:MM:SS" or a "start - end" range. Returns null when unusable. */
 function parseStamp(raw: string): { start: number; end: number | null } | null {
@@ -86,6 +103,25 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   if (!list.length) return [];
 
   const parsed = list.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
+
+  // Some older five-minute mining checkpoints returned chunk-local times
+  // (00:00 again at each checkpoint). Repair each reset into a continuous
+  // whole-video timeline before matching captions to playback.
+  let timelineOffset = 0;
+  let previousStart = -1;
+  for (const entry of parsed) {
+    if (!entry.time) continue;
+    let start = entry.time.start + timelineOffset;
+    if (previousStart >= 0 && start < previousStart - 20) {
+      timelineOffset += Math.ceil((previousStart - start) / 300) * 300;
+      start = entry.time.start + timelineOffset;
+    }
+    entry.time = {
+      start,
+      end: entry.time.end == null ? null : entry.time.end + timelineOffset,
+    };
+    previousStart = start;
+  }
   const span = duration > 0 ? duration : Math.max(...parsed.map((p) => p.time?.end ?? p.time?.start ?? 0), list.length * 5);
 
   // Anchor known timestamps, then spread untimed runs evenly between anchors.
@@ -112,13 +148,31 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
     i = j;
   }
 
-  return list.map((c, idx) => {
+  const windows = list.map((c, idx) => {
     const start = starts[idx] ?? 0;
     const next = starts[idx + 1];
     const fallback = start + Math.max(2, Math.min(8, c.speech.length / 14));
-    const end = ends[idx] ?? (next != null ? Math.min(next, fallback) : fallback);
+    const explicitEnd = ends[idx];
+    const end = explicitEnd != null
+      ? Math.min(explicitEnd, next ?? explicitEnd, start + Math.max(3, Math.min(12, c.speech.length / 12)))
+      : next != null ? Math.min(next, fallback) : fallback;
     return { start, end: Math.max(end, start + 1.2), speech: c.speech, speaker: c.speaker };
   }).sort((a, b) => a.start - b.start);
+
+  return windows.flatMap((cue) => {
+    const parts = splitSubtitle(cue.speech);
+    if (parts.length <= 1) return [cue];
+    const span = Math.max(parts.length * 0.8, cue.end - cue.start);
+    const weights = parts.map((part) => Math.max(1, part.length));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    let elapsed = 0;
+    return parts.map((speech, index) => {
+      const start = cue.start + span * (elapsed / totalWeight);
+      elapsed += weights[index] ?? 1;
+      const end = index === parts.length - 1 ? cue.end : cue.start + span * (elapsed / totalWeight);
+      return { ...cue, start, end: Math.max(start + 0.8, end), speech };
+    });
+  });
 }
 
 
@@ -395,6 +449,9 @@ function FeedCard({
   const [now, setNow] = useState(0);
   const [duration, setDuration] = useState(0);
   const [captions, setCaptions] = useState(true);
+  const [subtitleSize, setSubtitleSize] = useState(18);
+  const [subtitlePosition, setSubtitlePosition] = useState(38);
+  const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [expanded, setExpanded] = useState(false);
 
   const { lang } = useLang();
@@ -412,7 +469,7 @@ function FeedCard({
   const activeMark = markAt(item.timeline, now);
   const activeEmotion = markAt(item.emotionTimeline, now);
   const timedCues = useMemo(() => buildCues(item.transcript, duration), [item.transcript, duration]);
-  const activeSubtitle = cueAt(timedCues, now);
+  const activeSubtitle = cueAt(timedCues, now + subtitleOffset);
 
 
   useEffect(() => {
@@ -477,6 +534,8 @@ function FeedCard({
             loop
             playsInline
             onClick={toggle}
+            onTimeUpdate={(event) => setNow(event.currentTarget.currentTime)}
+            onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
             className="h-full w-full object-cover md:object-contain md:bg-black"
           />
         ) : (
@@ -494,14 +553,40 @@ function FeedCard({
           </button>
         )}
         {captions && activeSubtitle && (
-          <p className="pointer-events-none absolute inset-x-10 bottom-[38%] z-30 line-clamp-2 rounded-md bg-background/85 px-3 py-2 text-center text-sm font-medium text-foreground shadow-lg md:bottom-28">
+          <p
+            className="pointer-events-none absolute inset-x-12 z-30 mx-auto max-w-[82%] rounded-md bg-background/85 px-3 py-2 text-center font-semibold leading-snug text-foreground shadow-lg"
+            style={{ bottom: `${subtitlePosition}%`, fontSize: `${subtitleSize}px` }}
+          >
             {activeSubtitle.speech}
           </p>
         )}
         {!!item.transcript?.length && (
-          <button type="button" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="absolute right-3 top-28 z-30 rounded-full bg-background/70 p-2 text-foreground backdrop-blur">
-            <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
-          </button>
+          <div className="absolute right-3 top-28 z-30 flex flex-col gap-2">
+            <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
+              <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" size="icon" variant="secondary" aria-label="Subtitle settings" className="h-9 w-9 bg-background/75 backdrop-blur">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="left" align="start" className="w-64 space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-xs"><span>Subtitle size</span><span>{subtitleSize}px</span></div>
+                  <Slider min={14} max={30} step={1} value={[subtitleSize]} onValueChange={(value) => setSubtitleSize(value[0] ?? 18)} aria-label="Subtitle size" />
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-xs"><span>Vertical position</span><span>{subtitlePosition}%</span></div>
+                  <Slider min={18} max={72} step={1} value={[subtitlePosition]} onValueChange={(value) => setSubtitlePosition(value[0] ?? 38)} aria-label="Subtitle vertical position" />
+                </div>
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-xs"><span>Timing</span><span>{subtitleOffset > 0 ? "+" : ""}{subtitleOffset.toFixed(1)}s</span></div>
+                  <Slider min={-10} max={10} step={0.5} value={[subtitleOffset]} onValueChange={(value) => setSubtitleOffset(value[0] ?? 0)} aria-label="Subtitle timing" />
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         )}
 
         {/* Live mined knowledge + emotion tags, aligned to what is playing.
