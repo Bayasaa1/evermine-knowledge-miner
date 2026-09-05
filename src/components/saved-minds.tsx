@@ -6,7 +6,7 @@
  * view. Every entry supports full CRUD: inspect the Core Brain JSON, rename or
  * re-assign it, and delete it together with its version history.
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -80,6 +80,8 @@ export function SavedMinds({
     mine: pickCopy({ en: "Mine", mn: "Олборлох", ko: "마이닝" }, lang),
     mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
     pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
+    saves: pickCopy({ en: "saves", mn: "хадгалалт", ko: "저장본" }, lang),
+
 
   };
 
@@ -119,7 +121,9 @@ export function SavedMinds({
   });
 
   const drop = useMutation({
-    mutationFn: (id: string) => removeVault({ data: { id } }),
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) await removeVault({ data: { id } });
+    },
     onSuccess: async () => {
       toast.success(t.deleted);
       await refresh();
@@ -128,7 +132,49 @@ export function SavedMinds({
     onError: (e: unknown) => toast.error(String(e)),
   });
 
+  /**
+   * One card per video. A video normally leaves several rows behind (the saved
+   * source, plus one row per mining run), so they are folded into a single
+   * entry keyed by the YouTube id — or the title when no id is available.
+   */
+  const groups = useMemo(() => {
+    const youtubeId = (text: string | undefined | null): string | null => {
+      if (!text) return null;
+      const m =
+        text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) ??
+        text.match(/^([\w-]{11})$/);
+      return m?.[1] ?? null;
+    };
+    const keyOf = (v: VaultRow): string => {
+      const payload = (v.payload ?? {}) as Record<string, unknown>;
+      const video = (payload['video'] ?? {}) as Record<string, unknown>;
+      const source = (payload['source'] ?? {}) as Record<string, unknown>;
+      const id =
+        youtubeId(typeof video['videoId'] === "string" ? video['videoId'] : null) ??
+        youtubeId(typeof video['url'] === "string" ? video['url'] : null) ??
+        youtubeId(typeof source['label'] === "string" ? source['label'] : null);
+      if (id) return `yt:${id}`;
+      const label = typeof source['label'] === "string" ? source['label'] : "";
+      return `t:${(label || v.title).trim().toLowerCase()}`;
+    };
+
+    const map = new Map<string, VaultRow[]>();
+    for (const v of vaults) {
+      const k = keyOf(v);
+      const list = map.get(k);
+      if (list) list.push(v);
+      else map.set(k, [v]);
+    }
+    return [...map.values()].map((rows) => {
+      const source = rows.find((r) => r.kind === "source") ?? null;
+      const mined = rows.find((r) => r.kind !== "source") ?? null;
+      const primary = source ?? rows[0]!;
+      return { rows, source, mined, primary, title: source?.title ?? primary.title };
+    });
+  }, [vaults]);
+
   if (!isAuthenticated) return null;
+
 
   return (
     <section className="rounded-[12px] border border-border bg-card p-4">
@@ -157,11 +203,14 @@ export function SavedMinds({
         )}
       </div>
 
-      {vaults.length > 0 ? (
+      {groups.length > 0 ? (
         <ul className="mt-3 space-y-2">
-          {vaults.map((v) => {
-            const src = v.kind === "source" ? (v.payload as unknown as SourcePayload) : null;
+          {groups.map((g) => {
+            const v = g.primary;
+            const src = g.source ? (g.source.payload as unknown as SourcePayload) : null;
             const video = src?.video;
+            const mined = Boolean(g.mined) || src?.status === "mined";
+            const openRow = g.mined ?? v;
             return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
@@ -174,28 +223,20 @@ export function SavedMinds({
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{v.title}</p>
-                  {src ? (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
-                        {" · "}
-                        <span className={src.status === "mined" ? "text-emerald-500" : "text-amber-500"}>
-                          {src.status === "mined" ? t.mined : t.pending}
-                        </span>
-                      </p>
-                      {video?.description && (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {v.kind} · {new Date(v.updatedAt).toLocaleString()}
-                      {v.projectId ? ` · ${projects.find((p) => p.id === v.projectId)?.title ?? t.project}` : ""}
-                    </p>
+                  <p className="truncate text-sm font-medium text-foreground">{g.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
+                    {video ? " · " : ""}
+                    <span className={mined ? "text-emerald-500" : "text-amber-500"}>
+                      {mined ? t.mined : t.pending}
+                    </span>
+                    {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
+                  </p>
+                  {video?.description && (
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
                   )}
                 </div>
-                {src && src.status !== "mined" ? (
+                {!mined ? (
                   <Link
                     to="/creator"
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
@@ -205,7 +246,7 @@ export function SavedMinds({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setInspect(v)}
+                    onClick={() => setInspect(openRow)}
                     title={t.view}
                     className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                   >
@@ -224,7 +265,7 @@ export function SavedMinds({
                   type="button"
                   disabled={drop.isPending}
                   onClick={() => {
-                    if (window.confirm(t.confirm)) drop.mutate(v.id);
+                    if (window.confirm(t.confirm)) drop.mutate(g.rows.map((r) => r.id));
                   }}
                   title={t.del}
                   className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
@@ -236,6 +277,7 @@ export function SavedMinds({
             );
           })}
         </ul>
+
 
       ) : (
         !isLoading && <p className="mt-3 text-sm text-muted-foreground">{t.empty}</p>
