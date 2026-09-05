@@ -706,6 +706,74 @@ const responseSchema = {
       },
       required: ["flagged", "originality", "summary", "signals"],
     },
+    // Only filled for the Gaming Mind category; omitted otherwise so other
+    // categories don't pay tokens for gameplay fields.
+    gaming: {
+      type: "object",
+      properties: {
+        skills: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              kind: { type: "string" },
+              detail: { type: "string" },
+              timestamp_start: { type: "string" },
+              timestamp_end: { type: "string" },
+              confidence_score: { type: "number" },
+            },
+            required: ["name", "kind", "detail", "timestamp_start", "timestamp_end", "confidence_score"],
+          },
+        },
+        tactics: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              when: { type: "string" },
+              steps: { type: "array", items: { type: "string" } },
+              counter: { type: "string" },
+              timestamp_start: { type: "string" },
+              timestamp_end: { type: "string" },
+            },
+            required: ["name", "when", "steps", "counter", "timestamp_start", "timestamp_end"],
+          },
+        },
+        decisions: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: { type: "string" },
+              situation: { type: "string" },
+              action: { type: "string" },
+              why: { type: "string" },
+              outcome: { type: "string", enum: ["worked", "failed", "unknown"] },
+            },
+            required: ["timestamp", "situation", "action", "why", "outcome"],
+          },
+        },
+        tutorials: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              goal: { type: "string" },
+              steps: { type: "array", items: { type: "string" } },
+              timestamp_start: { type: "string" },
+              timestamp_end: { type: "string" },
+            },
+            required: ["title", "goal", "steps", "timestamp_start", "timestamp_end"],
+          },
+        },
+        commentaryStyle: { type: "array", items: { type: "string" } },
+        mistakes: { type: "array", items: { type: "string" } },
+      },
+      required: ["skills", "tactics", "decisions", "tutorials", "commentaryStyle", "mistakes"],
+    },
   },
 
   required: [
