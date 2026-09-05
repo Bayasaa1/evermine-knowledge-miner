@@ -70,7 +70,14 @@ function fillMissingTranscriptStamps(result: ChunkResult, chunkIndex: number): C
 }
 
 function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkResult {
-  if (chunkIndex === 0) return fillMissingTranscriptStamps(result, 0);
+  // Legacy payloads may predate the gaming layer — give them an empty one.
+  const EMPTY: ChunkResult["gaming"] = {
+    skills: [], tactics: [], decisions: [], tutorials: [],
+    commentaryStyle: [], mistakes: [], communication: [], mindset: [], emotions: [],
+  };
+  const withGaming: ChunkResult = { ...result, gaming: result.gaming ?? EMPTY };
+  if (chunkIndex === 0) return fillMissingTranscriptStamps(withGaming, 0);
+  result = withGaming;
 
   const stamp = (value: string) => wholeVideoStamp(value, chunkIndex);
   const shifted: ChunkResult = {
