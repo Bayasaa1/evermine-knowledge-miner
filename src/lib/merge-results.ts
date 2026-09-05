@@ -1,5 +1,55 @@
 import type { ChunkResult } from "@/lib/gemini";
 
+const CHUNK_SECONDS = 300;
+
+function stampSeconds(raw: string): number | null {
+  const first = String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/)[0]?.trim() ?? "";
+  const parts = first.split(":").map(Number);
+  if (!parts.length || parts.some((part) => !Number.isFinite(part))) return null;
+  if (parts.length === 3) return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+  if (parts.length === 2) return parts[0]! * 60 + parts[1]!;
+  return parts[0] ?? null;
+}
+
+function stampAt(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+/** Gemini can occasionally return times relative to a checkpoint despite the prompt. */
+function wholeVideoStamp(raw: string, chunkIndex: number): string {
+  const parts = String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/).filter(Boolean);
+  const values = parts.map(stampSeconds);
+  if (!values.length || values[0] == null) return raw;
+  const chunkStart = chunkIndex * CHUNK_SECONDS;
+  // A timestamp before this checkpoint is necessarily chunk-local.
+  if (chunkIndex === 0 || values[0]! >= chunkStart - 10) return raw;
+  return values.map((value) => value == null ? "" : stampAt(value + chunkStart)).filter(Boolean).join(" - ");
+}
+
+function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkResult {
+  if (chunkIndex === 0) return result;
+  const stamp = (value: string) => wholeVideoStamp(value, chunkIndex);
+  return {
+    ...result,
+    transcript: result.transcript.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+    story: { ...result.story, beats: result.story.beats.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
+    faceData: result.faceData.map((item) => ({ ...item, timestamp: stamp(item.timestamp), clipStart: stamp(item.clipStart), clipEnd: stamp(item.clipEnd) })),
+    voiceData: result.voiceData.map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })),
+    audio: { ...result.audio, segments: result.audio.segments.map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })) },
+    subconsciousness: {
+      ...result.subconsciousness,
+      culturalVocabulary: result.subconsciousness.culturalVocabulary.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+    },
+    knowledgeNodes: result.knowledgeNodes.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+    emotionTimeline: result.emotionTimeline.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+    copyright: { ...result.copyright, signals: result.copyright.signals.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
+  };
+}
+
 function uniqueStrings(values: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -31,57 +81,58 @@ function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
  */
 export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
   if (list.length === 0) return null;
-  const base = list[0]!;
+  const normalized = list.map(normalizeChunkTimeline);
+  const base = normalized[0]!;
   if (list.length === 1) return base;
 
   const firstNonEmpty = (pick: (r: ChunkResult) => string): string =>
-    list.map(pick).find((v) => !!v && v.trim().length > 0) ?? "";
+    normalized.map(pick).find((v) => !!v && v.trim().length > 0) ?? "";
 
-  const signals = list.flatMap((r) => r.copyright.signals);
-  const flagged = list.some((r) => r.copyright.flagged);
+  const signals = normalized.flatMap((r) => r.copyright.signals);
+  const flagged = normalized.some((r) => r.copyright.flagged);
 
   return {
     speakers: uniqueBy(
-      list.flatMap((r) => r.speakers),
+      normalized.flatMap((r) => r.speakers),
       (s) => `${s.label}|${s.role}`,
     ),
-    transcript: list.flatMap((r) => r.transcript),
-    scenes: list.flatMap((r) => r.scenes),
-    knowledge: uniqueStrings(list.flatMap((r) => r.knowledge)),
+    transcript: normalized.flatMap((r) => r.transcript),
+    scenes: normalized.flatMap((r) => r.scenes),
+    knowledge: uniqueStrings(normalized.flatMap((r) => r.knowledge)),
     story: {
-      summary: uniqueStrings(list.map((r) => r.story.summary)).join(" "),
+      summary: uniqueStrings(normalized.map((r) => r.story.summary)).join(" "),
       tone: firstNonEmpty((r) => r.story.tone),
-      beats: list.flatMap((r) => r.story.beats),
+      beats: normalized.flatMap((r) => r.story.beats),
     },
-    faceData: list.flatMap((r) => r.faceData),
-    voiceData: list.flatMap((r) => r.voiceData),
+    faceData: normalized.flatMap((r) => r.faceData),
+    voiceData: normalized.flatMap((r) => r.voiceData),
     audio: {
-      hasMusic: list.some((r) => r.audio.hasMusic),
+      hasMusic: normalized.some((r) => r.audio.hasMusic),
       atmosphere: firstNonEmpty((r) => r.audio.atmosphere),
-      genres: uniqueStrings(list.flatMap((r) => r.audio.genres)),
-      moods: uniqueStrings(list.flatMap((r) => r.audio.moods)),
+      genres: uniqueStrings(normalized.flatMap((r) => r.audio.genres)),
+      moods: uniqueStrings(normalized.flatMap((r) => r.audio.moods)),
       tempo: firstNonEmpty((r) => r.audio.tempo),
-      segments: list.flatMap((r) => r.audio.segments),
-      audioSkillAssets: uniqueStrings(list.flatMap((r) => r.audio.audioSkillAssets)),
+      segments: normalized.flatMap((r) => r.audio.segments),
+      audioSkillAssets: uniqueStrings(normalized.flatMap((r) => r.audio.audioSkillAssets)),
     },
     subconsciousness: {
-      skills: uniqueStrings(list.flatMap((r) => r.subconsciousness.skills)),
-      beliefs: uniqueStrings(list.flatMap((r) => r.subconsciousness.beliefs)),
-      decisionLogic: uniqueStrings(list.flatMap((r) => r.subconsciousness.decisionLogic)),
+      skills: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.skills)),
+      beliefs: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.beliefs)),
+      decisionLogic: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.decisionLogic)),
       culturalVocabulary: uniqueBy(
-        list.flatMap((r) => r.subconsciousness.culturalVocabulary),
+        normalized.flatMap((r) => r.subconsciousness.culturalVocabulary),
         (c) => `${c.phrase}|${c.timestamp}`,
       ),
-      expressiveStyle: uniqueStrings(list.flatMap((r) => r.subconsciousness.expressiveStyle)),
-      aestheticProfile: uniqueStrings(list.flatMap((r) => r.subconsciousness.aestheticProfile)),
+      expressiveStyle: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.expressiveStyle)),
+      aestheticProfile: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.aestheticProfile)),
     },
-    knowledgeNodes: list.flatMap((r) => r.knowledgeNodes),
-    emotionTimeline: list.flatMap((r) => r.emotionTimeline),
+    knowledgeNodes: normalized.flatMap((r) => r.knowledgeNodes),
+    emotionTimeline: normalized.flatMap((r) => r.emotionTimeline),
     copyright: {
       flagged,
       originality: flagged ? "third-party" : firstNonEmpty((r) => r.copyright.originality) || "original",
       signals,
-      summary: uniqueStrings(list.map((r) => r.copyright.summary)).join(" "),
+      summary: uniqueStrings(normalized.map((r) => r.copyright.summary)).join(" "),
     },
   };
 }
