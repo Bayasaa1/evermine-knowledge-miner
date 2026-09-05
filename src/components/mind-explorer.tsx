@@ -48,6 +48,16 @@ const C = {
   audio: { en: "Audio", mn: "Аудио", ko: "오디오" },
   persona: { en: "Persona", mn: "Дүр", ko: "페르소나" },
   raw: { en: "Raw JSON", mn: "Түүхий JSON", ko: "원본 JSON" },
+  gameplay: { en: "Gameplay", mn: "Тоглолт", ko: "게임플레이" },
+  gameSkills: { en: "Play skills", mn: "Тоглох ур чадвар", ko: "플레이 스킬" },
+  gameTactics: { en: "Tactics", mn: "Тактик", ko: "전술" },
+  gameDecisions: { en: "Decision moments", mn: "Шийдвэрийн мөчүүд", ko: "의사결정 순간" },
+  gameTutorials: { en: "Tutorials", mn: "Заавар", ko: "튜토리얼" },
+  gameStyle: { en: "Commentary style", mn: "Тайлбарын хэв маяг", ko: "해설 스타일" },
+  gameMistakes: { en: "Mistakes & recovery", mn: "Алдаа ба сэргээлт", ko: "실수와 회복" },
+  gameWhen: { en: "When", mn: "Хэзээ", ko: "상황" },
+  gameCounter: { en: "Counter", mn: "Эсрэг арга", ko: "카운터" },
+  gameOutcome: { en: "Outcome", mn: "Үр дүн", ko: "결과" },
   fix: { en: "Fix & patch", mn: "Засах", ko: "수정 및 패치" },
   play: { en: "Play", mn: "Тоглуулах", ko: "재생" },
   noVideo: {
@@ -189,6 +199,9 @@ export function MindExplorer({
               <TabsTrigger value="face"><UserSquare2 className="mr-1.5 h-3.5 w-3.5" />{t("face")} {view.counts['face']}</TabsTrigger>
               <TabsTrigger value="emotions"><Smile className="mr-1.5 h-3.5 w-3.5" />{t("emotions")} {view.counts['emotions']}</TabsTrigger>
               <TabsTrigger value="audio"><Music4 className="mr-1.5 h-3.5 w-3.5" />{t("audio")}</TabsTrigger>
+              {view.counts['gameSkills']! + view.counts['gameTutorials']! > 0 || view.gaming.skills.length > 0 || view.gaming.tactics.length > 0 ? (
+                <TabsTrigger value="gameplay"><Gamepad2 className="mr-1.5 h-3.5 w-3.5" />{t("gameplay")}</TabsTrigger>
+              ) : null}
               <TabsTrigger value="persona">{t("persona")}</TabsTrigger>
               <TabsTrigger value="raw"><Code2 className="mr-1.5 h-3.5 w-3.5" />{t("raw")}</TabsTrigger>
             </TabsList>
