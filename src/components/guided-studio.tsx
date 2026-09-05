@@ -361,6 +361,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [saveNote, setSaveNote] = useState<string | null>(null);
   /** Saved-Mind row currently selected for mining (step 3). */
   const [pickedSourceId, setPickedSourceId] = useState<string | null>(null);
+  const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
 
   const lib = {
     saveTitle: pickCopy(
