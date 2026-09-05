@@ -421,6 +421,95 @@ export function MindExplorer({
               )}
             </TabsContent>
 
+            <TabsContent value="gameplay" className="space-y-6 pt-4">
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameSkills")}</p>
+                {view.gaming.skills.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.skills.map((s, i) => (
+                      <Row key={i} stamp={s.timestamp_start} playable={playable} onPlay={playRange(s.timestamp_start, s.timestamp_end)}>
+                        <p className="font-medium text-foreground">{s.name} <Badge variant="outline">{s.kind}</Badge></p>
+                        <p className="text-muted-foreground">{s.detail}</p>
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameTactics")}</p>
+                {view.gaming.tactics.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.tactics.map((tc, i) => (
+                      <Row key={i} stamp={tc.timestamp_start} playable={playable} onPlay={playRange(tc.timestamp_start, tc.timestamp_end)}>
+                        <p className="font-medium text-foreground">{tc.name}</p>
+                        {tc.when ? <p className="text-muted-foreground">{t("gameWhen")}: {tc.when}</p> : null}
+                        {tc.steps.length > 0 ? (
+                          <ol className="list-decimal space-y-0.5 pl-5 text-muted-foreground">
+                            {tc.steps.map((st, j) => <li key={j}>{st}</li>)}
+                          </ol>
+                        ) : null}
+                        {tc.counter ? <p className="text-xs text-muted-foreground">{t("gameCounter")}: {tc.counter}</p> : null}
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameDecisions")}</p>
+                {view.gaming.decisions.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.decisions.map((d, i) => (
+                      <Row key={i} stamp={d.timestamp} playable={playable} onPlay={playRange(d.timestamp, "")}>
+                        <p className="text-foreground">{d.situation}</p>
+                        <p className="text-muted-foreground">{d.action} — {d.why}</p>
+                        <Badge variant={d.outcome === "failed" ? "destructive" : "secondary"}>{t("gameOutcome")}: {d.outcome}</Badge>
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameTutorials")}</p>
+                {view.gaming.tutorials.length === 0 ? (
+                  <Empty text={t("empty")} />
+                ) : (
+                  <ul className="space-y-2">
+                    {view.gaming.tutorials.map((tu, i) => (
+                      <Row key={i} stamp={tu.timestamp_start} playable={playable} onPlay={playRange(tu.timestamp_start, tu.timestamp_end)}>
+                        <p className="font-medium text-foreground">{tu.title}</p>
+                        {tu.goal ? <p className="text-muted-foreground">{tu.goal}</p> : null}
+                        <ol className="list-decimal space-y-0.5 pl-5 text-muted-foreground">
+                          {tu.steps.map((st, j) => <li key={j}>{st}</li>)}
+                        </ol>
+                      </Row>
+                    ))}
+                  </ul>
+                )}
+              </section>
+              {view.gaming.commentaryStyle.length > 0 || view.gaming.mistakes.length > 0 ? (
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameStyle")}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {view.gaming.commentaryStyle.map((c) => <Badge key={c} variant="secondary">{c}</Badge>)}
+                  </div>
+                  {view.gaming.mistakes.length > 0 ? (
+                    <>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("gameMistakes")}</p>
+                      <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                        {view.gaming.mistakes.map((m, i) => <li key={i}>{m}</li>)}
+                      </ul>
+                    </>
+                  ) : null}
+                </section>
+              ) : null}
+            </TabsContent>
+
             <TabsContent value="persona" className="space-y-4 pt-4">
               {([
                 ["lessons", view.knowledge],
