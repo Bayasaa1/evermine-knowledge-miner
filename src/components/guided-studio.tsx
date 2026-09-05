@@ -825,6 +825,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           setResult(mined);
           await finishMined(mined, source);
         }
+        // The saved library entry is now mined — it leaves the "ready to mine" list.
+        if (pickedSourceId) {
+          await markSourceStatus({ data: { id: pickedSourceId, status: "mined" } }).catch(() => undefined);
+          await refetchPending();
+          await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+        }
       } catch (err) {
         if ((err as Error)?.name === "AbortError") {
           setProgress(0);
@@ -836,7 +842,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         abortRef.current = null;
       }
     },
-    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined],
+    [resolveSource, explain, signedIn, runYoutubeJobs, finishMined, pickedSourceId, refetchPending, queryClient],
+
   );
 
 
