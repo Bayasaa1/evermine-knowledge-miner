@@ -47,6 +47,7 @@ const copy = {
     canMine: "What this AI can mine",
     tradeoff: "Trade-off",
     freeBadge: "free",
+    geminiNoAuth: "Sign in with Google (step 1) first — that links Gemini automatically.",
   },
   mn: {
     title: "Видеог олборлох AI-гаа сонгоно уу",
@@ -68,6 +69,7 @@ const copy = {
     canMine: "Энэ AI юу олборлож чадах вэ",
     tradeoff: "Сул тал",
     freeBadge: "үнэгүй",
+    geminiNoAuth: "Эхлээд 1-р алхамд Google-ээр нэвтэрнэ үү — ингэвэл Gemini автоматаар холбогдоно.",
   },
   ko: {
     title: "영상을 마이닝할 AI 선택",
@@ -89,6 +91,7 @@ const copy = {
     canMine: "이 AI가 마이닝할 수 있는 것",
     tradeoff: "단점",
     freeBadge: "무료",
+    geminiNoAuth: "먼저 1단계에서 Google로 로그인하세요 — Gemini가 자동으로 연결됩니다.",
   },
 };
 

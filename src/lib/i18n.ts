@@ -224,7 +224,7 @@ const ko: Dict = {
   analyzing: "영상을 분석하는 중…",
   cancel: "취소",
 
-  limitsTitle: "업로드 가능한 항목",
+  limitsTitle: "마이닝 가능한 항목",
   limitYoutube: "YouTube: 공개 또는 미등록 링크, 최대 2시간.",
   limitDrive: "Google Drive / 파일 업로드: MP4 또는 MOV, 최대 2GB.",
   limitLangs: "언어: 한국어, 영어, 몽골어를 비롯한 전 세계 언어를 원어 그대로 인식합니다.",
