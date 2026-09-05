@@ -19,6 +19,7 @@ import {
   existingKeyFor,
   findMiner,
   loadMinerChoice,
+  minerReadiness,
   saveMinerChoice,
   storeKeyFor,
   testMinerKey,
@@ -97,18 +98,31 @@ const copy = {
 
 const FREE_MINERS = new Set<MinerId>(["gemini", "groq", "mistral", "openrouter"]);
 
+const readyCopy = {
+  en: { ready: "Ready", setup: "Needs key", readyHint: "Ready to mine", setupHint: "Add a key to use this AI" },
+  mn: { ready: "Бэлэн", setup: "Түлхүүр хэрэгтэй", readyHint: "Олборлоход бэлэн", setupHint: "Түлхүүр нэмнэ үү" },
+  ko: { ready: "준비됨", setup: "키 필요", readyHint: "마이닝 준비 완료", setupHint: "키를 추가하세요" },
+};
+
 export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: MinerChoice) => void }) {
   const t = pickCopy(copy, lang);
+  const r = pickCopy(readyCopy, lang);
   const [choice, setChoice] = useState<MinerChoice>(DEFAULT_MINER);
   const [apiKey, setApiKey] = useState("");
   const [hasKey, setHasKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [ready, setReady] = useState<Partial<Record<MinerId, boolean>>>({});
+
+  const refreshReady = () => {
+    void minerReadiness(choice).then(setReady);
+  };
 
   useEffect(() => {
     void loadMinerChoice().then((c) => {
       setChoice(c);
       onChange?.(c);
+      void minerReadiness(c).then(setReady);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -129,6 +143,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
   const needsKey = !!option?.keyField && !hasKey;
   const showKeyArea = !!option?.keyField || choice.id === "gemini";
 
+
   const persist = async () => {
     if (needsKey && !apiKey.trim()) {
       toast.error(t.keyNeeded);
@@ -143,6 +158,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       }
       await saveMinerChoice(choice);
       onChange?.(choice);
+      refreshReady();
       toast.success(t.saved);
     } finally {
       setBusy(false);
@@ -156,6 +172,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       const key = apiKey.trim() || existing;
       if (choice.id === "gemini" && !key) {
         if (await hasGeminiOauth()) {
+          refreshReady();
           toast.success(t.testOk);
         } else {
           toast.error(t.geminiNoAuth);
@@ -163,6 +180,7 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
         return;
       }
       await testMinerKey(choice, key);
+      refreshReady();
       toast.success(t.testOk);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
@@ -187,13 +205,19 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {MINERS.map((m) => {
           const on = choice.id === m.id;
+          const isReady = !!ready[m.id];
           return (
             <button
               key={m.id}
               type="button"
+              title={isReady ? r.readyHint : r.setupHint}
               onClick={() => set({ id: m.id as MinerId })}
               className={`rounded-xl border p-3 text-left transition-colors ${
-                on ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                on
+                  ? "border-primary bg-primary/5"
+                  : isReady
+                    ? "border-emerald-500/50 bg-emerald-500/[0.04] hover:border-emerald-500"
+                    : "border-dashed border-border/70 opacity-70 hover:border-primary/40 hover:opacity-100"
               }`}
             >
               <span className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -211,9 +235,18 @@ export function MinerPool({ lang, onChange }: { lang: Lang; onChange?: (choice: 
                 {on && <Check className="ml-auto h-4 w-4 text-primary" />}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">{m.note}</span>
+              <span
+                className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
+                  isReady ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {isReady ? <Check className="h-3 w-3" /> : <KeyRound className="h-3 w-3" />}
+                {isReady ? r.ready : r.setup}
+              </span>
             </button>
           );
         })}
+
       </div>
 
       {option && (

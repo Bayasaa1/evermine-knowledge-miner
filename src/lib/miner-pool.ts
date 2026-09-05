@@ -35,6 +35,8 @@ export type MinerOption = {
   capability: string;
   /** Honest trade-off of this AI. */
   downside: string;
+  /** Per-AI source limits, shown in the "What you can mine" panel. */
+  limits: { youtube: string; files: string; langs: string };
   /** OpenAI-compatible base URL used for the key test (empty = provider-specific). */
   baseUrl: string;
   /** Cheap model used for the key test. */
@@ -54,6 +56,11 @@ export const MINERS: MinerOption[] = [
     capability:
       "Mines video natively: subtitles with timestamps, faces, emotions, voice prints, topics, story beats — the only engine that sees the footage itself.",
     downside: "Free tier has a daily quota; long queues of videos may pause until the quota resets.",
+    limits: {
+      youtube: "YouTube: public or unlisted links, up to 2 hours.",
+      files: "Google Drive / file upload: MP4 or MOV, max 2GB — the video itself is read.",
+      langs: "Languages: native recognition for English, Mongolian and all global languages.",
+    },
     baseUrl: "",
     testModel: "gemini-2.5-flash",
   },
@@ -67,6 +74,11 @@ export const MINERS: MinerOption[] = [
     guidance: "platform.openai.com → API keys → Create new secret key. Requires a paid OpenAI balance.",
     capability: "Mines transcripts and text: subtitles, topics, story summaries and speaking style with very reliable structure.",
     downside: "Cannot read video or faces directly — it works from the transcript Gemini extracts. No free tier.",
+    limits: {
+      youtube: "YouTube: any length — mined from the transcript, not the picture.",
+      files: "File upload: not supported directly — Gemini pulls the transcript first.",
+      langs: "Languages: excellent across English, Mongolian and all global languages.",
+    },
     baseUrl: "https://api.openai.com/v1",
     testModel: "gpt-4o-mini",
   },
@@ -80,6 +92,11 @@ export const MINERS: MinerOption[] = [
     guidance: "console.anthropic.com → Settings → API Keys → Create Key. Requires prepaid Anthropic credits.",
     capability: "Best reasoning over transcripts: nuanced beliefs, tone and story analysis, very long videos.",
     downside: "No native video or voice reading — works from transcripts. No free tier.",
+    limits: {
+      youtube: "YouTube: very long videos and full podcasts, from the transcript.",
+      files: "File upload: not supported directly — transcript only, no 2GB video reading.",
+      langs: "Languages: strong across English, Mongolian and all global languages.",
+    },
     baseUrl: "https://api.anthropic.com",
     testModel: "claude-3-5-haiku-latest",
   },
@@ -93,6 +110,11 @@ export const MINERS: MinerOption[] = [
     guidance: "platform.moonshot.ai → API Keys → Create. New accounts get free starter credit.",
     capability: "Mines extremely long transcripts in one pass — whole podcasts and 2-hour videos without losing context.",
     downside: "No video, face or emotion reading — transcript text only.",
+    limits: {
+      youtube: "YouTube: up to full 2-hour podcasts in a single pass, from the transcript.",
+      files: "File upload: not supported — transcript only, no video file reading.",
+      langs: "Languages: strong Chinese and English; good on Mongolian and other languages.",
+    },
     baseUrl: "https://api.moonshot.ai/v1",
     testModel: "kimi-k2-0711-preview",
   },
@@ -106,6 +128,11 @@ export const MINERS: MinerOption[] = [
     guidance: "console.groq.com → API Keys → Create API Key. Completely free tier with high daily limits.",
     capability: "Mines transcripts at extreme speed — subtitles, topics and story come back in seconds. Free tier rivals Gemini.",
     downside: "No video, faces or emotions — text only, and shorter context than Kimi or Claude.",
+    limits: {
+      youtube: "YouTube: short and medium videos — very fast, from the transcript.",
+      files: "File upload: not supported — text only, no video or 2GB uploads.",
+      langs: "Languages: good on English; weaker on Mongolian than Gemini.",
+    },
     baseUrl: "https://api.groq.com/openai/v1",
     testModel: "llama-3.3-70b-versatile",
   },
@@ -119,6 +146,11 @@ export const MINERS: MinerOption[] = [
     guidance: "console.mistral.ai → API keys → Create new key. The free Experiment tier works for mining.",
     capability: "Mines transcripts for free: topics, story and style. Strong multilingual understanding (great for mixed-language videos).",
     downside: "Transcript text only — no video, face or voice reading. Free tier rate limits are modest.",
+    limits: {
+      youtube: "YouTube: medium-length videos, from the transcript, on the free tier.",
+      files: "File upload: not supported — text only, no video or 2GB uploads.",
+      langs: "Languages: strong multilingual, including mixed-language videos.",
+    },
     baseUrl: "https://api.mistral.ai/v1",
     testModel: "mistral-small-latest",
   },
@@ -132,6 +164,11 @@ export const MINERS: MinerOption[] = [
     guidance: "openrouter.ai → Keys → Create Key. Models marked “:free” cost nothing — a free Gemini competitor.",
     capability: "One key unlocks dozens of free models for transcript mining — subtitles, topics and story — easy to switch brains later.",
     downside: "No video or face reading. Free models can be busy and slightly slower at peak times.",
+    limits: {
+      youtube: "YouTube: length depends on the free model you route to, from the transcript.",
+      files: "File upload: not supported — text only, no video or 2GB uploads.",
+      langs: "Languages: depends on the model; most free models handle global languages.",
+    },
     baseUrl: "https://openrouter.ai/api/v1",
     testModel: "meta-llama/llama-3.3-70b-instruct:free",
   },
@@ -145,6 +182,11 @@ export const MINERS: MinerOption[] = [
     guidance: "Point at any OpenAI-compatible endpoint — your own server, Ollama (http://localhost:11434/v1), a company gateway. Enter its key and model name below.",
     capability: "Whatever your endpoint can do — Evermind sends the transcript and your model mines it.",
     downside: "No video, face or emotion reading unless your endpoint supports it. You manage its costs and uptime.",
+    limits: {
+      youtube: "YouTube: whatever your endpoint accepts — Evermind sends the transcript.",
+      files: "File upload: only if your own endpoint supports it.",
+      langs: "Languages: whatever your model supports.",
+    },
     baseUrl: "",
     testModel: "",
   },
@@ -301,4 +343,28 @@ export async function storeKeyFor(id: MinerId, value: string): Promise<void> {
   if (!field) return;
   const stack = await loadStack();
   await saveStack({ ...stack, keys: { ...stack.keys, [field]: value.trim() } });
+}
+
+/**
+ * Which AIs are ready to mine right now: a key is stored on this device (or,
+ * for Gemini, the Google account is linked). Used to visually separate ready
+ * brains from ones that still need setup.
+ */
+export async function minerReadiness(choice?: MinerChoice): Promise<Record<MinerId, boolean>> {
+  const stack = await loadStack();
+  const { hasGeminiOauth } = await import("./google-gemini-auth");
+  let geminiOauth = false;
+  try {
+    geminiOauth = await hasGeminiOauth();
+  } catch {
+    geminiOauth = false;
+  }
+  const ready = {} as Record<MinerId, boolean>;
+  for (const m of MINERS) {
+    const key = m.keyField ? !!(stack.keys[m.keyField] ?? "").trim() : false;
+    if (m.id === "gemini") ready[m.id] = geminiOauth || !!(stack.keys["GEMINI_API_KEY"] ?? "").trim();
+    else if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
+    else ready[m.id] = key;
+  }
+  return ready;
 }

@@ -410,6 +410,28 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     refetchOnMount: "always",
   });
 
+  // Mine mode: preselect the newest saved video so Start mining is usable at once.
+  useEffect(() => {
+    if (saveMode || pickedSourceId || pendingSources.length === 0) return;
+    const first = pendingSources[0]!;
+    setPickedSourceId(first.id);
+    setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
+    setUrl(first.payload.source.url);
+    const v = first.payload.video;
+    const stored = (first.payload.assessment ?? {}) as Partial<Assessment>;
+    setAssessment((prev) => ({
+      ...prev,
+      ...stored,
+      sourceTitle: v.title,
+      sourceDescription: v.description,
+      sourcePublishedAt: formatPublishedDate(v.publishedAt, lang),
+      sourceDurationLabel: v.durationLabel,
+      sourceChannel: v.channel,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveMode, pendingSources, pickedSourceId]);
+
+
   /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
   const saveLink = useCallback(async (answers?: Assessment) => {
     setErrorKey(null);
@@ -1074,14 +1096,27 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             <button
               type="button"
               onClick={() => void run(assessment)}
-              disabled={busy || !url.trim()}
+              disabled={busy}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {pickCopy({ en: "Start mining", mn: "Шинжилгээ эхлүүлэх", ko: "분석 시작" }, lang)}
             </button>
+            {!url.trim() && (
+              <p className="text-xs text-amber-500">
+                {pickCopy(
+                  {
+                    en: "Pick one of your saved videos above first.",
+                    mn: "Эхлээд дээрх хадгалсан видеонуудаас нэгийг сонгоно уу.",
+                    ko: "먼저 위에서 저장된 영상을 선택하세요.",
+                  },
+                  lang,
+                )}
+              </p>
+            )}
           </div>
         )}
+
 
 
         {busy && (
@@ -1292,32 +1327,40 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       )}
 
       <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-        <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">{t("limitsTitle")}</p>
-        <ul className="space-y-1.5 text-sm text-muted-foreground">
-          <li className="flex gap-2">
-            <Youtube className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitYoutube")}
-          </li>
-          <li className="flex gap-2">
-            <HardDrive className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitDrive")}
-          </li>
-          <li className="flex gap-2">
-            <Info className="mt-0.5 h-4 w-4 shrink-0" /> {t("limitLangs")}
-          </li>
-          {(() => {
-            const m = findMiner(miner.id);
-            if (!m) return null;
-            return (
-              <li className="flex gap-2">
-                <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span>
-                  <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
-                  <span className="text-muted-foreground/80">{m.downside}</span>
-                </span>
-              </li>
-            );
-          })()}
-        </ul>
+        {(() => {
+          const m = findMiner(miner.id);
+          const limits = m?.limits;
+          return (
+            <>
+              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                {t("limitsTitle")}
+                {m ? ` · ${m.label}` : ""}
+              </p>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li className="flex gap-2">
+                  <Youtube className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.youtube ?? t("limitYoutube")}
+                </li>
+                <li className="flex gap-2">
+                  <HardDrive className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.files ?? t("limitDrive")}
+                </li>
+                <li className="flex gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.langs ?? t("limitLangs")}
+                </li>
+                {m && (
+                  <li className="flex gap-2">
+                    <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span>
+                      <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
+                      <span className="text-muted-foreground/80">{m.downside}</span>
+                    </span>
+                  </li>
+                )}
+              </ul>
+            </>
+          );
+        })()}
       </div>
+
     </StepShell>
   );
 }
