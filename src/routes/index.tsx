@@ -169,8 +169,9 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
       starts[k] = prev + (gap * used) / total;
       used += weights[k - i]!;
       ends[k] = prev + (gap * used) / total;
-
+    }
     i = j;
+
   }
 
   const windows = list.map((c, idx) => {
