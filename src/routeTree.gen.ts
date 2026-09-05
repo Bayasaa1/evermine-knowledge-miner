@@ -24,6 +24,7 @@ import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
+import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
 import { Route as ApiPublicCronResumeMiningRouteImport } from './routes/api/public/cron/resume-mining'
 import { Route as ApiPublicV1MindTokenPackageDotjsonRouteImport } from './routes/api/public/v1/mind/$token/package[.]json'
@@ -104,6 +105,11 @@ const ApiUserMineRoute = ApiUserMineRouteImport.update({
   path: '/api/user-mine',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
+  id: '/.lovable/oauth/consent',
+  path: '/.lovable/oauth/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
   id: '/api/public/ping',
   path: '/api/public/ping',
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
+  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
+    | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
+    | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-voice'
     | '/api/user-mine'
+    | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
+  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
   ApiPublicCronResumeMiningRoute: typeof ApiPublicCronResumeMiningRoute
   ApiPublicV1MindTokenPackageDotjsonRoute: typeof ApiPublicV1MindTokenPackageDotjsonRoute
@@ -374,6 +387,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiUserMineRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.lovable/oauth/consent': {
+      id: '/.lovable/oauth/consent'
+      path: '/.lovable/oauth/consent'
+      fullPath: '/.lovable/oauth/consent'
+      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ping': {
       id: '/api/public/ping'
       path: '/api/public/ping'
@@ -415,6 +435,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
+  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
   ApiPublicCronResumeMiningRoute: ApiPublicCronResumeMiningRoute,
   ApiPublicV1MindTokenPackageDotjsonRoute:
