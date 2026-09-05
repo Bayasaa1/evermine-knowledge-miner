@@ -848,18 +848,89 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
 
   const ready = isTargetReady(target);
+  const gate = saveMode ? ready : true;
 
   return (
-    <StepShell title={t("step2Title")} sub={t("step2Sub")} tip={t("tipSource")}>
-      <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />
+    <StepShell
+      title={
+        saveMode
+          ? t("step2Title")
+          : pickCopy({ en: "Mine your saved videos", mn: "Хадгалсан видеогоо олборлох", ko: "저장한 영상 마이닝" }, lang)
+      }
+      sub={saveMode ? t("step2Sub") : lib.pickTitle}
+      tip={saveMode ? lib.saveHint : t("tipSource")}
+    >
+      {saveMode && <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />}
 
-      <div className={`rounded-xl border border-border bg-card p-4 sm:p-5 ${ready ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!ready}>
+      {!saveMode && (
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
+          {pendingSources.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">{lib.pickEmpty}</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {pendingSources.map((s) => {
+                const v = s.payload.video;
+                const on = pickedSourceId === s.id;
+                return (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPickedSourceId(s.id);
+                        setTab(s.payload.source.kind === "drive" ? "drive" : "youtube");
+                        setUrl(s.payload.source.url);
+                        setErrorKey(null);
+                        setAssessment((prev) => ({
+                          ...prev,
+                          sourceTitle: v.title,
+                          sourceDescription: v.description,
+                          sourcePublishedAt: formatPublishedDate(v.publishedAt, lang),
+                          sourceDurationLabel: v.durationLabel,
+                          sourceChannel: v.channel,
+                        }));
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-colors ${
+                        on ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      {v.thumbnail ? (
+                        <img
+                          src={v.thumbnail}
+                          alt=""
+                          loading="lazy"
+                          className="h-12 w-20 shrink-0 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-12 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
+                          <Youtube className="h-4 w-4 text-muted-foreground" />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {v.title || s.payload.source.label}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {[v.channel, v.durationLabel].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                      {on && <span className="shrink-0 text-xs font-medium text-primary">{lib.selected}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className={`mt-4 rounded-xl border border-border bg-card p-4 sm:p-5 ${gate ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!gate}>
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(
             [
               ["youtube", t("sourceYoutube"), Youtube],
               ["drive", t("sourceDrive"), HardDrive],
-              ["file", t("sourceFile"), Upload],
+              ...(saveMode ? [] : [["file", t("sourceFile"), Upload] as const]),
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -877,6 +948,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             </button>
           ))}
         </div>
+
 
         {tab === "file" ? (
           <div>
