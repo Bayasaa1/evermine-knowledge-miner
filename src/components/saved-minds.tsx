@@ -121,7 +121,9 @@ export function SavedMinds({
   });
 
   const drop = useMutation({
-    mutationFn: (id: string) => removeVault({ data: { id } }),
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) await removeVault({ data: { id } });
+    },
     onSuccess: async () => {
       toast.success(t.deleted);
       await refresh();
@@ -130,7 +132,49 @@ export function SavedMinds({
     onError: (e: unknown) => toast.error(String(e)),
   });
 
+  /**
+   * One card per video. A video normally leaves several rows behind (the saved
+   * source, plus one row per mining run), so they are folded into a single
+   * entry keyed by the YouTube id — or the title when no id is available.
+   */
+  const groups = useMemo(() => {
+    const youtubeId = (text: string | undefined | null): string | null => {
+      if (!text) return null;
+      const m =
+        text.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) ??
+        text.match(/^([\w-]{11})$/);
+      return m?.[1] ?? null;
+    };
+    const keyOf = (v: VaultRow): string => {
+      const payload = (v.payload ?? {}) as Record<string, unknown>;
+      const video = (payload['video'] ?? {}) as Record<string, unknown>;
+      const source = (payload['source'] ?? {}) as Record<string, unknown>;
+      const id =
+        youtubeId(typeof video['videoId'] === "string" ? video['videoId'] : null) ??
+        youtubeId(typeof video['url'] === "string" ? video['url'] : null) ??
+        youtubeId(typeof source['label'] === "string" ? source['label'] : null);
+      if (id) return `yt:${id}`;
+      const label = typeof source['label'] === "string" ? source['label'] : "";
+      return `t:${(label || v.title).trim().toLowerCase()}`;
+    };
+
+    const map = new Map<string, VaultRow[]>();
+    for (const v of vaults) {
+      const k = keyOf(v);
+      const list = map.get(k);
+      if (list) list.push(v);
+      else map.set(k, [v]);
+    }
+    return [...map.values()].map((rows) => {
+      const source = rows.find((r) => r.kind === "source") ?? null;
+      const mined = rows.find((r) => r.kind !== "source") ?? null;
+      const primary = source ?? rows[0]!;
+      return { rows, source, mined, primary, title: source?.title ?? primary.title };
+    });
+  }, [vaults]);
+
   if (!isAuthenticated) return null;
+
 
   return (
     <section className="rounded-[12px] border border-border bg-card p-4">
