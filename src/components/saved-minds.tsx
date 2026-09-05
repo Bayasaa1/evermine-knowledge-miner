@@ -80,6 +80,8 @@ export function SavedMinds({
     mine: pickCopy({ en: "Mine", mn: "Олборлох", ko: "마이닝" }, lang),
     mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
     pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
+    saves: pickCopy({ en: "saves", mn: "хадгалалт", ko: "저장본" }, lang),
+
 
   };
 
