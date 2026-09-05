@@ -327,6 +327,25 @@ export function MinerPool({
         </div>
       )}
 
+      {/* What else (if anything) the creator should switch on for this pick. */}
+      {(() => {
+        const hint = companionHint(choice, category);
+        const tone =
+          hint.tone === "ok"
+            ? "border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-600 dark:text-emerald-400"
+            : hint.tone === "warn"
+              ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+              : "border-primary/30 bg-primary/5 text-primary";
+        return (
+          <div className={`mt-3 rounded-xl border p-3 text-xs ${tone}`}>
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Lightbulb className="h-3.5 w-3.5" /> {hint.title}
+            </p>
+            <p className="mt-1 text-muted-foreground">{hint.body}</p>
+          </div>
+        );
+      })()}
+
       {choice.id === "custom" && (
         <div className="mt-4 space-y-2">
           <div className="grid gap-2 sm:grid-cols-3">
