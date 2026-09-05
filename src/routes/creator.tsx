@@ -28,6 +28,7 @@ import {
   maskKey,
   type ApiKeyEntry,
 } from "@/lib/keystore";
+import { existingKeyFor } from "@/lib/miner-pool";
 import { saveResume, loadResume, clearResume, type ResumeState } from "@/lib/resume";
 
 import { idbGet, idbSet, STORES } from "@/lib/store";
