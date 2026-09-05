@@ -1,0 +1,1 @@
+UPDATE public.project_content SET transcript = (SELECT $fix$[{"role": "secondary", "speech": "I am officially back. I am very very very ba-", "speaker": "Featured YouTuber", "timestamp": "00:00:00 - 00:00:04"}]$fix$::jsonb) WHERE id = '1d063125-a962-4cc5-a8e7-075ad3d5c8d9'

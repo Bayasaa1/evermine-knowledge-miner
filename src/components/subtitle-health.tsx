@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { listSubtitleHealth, retimeContent, type SubtitleHealthRow } from "@/lib/retime.functions";
+import { listSubtitleHealth, repairTimings, retimeContent, type SubtitleHealthRow } from "@/lib/retime.functions";
 
 const STATUS: Record<SubtitleHealthRow["status"], { label: string; tone: string }> = {
   synced: { label: "In sync", tone: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
@@ -14,19 +14,21 @@ export function SubtitleHealth() {
   const client = useQueryClient();
   const load = useServerFn(listSubtitleHealth);
   const retime = useServerFn(retimeContent);
+  const repair = useServerFn(repairTimings);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["subtitle-health"],
     queryFn: () => load(),
   });
 
-  const repair = useMutation({
-    mutationFn: (contentId: string) => retime({ data: { contentId } }),
-    onSuccess: (row) => {
+  const fixTimings = useMutation({
+    mutationFn: (v: { contentId: string; mode: "free" | "ai" }) =>
+      v.mode === "free" ? repair({ data: { contentId: v.contentId } }) : retime({ data: { contentId: v.contentId } }),
+    onSuccess: (row, v) => {
       toast.success(
         row.status === "synced"
-          ? `“${row.title.slice(0, 40)}” is back in sync.`
-          : `Re-timed, but ${row.untimed + row.outOfOrder} of ${row.total} lines still drift.`,
+          ? `“${row.title.slice(0, 40)}” is back in sync${v.mode === "free" ? " (estimated timings)" : ""}.`
+          : `Repaired, but ${row.untimed + row.outOfOrder} of ${row.total} lines still drift.`,
       );
       void client.invalidateQueries({ queryKey: ["subtitle-health"] });
       void client.invalidateQueries({ queryKey: ["feed"] });
@@ -47,8 +49,9 @@ export function SubtitleHealth() {
             Subtitle timing
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Re-watch a video to give its zero-time lines real timestamps. Only the timing is
-            re-mined — the words, story and brain stay untouched.
+            “Fix (free)” spreads zero-time lines between the timed ones — no AI credits, instantly,
+            but estimated. “Re-watch (AI)” re-mines only the timing so every line lands on its real
+            second. Words, story and brain are never touched.
           </p>
         </div>
         {rows.length > 0 && (
@@ -71,7 +74,7 @@ export function SubtitleHealth() {
       <ul className="space-y-2">
         {rows.map((row) => {
           const badge = STATUS[row.status];
-          const busy = repair.isPending && repair.variables === row.contentId;
+          const busy = fixTimings.isPending && fixTimings.variables?.contentId === row.contentId;
           return (
             <li
               key={row.contentId}
@@ -92,15 +95,28 @@ export function SubtitleHealth() {
                 )}
                 {badge.label}
               </span>
-              <button
-                type="button"
-                disabled={repair.isPending}
-                onClick={() => repair.mutate(row.contentId)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent disabled:opacity-50"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                {busy ? "Re-timing…" : "Re-time"}
-              </button>
+              {row.status !== "synced" && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={fixTimings.isPending}
+                    onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "free" })}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent disabled:opacity-50"
+                  >
+                    {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    Fix (free)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={fixTimings.isPending}
+                    onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "ai" })}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                    title="Re-watches the video once — uses AI credits"
+                  >
+                    Re-watch (AI)
+                  </button>
+                </div>
+              )}
             </li>
           );
         })}
