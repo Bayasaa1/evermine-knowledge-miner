@@ -219,6 +219,15 @@ export function SavedMinds({
     });
   }, [vaults]);
 
+  /** Saved source rows that still need mining — the only tickable ones. */
+  const mineable = useMemo(
+    () =>
+      groups
+        .filter((g) => g.source && !g.mined && (g.source.payload as unknown as SourcePayload)?.status !== "mined")
+        .map((g) => g.source!.id),
+    [groups],
+  );
+
   if (!isAuthenticated) return null;
 
 
