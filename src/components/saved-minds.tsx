@@ -424,6 +424,24 @@ export function SavedMinds({
         />
       )}
 
+      {auditing && (
+        <MindAuditor
+          lang={lang}
+          open={!!auditing}
+          onOpenChange={(o) => { if (!o) setAuditing(null); }}
+          vaultId={auditing.row.id}
+          title={auditing.row.title}
+          payload={(auditing.row.payload ?? {}) as MindPayload}
+          sourceId={auditing.sourceId}
+          onChanged={async () => {
+            const fresh = await refresh();
+            void fresh;
+          }}
+        />
+      )}
+
+
+
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
           <form
