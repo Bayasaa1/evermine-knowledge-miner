@@ -439,10 +439,24 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   });
 
   // Mine mode: preselect the newest saved video so Start mining is usable at once.
+  // A batch ticked in Saved Minds wins — those videos arrive already selected.
   useEffect(() => {
     if (saveMode || pickedSourceId || pendingSources.length === 0) return;
-    const first = pendingSources[0]!;
-    setPickedIds([first.id]);
+    let handed: string[] = [];
+    try {
+      const raw = window.localStorage.getItem("evermind.mine-batch");
+      window.localStorage.removeItem("evermind.mine-batch");
+      if (raw) {
+        const ids = JSON.parse(raw) as unknown;
+        if (Array.isArray(ids)) {
+          handed = ids.filter((id): id is string => typeof id === "string" && pendingSources.some((p) => p.id === id));
+        }
+      }
+    } catch {
+      /* a broken handoff just falls back to the newest video */
+    }
+    const first = pendingSources.find((p) => p.id === handed[0]) ?? pendingSources[0]!;
+    setPickedIds(handed.length ? handed : [first.id]);
     setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
     setUrl(first.payload.source.url);
     const v = first.payload.video;
