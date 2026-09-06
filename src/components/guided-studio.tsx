@@ -752,7 +752,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       });
       return await persist(mined, source);
     },
-    [persist, miner],
+    [persist, miner, perVideo, pendingSources],
   );
 
 
