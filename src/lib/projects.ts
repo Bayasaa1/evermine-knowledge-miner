@@ -175,9 +175,24 @@ export async function listProjectsByPersona(userId: string, personaId: string | 
 /** Edits the editable metadata of one mined video card. */
 export async function updateProjectContent(
   id: string,
-  patch: { title?: string; description?: string; tags?: string[]; kind?: ContentKind },
+  patch: {
+    title?: string;
+    description?: string;
+    tags?: string[];
+    kind?: ContentKind;
+    transcript?: SubtitleCue[];
+    emotionTimeline?: Json;
+  },
 ): Promise<string | null> {
-  const { error } = await supabase.from("project_content").update(patch).eq("id", id);
+  const { emotionTimeline, ...rest } = patch;
+  const { error } = await supabase
+    .from("project_content")
+    .update({
+      ...rest,
+      ...(patch.transcript ? { transcript: patch.transcript as unknown as Json } : {}),
+      ...(emotionTimeline ? { emotion_timeline: emotionTimeline } : {}),
+    })
+    .eq("id", id);
   return error?.message ?? null;
 }
 
