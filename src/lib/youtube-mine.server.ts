@@ -173,9 +173,24 @@ export async function analyzeYoutubeVideo(input: {
   const text = choice?.message?.content?.trim();
   if (!text) throw new Error("AI returned an empty video analysis.");
 
+  let result: ChunkResult;
   try {
-    return normalizeChunkResult(JSON.parse(text));
+    result = normalizeChunkResult(JSON.parse(text));
   } catch {
     throw new Error("AI returned an unreadable video analysis.");
   }
+
+  // Step 3 — the measured timeline always wins over the described one.
+  if (cues.length) {
+    const roleOf = new Map(
+      (result.speakers ?? []).map((s) => [s.label.toLowerCase().trim(), s.role] as const),
+    );
+    result.subtitle = cues.map((cue) => ({
+      timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
+      speech: cue.text,
+      speaker: cue.speaker,
+      role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
+    }));
+  }
+  return result;
 }
