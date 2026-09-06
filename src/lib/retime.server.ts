@@ -125,3 +125,31 @@ export async function retimeTranscript(url: string, lines: TranscriptLine[]): Pr
 
   return out;
 }
+
+import { buildTimeline } from "@/lib/timeline.server";
+import { fetchVideoMeta } from "@/lib/youtube-meta.server";
+import { youtubeId as extractYoutubeId } from "@/lib/import-sources";
+
+/**
+ * Re-listens to the video in short windows and rebuilds the transcript from the
+ * measured timeline, so lines carry real seconds instead of interpolated ones.
+ */
+export async function relistenTranscript(
+  url: string,
+  previous: TranscriptLine[],
+): Promise<TranscriptLine[]> {
+  const id = extractYoutubeId(url);
+  const meta = id ? await fetchVideoMeta(id).catch(() => null) : null;
+  const duration = meta?.durationSec && meta.durationSec > 30 ? meta.durationSec : 20 * 60;
+  const cues = await buildTimeline(url, 0, duration);
+  if (!cues.length) return previous;
+  const roleOf = new Map(
+    previous.map((l) => [String(l.speaker ?? "").toLowerCase().trim(), l.role] as const),
+  );
+  return cues.map((cue) => ({
+    timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
+    speech: cue.text,
+    speaker: cue.speaker,
+    role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
+  }));
+}

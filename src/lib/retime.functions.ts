@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { analyzeTiming, type TimingHealth, type TranscriptLine } from "@/lib/subtitle-health";
 import { repairTimingsLocal } from "@/lib/repair-timings";
-import { retimeTranscript } from "@/lib/retime.server";
+import { relistenTranscript } from "@/lib/retime.server";
 
 export type SubtitleHealthRow = {
   contentId: string;
@@ -100,7 +100,7 @@ export const retimeContent = createServerFn({ method: "POST" })
     const url = row.source_url || (row.youtube_id ? `https://www.youtube.com/watch?v=${row.youtube_id}` : "");
     if (!url) throw new Error("This mind has no linked YouTube source to re-watch.");
 
-    const repaired = await retimeTranscript(url, original);
+    const repaired = await relistenTranscript(url, original);
     return saveTimings(context, row, repaired);
   });
 
@@ -124,7 +124,6 @@ async function syncVaults(context: Ctx, youtubeId: string, title: string, repair
       const payload = item.payload;
       if (!payload?.result?.transcript) continue;
       if (!matches({ ...payload, title: item.title })) continue;
-      if (payload.result.transcript.length !== repaired.length) continue;
       const next = { ...payload, result: { ...payload.result, transcript: repaired } };
       await context.supabase.from(table).update({ payload: next }).eq("id", item.id).eq("user_id", context.userId);
     }
