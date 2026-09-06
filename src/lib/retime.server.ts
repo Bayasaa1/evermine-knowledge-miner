@@ -126,7 +126,7 @@ export async function retimeTranscript(url: string, lines: TranscriptLine[]): Pr
   return out;
 }
 
-import { buildTimeline, secondsToStamp } from "@/lib/timeline.server";
+import { buildTimeline } from "@/lib/timeline.server";
 import { fetchVideoMeta } from "@/lib/youtube-meta.server";
 import { youtubeId as extractYoutubeId } from "@/lib/import-sources";
 
