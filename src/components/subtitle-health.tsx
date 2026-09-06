@@ -50,7 +50,7 @@ export function SubtitleHealth() {
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
             “Fix (free)” spreads zero-time lines between the timed ones — no AI credits, instantly,
-            but estimated. “Re-watch (AI)” re-mines only the timing so every line lands on its real
+            but estimated. “Re-listen (exact)” plays the video back in short windows and rewrites the transcript from what is actually heard, so every line lands on its real
             second. Words, story and brain are never touched.
           </p>
         </div>
@@ -111,9 +111,9 @@ export function SubtitleHealth() {
                     disabled={fixTimings.isPending}
                     onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "ai" })}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-                    title="Re-watches the video once — uses AI credits"
+                    title="Listens to the video again in short windows — uses AI credits"
                   >
-                    Re-watch (AI)
+                    Re-listen (exact)
                   </button>
                 </div>
               )}
