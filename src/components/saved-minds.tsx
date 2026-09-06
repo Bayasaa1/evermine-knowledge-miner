@@ -68,6 +68,8 @@ export function SavedMinds({
       lang,
     ),
     view: pickCopy({ en: "Core Brain", mn: "Гол тархи", ko: "코어 브레인" }, lang),
+    auditor: pickCopy({ en: "Auditor", mn: "Аудитор", ko: "감사관" }, lang),
+
     edit: pickCopy({ en: "Edit", mn: "Засах", ko: "편집" }, lang),
     del: pickCopy({ en: "Delete", mn: "Устгах", ko: "삭제" }, lang),
     confirm: pickCopy(
