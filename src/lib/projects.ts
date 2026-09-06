@@ -95,6 +95,27 @@ export async function createProject(
   return { project: (data as Project | null) ?? null, error: error?.message ?? null };
 }
 
+/**
+ * The creator's existing card for one YouTube video, if any. Re-mining a video
+ * must refresh that card instead of creating a second project + duplicate feed
+ * entry for the same source.
+ */
+export async function findContentByVideo(
+  userId: string,
+  youtubeId: string,
+): Promise<ProjectContent | null> {
+  if (!youtubeId) return null;
+  const { data } = await supabase
+    .from("project_content")
+    .select(CONTENT_COLS)
+    .eq("user_id", userId)
+    .eq("youtube_id", youtubeId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const rows = normalizeMany(data);
+  return rows[0] ?? null;
+}
+
 export async function updateProject(id: string, patch: Partial<Project>): Promise<string | null> {
   const { error } = await supabase.from("projects").update(patch).eq("id", id);
   return error?.message ?? null;
