@@ -57,7 +57,13 @@ import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { MinerPool } from "@/components/miner-pool";
-import { DEFAULT_MINER, findMiner, type MinerChoice } from "@/lib/miner-pool";
+import {
+  DEFAULT_MINER,
+  findMiner,
+  minersForCategory,
+  type MinerChoice,
+  type MinerId,
+} from "@/lib/miner-pool";
 import { runUnderstandingPass } from "@/lib/miner-reason";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import {
