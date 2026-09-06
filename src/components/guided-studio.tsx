@@ -384,6 +384,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const activeJobId = useRef<string | null>(null);
   const [pausing, setPausing] = useState(false);
   const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
+  /** Optional per-video AI override: mine 3 videos with Groq, 5 with Gemini. */
+  const [perVideo, setPerVideo] = useState<Record<string, MinerId>>({});
 
   const lib = {
     saveTitle: pickCopy(
