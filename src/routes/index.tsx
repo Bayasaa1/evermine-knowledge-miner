@@ -23,7 +23,6 @@ import { toast } from "sonner";
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
-import { MindReviews } from "@/components/mind-reviews";
 import { YouTubeStage } from "@/components/youtube-stage";
 import { loadFeed, type FeedItem } from "@/lib/feed";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
