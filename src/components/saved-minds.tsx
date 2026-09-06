@@ -85,6 +85,18 @@ export function SavedMinds({
     mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
     pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
     saves: pickCopy({ en: "saves", mn: "хадгалалт", ko: "저장본" }, lang),
+    selectAll: pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "전체 선택" }, lang),
+    clear: pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang),
+    picked: pickCopy({ en: "picked", mn: "сонгосон", ko: "선택됨" }, lang),
+    mineSelected: pickCopy({ en: "Mine selected", mn: "Сонгосныг олборлох", ko: "선택 항목 마이닝" }, lang),
+    batchHint: pickCopy(
+      {
+        en: "They mine one after another. In the next step you can give each video its own AI — for example Groq on three and Gemini on five.",
+        mn: "Тэдгээр нь ээлжлэн олборлогдоно. Дараагийн алхамд видео бүрт өөр AI өгч болно — жишээ нь гурав нь Groq, тав нь Gemini.",
+        ko: "하나씩 차례로 마이닝됩니다. 다음 단계에서 영상마다 다른 AI를 지정할 수 있습니다 — 예: 3개는 Groq, 5개는 Gemini.",
+      },
+      lang,
+    ),
 
 
   };
