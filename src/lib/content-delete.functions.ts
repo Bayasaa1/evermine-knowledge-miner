@@ -63,7 +63,9 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
     const mindIds = new Set<string>();
     for (const row of contentRows) {
       if (row.mind_id) mindIds.add(row.mind_id);
-      mindIds.add(`project:${row.project_id}`);
+      const projectRows = (allOwnedContent ?? []).filter((candidate) => candidate.project_id === row.project_id);
+      const removesWholeProject = projectRows.length > 0 && projectRows.every((candidate) => contentRows.some((match) => match.id === candidate.id));
+      if (removesWholeProject) mindIds.add(`project:${row.project_id}`);
     }
     const matchingVaultIds = new Set(requestedVaultIds);
     for (const row of ownedVaults ?? []) {
