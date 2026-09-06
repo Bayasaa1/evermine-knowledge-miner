@@ -50,7 +50,6 @@ import {
 import {
   createProject,
   deleteProject,
-  deleteProjectContent,
   listProjectContent,
   listProjectsByPersona,
   updateProject,
@@ -61,7 +60,7 @@ import {
 } from "@/lib/projects";
 import { listMiningJobs, startMiningJobs } from "@/lib/mining-jobs.functions";
 import { DEFAULT_ASSESSMENT } from "@/lib/mining-jobs";
-import { scrubMindSource } from "@/lib/mind-versions.functions";
+import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
@@ -599,7 +598,7 @@ function VideoCard({
   const [working, setWorking] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
   const startMining = useServerFn(startMiningJobs);
-  const scrubSource = useServerFn(scrubMindSource);
+  const removeVideo = useServerFn(permanentlyDeleteVideo);
 
   const topics = new Set(item.timeline.map((m) => m.label)).size;
 
@@ -648,18 +647,13 @@ function VideoCard({
     if (!window.confirm(t("deleteVideoConfirm"))) return;
     setWorking(true);
     try {
-      await scrubSource({
-        data: { ...(item.mind_id ? { mindId: item.mind_id } : {}), youtubeId: item.youtube_id, sourceUrl: item.source_url },
-      });
+      await removeVideo({ data: { contentId: item.id, youtubeId: item.youtube_id, sourceUrl: item.source_url } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
-    }
-    const error = await deleteProjectContent(item.id);
-    setWorking(false);
-    if (error) {
-      toast.error(error);
+      setWorking(false);
       return;
     }
+    setWorking(false);
     toast.success(t("removedAndScrubbed"));
     onChanged();
   };

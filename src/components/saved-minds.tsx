@@ -18,7 +18,8 @@ import { toast } from "sonner";
 import { MindExplorer } from "@/components/mind-explorer";
 import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
-import { deleteVault, listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
+import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
+import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import { listProjectsByPersona, type Project } from "@/lib/projects";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,7 +38,7 @@ export function SavedMinds({
   const queryClient = useQueryClient();
   const fetchVaults = useServerFn(listVaults);
   const saveVault = useServerFn(updateVault);
-  const removeVault = useServerFn(deleteVault);
+  const removeVideo = useServerFn(permanentlyDeleteVideo);
   const saveVersion = useServerFn(saveMindVersion);
 
   const locked = forcedPersona !== undefined;
@@ -121,13 +122,17 @@ export function SavedMinds({
   });
 
   const drop = useMutation({
-    mutationFn: async (ids: string[]) => {
-      for (const id of ids) await removeVault({ data: { id } });
-    },
+    mutationFn: (input: { vaultIds: string[]; youtubeId?: string }) => removeVideo({ data: input }),
     onSuccess: async () => {
       toast.success(t.deleted);
       await refresh();
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
+      await queryClient.invalidateQueries({ queryKey: ["project-content"] });
+      await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
+      await queryClient.invalidateQueries({ queryKey: ["graph-vaults"] });
+      await queryClient.invalidateQueries({ queryKey: ["subtitle-health"] });
+      await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+      await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
     },
     onError: (e: unknown) => toast.error(String(e)),
   });
@@ -195,7 +200,7 @@ export function SavedMinds({
       const source = rows.find((r) => r.kind === "source") ?? null;
       const mined = rows.find((r) => r.kind !== "source") ?? null;
       const primary = source ?? rows[0]!;
-      return { rows, source, mined, primary, title: source?.title ?? primary.title };
+      return { rows, source, mined, primary, title: source?.title ?? primary.title, youtubeId: idOf(primary) ?? undefined };
     });
   }, [vaults]);
 
@@ -291,7 +296,9 @@ export function SavedMinds({
                   type="button"
                   disabled={drop.isPending}
                   onClick={() => {
-                    if (window.confirm(t.confirm)) drop.mutate(g.rows.map((r) => r.id));
+                    if (window.confirm(t.confirm)) {
+                      drop.mutate({ vaultIds: g.rows.map((r) => r.id), ...(g.youtubeId ? { youtubeId: g.youtubeId } : {}) });
+                    }
                   }}
                   title={t.del}
                   className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
