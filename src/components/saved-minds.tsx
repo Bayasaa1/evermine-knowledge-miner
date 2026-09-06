@@ -47,6 +47,9 @@ export function SavedMinds({
   const setPersonaId = setPicked;
   const [inspect, setInspect] = useState<VaultRow | null>(null);
   const [editing, setEditing] = useState<VaultRow | null>(null);
+  /** Saved source rows ticked for batch mining. */
+  const [selected, setSelected] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   const t = {
     title: pickCopy({ en: "Saved Minds", mn: "Хадгалсан оюунууд", ko: "저장된 마인드" }, lang),
