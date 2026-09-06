@@ -431,14 +431,13 @@ export function SavedMinds({
           onOpenChange={(o) => { if (!o) setAuditing(null); }}
           vaultId={auditing.row.id}
           title={auditing.row.title}
-          payload={(auditing.row.payload ?? {}) as MindPayload}
+          // Always the freshest copy, so a new audit appears immediately.
+          payload={((vaults.find((v) => v.id === auditing.row.id) ?? auditing.row).payload ?? {}) as MindPayload}
           sourceId={auditing.sourceId}
-          onChanged={async () => {
-            const fresh = await refresh();
-            void fresh;
-          }}
+          onChanged={refresh}
         />
       )}
+
 
 
 
