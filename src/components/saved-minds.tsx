@@ -49,6 +49,9 @@ export function SavedMinds({
   const setPersonaId = setPicked;
   const [inspect, setInspect] = useState<VaultRow | null>(null);
   const [editing, setEditing] = useState<VaultRow | null>(null);
+  /** Mined row currently open in the Auditor, with its saved video row. */
+  const [auditing, setAuditing] = useState<{ row: VaultRow; sourceId: string | null } | null>(null);
+
   /** Saved source rows ticked for batch mining. */
   const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
