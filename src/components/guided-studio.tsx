@@ -1063,7 +1063,27 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
       {!saveMode && (
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
+            {pendingSources.length > 0 && (
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPickedIds(pendingSources.map((s) => s.id))}
+                  className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "전체 선택" }, lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickedIds([])}
+                  className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang)}
+                </button>
+              </div>
+            )}
+          </div>
           {pendingSources.length === 0 ? (
             <p className="mt-2 text-sm text-muted-foreground">{lib.pickEmpty}</p>
           ) : (
@@ -1127,6 +1147,37 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                         {on ? "✓" : ""}
                       </span>
                     </button>
+                    {on && (
+                      <label className="mt-1 flex items-center gap-2 pl-2 text-xs text-muted-foreground">
+                        {pickCopy({ en: "AI for this video", mn: "Энэ видеоны AI", ko: "이 영상의 AI" }, lang)}
+                        <select
+                          value={perVideo[s.id] ?? ""}
+                          onChange={(e) =>
+                            setPerVideo((prev) => {
+                              const next = { ...prev };
+                              if (e.target.value) next[s.id] = e.target.value as MinerId;
+                              else delete next[s.id];
+                              return next;
+                            })
+                          }
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground"
+                        >
+                          <option value="">
+                            {pickCopy(
+                              { en: "Same as below", mn: "Доорхтой ижил", ko: "아래와 동일" },
+                              lang,
+                            )}
+                          </option>
+                          {minersForCategory(getCreationCategory())
+                            .filter((m) => m.id !== "custom")
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.label}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    )}
                   </li>
                 );
               })}
