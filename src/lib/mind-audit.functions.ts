@@ -56,7 +56,7 @@ export const saveAudit = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .single();
     if (error) throw new Error(error.message);
-    const payload = ((row?.payload ?? {}) as Record<string, unknown>) ?? {};
+    const payload = ((row?.payload ?? {}) as Record<string, unknown>);
     const audits = Array.isArray(payload['audits']) ? (payload['audits'] as unknown[]) : [];
     const next = { ...payload, audits: [data.audit, ...audits].slice(0, 20) };
     const { error: saveError } = await context.supabase
@@ -83,7 +83,7 @@ export const chooseAudit = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .single();
     if (error) throw new Error(error.message);
-    const payload = ((row?.payload ?? {}) as Record<string, unknown>) ?? {};
+    const payload = ((row?.payload ?? {}) as Record<string, unknown>);
     const { error: saveError } = await context.supabase
       .from("mind_vaults")
       .update({ payload: { ...payload, chosenAuditId: data.auditId } as never })

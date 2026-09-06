@@ -13,7 +13,7 @@ import { idbGet, idbSet, STORES } from "@/lib/store";
 
 const KEY = "token-usage";
 
-export type UsageStage = "perception" | "thinking" | "chat";
+export type UsageStage = "perception" | "thinking" | "chat" | "audit";
 
 export type UsageEntry = {
   at: number;
