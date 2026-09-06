@@ -726,7 +726,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       let mined = rawMined;
       try {
         const category = getCreationCategory();
-        const pass = await runUnderstandingPass(rawMined, miner, category, abortRef.current?.signal ?? undefined);
+        // A video can carry its own AI: the row-level pick wins over the
+        // studio-wide one, so one batch can mix Groq, Gemini and the rest.
+        const row = pendingSources.find((p) => p.payload.source.url === source.url);
+        const override = row ? perVideo[row.id] : undefined;
+        const choice: MinerChoice = override ? { ...miner, id: override, team: [] } : miner;
+        const pass = await runUnderstandingPass(rawMined, choice, category, abortRef.current?.signal ?? undefined);
         mined = pass.result;
         for (const report of pass.reports) {
           setLog((prev) => [...prev, `\n> ${report.label}: ${report.status} — ${report.detail}`]);
