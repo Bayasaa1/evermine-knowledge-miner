@@ -452,9 +452,24 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           handed = ids.filter((id): id is string => typeof id === "string" && pendingSources.some((p) => p.id === id));
         }
       }
+      // An Auditor "fix" hands the video over with the auditing AI attached,
+      // so the re-mine already runs on the brain that spotted the problem.
+      const rawAi = window.localStorage.getItem("evermind.mine-ai");
+      window.localStorage.removeItem("evermind.mine-ai");
+      if (rawAi) {
+        const map = JSON.parse(rawAi) as unknown;
+        if (map && typeof map === "object") {
+          const clean: Record<string, MinerId> = {};
+          for (const [id, ai] of Object.entries(map as Record<string, unknown>)) {
+            if (typeof ai === "string" && pendingSources.some((p) => p.id === id)) clean[id] = ai as MinerId;
+          }
+          if (Object.keys(clean).length) setPerVideo((prev) => ({ ...prev, ...clean }));
+        }
+      }
     } catch {
       /* a broken handoff just falls back to the newest video */
     }
+
     const first = pendingSources.find((p) => p.id === handed[0]) ?? pendingSources[0]!;
     setPickedIds(handed.length ? handed : [first.id]);
     setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
@@ -603,7 +618,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
    * reports "mining finished" for data that was not saved.
    */
   const persist = useCallback(
-    async (mined: ChunkResult, source: ImportSource) => {
+    async (mined: ChunkResult, source: ImportSource, minedByAi?: MinerId) => {
       const category = getCreationCategory();
       const title = assessment.sourceTitle?.trim() || mined.story.summary?.slice(0, 60) || source.label || "New Mind";
       const payload = {
@@ -614,6 +629,9 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         },
         category,
         minedAt: new Date().toISOString(),
+        // Which AI produced this result — the Auditor uses it so an AI is
+        // never offered as the auditor of its own work.
+        ...(minedByAi ? { minedBy: minedByAi } : {}),
         result: mined,
       };
 
@@ -738,6 +756,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       // topics, beliefs and knowledge it missed. Never fatal: on any failure
       // the stage-1 result stands on its own.
       let mined = rawMined;
+      let minedByAi: MinerId = miner.id;
       try {
         const category = getCreationCategory();
         // A video can carry its own AI: the row-level pick wins over the
@@ -746,6 +765,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         const row = srcUrl ? pendingSources.find((p) => p.payload.source.url === srcUrl) : undefined;
         const override = row ? perVideo[row.id] : undefined;
         const choice: MinerChoice = override ? { ...miner, id: override, team: [] } : miner;
+        minedByAi = choice.id;
         const pass = await runUnderstandingPass(rawMined, choice, category, abortRef.current?.signal ?? undefined);
         mined = pass.result;
         for (const report of pass.reports) {
@@ -764,7 +784,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         skills: mined.subconsciousness.skills.length,
         memories: mined.transcript.length,
       });
-      return await persist(mined, source);
+      return await persist(mined, source, minedByAi);
     },
     [persist, miner, perVideo, pendingSources],
   );

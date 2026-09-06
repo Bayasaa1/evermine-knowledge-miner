@@ -12,12 +12,14 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CloudCheck, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
+import { MindAuditor } from "@/components/mind-auditor";
 import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
+
 import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
@@ -47,6 +49,9 @@ export function SavedMinds({
   const setPersonaId = setPicked;
   const [inspect, setInspect] = useState<VaultRow | null>(null);
   const [editing, setEditing] = useState<VaultRow | null>(null);
+  /** Mined row currently open in the Auditor, with its saved video row. */
+  const [auditing, setAuditing] = useState<{ row: VaultRow; sourceId: string | null } | null>(null);
+
   /** Saved source rows ticked for batch mining. */
   const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
@@ -63,6 +68,8 @@ export function SavedMinds({
       lang,
     ),
     view: pickCopy({ en: "Core Brain", mn: "Гол тархи", ko: "코어 브레인" }, lang),
+    auditor: pickCopy({ en: "Auditor", mn: "Аудитор", ko: "감사관" }, lang),
+
     edit: pickCopy({ en: "Edit", mn: "Засах", ko: "편집" }, lang),
     del: pickCopy({ en: "Delete", mn: "Устгах", ko: "삭제" }, lang),
     confirm: pickCopy(
@@ -342,15 +349,27 @@ export function SavedMinds({
                     {t.mine}
                   </Link>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setInspect(openRow)}
-                    title={t.view}
-                    className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setInspect(openRow)}
+                      title={t.view}
+                      className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuditing({ row: openRow, sourceId })}
+                      title={t.auditor}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Gavel className="h-3.5 w-3.5" />
+                      {t.auditor}
+                    </button>
+                  </>
                 )}
+
                 <button
                   type="button"
                   onClick={() => setEditing(v)}
@@ -404,6 +423,23 @@ export function SavedMinds({
           }}
         />
       )}
+
+      {auditing && (
+        <MindAuditor
+          lang={lang}
+          open={!!auditing}
+          onOpenChange={(o) => { if (!o) setAuditing(null); }}
+          vaultId={auditing.row.id}
+          title={auditing.row.title}
+          // Always the freshest copy, so a new audit appears immediately.
+          payload={((vaults.find((v) => v.id === auditing.row.id) ?? auditing.row).payload ?? {}) as MindPayload}
+          sourceId={auditing.sourceId}
+          onChanged={refresh}
+        />
+      )}
+
+
+
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
