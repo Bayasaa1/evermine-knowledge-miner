@@ -234,6 +234,33 @@ export function SavedMinds({
         )}
       </div>
 
+      {mineable.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-2.5">
+          <button
+            type="button"
+            onClick={() => setSelected(selected.length === mineable.length ? [] : mineable)}
+            className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {selected.length === mineable.length ? t.clear : t.selectAll}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {selected.length} {t.picked}
+          </span>
+          <button
+            type="button"
+            disabled={selected.length === 0}
+            onClick={() => {
+              window.localStorage.setItem("evermind.mine-batch", JSON.stringify(selected));
+              void navigate({ to: "/creator" });
+            }}
+            className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            {t.mineSelected}
+          </button>
+          <p className="w-full text-[11px] text-muted-foreground">{t.batchHint}</p>
+        </div>
+      )}
+
       {groups.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {groups.map((g) => {
@@ -242,9 +269,25 @@ export function SavedMinds({
             const video = src?.video;
             const mined = Boolean(g.mined) || src?.status === "mined";
             const openRow = g.mined ?? v;
+            const sourceId = g.source?.id ?? null;
+            const ticked = sourceId ? selected.includes(sourceId) : false;
             return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
+                {!mined && sourceId && (
+                  <input
+                    type="checkbox"
+                    checked={ticked}
+                    onChange={() =>
+                      setSelected((prev) =>
+                        prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId],
+                      )
+                    }
+                    aria-label={t.mine}
+                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                  />
+                )}
+
                 {video?.thumbnail && (
                   <img
                     src={video.thumbnail}
