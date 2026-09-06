@@ -347,15 +347,27 @@ export function SavedMinds({
                     {t.mine}
                   </Link>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setInspect(openRow)}
-                    title={t.view}
-                    className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setInspect(openRow)}
+                      title={t.view}
+                      className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuditing({ row: openRow, sourceId })}
+                      title={t.auditor}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Gavel className="h-3.5 w-3.5" />
+                      {t.auditor}
+                    </button>
+                  </>
                 )}
+
                 <button
                   type="button"
                   onClick={() => setEditing(v)}
