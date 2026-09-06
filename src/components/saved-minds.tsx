@@ -8,7 +8,7 @@
  */
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
@@ -47,6 +47,9 @@ export function SavedMinds({
   const setPersonaId = setPicked;
   const [inspect, setInspect] = useState<VaultRow | null>(null);
   const [editing, setEditing] = useState<VaultRow | null>(null);
+  /** Saved source rows ticked for batch mining. */
+  const [selected, setSelected] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   const t = {
     title: pickCopy({ en: "Saved Minds", mn: "Хадгалсан оюунууд", ko: "저장된 마인드" }, lang),
@@ -82,6 +85,18 @@ export function SavedMinds({
     mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
     pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
     saves: pickCopy({ en: "saves", mn: "хадгалалт", ko: "저장본" }, lang),
+    selectAll: pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "전체 선택" }, lang),
+    clear: pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang),
+    picked: pickCopy({ en: "picked", mn: "сонгосон", ko: "선택됨" }, lang),
+    mineSelected: pickCopy({ en: "Mine selected", mn: "Сонгосныг олборлох", ko: "선택 항목 마이닝" }, lang),
+    batchHint: pickCopy(
+      {
+        en: "They mine one after another. In the next step you can give each video its own AI — for example Groq on three and Gemini on five.",
+        mn: "Тэдгээр нь ээлжлэн олборлогдоно. Дараагийн алхамд видео бүрт өөр AI өгч болно — жишээ нь гурав нь Groq, тав нь Gemini.",
+        ko: "하나씩 차례로 마이닝됩니다. 다음 단계에서 영상마다 다른 AI를 지정할 수 있습니다 — 예: 3개는 Groq, 5개는 Gemini.",
+      },
+      lang,
+    ),
 
 
   };
@@ -204,6 +219,15 @@ export function SavedMinds({
     });
   }, [vaults]);
 
+  /** Saved source rows that still need mining — the only tickable ones. */
+  const mineable = useMemo(
+    () =>
+      groups
+        .filter((g) => g.source && !g.mined && (g.source.payload as unknown as SourcePayload)?.status !== "mined")
+        .map((g) => g.source!.id),
+    [groups],
+  );
+
   if (!isAuthenticated) return null;
 
 
@@ -234,6 +258,33 @@ export function SavedMinds({
         )}
       </div>
 
+      {mineable.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-2.5">
+          <button
+            type="button"
+            onClick={() => setSelected(selected.length === mineable.length ? [] : mineable)}
+            className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {selected.length === mineable.length ? t.clear : t.selectAll}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            {selected.length} {t.picked}
+          </span>
+          <button
+            type="button"
+            disabled={selected.length === 0}
+            onClick={() => {
+              window.localStorage.setItem("evermind.mine-batch", JSON.stringify(selected));
+              void navigate({ to: "/creator" });
+            }}
+            className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+          >
+            {t.mineSelected}
+          </button>
+          <p className="w-full text-[11px] text-muted-foreground">{t.batchHint}</p>
+        </div>
+      )}
+
       {groups.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {groups.map((g) => {
@@ -242,9 +293,25 @@ export function SavedMinds({
             const video = src?.video;
             const mined = Boolean(g.mined) || src?.status === "mined";
             const openRow = g.mined ?? v;
+            const sourceId = g.source?.id ?? null;
+            const ticked = sourceId ? selected.includes(sourceId) : false;
             return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
+                {!mined && sourceId && (
+                  <input
+                    type="checkbox"
+                    checked={ticked}
+                    onChange={() =>
+                      setSelected((prev) =>
+                        prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId],
+                      )
+                    }
+                    aria-label={t.mine}
+                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                  />
+                )}
+
                 {video?.thumbnail && (
                   <img
                     src={video.thumbnail}

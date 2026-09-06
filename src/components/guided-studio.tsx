@@ -57,7 +57,13 @@ import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
 import { MinerPool } from "@/components/miner-pool";
-import { DEFAULT_MINER, findMiner, type MinerChoice } from "@/lib/miner-pool";
+import {
+  DEFAULT_MINER,
+  findMiner,
+  minersForCategory,
+  type MinerChoice,
+  type MinerId,
+} from "@/lib/miner-pool";
 import { runUnderstandingPass } from "@/lib/miner-reason";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import {
@@ -384,6 +390,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const activeJobId = useRef<string | null>(null);
   const [pausing, setPausing] = useState(false);
   const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
+  /** Optional per-video AI override: mine 3 videos with Groq, 5 with Gemini. */
+  const [perVideo, setPerVideo] = useState<Record<string, MinerId>>({});
 
   const lib = {
     saveTitle: pickCopy(
@@ -431,10 +439,24 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   });
 
   // Mine mode: preselect the newest saved video so Start mining is usable at once.
+  // A batch ticked in Saved Minds wins — those videos arrive already selected.
   useEffect(() => {
     if (saveMode || pickedSourceId || pendingSources.length === 0) return;
-    const first = pendingSources[0]!;
-    setPickedIds([first.id]);
+    let handed: string[] = [];
+    try {
+      const raw = window.localStorage.getItem("evermind.mine-batch");
+      window.localStorage.removeItem("evermind.mine-batch");
+      if (raw) {
+        const ids = JSON.parse(raw) as unknown;
+        if (Array.isArray(ids)) {
+          handed = ids.filter((id): id is string => typeof id === "string" && pendingSources.some((p) => p.id === id));
+        }
+      }
+    } catch {
+      /* a broken handoff just falls back to the newest video */
+    }
+    const first = pendingSources.find((p) => p.id === handed[0]) ?? pendingSources[0]!;
+    setPickedIds(handed.length ? handed : [first.id]);
     setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
     setUrl(first.payload.source.url);
     const v = first.payload.video;
@@ -718,7 +740,13 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       let mined = rawMined;
       try {
         const category = getCreationCategory();
-        const pass = await runUnderstandingPass(rawMined, miner, category, abortRef.current?.signal ?? undefined);
+        // A video can carry its own AI: the row-level pick wins over the
+        // studio-wide one, so one batch can mix Groq, Gemini and the rest.
+        const srcUrl = source.kind === "file" ? "" : source.url;
+        const row = srcUrl ? pendingSources.find((p) => p.payload.source.url === srcUrl) : undefined;
+        const override = row ? perVideo[row.id] : undefined;
+        const choice: MinerChoice = override ? { ...miner, id: override, team: [] } : miner;
+        const pass = await runUnderstandingPass(rawMined, choice, category, abortRef.current?.signal ?? undefined);
         mined = pass.result;
         for (const report of pass.reports) {
           setLog((prev) => [...prev, `\n> ${report.label}: ${report.status} — ${report.detail}`]);
@@ -738,7 +766,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       });
       return await persist(mined, source);
     },
-    [persist, miner],
+    [persist, miner, perVideo, pendingSources],
   );
 
 
@@ -1049,7 +1077,27 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
       {!saveMode && (
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
+            {pendingSources.length > 0 && (
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPickedIds(pendingSources.map((s) => s.id))}
+                  className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "전체 선택" }, lang)}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickedIds([])}
+                  className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang)}
+                </button>
+              </div>
+            )}
+          </div>
           {pendingSources.length === 0 ? (
             <p className="mt-2 text-sm text-muted-foreground">{lib.pickEmpty}</p>
           ) : (
@@ -1113,6 +1161,37 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                         {on ? "✓" : ""}
                       </span>
                     </button>
+                    {on && (
+                      <label className="mt-1 flex items-center gap-2 pl-2 text-xs text-muted-foreground">
+                        {pickCopy({ en: "AI for this video", mn: "Энэ видеоны AI", ko: "이 영상의 AI" }, lang)}
+                        <select
+                          value={perVideo[s.id] ?? ""}
+                          onChange={(e) =>
+                            setPerVideo((prev) => {
+                              const next = { ...prev };
+                              if (e.target.value) next[s.id] = e.target.value as MinerId;
+                              else delete next[s.id];
+                              return next;
+                            })
+                          }
+                          className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground"
+                        >
+                          <option value="">
+                            {pickCopy(
+                              { en: "Same as below", mn: "Доорхтой ижил", ko: "아래와 동일" },
+                              lang,
+                            )}
+                          </option>
+                          {minersForCategory(getCreationCategory())
+                            .filter((m) => m.id !== "custom")
+                            .map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.label}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    )}
                   </li>
                 );
               })}
