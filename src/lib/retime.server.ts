@@ -128,7 +128,7 @@ export async function retimeTranscript(url: string, lines: TranscriptLine[]): Pr
 
 import { buildTimeline, secondsToStamp } from "@/lib/timeline.server";
 import { fetchVideoMeta } from "@/lib/youtube-meta.server";
-import { extractYoutubeId } from "@/lib/import-sources";
+import { youtubeId as extractYoutubeId } from "@/lib/import-sources";
 
 /**
  * Re-listens to the video in short windows and rebuilds the transcript from the
