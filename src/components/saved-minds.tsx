@@ -12,12 +12,14 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CloudCheck, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
+import { MindAuditor } from "@/components/mind-auditor";
 import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
+
 import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
