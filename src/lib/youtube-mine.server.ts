@@ -1,6 +1,7 @@
 import { LANGUAGES } from "@/lib/languages";
 import { normalizeYoutubeUrl } from "@/lib/import-sources";
 import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
+import { buildTimeline, secondsToStamp, timelineForPrompt, type Cue } from "@/lib/timeline.server";
 
 const miningPrompt = `You are building an AI Avatar (digital twin) from this personal-archive video.
 Analyze only the requested time range and return JSON only with these keys:
@@ -185,7 +186,7 @@ export async function analyzeYoutubeVideo(input: {
     const roleOf = new Map(
       (result.speakers ?? []).map((s) => [s.label.toLowerCase().trim(), s.role] as const),
     );
-    result.subtitle = cues.map((cue) => ({
+    result.transcript = cues.map((cue) => ({
       timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
       speech: cue.text,
       speaker: cue.speaker,
