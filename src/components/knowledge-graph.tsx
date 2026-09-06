@@ -83,7 +83,6 @@ export function KnowledgeGraph({
   personaId: string | null;
   personaName: string;
 }) {
-  const removeVideo = useServerFn(permanentlyDeleteVideo);
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
   const fetchVaults = useServerFn(listVaults);
@@ -537,6 +536,7 @@ function NodeInspector({
   onChanged: () => Promise<void>;
   onLinksChanged: () => Promise<void>;
 }) {
+  const removeVideo = useServerFn(permanentlyDeleteVideo);
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const [label, setLabel] = useState(node.label);
   const [busy, setBusy] = useState(false);
