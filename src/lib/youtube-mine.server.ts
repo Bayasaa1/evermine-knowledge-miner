@@ -88,6 +88,16 @@ function assessmentDirective(a: Assessment | undefined): string {
 }
 
 
+/**
+ * The analysis pass must describe the video against the real timeline instead
+ * of inventing clock values, so the numbered spoken lines are handed to it and
+ * every timed field has to quote one of them.
+ */
+function timelineDirective(block: string): string {
+  if (!block) return "";
+  return `\n\nSPOKEN TIMELINE (ground truth — these times were measured, do not change them)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n- For the "subtitle" array, reuse these lines exactly: same words, same times, same speaker.`;
+}
+
 export async function analyzeYoutubeVideo(input: {
   url: string;
   startSec: number;
@@ -99,6 +109,15 @@ export async function analyzeYoutubeVideo(input: {
 
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("Built-in AI is not configured.");
+
+  // Step 1 — measure the clock before anything is described.
+  let cues: Cue[] = [];
+  try {
+    cues = await buildTimeline(url, input.startSec, input.endSec);
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status === 402 || status === 403) throw err;
+  }
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -114,9 +133,16 @@ export async function analyzeYoutubeVideo(input: {
           content: [
             {
               type: "text",
-              text: `${miningPrompt}${assessmentDirective(input.assessment)}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.`,
+              text: `${miningPrompt}${assessmentDirective(input.assessment)}${timelineDirective(timelineForPrompt(cues))}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.`,
             },
-            { type: "video_url", video_url: { url } },
+            {
+              type: "video_url",
+              video_url: {
+                url,
+                start_offset: `${Math.floor(input.startSec)}s`,
+                end_offset: `${Math.ceil(input.endSec)}s`,
+              },
+            },
           ],
         },
       ],
