@@ -50,7 +50,6 @@ import {
 import {
   createProject,
   deleteProject,
-  deleteProjectContent,
   listProjectContent,
   listProjectsByPersona,
   updateProject,

@@ -19,13 +19,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { listVaults, type VaultRow } from "@/lib/cloud-vault.functions";
 import {
   deleteProject,
-  deleteProjectContent,
   listProjectContent,
   listProjectsByPersona,
   updateProject,
   updateProjectContent,
   type ProjectContent,
 } from "@/lib/projects";
+import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import {
   buildGraph,
   createCustomLink,
@@ -83,6 +83,7 @@ export function KnowledgeGraph({
   personaId: string | null;
   personaName: string;
 }) {
+  const removeVideo = useServerFn(permanentlyDeleteVideo);
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
   const fetchVaults = useServerFn(listVaults);
@@ -560,7 +561,19 @@ function NodeInspector({
     setBusy(true);
     let error: string | null = null;
     if (node.kind === "project" && node.meta.projectId) error = await deleteProject(node.meta.projectId);
-    else if (node.meta.contentId) error = await deleteProjectContent(node.meta.contentId);
+    else if (node.meta.contentId) {
+      try {
+        await removeVideo({
+          data: {
+            contentId: node.meta.contentId,
+            ...(node.meta.youtubeId ? { youtubeId: node.meta.youtubeId } : {}),
+            ...(node.meta.sourceUrl ? { sourceUrl: node.meta.sourceUrl } : {}),
+          },
+        });
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+    }
     else onHide(node.key);
     for (const id of customLinkIds) await deleteCustomLink(id);
     setBusy(false);

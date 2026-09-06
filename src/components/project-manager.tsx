@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Eye, EyeOff, FolderPlus, GraduationCap, Loader2, Plus, Trash2, Video } from "lucide-react";
 import { toast } from "sonner";
 
@@ -8,7 +9,6 @@ import {
   addProjectContent,
   createProject,
   deleteProject,
-  deleteProjectContent,
   listMyProjects,
   listProjectContent,
   updateProject,
@@ -17,6 +17,7 @@ import {
   type ProjectContent,
 } from "@/lib/projects";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 
 const copy = {
   en: {
@@ -175,6 +176,7 @@ function ProjectCard({
   t: (typeof copy)["en"];
   onChanged: () => void;
 }) {
+  const removeVideo = useServerFn(permanentlyDeleteVideo);
   const { user } = useAuth();
   const [items, setItems] = useState<ProjectContent[]>([]);
   const [url, setUrl] = useState("");
@@ -302,7 +304,7 @@ function ProjectCard({
                 type="button"
                 aria-label="Remove content"
                 onClick={async () => {
-                  await deleteProjectContent(item.id);
+                  await removeVideo({ data: { contentId: item.id, youtubeId: item.youtube_id, sourceUrl: item.source_url } });
                   toast.success(t.removed);
                   void load();
                 }}

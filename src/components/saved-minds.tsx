@@ -296,7 +296,9 @@ export function SavedMinds({
                   type="button"
                   disabled={drop.isPending}
                   onClick={() => {
-                    if (window.confirm(t.confirm)) drop.mutate({ vaultIds: g.rows.map((r) => r.id), youtubeId: g.youtubeId });
+                    if (window.confirm(t.confirm)) {
+                      drop.mutate({ vaultIds: g.rows.map((r) => r.id), ...(g.youtubeId ? { youtubeId: g.youtubeId } : {}) });
+                    }
                   }}
                   title={t.del}
                   className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
