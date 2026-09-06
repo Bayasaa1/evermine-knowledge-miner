@@ -538,7 +538,7 @@ function FeedCard({
       <div className="pointer-events-none absolute inset-0 hidden bg-black/40 lg:block" />
 
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
-      <div className="relative h-[100dvh] w-full overflow-hidden @container md:h-[min(100dvh-6rem,860px)] md:w-auto md:max-w-[480px] md:rounded-2xl md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16]">
+      <div className="relative h-[100dvh] w-full overflow-hidden @container md:h-[calc(100dvh-2rem)] md:w-auto md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16] 2xl:h-[calc(100dvh-3rem)]">
         {item.youtubeId ? (
           <YouTubeStage
             videoId={item.youtubeId}
@@ -775,7 +775,7 @@ function FeedCard({
       </div>
 
       {/* Tablet dual-pane: mined knowledge, emotions, and reviews beside the video */}
-      <aside className="hidden h-[min(100dvh-6rem,860px)] w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/60 backdrop-blur md:ml-6 md:flex lg:hidden">
+      <aside className="hidden h-[calc(100dvh-2rem)] w-[min(34vw,420px)] shrink-0 flex-col overflow-hidden rounded-lg border border-white/10 bg-black/60 backdrop-blur md:ml-4 md:flex xl:ml-6 2xl:h-[calc(100dvh-3rem)] 2xl:w-[min(30vw,520px)]">
         <div className="border-b border-white/10 px-4 py-3">
           <p className="truncate text-sm font-semibold">{shownTitle}</p>
           <p className="truncate text-xs text-white/60">{item.creator} · {item.handle}</p>
