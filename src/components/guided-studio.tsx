@@ -60,7 +60,13 @@ import { MinerPool } from "@/components/miner-pool";
 import { DEFAULT_MINER, findMiner, type MinerChoice } from "@/lib/miner-pool";
 import { runUnderstandingPass } from "@/lib/miner-reason";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
-import { addProjectContent, createProject, updateProject } from "@/lib/projects";
+import {
+  addProjectContent,
+  createProject,
+  findContentByVideo,
+  updateProject,
+  updateProjectContent,
+} from "@/lib/projects";
 import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
 import {
@@ -616,28 +622,46 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         : userId
           ? await activePersona(userId).catch(() => null)
           : null;
+      const videoId = source.kind === "youtube" ? (youtubeId(source.url) ?? "") : "";
+      // Re-mining a video refreshes the card it already has instead of spawning
+      // a second project and a duplicate feed entry for the same source.
+      const existingContent = userId ? await findContentByVideo(userId, videoId) : null;
       let projectId = target.mode === "existing" ? target.projectId : null;
+      if (!projectId && existingContent) projectId = existingContent.project_id;
       if (userId && !projectId) {
         const created = await createProject(userId, {
           title: target.newTitle.trim() || title,
           description: mined.story.summary ?? "",
-          personaId: target.personaId,
+          personaId: target.personaId ?? persona?.id ?? null,
           ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
         });
         projectId = created.project?.id ?? null;
       }
       if (userId && projectId) {
-        await addProjectContent(userId, {
-          projectId,
-          kind: target.contentKind,
-          youtubeId: source.kind === "youtube" ? (youtubeId(source.url) ?? "") : "",
-          sourceUrl: source.kind === "youtube" ? source.url : source.label,
-          title,
-          description: assessment.sourceDescription?.slice(0, 500) || (mined.story.summary ?? ""),
-          tags: mined.subconsciousness.skills.slice(0, 6),
-          transcript: mined.transcript,
-          emotionTimeline: mined.emotionTimeline,
-        });
+        const description = assessment.sourceDescription?.slice(0, 500) || (mined.story.summary ?? "");
+        const tags = mined.subconsciousness.skills.slice(0, 6);
+        if (existingContent) {
+          await updateProjectContent(existingContent.id, {
+            title,
+            description,
+            tags,
+            kind: target.contentKind,
+            transcript: mined.transcript,
+            emotionTimeline: mined.emotionTimeline,
+          });
+        } else {
+          await addProjectContent(userId, {
+            projectId,
+            kind: target.contentKind,
+            youtubeId: videoId,
+            sourceUrl: source.kind === "youtube" ? source.url : source.label,
+            title,
+            description,
+            tags,
+            transcript: mined.transcript,
+            emotionTimeline: mined.emotionTimeline,
+          });
+        }
         await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
         await queryClient.invalidateQueries({ queryKey: ["project-content", projectId] });
       }

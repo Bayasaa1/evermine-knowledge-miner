@@ -95,6 +95,27 @@ export async function createProject(
   return { project: (data as Project | null) ?? null, error: error?.message ?? null };
 }
 
+/**
+ * The creator's existing card for one YouTube video, if any. Re-mining a video
+ * must refresh that card instead of creating a second project + duplicate feed
+ * entry for the same source.
+ */
+export async function findContentByVideo(
+  userId: string,
+  youtubeId: string,
+): Promise<ProjectContent | null> {
+  if (!youtubeId) return null;
+  const { data } = await supabase
+    .from("project_content")
+    .select(CONTENT_COLS)
+    .eq("user_id", userId)
+    .eq("youtube_id", youtubeId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const rows = normalizeMany(data);
+  return rows[0] ?? null;
+}
+
 export async function updateProject(id: string, patch: Partial<Project>): Promise<string | null> {
   const { error } = await supabase.from("projects").update(patch).eq("id", id);
   return error?.message ?? null;
@@ -154,9 +175,24 @@ export async function listProjectsByPersona(userId: string, personaId: string | 
 /** Edits the editable metadata of one mined video card. */
 export async function updateProjectContent(
   id: string,
-  patch: { title?: string; description?: string; tags?: string[]; kind?: ContentKind },
+  patch: {
+    title?: string;
+    description?: string;
+    tags?: string[];
+    kind?: ContentKind;
+    transcript?: SubtitleCue[];
+    emotionTimeline?: Json;
+  },
 ): Promise<string | null> {
-  const { error } = await supabase.from("project_content").update(patch).eq("id", id);
+  const { emotionTimeline, ...rest } = patch;
+  const { error } = await supabase
+    .from("project_content")
+    .update({
+      ...rest,
+      ...(patch.transcript ? { transcript: patch.transcript as unknown as Json } : {}),
+      ...(emotionTimeline ? { emotion_timeline: emotionTimeline } : {}),
+    })
+    .eq("id", id);
   return error?.message ?? null;
 }
 
