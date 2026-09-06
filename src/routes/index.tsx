@@ -538,7 +538,7 @@ function FeedCard({
       <div className="pointer-events-none absolute inset-0 hidden bg-black/40 lg:block" />
 
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
-      <div className="relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*9/16),calc(66vw-1.5rem))] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16] 2xl:w-[min(calc((100dvh-3rem)*9/16),calc(70vw-2rem))]">
+      <div className="relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*9/16),92vw)] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16] 2xl:w-[min(calc((100dvh-3rem)*9/16),92vw)]">
         {item.youtubeId ? (
           <YouTubeStage
             videoId={item.youtubeId}
@@ -774,53 +774,6 @@ function FeedCard({
       </div>
       </div>
 
-      {/* Tablet dual-pane: mined knowledge, emotions, and reviews beside the video */}
-      <aside className="hidden h-[calc(100dvh-2rem)] w-[min(34vw,420px)] shrink-0 flex-col overflow-hidden rounded-lg border border-white/10 bg-black/60 backdrop-blur md:ml-4 md:flex xl:ml-6 2xl:h-[calc(100dvh-3rem)] 2xl:w-[min(30vw,520px)]">
-        <div className="border-b border-white/10 px-4 py-3">
-          <p className="truncate text-sm font-semibold">{shownTitle}</p>
-          <p className="truncate text-xs text-white/60">{item.creator} · {item.handle}</p>
-        </div>
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          {item.timeline?.length ? (
-            <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">{c.minedTimeline}</h3>
-              <ul className="space-y-1.5">
-                {item.timeline.map((m, mi) => (
-                  <li
-                    key={`${m.t}-${m.label}`}
-                    className={`rounded-lg px-2.5 py-1.5 text-[11px] leading-snug ${
-                      activeMark === m ? "bg-primary/20 text-white" : "bg-white/5 text-white/70"
-                    }`}
-                  >
-                    <span className="mr-1.5 font-mono text-primary">{stamp(m.t)}</span>
-                    {shownMarks[mi] || m.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {item.emotionTimeline?.length ? (
-            <div>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-primary">{c.emotions}</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {item.emotionTimeline.map((m, mi) => (
-                  <span
-                    key={`${m.t}-${m.label}`}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                      activeEmotion === m ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
-                    }`}
-                  >
-                    {stamp(m.t)} · {shownEmotions[mi] || m.emotion || m.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div className="dark rounded-xl">
-            <MindReviews mindId={item.mindId ?? item.id} />
-          </div>
-        </div>
-      </aside>
     </section>
   );
 }
