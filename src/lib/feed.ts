@@ -111,13 +111,21 @@ export async function projectFeed(): Promise<FeedItem[]> {
     }));
 }
 
-/** Full home feed: project videos, your published minds, then the marketplace. */
+/**
+ * Full home feed. The database is the single source of truth: only published
+ * project videos that still exist are shown. Deleting a video removes it from
+ * the feed immediately — no device-local copies, no demo filler.
+ */
 export async function loadFeed(): Promise<FeedItem[]> {
-  const [projects, mine] = await Promise.all([
-    projectFeed(),
-    listPublished().catch(() => [] as FeedItem[]),
-  ]);
-  const creatorContent = [...projects, ...mine];
-  return creatorContent.length > 0 ? creatorContent : marketplaceFeed();
+  const rows = await projectFeed();
+  // One card per video: repeated minings of the same source collapse into the
+  // newest one instead of stacking duplicates in the feed.
+  const seen = new Set<string>();
+  return rows.filter((item) => {
+    const key = item.youtubeId ?? item.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
