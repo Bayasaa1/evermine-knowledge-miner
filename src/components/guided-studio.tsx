@@ -452,9 +452,24 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           handed = ids.filter((id): id is string => typeof id === "string" && pendingSources.some((p) => p.id === id));
         }
       }
+      // An Auditor "fix" hands the video over with the auditing AI attached,
+      // so the re-mine already runs on the brain that spotted the problem.
+      const rawAi = window.localStorage.getItem("evermind.mine-ai");
+      window.localStorage.removeItem("evermind.mine-ai");
+      if (rawAi) {
+        const map = JSON.parse(rawAi) as unknown;
+        if (map && typeof map === "object") {
+          const clean: Record<string, MinerId> = {};
+          for (const [id, ai] of Object.entries(map as Record<string, unknown>)) {
+            if (typeof ai === "string" && pendingSources.some((p) => p.id === id)) clean[id] = ai as MinerId;
+          }
+          if (Object.keys(clean).length) setPerVideo((prev) => ({ ...prev, ...clean }));
+        }
+      }
     } catch {
       /* a broken handoff just falls back to the newest video */
     }
+
     const first = pendingSources.find((p) => p.id === handed[0]) ?? pendingSources[0]!;
     setPickedIds(handed.length ? handed : [first.id]);
     setTab(first.payload.source.kind === "drive" ? "drive" : "youtube");
