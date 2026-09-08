@@ -29,6 +29,8 @@ const startSchema = z.object({
   projectId: z.string().uuid().nullable().default(null),
   contentKind: z.string().max(32).default("VISUAL_CONTENT"),
   publishToFeed: z.boolean().default(true),
+  /** Only true when the creator deliberately asks to mine a finished video again. */
+  force: z.boolean().default(false),
 });
 
 type JobRow = {
