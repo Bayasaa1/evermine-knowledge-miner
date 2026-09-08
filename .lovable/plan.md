@@ -2,14 +2,14 @@
 
 Short answer to your question: the mined file is the memory, not the mind. It holds what the person knows, how they talk, how they look and how they sound. A thinking AI reads that memory every time someone speaks to it, and separate engines give it a voice and a face. This plan wires those three layers together, and the same brain is what the game bot carries in.
 
-**Rule for everything below: the free path always works.** Nobody needs to paste a key to chat, call or play. Keys are only an optional upgrade for higher realism.
+**Rule for everything below: the free path always works.** Nobody needs to paste a key to chat, call or play. Keys are only an optional upgrade for higher realism or bigger quotas.
 
 ```text
               MEMORY (mined file)          THINKER (AI)            BODY
-chat      →  beliefs, story, quotes   →   free built-in    →   text
-voice call→  + voice print            →   free built-in    →   free voice (upgrade: real clone)
-video call→  + face, emotions         →   free built-in    →   free avatar (upgrade: photoreal)
-game      →  + skills, tactics        →   free built-in    →   Minecraft teammate
+chat      →  beliefs, story, quotes   →   built-in Gemini  →   text
+voice call→  + voice print            →   built-in Gemini  →   free voice (upgrade: real clone)
+video call→  + face, emotions         →   built-in Gemini  →   free avatar (upgrade: photoreal)
+game      →  + skills, tactics        →   built-in Gemini  →   Minecraft teammate
 ```
 
 ## 1. One brain, four bodies
@@ -22,11 +22,11 @@ Complex questions are answered by the AI reasoning over that memory — exactly 
 
 | Part | Free (default, no key) | Optional upgrade (creator's key) |
 | --- | --- | --- |
-| Thinking | Built-in Evermind AI | Creator's own Gemini / OpenAI / Claude / Groq key |
+| Thinking | Built-in Gemini (the app's existing connection) | Creator's own Gemini / OpenAI / Claude / Groq key |
 | Speaking | Built-in voice, tuned per persona from mined samples | Real cloned voice service |
 | Face | Animated mined-face portrait with lip-sync and emotions | Photoreal talking-head service |
-| Seeing you | Built-in vision reads camera stills | Same, on the creator's own key |
-| Game bot | Built-in AI drives talking and decisions | Creator's key for faster/longer sessions |
+| Seeing you | Built-in Gemini vision reads camera stills | Same, on the creator's own key |
+| Game bot | Built-in Gemini drives talking and decisions | Creator's key for faster/longer sessions |
 
 If a paid service fails, errors or runs out, it silently drops back to the free path — a call never goes silent and a chat never dies.
 
@@ -55,12 +55,12 @@ The downloadable teammate keeps playing through the game itself (no screen captu
 
 ## 7. What it costs you
 
-Live conversations and game sessions run on the free built-in engine unless the creator attached their own key. Each persona shows a simple meter: sessions today, calls used, remaining, and — for anyone who added a paid service — what it is costing.
+Live conversations and game sessions run on the free built-in Gemini unless the creator attached their own key. Each persona shows a simple meter: sessions today, calls used, remaining, and — for anyone who added a paid service — what it is costing.
 
 ## Technical notes
 
 - `src/lib/mind-runtime.server.ts` (new): single brain loader + prompt builder shared by `api/mind-chat`, `api/mind-voice`, `api/mind-coach` and new `api/mind-vision` (caller-frame reading) and `api/game-brain` (bot decisions). Existing `mind-chat.ts` prompt building moves here.
-- Engine resolution order, per call: persona's paid service → persona's own provider key → Lovable AI Gateway built-in (always available, no user key). Never throws "no key" at a caller.
+- Engine resolution order, per call: persona's paid service → persona's own provider key → built-in Gemini (always available, no user key). Never throws "no key" at a caller.
 - New `persona_engines` table (owner-only RLS + grants) holding thinker provider/model plus optional voice/avatar service references; secrets stored as backend secrets, never returned to the browser.
 - Voice: `src/lib/voice-dub.ts` keeps its streaming/viseme contract; `api/mind-voice` gains a provider switch with automatic fallback to the built-in voice.
 - Face: `src/components/mind-avatar.tsx` (new) — canvas portrait driven by existing `emotionStyle` plus the viseme value `startDub` already emits; the paid path swaps in a video stream behind the same component.
