@@ -29,6 +29,8 @@ const startSchema = z.object({
   projectId: z.string().uuid().nullable().default(null),
   contentKind: z.string().max(32).default("VISUAL_CONTENT"),
   publishToFeed: z.boolean().default(true),
+  /** Only true when the creator deliberately asks to mine a finished video again. */
+  force: z.boolean().default(false),
 });
 
 type JobRow = {
@@ -117,18 +119,20 @@ export const startMiningJobs = createServerFn({ method: "POST" })
       videoIds = [single];
     }
 
-    // A video that is already being mined must not be queued twice — that is
-    // what produced duplicate cards and double AI spend.
+    // A video that is already being mined — or already finished — must never be
+    // queued again. That is what produced duplicate cards and double AI spend.
     const { data: active } = await context.supabase
       .from("mining_jobs")
       .select("id, source_url, status")
       .eq("user_id", context.userId)
-      .in("status", ["queued", "running", "paused_quota", "paused_user"]);
-    const busy = new Set(
-      (active ?? [])
-        .map((row) => /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/.exec(row.source_url ?? "")?.[1])
-        .filter(Boolean) as string[],
-    );
+      .in(
+        "status",
+        data.force
+          ? ["queued", "running", "paused_quota", "paused_user"]
+          : ["queued", "running", "paused_quota", "paused_user", "done"],
+      );
+    const idOf = (url: string) => /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(url ?? "")?.[1];
+    const busy = new Set((active ?? []).map((row) => idOf(row.source_url ?? "")).filter(Boolean) as string[]);
 
     // Where the creator filed the video when saving it stays authoritative.
     // Mining started from Saved Minds carries no wizard target, and losing the
@@ -326,6 +330,23 @@ export const setMiningJobState = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { status };
+  });
+
+/**
+ * Clears finished / stopped / failed mining cards. Live work is never touched,
+ * and the mined Minds themselves stay in the vault — only the history rows go.
+ */
+export const clearMiningHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ removed: number }> => {
+    const { data, error } = await context.supabase
+      .from("mining_jobs")
+      .delete()
+      .eq("user_id", context.userId)
+      .in("status", ["done", "stopped", "error"])
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: (data ?? []).length };
   });
 
 /** Records the Mind vault a finished job was written into (prevents double saves). */

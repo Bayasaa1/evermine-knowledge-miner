@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
+import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2 } from "lucide-react";
 
-import { listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
+import { clearMiningHistory, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -21,6 +21,8 @@ const COPY = {
     stop: "Stop",
     refreshing: "Live",
     retry: "Waiting for AI quota to reset",
+    clear: "Clear history",
+    kept: "Finished runs are only history — clearing them never deletes your mined Minds.",
   },
   mn: {
     title: "Шууд мining",
@@ -35,6 +37,8 @@ const COPY = {
     stop: "Зогсоох",
     refreshing: "Шууд",
     retry: "AI-н квот сэргэхийг хүлээж байна",
+    clear: "Түүх цэвэрлэх",
+    kept: "Дууссан бичлэгүүд зөвхөн түүх — цэвэрлэсэн ч олборлосон Mind устахгүй.",
   },
   ko: {
     title: "실시간 마이닝",
@@ -49,6 +53,8 @@ const COPY = {
     stop: "중지",
     refreshing: "실시간",
     retry: "AI 사용량 초기화를 기다리는 중",
+    clear: "기록 지우기",
+    kept: "완료된 작업은 기록일 뿐이며, 지워도 채굴된 Mind는 삭제되지 않습니다.",
   },
 } as const;
 
@@ -89,6 +95,12 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
     // Poll while the tab is open; the worker keeps going when it is not.
     refetchInterval: 4_000,
     refetchOnWindowFocus: true,
+  });
+
+  const clearHistory = useServerFn(clearMiningHistory);
+  const wipe = useMutation({
+    mutationFn: () => clearHistory(),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
   const control = useMutation({
@@ -210,7 +222,18 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
 
       {past.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">{t.finished}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-medium text-muted-foreground">{t.finished}</h3>
+            <button
+              type="button"
+              disabled={wipe.isPending}
+              onClick={() => wipe.mutate()}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:border-destructive/50 hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> {t.clear}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t.kept}</p>
           <ul className="space-y-3">{past.map((j) => row(j, false))}</ul>
         </div>
       ) : null}

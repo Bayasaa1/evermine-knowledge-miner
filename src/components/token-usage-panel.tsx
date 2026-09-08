@@ -3,7 +3,9 @@ import { Cpu, Gauge, Wallet, RotateCcw } from "lucide-react";
 import {
   clearUsage,
   loadUsage,
+  rateFor,
   summarizeUsage,
+  type ProviderUsage,
   type UsageLedger,
   type UsageSummary,
 } from "@/lib/token-usage";
@@ -36,6 +38,11 @@ const copy = {
     callsLeft: "left today",
     unlimited: "Pay per use — no daily call limit",
     creditsNone: "No AI calls today yet.",
+    geminiTitle: "Gemini free quota",
+    geminiCalls: "Free calls left today",
+    geminiTokens: "Free tokens left today",
+    resetIn: "Resets in",
+    resetAt: "at",
   },
   mn: {
     title: "AI токен ба зарлага",
@@ -63,6 +70,11 @@ const copy = {
     callsLeft: "өнөөдөр үлдсэн",
     unlimited: "Ашигласнаараа төлдөг — өдрийн хязгааргүй",
     creditsNone: "Өнөөдөр AI дуудлага хийгээгүй байна.",
+    geminiTitle: "Gemini-ийн үнэгүй эрх",
+    geminiCalls: "Өнөөдөр үлдсэн үнэгүй дуудлага",
+    geminiTokens: "Өнөөдөр үлдсэн үнэгүй токен",
+    resetIn: "Шинэчлэгдэх хугацаа",
+    resetAt: "цагт",
   },
   ko: {
     title: "AI 토큰 및 지출",
@@ -90,6 +102,11 @@ const copy = {
     callsLeft: "오늘 남음",
     unlimited: "사용량 과금 — 일일 호출 제한 없음",
     creditsNone: "오늘은 아직 AI 호출이 없습니다.",
+    geminiTitle: "Gemini 무료 한도",
+    geminiCalls: "오늘 남은 무료 호출",
+    geminiTokens: "오늘 남은 무료 토큰",
+    resetIn: "초기화까지",
+    resetAt: "시각",
   },
 };
 
@@ -106,6 +123,12 @@ function usd(n: number): string {
 export function TokenUsagePanel({ lang }: { lang: Lang }) {
   const t = pickCopy(copy, lang);
   const [ledger, setLedger] = useState<UsageLedger>({ entries: [] });
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -128,6 +151,64 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
     { key: "today", icon: Gauge, label: t.todayTokens, value: fmt(s.todayTokens), note: `${t.freeLeft}: ${fmt(s.remainingFreeToday)}` },
     { key: "spend", icon: Wallet, label: t.spend, value: usd(s.totalCost), note: `${usd(s.todayCost)} ${t.todaySpend}` },
   ];
+
+  // Gemini is the default miner, so its remaining free allowance and the exact
+  // moment it refills get their own headline card.
+  const geminiRows = s.providers.filter((p) => p.provider.startsWith("gemini") && p.free);
+  const geminiRate = rateFor("gemini-builtin");
+  const gemini: Pick<ProviderUsage, "callsToday" | "dailyFreeCalls" | "todayTokens" | "dailyFreeTokens"> =
+    geminiRows.length > 0
+      ? {
+          callsToday: geminiRows.reduce((n, p) => n + p.callsToday, 0),
+          dailyFreeCalls: Math.max(...geminiRows.map((p) => p.dailyFreeCalls)),
+          todayTokens: geminiRows.reduce((n, p) => n + p.todayTokens, 0),
+          dailyFreeTokens: Math.max(...geminiRows.map((p) => p.dailyFreeTokens)),
+        }
+      : {
+          callsToday: 0,
+          dailyFreeCalls: geminiRate.dailyFreeCalls,
+          todayTokens: 0,
+          dailyFreeTokens: geminiRate.dailyFreeTokens,
+        };
+  const geminiCallsLeft = Math.max(0, gemini.dailyFreeCalls - gemini.callsToday);
+  const geminiTokensLeft = Math.max(0, gemini.dailyFreeTokens - gemini.todayTokens);
+  const geminiPct = gemini.dailyFreeCalls > 0 ? Math.min(100, (gemini.callsToday / gemini.dailyFreeCalls) * 100) : 0;
+
+  const nextReset = new Date(now);
+  nextReset.setHours(24, 0, 0, 0);
+  const msLeft = Math.max(0, nextReset.getTime() - now);
+  const hLeft = Math.floor(msLeft / 3_600_000);
+  const mLeft = Math.floor((msLeft % 3_600_000) / 60_000);
+
+  const geminiCard = (
+    <div className="mt-4 min-w-0 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <h4 className="text-sm font-semibold text-foreground">{t.geminiTitle}</h4>
+        <p className="ml-auto text-xs tabular-nums text-muted-foreground">
+          {t.resetIn} {hLeft}h {mLeft}m · {t.resetAt} {nextReset.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </p>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <p className="text-xs text-muted-foreground">{t.geminiCalls}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+            {geminiCallsLeft}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">/ {gemini.dailyFreeCalls}</span>
+          </p>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-background">
+            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${geminiPct}%` }} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">{t.geminiTokens}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
+            {fmt(geminiTokensLeft)}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">/ {fmt(gemini.dailyFreeTokens)}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 
   // Per-AI credit counters: how many calls each AI has burned today and how
   // many of its free daily calls are still available.
@@ -219,6 +300,7 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
         })}
       </div>
 
+      {geminiCard}
       {credits}
 
       <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
