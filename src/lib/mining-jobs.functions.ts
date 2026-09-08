@@ -153,8 +153,8 @@ export const startMiningJobs = createServerFn({ method: "POST" })
     for (let i = 0; i < videoIds.length; i++) {
       if (busy.has(videoIds[i]!)) continue;
       const filed = filedBy.get(videoIds[i]!);
-      const personaId = filed?.persona ?? data.personaId;
-      const projectId = filed?.project ?? data.projectId;
+      const personaId: string = filed?.persona ?? data.personaId;
+      const projectId: string = filed?.project ?? data.projectId;
       if (personaId !== data.personaId || projectId !== data.projectId) {
         throw new Error("This video is already filed under a different persona or project.");
       }

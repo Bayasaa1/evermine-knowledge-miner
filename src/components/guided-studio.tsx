@@ -1124,7 +1124,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       pendingSources,
       refetchPending,
       queryClient,
-      ensureTargetProject,
+      target,
 
     ],
 
