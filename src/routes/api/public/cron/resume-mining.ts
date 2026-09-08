@@ -54,7 +54,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           .from("mining_jobs")
           // Creator-paused and stopped jobs are deliberately excluded.
           .select("*")
-          .in("status", ["paused_quota", "queued", "running"])
+          // "error" is included so a one-off network/timeout failure is retried
+          // automatically instead of stranding the video forever.
+          .in("status", ["paused_quota", "queued", "running", "error"])
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           .order("updated_at", { ascending: true })
