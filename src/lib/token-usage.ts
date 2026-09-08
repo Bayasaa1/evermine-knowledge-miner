@@ -34,30 +34,44 @@ export type ProviderRate = {
   free: boolean;
   /** Approximate free tokens per day (0 when there is no free tier). */
   dailyFreeTokens: number;
+  /**
+   * Approximate free AI calls (requests) per day — the "credits" a creator
+   * spends every time this AI is asked to do something. 0 means the provider
+   * bills per token instead of capping the number of calls.
+   */
+  dailyFreeCalls: number;
 };
 
 export const PROVIDER_RATES: Record<string, ProviderRate> = {
-  "gemini-builtin": { label: "Evermind engine (Gemini)", input: 0, output: 0, free: true, dailyFreeTokens: 1_000_000 },
-  gemini: { label: "Gemini", input: 0.3, output: 2.5, free: true, dailyFreeTokens: 1_000_000 },
-  "gemini-pro": { label: "Gemini Pro", input: 1.25, output: 10, free: false, dailyFreeTokens: 0 },
-  groq: { label: "Groq", input: 0, output: 0, free: true, dailyFreeTokens: 500_000 },
-  "whisper-groq": { label: "Groq Whisper", input: 0, output: 0, free: true, dailyFreeTokens: 500_000 },
-  mistral: { label: "Mistral AI", input: 0, output: 0, free: true, dailyFreeTokens: 1_000_000 },
-  chatgpt: { label: "ChatGPT", input: 0.15, output: 0.6, free: false, dailyFreeTokens: 0 },
-  claude: { label: "Claude", input: 0.8, output: 4, free: false, dailyFreeTokens: 0 },
-  kimi: { label: "Kimi", input: 0.6, output: 2.5, free: false, dailyFreeTokens: 0 },
-  openrouter: { label: "OpenRouter", input: 0.2, output: 0.8, free: true, dailyFreeTokens: 200_000 },
-  "qwen-vl": { label: "Qwen-VL", input: 0, output: 0, free: true, dailyFreeTokens: 200_000 },
-  "llama-vision": { label: "Llama Vision", input: 0, output: 0, free: true, dailyFreeTokens: 200_000 },
-  "qwen-audio": { label: "Qwen Audio", input: 0.4, output: 1.2, free: false, dailyFreeTokens: 0 },
-  custom: { label: "My own AI", input: 0, output: 0, free: false, dailyFreeTokens: 0 },
+  "gemini-builtin": { label: "Evermind engine (Gemini)", input: 0, output: 0, free: true, dailyFreeTokens: 1_000_000, dailyFreeCalls: 1_000 },
+  gemini: { label: "Gemini", input: 0.3, output: 2.5, free: true, dailyFreeTokens: 1_000_000, dailyFreeCalls: 1_500 },
+  "gemini-pro": { label: "Gemini Pro", input: 1.25, output: 10, free: false, dailyFreeTokens: 0, dailyFreeCalls: 0 },
+  groq: { label: "Groq", input: 0, output: 0, free: true, dailyFreeTokens: 500_000, dailyFreeCalls: 14_400 },
+  "whisper-groq": { label: "Groq Whisper", input: 0, output: 0, free: true, dailyFreeTokens: 500_000, dailyFreeCalls: 2_000 },
+  mistral: { label: "Mistral AI", input: 0, output: 0, free: true, dailyFreeTokens: 1_000_000, dailyFreeCalls: 1_000 },
+  chatgpt: { label: "ChatGPT", input: 0.15, output: 0.6, free: false, dailyFreeTokens: 0, dailyFreeCalls: 0 },
+  claude: { label: "Claude", input: 0.8, output: 4, free: false, dailyFreeTokens: 0, dailyFreeCalls: 0 },
+  kimi: { label: "Kimi", input: 0.6, output: 2.5, free: false, dailyFreeTokens: 0, dailyFreeCalls: 0 },
+  openrouter: { label: "OpenRouter", input: 0.2, output: 0.8, free: true, dailyFreeTokens: 200_000, dailyFreeCalls: 50 },
+  "qwen-vl": { label: "Qwen-VL", input: 0, output: 0, free: true, dailyFreeTokens: 200_000, dailyFreeCalls: 50 },
+  "llama-vision": { label: "Llama Vision", input: 0, output: 0, free: true, dailyFreeTokens: 200_000, dailyFreeCalls: 50 },
+  "qwen-audio": { label: "Qwen Audio", input: 0.4, output: 1.2, free: false, dailyFreeTokens: 0, dailyFreeCalls: 0 },
+  custom: { label: "My own AI", input: 0, output: 0, free: false, dailyFreeTokens: 0, dailyFreeCalls: 0 },
 };
 
 export function rateFor(provider: string): ProviderRate {
   return (
-    PROVIDER_RATES[provider] ?? { label: provider, input: 0, output: 0, free: false, dailyFreeTokens: 0 }
+    PROVIDER_RATES[provider] ?? {
+      label: provider,
+      input: 0,
+      output: 0,
+      free: false,
+      dailyFreeTokens: 0,
+      dailyFreeCalls: 0,
+    }
   );
 }
+
 
 function num(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : 0;
