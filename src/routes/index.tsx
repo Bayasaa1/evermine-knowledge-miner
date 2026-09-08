@@ -216,17 +216,19 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   }).sort((a, b) => a.start - b.start);
 
   return windows.flatMap((cue) => {
-    const parts = splitSubtitle(cue.speech);
+    const window = Math.max(0.6, cue.end - cue.start);
+    const parts = fitPartsToWindow(splitSubtitle(cue.speech), window);
     if (parts.length <= 1) return [cue];
-    const span = Math.max(parts.length * 0.8, cue.end - cue.start);
+    // Stay strictly inside this line's own window: spilling over is what made
+    // captions lag behind the speaker.
     const weights = parts.map((part) => Math.max(1, part.length));
     const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
     let elapsed = 0;
     return parts.map((speech, index) => {
-      const start = cue.start + span * (elapsed / totalWeight);
+      const start = cue.start + window * (elapsed / totalWeight);
       elapsed += weights[index] ?? 1;
-      const end = index === parts.length - 1 ? cue.end : cue.start + span * (elapsed / totalWeight);
-      return { ...cue, start, end: Math.max(start + 0.8, end), speech };
+      const end = index === parts.length - 1 ? cue.end : cue.start + window * (elapsed / totalWeight);
+      return { ...cue, start, end: Math.max(start + 0.4, end), speech };
     });
   });
 }
