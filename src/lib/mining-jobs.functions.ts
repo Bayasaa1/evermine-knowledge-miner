@@ -105,8 +105,22 @@ export const startMiningJobs = createServerFn({ method: "POST" })
       videoIds = [single];
     }
 
+    // A video that is already being mined must not be queued twice — that is
+    // what produced duplicate cards and double AI spend.
+    const { data: active } = await context.supabase
+      .from("mining_jobs")
+      .select("id, source_url, status")
+      .eq("user_id", context.userId)
+      .in("status", ["queued", "running", "paused_quota", "paused_user"]);
+    const busy = new Set(
+      (active ?? [])
+        .map((row) => /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/.exec(row.source_url ?? "")?.[1])
+        .filter(Boolean) as string[],
+    );
+
     const rows = [];
     for (let i = 0; i < videoIds.length; i++) {
+      if (busy.has(videoIds[i]!)) continue;
       const meta = await fetchVideoMeta(videoIds[i]!);
       // Chunk count is always derived from the real duration: ceil(seconds / 300).
       const chunks = splitIntoChunks(meta.durationSec);
