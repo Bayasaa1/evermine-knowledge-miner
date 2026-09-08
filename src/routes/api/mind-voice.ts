@@ -3,6 +3,8 @@ import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 import { getPublicProjectMind } from "@/lib/project-mind.server";
+import { getLiveClone } from "@/lib/persona-clone.server";
+
 
 /**
  * Native voice dubbing: speaks the reply in the listener's own language using the
@@ -19,6 +21,9 @@ export const Route = createFileRoute("/api/mind-voice")({
         if (auth instanceof Response) return auth;
         let body: {
           mindId?: string;
+          /** The persona's real cloned voice, when one has been built. */
+          voiceId?: string;
+
           text?: string;
           lang?: string;
           emotion?: {
@@ -84,7 +89,73 @@ export const Route = createFileRoute("/api/mind-voice")({
           Math.max(0.6, (vp.speed ?? 1) + (speedDelta[primary] ?? 0) * intensity),
         );
 
+        // ── Real voice clone ────────────────────────────────────────────────
+        // When the persona owner has built a clone from their own mined speech,
+        // the reply is spoken in THEIR voice — same timbre in every language.
+        // Streams as PCM so playback and lip-sync start on the first chunk.
+        const cloneKey = process.env["ELEVENLABS_API_KEY"];
+        // Resolved server-side from the persona: listeners never see clone ids.
+        const liveVoice = body.mindId ? await getLiveClone(body.mindId, "voice") : null;
+        const voiceId = liveVoice?.remoteId ?? "";
+        if (cloneKey && liveVoice?.engine === "elevenlabs" && /^[A-Za-z0-9_-]{8,}$/.test(voiceId)) {
+
+          try {
+            const cloned = await fetch(
+              `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream?output_format=pcm_24000`,
+              {
+                method: "POST",
+                headers: { "xi-api-key": cloneKey, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  text: text.slice(0, 4000),
+                  // Multilingual so the same cloned voice can answer in Mongolian,
+                  // Korean or English without losing the speaker's timbre.
+                  model_id: "eleven_turbo_v2_5",
+                  voice_settings: {
+                    stability: Math.max(0.2, 0.55 - intensity * 0.25),
+                    similarity_boost: 0.85,
+                    style: Math.min(0.8, intensity * 0.6),
+                    use_speaker_boost: true,
+                    speed,
+                  },
+                }),
+              },
+            );
+            if (cloned.ok && cloned.body) {
+              // Re-emit as the same SSE shape the player already understands.
+              const reader = cloned.body.getReader();
+              const encoder = new TextEncoder();
+              const stream = new ReadableStream<Uint8Array>({
+                async pull(controller) {
+                  const { done, value } = await reader.read();
+                  if (done) {
+                    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                    controller.close();
+                    return;
+                  }
+                  let binary = "";
+                  for (let i = 0; i < value.length; i++) binary += String.fromCharCode(value[i]!);
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ type: "speech.audio.delta", audio: btoa(binary) })}\n\n`,
+                    ),
+                  );
+                },
+                cancel: () => void reader.cancel(),
+              });
+              return new Response(stream, {
+                headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+              });
+            }
+            console.error("mind-voice clone error", cloned.status, (await cloned.text().catch(() => "")).slice(0, 300));
+          } catch (e) {
+            console.error("mind-voice clone unreachable", e);
+          }
+          // Any clone failure falls through to the stand-in voice below, so a
+          // call never goes silent.
+        }
+
         const apiKey = process.env["LOVABLE_API_KEY"];
+
         if (!apiKey) {
           return new Response(JSON.stringify({ error: "Voice is not configured" }), { status: 500 });
         }

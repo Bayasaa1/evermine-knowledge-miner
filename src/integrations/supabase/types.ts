@@ -531,6 +531,65 @@ export type Database = {
           },
         ]
       }
+      persona_clones: {
+        Row: {
+          consent: boolean
+          consent_at: string | null
+          created_at: string
+          engine: string
+          error: string | null
+          id: string
+          kind: string
+          persona_id: string
+          remote_id: string | null
+          samples: Json
+          settings: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consent?: boolean
+          consent_at?: string | null
+          created_at?: string
+          engine?: string
+          error?: string | null
+          id?: string
+          kind: string
+          persona_id: string
+          remote_id?: string | null
+          samples?: Json
+          settings?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consent?: boolean
+          consent_at?: string | null
+          created_at?: string
+          engine?: string
+          error?: string | null
+          id?: string
+          kind?: string
+          persona_id?: string
+          remote_id?: string | null
+          samples?: Json
+          settings?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_clones_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "creator_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
