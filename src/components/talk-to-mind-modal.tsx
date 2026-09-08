@@ -36,18 +36,48 @@ export function TalkToMindModal({
   const [busy, setBusy] = useState(false);
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
   const endRef = useRef<HTMLDivElement>(null);
+  const camRef = useRef<HTMLVideoElement>(null);
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
   const call = useMindCall(mindId, lang, (text) => void sendRef.current(text));
-  const avatarStyle = emotionStyle(call.emotion);
+  const [faceUrl, setFaceUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) setMessages([]);
     else call.stop();
   }, [open, mindId]);
 
+  // The creator's own face, only when they built and consented to a face clone.
+  useEffect(() => {
+    setFaceUrl(null);
+    if (!open || !mindId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiFetch(`/api/mind-face?mindId=${encodeURIComponent(mindId)}`);
+        const data = (await res.json()) as { imageUrl?: string | null };
+        if (!cancelled) setFaceUrl(data.imageUrl ?? null);
+      } catch {
+        /* stand-in face is fine */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, mindId]);
+
+  // Video call: the Mind looks at the caller (frames are read live, never kept).
+  useEffect(() => {
+    if (callMode !== "video" || !camRef.current) {
+      call.stopCamera();
+      return;
+    }
+    void call.startCamera(camRef.current, mindName).catch(() => {});
+  }, [callMode, mindName]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
 
   if (!open) return null;
 
