@@ -358,6 +358,30 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [hasAuth, setHasAuth] = useState(true);
   const { isAuthenticated: signedIn, userId } = useAuth();
   const [target, setTarget] = useState<ProjectTarget>(DEFAULT_TARGET);
+
+  // The chosen destination (persona / project / feed switch) survives a page
+  // refresh, so returning to the studio never loses what the creator set up.
+  const TARGET_KEY = "evermind.studio-target";
+  const targetLoaded = useRef(false);
+  useEffect(() => {
+    if (targetLoaded.current) return;
+    targetLoaded.current = true;
+    try {
+      const raw = window.localStorage.getItem(TARGET_KEY);
+      if (raw) setTarget({ ...DEFAULT_TARGET, ...(JSON.parse(raw) as Partial<ProjectTarget>) });
+    } catch {
+      /* a corrupt draft just falls back to the default target */
+    }
+  }, []);
+  useEffect(() => {
+    if (!targetLoaded.current) return;
+    try {
+      window.localStorage.setItem(TARGET_KEY, JSON.stringify(target));
+    } catch {
+      /* storage full or blocked — the studio still works in memory */
+    }
+  }, [target]);
+
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -498,6 +522,29 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
 
 
+  /**
+   * A brand-new project is written to the database the moment the creator
+   * commits to it — not at the end of mining — so it is still there after a
+   * refresh and every later step files content into the same project.
+   */
+  const ensureTargetProject = useCallback(async (): Promise<string | null> => {
+    if (!userId) return null;
+    if (target.mode === "existing") return target.projectId;
+    const title = target.newTitle.trim();
+    if (!title) return null;
+    const persona = target.personaId ? await getPersona(target.personaId).catch(() => null) : null;
+    const { project } = await createProject(userId, {
+      title,
+      personaId: target.personaId ?? null,
+      ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
+    });
+    if (!project) return null;
+    setTarget((prev) => ({ ...prev, mode: "existing", projectId: project.id, newTitle: "" }));
+    await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
+    await queryClient.invalidateQueries({ queryKey: ["projects", userId] });
+    return project.id;
+  }, [userId, target, queryClient]);
+
   /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
   const saveLink = useCallback(async (answers?: Assessment) => {
     setErrorKey(null);
@@ -508,11 +555,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     }
     setSaving(true);
     try {
+      const projectId = await ensureTargetProject().catch(() => null);
       const res = await saveSourcesToVault({
         data: {
           url: url.trim(),
           personaId: target.personaId ?? null,
-          projectId: target.mode === "existing" ? target.projectId : null,
+          projectId: projectId ?? (target.mode === "existing" ? target.projectId : null),
           assessment: (answers ?? null) as Record<string, unknown> | null,
         },
       });
@@ -529,7 +577,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     } finally {
       setSaving(false);
     }
-  }, [signedIn, url, target, queryClient, lib]);
+  }, [signedIn, url, target, queryClient, lib, ensureTargetProject]);
+
 
 
 
@@ -1008,8 +1057,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       abortRef.current = controller;
       setBusy(true);
       setProgress(5);
+      // Make sure the destination project exists in the database before a single
+      // checkpoint runs, so results always have a home even after a refresh.
+      await ensureTargetProject().catch(() => null);
 
       try {
+
         if (source.kind === "youtube") {
           // Every ticked saved video becomes its own server-side job, and they
           // are mined one after another without touching this page again.
@@ -1084,6 +1137,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       pendingSources,
       refetchPending,
       queryClient,
+      ensureTargetProject,
+
     ],
 
   );
