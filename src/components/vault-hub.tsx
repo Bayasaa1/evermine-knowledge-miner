@@ -385,13 +385,6 @@ function PersonaWorkspace({
     queryFn: () => listProjectsByPersona(userId, personaId),
   });
 
-  // Projects mined before a persona was picked. Shown only inside a real
-  // persona so the creator can put them back on the right profile.
-  const { data: unfiled = [] } = useQuery<Project[]>({
-    queryKey: ["unfiled-projects", userId],
-    queryFn: () => listUnfiledProjects(userId),
-    enabled: Boolean(personaId),
-  });
 
 
   const load = async () => {
@@ -498,37 +491,6 @@ function PersonaWorkspace({
             </ul>
           )}
 
-          {personaId && unfiled.length > 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-card p-4">
-              <p className="text-sm font-semibold text-foreground">{t("unfiled")}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t("unfiledDesc")}</p>
-              <ul className="mt-3 space-y-2">
-                {unfiled.map((p) => (
-                  <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
-                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
-                      <Localized text={p.title} />
-                    </span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const err = await assignProjectToPersona(p.id, personaId, { creatorName: personaName });
-                        if (err) {
-                          toast.error(err);
-                          return;
-                        }
-                        toast.success(t("moved"));
-                        await queryClient.invalidateQueries({ queryKey: ["unfiled-projects", userId] });
-                        void load();
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground"
-                    >
-                      <UserSquare2 className="h-3 w-3" /> {t("moveHere")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
         </>
       )}
 
