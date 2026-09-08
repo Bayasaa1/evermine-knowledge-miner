@@ -334,10 +334,19 @@ export function SavedMinds({
             const openRow = g.mined ?? v;
             const sourceId = g.source?.id ?? null;
             const ticked = sourceId ? selected.includes(sourceId) : false;
+            const job = g.youtubeId ? activeJobs.get(g.youtubeId) : undefined;
+            const busy = Boolean(job) && !mined;
+            const jobLabel = job
+              ? job.status === "queued"
+                ? t.queued
+                : job.status === "running"
+                  ? `${t.mining} ${jobProgress(job)}%`
+                  : t.paused
+              : "";
             return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
-                {!mined && sourceId && (
+                {!mined && !busy && sourceId && (
                   <input
                     type="checkbox"
                     checked={ticked}
