@@ -131,20 +131,52 @@ export async function finalizeMiningJob(
     projectId = data?.id ?? null;
   }
 
-  // 3. Mind vault + version row.
-  const { data: vault, error: vaultErr } = await admin
-    .from("mind_vaults")
-    .insert({
-      user_id: job.user_id,
-      title,
-      kind: "mine",
-      payload: payload as never,
-      persona_id: personaId ?? null,
-      project_id: projectId,
-    })
-    .select("id")
-    .single();
-  if (vaultErr || !vault) return null;
+  // 3. Mind vault + version row. One vault per source video: a second mining
+  //    pass of the same link updates the existing brain instead of creating a
+  //    duplicate card in Saved Minds.
+  let vault: { id: string } | null = null;
+  if (videoId) {
+    const { data: existingVault } = await admin
+      .from("mind_vaults")
+      .select("id")
+      .eq("user_id", job.user_id)
+      .eq("kind", "mine")
+      .like("payload->source->>url", `%${videoId}%`)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (existingVault) {
+      const { data: updated } = await admin
+        .from("mind_vaults")
+        .update({
+          title,
+          payload: payload as never,
+          persona_id: personaId ?? null,
+          project_id: projectId,
+        })
+        .eq("id", existingVault.id)
+        .eq("user_id", job.user_id)
+        .select("id")
+        .single();
+      vault = updated ?? existingVault;
+    }
+  }
+  if (!vault) {
+    const { data: inserted, error: vaultErr } = await admin
+      .from("mind_vaults")
+      .insert({
+        user_id: job.user_id,
+        title,
+        kind: "mine",
+        payload: payload as never,
+        persona_id: personaId ?? null,
+        project_id: projectId,
+      })
+      .select("id")
+      .single();
+    if (vaultErr || !inserted) return null;
+    vault = inserted;
+  }
 
   const { data: last } = await admin
     .from("mind_versions")
