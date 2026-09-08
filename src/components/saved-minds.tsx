@@ -326,7 +326,7 @@ export function SavedMinds({
           >
             {t.mineSelected}
           </button>
-          <p className="w-full text-[11px] text-muted-foreground">{t.batchHint}</p>
+          <p className="hidden w-full text-[11px] text-muted-foreground sm:block">{t.batchHint}</p>
         </div>
       )}
 
