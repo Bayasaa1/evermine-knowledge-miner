@@ -610,7 +610,7 @@ function FeedCard({
             {activeSubtitle.speech}
           </p>
         )}
-        {!!item.transcript?.length && (
+        {!!transcript?.length && (
           <div className="absolute right-3 top-28 z-30 flex flex-col gap-2">
             <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
               <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
@@ -646,12 +646,13 @@ function FeedCard({
             {activeMark && (
               <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
-                {shownMarks[(item.timeline ?? []).indexOf(activeMark)] || activeMark.label}
+                {shownMarks[(timeline ?? []).indexOf(activeMark)] || activeMark.label}
               </p>
             )}
             {activeEmotion && (
               <span className="inline-flex shrink-0 items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
-                {shownEmotions[(item.emotionTimeline ?? []).indexOf(activeEmotion)] ||
+                {shownEmotions[(emotionTimeline ?? []).indexOf(activeEmotion)] ||
+
                   activeEmotion.emotion ||
                   activeEmotion.label}
               </span>
