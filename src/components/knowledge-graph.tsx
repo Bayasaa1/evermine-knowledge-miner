@@ -634,6 +634,26 @@ function NodeInspector({
         </p>
       ) : null}
 
+      {node.kind === "content" && projects.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-foreground">{t("connect")}</p>
+          <select
+            disabled={busy}
+            value={node.meta.projectId ?? ""}
+            onChange={(e) => void connectToProject(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="">{t("noProject")}</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+
       {editable ? (
         <input
           value={label}
