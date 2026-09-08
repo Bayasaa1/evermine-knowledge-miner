@@ -154,7 +154,19 @@ function GoogleMark() {
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  // Arriving from Saved Minds or the Auditor means "mine this now": open the
+  // mining step straight away instead of dropping the creator on step 1.
+  const [step, setStep] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    try {
+      const wanted = window.localStorage.getItem("evermind.mine-step");
+      window.localStorage.removeItem("evermind.mine-step");
+      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 3;
+    } catch {
+      /* blocked storage just starts at step 1 */
+    }
+    return 1;
+  });
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6">
