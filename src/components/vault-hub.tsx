@@ -385,6 +385,15 @@ function PersonaWorkspace({
     queryFn: () => listProjectsByPersona(userId, personaId),
   });
 
+  // Projects mined before a persona was picked. Shown only inside a real
+  // persona so the creator can put them back on the right profile.
+  const { data: unfiled = [] } = useQuery<Project[]>({
+    queryKey: ["unfiled-projects", userId],
+    queryFn: () => listUnfiledProjects(userId),
+    enabled: Boolean(personaId),
+  });
+
+
   const load = async () => {
     await queryClient.invalidateQueries({ queryKey: ["projects", userId, personaId] });
     await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
