@@ -332,6 +332,23 @@ export const setMiningJobState = createServerFn({ method: "POST" })
     return { status };
   });
 
+/**
+ * Clears finished / stopped / failed mining cards. Live work is never touched,
+ * and the mined Minds themselves stay in the vault — only the history rows go.
+ */
+export const clearMiningHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ removed: number }> => {
+    const { data, error } = await context.supabase
+      .from("mining_jobs")
+      .delete()
+      .eq("user_id", context.userId)
+      .in("status", ["done", "stopped", "error"])
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { removed: (data ?? []).length };
+  });
+
 /** Records the Mind vault a finished job was written into (prevents double saves). */
 export const attachMiningJobVault = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
