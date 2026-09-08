@@ -193,7 +193,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
-      {showNav && !pathname.startsWith("/creator") && <LanguageSelector />}
+      {showNav && !pathname.startsWith("/creator") && !pathname.startsWith("/vaults") && <LanguageSelector />}
       {showNav && <BottomNav />}
       <DiagnosticChat />
     </QueryClientProvider>
