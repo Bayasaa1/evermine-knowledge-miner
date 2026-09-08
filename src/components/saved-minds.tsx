@@ -12,11 +12,12 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
 import { MindAuditor } from "@/components/mind-auditor";
+import { ResultCompare } from "@/components/result-compare";
 import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 
@@ -51,6 +52,8 @@ export function SavedMinds({
   const [editing, setEditing] = useState<VaultRow | null>(null);
   /** Mined row currently open in the Auditor, with its saved video row. */
   const [auditing, setAuditing] = useState<{ row: VaultRow; sourceId: string | null } | null>(null);
+  /** Mined row currently open in the side-by-side AI result comparison. */
+  const [comparing, setComparing] = useState<VaultRow | null>(null);
 
   /** Saved source rows ticked for batch mining. */
   const [selected, setSelected] = useState<string[]>([]);
