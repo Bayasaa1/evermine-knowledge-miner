@@ -1,76 +1,88 @@
-# Living Minds: free chat, voice calls, video calls and a teammate that really plays
+# One person on the other side: real voice clone, real face, one live mind
 
-Short answer to your question: the mined file is the memory, not the mind. It holds what the person knows, how they talk, how they look and how they sound. A thinking AI reads that memory every time someone speaks to it, and separate engines give it a voice and a face. This plan wires those three layers together, and the same brain is what the game bot carries in.
+You are right, and this is the part I have to be straight with you about.
 
-**Rule for everything below: the free path always works.** Nobody needs to paste a key to chat, call or play. Keys are only an optional upgrade for higher realism or bigger quotas.
+Cloning someone's actual voice is not text-to-speech. A clone is built by feeding a voice-cloning engine clean samples of the creator's real speech — which we already mine out of their videos — and getting back a voice model that sounds like *them*, with their accent, rhythm and breath. No general chat AI can do that, and no browser voice can do that. It needs a cloning engine.
+
+Same for the face: a real face clone drives their actual mined face — eyes, brows, jaw, head motion — off the audio, frame by frame, in real time. That is a different engine again.
+
+And the third thing you said is the hardest and the most important: **the three must feel like one person.** The thinking, the voice and the face cannot each take their turn. They have to overlap.
+
+## How the three become one, with no delay
+
+The trick is that nothing waits for the step before it to finish:
 
 ```text
-              MEMORY (mined file)          THINKER (AI)            BODY
-chat      →  beliefs, story, quotes   →   built-in Gemini  →   text
-voice call→  + voice print            →   built-in Gemini  →   free voice (upgrade: real clone)
-video call→  + face, emotions         →   built-in Gemini  →   free avatar (upgrade: photoreal)
-game      →  + skills, tactics        →   built-in Gemini  →   Minecraft teammate
+you speak ──► words appear as you talk (live, not after you stop)
+                  │
+                  ▼
+            mind starts thinking on the first words
+                  │  answer streams out word by word
+                  ▼
+            voice clone speaks each phrase the moment it exists
+                  │  audio streams out
+                  ▼
+            face is driven by that same audio as it plays
 ```
 
-## 1. One brain, four bodies
+- The Mind starts answering before you finish your sentence, and the answer streams out in pieces.
+- Each finished phrase goes straight to the voice clone and starts playing — we never wait for the whole answer.
+- The face is driven by the audio that is already playing, so lips and expression are locked to the voice by construction, never "synced afterwards".
+- It can start with a breath or a filler in their own style ("hmm—") so the gap is filled the way a real person fills it.
 
-Chat, coach and voice each build their own prompt in their own place today. They get merged into a single Mind Runtime: one place that loads the persona's mined memory (beliefs, decision logic, story, quotes, cultural phrases, gameplay skills, emotions) and hands it to the thinking AI. Chat, voice call, video call and the game bot all speak through it, so the personality never differs between them.
+Target: under a second from you finishing a sentence to hearing their voice start.
 
-Complex questions are answered by the AI reasoning over that memory — exactly as chat does now — never by the file alone.
+## What is free and what needs a key — honestly
 
-## 2. Free / upgrade for each part
+The free path must always work, so:
 
-| Part | Free (default, no key) | Optional upgrade (creator's key) |
+| | Free path (no key from anyone) | Full clone |
 | --- | --- | --- |
-| Thinking | Built-in Gemini (the app's existing connection) | Creator's own Gemini / OpenAI / Claude / Groq key |
-| Speaking | Built-in voice, tuned per persona from mined samples | Real cloned voice service |
-| Face | Animated mined-face portrait with lip-sync and emotions | Photoreal talking-head service |
-| Seeing you | Built-in Gemini vision reads camera stills | Same, on the creator's own key |
-| Game bot | Built-in Gemini drives talking and decisions | Creator's key for faster/longer sessions |
+| Thinking | Built-in Gemini the app already uses | Creator's own key if they want more quota |
+| Voice | Their mined **real audio** is replayed where it fits, plus the best voice the browser has for the rest — clearly labelled "not the real clone yet" | A cloning engine trained on their mined samples: their true voice, any words, any language |
+| Face | Their mined face as a living portrait, driven by the audio (eyes, brows, jaw, head motion, mined emotions) | A real-time face engine driving the same mined face photoreally |
 
-If a paid service fails, errors or runs out, it silently drops back to the free path — a call never goes silent and a chat never dies.
+I will not dress the free version up as a clone. It says plainly: "Voice clone not enabled — this is a stand-in." One button turns the real one on.
 
-## 3. Adding a key (only if you want to)
+Important: turning the real clone on does **not** have to cost the creator money. The cloning engines have free tiers — the creator makes a free account, pastes the key once, and the Mind speaks in their real voice within that free allowance. Paying only buys more minutes.
 
-A single **Engines** panel per persona, in plain language: pick who thinks, who speaks, who shows the face. Each row shows "Free — ready" by default. Choosing a paid option reveals a paste-your-key field with a link to get one, a short guide, and a **Test** button that plays a sample voice or generates one frame so you know it works before saving. Keys are stored server-side and never shown back in the browser.
+## Consent, because this is someone's voice and face
 
-## 4. Voice call
+A persona can only be cloned by its owner. Before a clone is created the owner confirms it is their own voice and face, and that confirmation is stored with the persona. Any Mind speaking with a cloned voice carries an "AI clone" marker.
 
-Speak, the Mind hears you, thinks and answers aloud in its own voice. Free voice is on by default. Live caption of what it said, mute, and end-call controls; existing lip-sync data drives the avatar.
+## Setting it up (the creator sees this once)
 
-## 5. Video call where the Mind sees you
+Persona → **Voice & Face**:
+1. Evermind picks the cleanest speech samples out of the already-mined videos and shows them — the creator can drop bad ones.
+2. Pick the cloning engine, paste the free-tier key, press **Create clone**. It takes a minute.
+3. **Hear it** — the clone reads a sentence back. Not right? Change samples and rebuild.
+4. Same for the face: pick the best face shots from the mined video, build, preview a talking clip.
+5. Done — chat, voice call, video call and the game bot all use it from that moment.
 
-Free avatar: the mined face becomes a living portrait — lips synced to the spoken audio, expressions from the mined emotion records.
+## Video call: it sees you too
 
-The app takes a still from the caller's camera every few seconds (not a continuous stream — that keeps it free-tier friendly) and the Mind reads mood, gestures and setting and reacts: "you look tired", "nice setup", "show me that again". Frames are analysed and dropped, never stored. The call opens with a clear notice and a camera-off switch the caller controls at any time.
+Camera stills every few seconds go to the Mind, so it reacts to your mood, gestures and surroundings — "you look tired", "show me that again". Frames are analysed and dropped, never stored. Clear notice at call start and a camera-off switch you control.
 
-## 6. Gaming teammate that reacts, talks, teaches and fights
+## The gaming teammate speaks in the same voice
 
-The downloadable teammate keeps playing through the game itself (no screen capture), but gets a live brain:
-
-- **Fast reflex layer, on your PC:** follow, mine, build, block, attack, retreat, heal, feed you food. Instant, costs nothing.
-- **Live AI layer:** every few seconds — and immediately on trigger events (your health drops, you say "help", a mob swarms, you die, you ask "how do I…") — the bot sends a short situation report to the Mind and gets back both an action and a line of speech in the player's own voice: "I'm coming, get behind the pillar", "don't trade there, block up first".
-- **Teaching:** ask in game chat and it explains its tactic step by step, then tells you whether you did it right.
-- Cool-downs and a per-session budget cap so a long play session stays inside the free allowance.
-
-## 7. What it costs you
-
-Live conversations and game sessions run on the free built-in Gemini unless the creator attached their own key. Each persona shows a simple meter: sessions today, calls used, remaining, and — for anyone who added a paid service — what it is costing.
+The in-game teammate uses the exact same runtime: it reports what is happening (health, mobs, your chat), the Mind decides an action and a line, and the line is spoken in the creator's cloned voice while a fast local layer handles fighting, following, mining and building instantly.
 
 ## Technical notes
 
-- `src/lib/mind-runtime.server.ts` (new): single brain loader + prompt builder shared by `api/mind-chat`, `api/mind-voice`, `api/mind-coach` and new `api/mind-vision` (caller-frame reading) and `api/game-brain` (bot decisions). Existing `mind-chat.ts` prompt building moves here.
-- Engine resolution order, per call: persona's paid service → persona's own provider key → built-in Gemini (always available, no user key). Never throws "no key" at a caller.
-- New `persona_engines` table (owner-only RLS + grants) holding thinker provider/model plus optional voice/avatar service references; secrets stored as backend secrets, never returned to the browser.
-- Voice: `src/lib/voice-dub.ts` keeps its streaming/viseme contract; `api/mind-voice` gains a provider switch with automatic fallback to the built-in voice.
-- Face: `src/components/mind-avatar.tsx` (new) — canvas portrait driven by existing `emotionStyle` plus the viseme value `startDub` already emits; the paid path swaps in a video stream behind the same component.
-- Video call: `talk-to-mind-modal.tsx` gains caller camera capture (`getUserMedia`), one JPEG every ~4s to `api/mind-vision`, in-memory only, `guardApi` rate-limited like the coach route.
-- Game: generated script in `src/lib/game-bot.ts` gains an event-driven brain loop posting compact world state (health, hostiles, position, inventory, chat) to a token-protected `api/public/v1/mind/$token/act` returning `{say, action, params}`; reflex behaviours stay local via pathfinder. Per-token rate limit and session budget enforced server-side.
-- All new copy in en / mn / ko.
+- `src/lib/mind-runtime.server.ts` (new): one brain loader + prompt builder shared by chat, voice, video, coach and game. Prompt building moves out of `api/mind-chat.ts`.
+- **Pipeline is streamed end to end**: browser speech recognition emits interim text → the runtime streams the model answer → a sentence splitter flushes each clause to the voice engine → `src/lib/voice-dub.ts` plays the arriving audio and already emits a live viseme value from the waveform, which drives the face. No stage waits for the previous stage to complete.
+- `persona_voices` / `persona_faces` tables (owner-only RLS + grants): sample references, engine id, remote clone/voice id, consent flag, build status. Engine keys live as backend secrets, never returned to the browser.
+- Sample selection reuses mined audio segments (`mining-audio.ts`, timeline segments) and the mined face frames already stored with the vault — no new upload step.
+- Voice: `api/mind-voice` gains an engine switch (cloning engine → mined-audio + browser voice fallback), always streaming, never a buffered request; fallback is automatic and labelled in the UI.
+- Face: `src/components/mind-avatar.tsx` (new) — canvas portrait driven by the existing viseme stream and `emotionStyle`; the real-time face engine swaps in behind the same component so the rest of the app does not change.
+- Video call: `talk-to-mind-modal.tsx` gains caller camera capture (`getUserMedia`), one JPEG every ~4s to a new `api/mind-vision`, in-memory only, rate-limited via `guardApi` like the coach route.
+- Game: generated bot in `src/lib/game-bot.ts` posts compact world state to a token-protected `api/public/v1/mind/$token/act` returning `{say, action, params}`; reflex behaviours stay local via pathfinder; spoken lines reuse the cloned voice.
+- Copy in en / mn / ko.
 
-## Suggested order
+## Order
 
-1. Mind Runtime + Engines panel with free defaults (chat behaviour unchanged, one brain underneath).
-2. Voice call on the free voice, with upgrade path and fallback.
-3. Face avatar + video call that sees you.
-4. Game brain loop for the teammate.
+1. Streaming runtime — chat, voice and face on one non-blocking pipeline (this is what kills the delay).
+2. Real voice cloning: sample picking, consent, build, preview, live use, honest fallback.
+3. Real face cloning on the same audio stream.
+4. Video call that sees you.
+5. Game teammate on the same voice and brain.
