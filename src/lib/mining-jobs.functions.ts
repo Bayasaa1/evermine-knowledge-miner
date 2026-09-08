@@ -146,6 +146,7 @@ export const startMiningJobs = createServerFn({ method: "POST" })
       });
     }
 
+    if (rows.length === 0) return [];
     const { data: saved, error } = await context.supabase.from("mining_jobs").insert(rows).select(SELECT);
     if (error) throw new Error(error.message);
     return (saved as JobRow[]).map(toJob);
