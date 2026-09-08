@@ -49,55 +49,77 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         let resumed = 0;
         let paused = 0;
 
+        let quotaHit = false;
+
         for (const job of jobs ?? []) {
+          if (quotaHit || Date.now() > deadline) break;
           const chunks = (Array.isArray(job.chunks) ? job.chunks : []) as {
             start: number;
             end: number;
           }[];
-          const results = (Array.isArray(job.results) ? job.results : []) as unknown[];
-          const index = job.next_index ?? 0;
+          let results = (Array.isArray(job.results) ? job.results : []) as unknown[];
+          let index = job.next_index ?? 0;
           if (index >= chunks.length) {
             await supabaseAdmin.from("mining_jobs").update({ status: "done" }).eq("id", job.id);
             continue;
           }
-          const chunk = chunks[index]!;
-          try {
-            const mined = await analyzeYoutubeVideo({
-              url: job.source_url,
-              startSec: chunk.start,
-              endSec: chunk.end,
-              assessment: {
-                videoContext: job.video_context,
-                primaryFocus: job.primary_focus,
-                customInstructions: job.custom_instructions,
-              },
-            });
-            const nextIndex = index + 1;
-            await supabaseAdmin
-              .from("mining_jobs")
-              .update({
-                results: [...results, mined] as never,
-                next_index: nextIndex,
-                status: nextIndex >= chunks.length ? "done" : "running",
-                last_error: null,
-                retry_after: null,
-              })
-              .eq("id", job.id);
-            resumed += 1;
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            const quota = /quota|rate limit|429|too many requests|resource_exhausted/i.test(message);
-            await supabaseAdmin
-              .from("mining_jobs")
-              .update({
-                status: quota ? "paused_quota" : "error",
-                last_error: message.slice(0, 500),
-                retry_after: quota ? new Date(Date.now() + 15 * 60_000).toISOString() : null,
-              })
-              .eq("id", job.id);
-            paused += 1;
-            if (quota) break; // Quota is global — stop this run and wait for reset.
+          // Same context the creator's tab uses: speaker hint, source metadata
+          // and the chosen output language all live in the packed column.
+          const packed = unpackInstructions(job.custom_instructions ?? "");
+          const assessment = {
+            videoContext: job.video_context,
+            primaryFocus: job.primary_focus,
+            ...packed,
+          };
+
+          // Keep mining this video while there is time left, instead of one
+          // chunk every five minutes.
+          while (index < chunks.length && Date.now() < deadline) {
+            const chunk = chunks[index]!;
+            try {
+              const mined = await analyzeYoutubeVideo({
+                url: job.source_url,
+                startSec: chunk.start,
+                endSec: chunk.end,
+                assessment,
+              });
+              results = [...results, mined];
+              index += 1;
+              await supabaseAdmin
+                .from("mining_jobs")
+                .update({
+                  results: results as never,
+                  next_index: index,
+                  status: index >= chunks.length ? "done" : "running",
+                  last_error: null,
+                  retry_after: null,
+                })
+                .eq("id", job.id);
+              resumed += 1;
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              const quota = /quota|rate limit|429|too many requests|resource_exhausted/i.test(message);
+              await supabaseAdmin
+                .from("mining_jobs")
+                .update({
+                  status: quota ? "paused_quota" : "error",
+                  last_error: message.slice(0, 500),
+                  retry_after: quota ? new Date(Date.now() + 15 * 60_000).toISOString() : null,
+                })
+                .eq("id", job.id);
+              paused += 1;
+              // Quota is global — stop the whole run and wait for the reset.
+              if (quota) quotaHit = true;
+              break;
+            }
           }
+          // A creator pause/stop mid-run must win over this worker.
+          const { data: fresh } = await supabaseAdmin
+            .from("mining_jobs")
+            .select("status")
+            .eq("id", job.id)
+            .maybeSingle();
+          if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
         }
 
         return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused }, 200);
