@@ -342,8 +342,12 @@ export function SavedMinds({
                   )}
                 </div>
                 {!mined ? (
-                  <Link
-                    to="/creator"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sourceId) window.localStorage.setItem("evermind.mine-batch", JSON.stringify([sourceId]));
+                      void navigate({ to: "/creator" });
+                    }}
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
                   >
                     {t.mine}
