@@ -72,6 +72,7 @@ async function saveTimings(context: Ctx, row: any, repaired: TranscriptLine[]): 
     youtubeId: row.youtube_id ?? "",
     sourceUrl: row.source_url ?? "",
     updatedAt: new Date().toISOString(),
+    personaId: row.persona_id ?? null,
     ...analyzeTiming(repaired),
   };
 }
