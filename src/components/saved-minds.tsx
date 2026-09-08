@@ -72,6 +72,7 @@ export function SavedMinds({
     ),
     view: pickCopy({ en: "Core Brain", mn: "Гол тархи", ko: "코어 브레인" }, lang),
     auditor: pickCopy({ en: "Auditor", mn: "Аудитор", ko: "감사관" }, lang),
+    compare: pickCopy({ en: "Compare", mn: "Харьцуулах", ko: "비교" }, lang),
 
     edit: pickCopy({ en: "Edit", mn: "Засах", ko: "편집" }, lang),
     del: pickCopy({ en: "Delete", mn: "Устгах", ko: "삭제" }, lang),
@@ -369,6 +370,15 @@ export function SavedMinds({
                     >
                       <Gavel className="h-3.5 w-3.5" />
                       {t.auditor}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComparing(openRow)}
+                      title={t.compare}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Columns3 className="h-3.5 w-3.5" />
+                      {t.compare}
                     </button>
                   </>
                 )}
