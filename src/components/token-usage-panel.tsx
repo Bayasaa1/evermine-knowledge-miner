@@ -3,7 +3,9 @@ import { Cpu, Gauge, Wallet, RotateCcw } from "lucide-react";
 import {
   clearUsage,
   loadUsage,
+  rateFor,
   summarizeUsage,
+  type ProviderUsage,
   type UsageLedger,
   type UsageSummary,
 } from "@/lib/token-usage";
