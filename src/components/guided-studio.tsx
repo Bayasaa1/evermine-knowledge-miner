@@ -1057,8 +1057,12 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       abortRef.current = controller;
       setBusy(true);
       setProgress(5);
+      // Make sure the destination project exists in the database before a single
+      // checkpoint runs, so results always have a home even after a refresh.
+      await ensureTargetProject().catch(() => null);
 
       try {
+
         if (source.kind === "youtube") {
           // Every ticked saved video becomes its own server-side job, and they
           // are mined one after another without touching this page again.
