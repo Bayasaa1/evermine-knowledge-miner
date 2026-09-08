@@ -57,6 +57,8 @@ type TimedCue = { start: number; end: number; speech: string; speaker: string };
 
 const MAX_SUBTITLE_WORDS = 7;
 const MAX_SUBTITLE_CHARS = 46;
+/** Shortest time a caption phrase may stay on screen. */
+const MIN_PART_SECONDS = 1.1;
 
 /** Break dense mined transcript lines into readable caption-sized phrases.
  *  Splits on word count AND character length so long words / CJK text still fit. */
