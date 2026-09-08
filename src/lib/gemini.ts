@@ -878,7 +878,7 @@ Extract the pillars below and return JSON only.
    - "spatial_action": when a physical object is manipulated, give "object_name", "coordinates_xyz" (3 numbers, normalized 0..1 in camera space: x right, y down, z depth), "grasp_type" (power-grasp, pinch, push, pull, pour, cut, none) and "movement_vector" (3 numbers, normalized direction of motion, -1..1). If no object is manipulated, set spatial_action to null.
    - "confidence_score": 0.0-1.0, your honest certainty this node is correct. NEVER inflate it. Use below 0.8 whenever you are guessing or inferring — such nodes are discarded.
 
-7. "emotion_timeline": a continuous EMOTION & EXPRESSION TIMELINE of the Primary Owner. Segment the requested range into consecutive moments (roughly 3-15 seconds each, or wherever the emotion clearly shifts) and for every moment give:
+7. "emotion_timeline": MANDATORY — never return an empty list. Even a still frame or a voice-only stretch has a readable emotional state (use NEUTRAL with low intensity). Produce a continuous EMOTION & EXPRESSION TIMELINE of the Primary Owner. Segment the requested range into consecutive moments (roughly 3-15 seconds each, or wherever the emotion clearly shifts) and for every moment give:
    - "timestamp_start" / "timestamp_end": whole-video-relative MM:SS.
    - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL.
    - "expression_intensity": 0.0-1.0 float for how strongly the emotion is expressed.
@@ -1198,6 +1198,9 @@ export async function mineChunk(
           temperature: 0.2,
           responseMimeType: "application/json",
           responseSchema,
+          // Late fields (emotion_timeline, copyright) were being dropped when
+          // the answer ran out of room; give the model the full budget.
+          maxOutputTokens: 65536,
         },
       }),
     },
@@ -1262,7 +1265,12 @@ export async function mineUrlSegment(
             ],
           },
         ],
-        generationConfig: { temperature: 0.2, responseMimeType: "application/json", responseSchema },
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: "application/json",
+          responseSchema,
+          maxOutputTokens: 65536,
+        },
       }),
     },
   );

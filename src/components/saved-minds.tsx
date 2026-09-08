@@ -12,11 +12,12 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
 import { MindAuditor } from "@/components/mind-auditor";
+import { ResultCompare } from "@/components/result-compare";
 import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 
@@ -51,6 +52,8 @@ export function SavedMinds({
   const [editing, setEditing] = useState<VaultRow | null>(null);
   /** Mined row currently open in the Auditor, with its saved video row. */
   const [auditing, setAuditing] = useState<{ row: VaultRow; sourceId: string | null } | null>(null);
+  /** Mined row currently open in the side-by-side AI result comparison. */
+  const [comparing, setComparing] = useState<VaultRow | null>(null);
 
   /** Saved source rows ticked for batch mining. */
   const [selected, setSelected] = useState<string[]>([]);
@@ -69,6 +72,7 @@ export function SavedMinds({
     ),
     view: pickCopy({ en: "Core Brain", mn: "Гол тархи", ko: "코어 브레인" }, lang),
     auditor: pickCopy({ en: "Auditor", mn: "Аудитор", ko: "감사관" }, lang),
+    compare: pickCopy({ en: "Compare", mn: "Харьцуулах", ko: "비교" }, lang),
 
     edit: pickCopy({ en: "Edit", mn: "Засах", ko: "편집" }, lang),
     del: pickCopy({ en: "Delete", mn: "Устгах", ko: "삭제" }, lang),
@@ -367,6 +371,15 @@ export function SavedMinds({
                       <Gavel className="h-3.5 w-3.5" />
                       {t.auditor}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setComparing(openRow)}
+                      title={t.compare}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Columns3 className="h-3.5 w-3.5" />
+                      {t.compare}
+                    </button>
                   </>
                 )}
 
@@ -434,6 +447,18 @@ export function SavedMinds({
           // Always the freshest copy, so a new audit appears immediately.
           payload={((vaults.find((v) => v.id === auditing.row.id) ?? auditing.row).payload ?? {}) as MindPayload}
           sourceId={auditing.sourceId}
+          onChanged={refresh}
+        />
+      )}
+
+      {comparing && (
+        <ResultCompare
+          lang={lang}
+          open={!!comparing}
+          onOpenChange={(o) => { if (!o) setComparing(null); }}
+          vaultId={comparing.id}
+          title={comparing.title}
+          payload={((vaults.find((v) => v.id === comparing.id) ?? comparing).payload ?? {}) as MindPayload}
           onChanged={refresh}
         />
       )}

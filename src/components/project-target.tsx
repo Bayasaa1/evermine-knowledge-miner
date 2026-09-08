@@ -9,7 +9,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderPlus, Layers, Loader2, Plus, UserRound } from "lucide-react";
 
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { listMyProjects, type ContentKind } from "@/lib/projects";
+import { createProject, listMyProjects, type ContentKind } from "@/lib/projects";
+import { toast } from "sonner";
 import { createPersona, listPersonas } from "@/lib/personas";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -65,6 +66,8 @@ const copy = {
     newSub: "Starts a fresh project for this video.",
     existingOpt: "Append / Update Existing Project",
     existingSub: "Adds this video to a project you already own.",
+    saveProject: "Save project",
+    saveProjectHint: "Saves the project to your account right away, so it is still here after a refresh.",
     name: "Project name",
     namePlaceholder: "e.g. Morning Podcast Season 2",
     choose: "Choose project",
@@ -101,6 +104,8 @@ const copy = {
     newSub: "Энэ видеонд зориулж шинэ төсөл эхлүүлнэ.",
     existingOpt: "Одоо байгаа төсөлд нэмэх / шинэчлэх",
     existingSub: "Таны эзэмшиж буй төсөлд энэ видеог нэмнэ.",
+    saveProject: "Төсөл хадгалах",
+    saveProjectHint: "Төслийг шууд бүртгэлд хадгална — сэргээсэн ч алга болохгүй.",
     name: "Төслийн нэр",
     namePlaceholder: "жишээ нь: Өглөөний подкаст 2-р улирал",
     choose: "Төсөл сонгох",
@@ -137,6 +142,8 @@ const copy = {
     newSub: "이 영상을 위한 새 프로젝트를 시작합니다.",
     existingOpt: "기존 프로젝트에 추가 / 업데이트",
     existingSub: "이미 보유한 프로젝트에 이 영상을 추가합니다.",
+    saveProject: "프로젝트 저장",
+    saveProjectHint: "프로젝트를 계정에 즉시 저장하므로 새로고침해도 남아 있습니다.",
     name: "프로젝트 이름",
     namePlaceholder: "예: 모닝 팟캐스트 시즌 2",
     choose: "프로젝트 선택",
@@ -171,6 +178,7 @@ export function ProjectTargetPicker({
   const [creating, setCreating] = useState(false);
   const [personaName, setPersonaName] = useState("");
   const [savingPersona, setSavingPersona] = useState(false);
+  const [savingProject, setSavingProject] = useState(false);
 
   const { data: personas = [], isLoading: personasLoading } = useQuery({
     queryKey: ["my-personas", userId],
@@ -214,6 +222,26 @@ export function ProjectTargetPicker({
       setCreating(false);
       set({ personaId: persona.id, projectId: null });
     }
+  };
+
+  /** Writes the new project to the database now and switches the wizard onto it. */
+  const saveProject = async () => {
+    if (!userId || !value.newTitle.trim()) return;
+    setSavingProject(true);
+    const persona = personas.find((p) => p.id === value.personaId) ?? null;
+    const { project, error } = await createProject(userId, {
+      title: value.newTitle.trim(),
+      personaId: value.personaId ?? null,
+      ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
+    });
+    setSavingProject(false);
+    if (!project) {
+      toast.error(error ?? "Could not save the project");
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
+    onChange({ ...value, mode: "existing", projectId: project.id, newTitle: "" });
+    toast.success(t.saveProject);
   };
 
   const personaChosen = Boolean(value.personaId);
@@ -328,15 +356,29 @@ export function ProjectTargetPicker({
       </div>
 
       {value.mode === "new" ? (
-        <label className="mt-4 block">
-          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.name}</span>
-          <input
-            value={value.newTitle}
-            onChange={(e) => set({ newTitle: e.target.value.slice(0, 120) })}
-            placeholder={t.namePlaceholder}
-            className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-          />
-        </label>
+        <div className="mt-4">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.name}</span>
+            <input
+              value={value.newTitle}
+              onChange={(e) => set({ newTitle: e.target.value.slice(0, 120) })}
+              placeholder={t.namePlaceholder}
+              className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            />
+          </label>
+          {/* Saving now writes the project to the account immediately, so it
+              survives a refresh instead of only existing during the wizard. */}
+          <button
+            type="button"
+            disabled={savingProject || !value.newTitle.trim()}
+            onClick={() => void saveProject()}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {savingProject ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderPlus className="h-3.5 w-3.5" />}
+            {t.saveProject}
+          </button>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">{t.saveProjectHint}</p>
+        </div>
       ) : (
         <div className="mt-4 space-y-4">
           <label className="block">

@@ -48,10 +48,16 @@ export async function finalizeMiningJob(
   if (!mined) return null;
 
   const meta = unpackInstructions(job.custom_instructions ?? "");
+  // The wizard's sourceTitle belongs to the batch, not to this video, so a
+  // queue of videos would all inherit one title. The per-job label always wins
+  // when it is a real title rather than a bare link or video id.
+  const label = (job.source_label || "").trim();
+  const labelIsTitle = label.length > 0 && !/^https?:\/\//i.test(label) && !/^[A-Za-z0-9_-]{11}$/.test(label);
   const title =
-    (meta.sourceTitle || "").trim() ||
+    (labelIsTitle ? label : "") ||
     mined.story?.summary?.slice(0, 60) ||
-    job.source_label ||
+    (meta.sourceTitle || "").trim() ||
+    label ||
     "New Mind";
 
   const payload = {
