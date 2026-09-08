@@ -3,6 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { Search, Home, Boxes, Plus, User } from "lucide-react";
 
 import { CreateWizard } from "@/components/create-wizard";
+import { MiningStatusPill } from "@/components/mining-status-pill";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Item = { to: "/" | "/search" | "/vaults" | "/profile"; label: string; icon: typeof Home };
@@ -55,6 +56,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
 
   return (
     <>
+      <MiningStatusPill lang={lang} />
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center px-2">
           {left.map(cell)}
