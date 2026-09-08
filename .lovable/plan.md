@@ -59,7 +59,14 @@ Persona → **Voice & Face**:
 4. Same for the face: pick the best face shots from the mined video, build, preview a talking clip.
 5. Done — chat, voice call, video call and the game bot all use it from that moment.
 
+## Any language, still their voice
+
+Yes — this works. A voice clone carries the *timbre* of the person, not their language. So when you switch Evermind to Mongolian, Technoblade thinks in his mined brain and answers you in Mongolian **in his own voice**; CTS answers in English in his. One honest limit: he will sound like Technoblade speaking Mongolian — his own accent — not like a native Mongolian speaker. That needs a multilingual cloning engine, which the setup step below requires.
+
+The face follows automatically, because it is driven by whatever audio is playing, in whatever language.
+
 ## Video call: it sees you too
+
 
 Camera stills every few seconds go to the Mind, so it reacts to your mood, gestures and surroundings — "you look tired", "show me that again". Frames are analysed and dropped, never stored. Clear notice at call start and a camera-off switch you control.
 
