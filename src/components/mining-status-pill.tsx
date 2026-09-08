@@ -24,6 +24,11 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
     queryFn: () => fetchJobs(),
     refetchInterval: 8_000,
     refetchOnWindowFocus: true,
+    // Keep the last known jobs on screen while a refetch is in flight, so the
+    // pill never blinks away between polls or when switching pages.
+    placeholderData: (prev) => prev,
+    staleTime: 30_000,
+    gcTime: 10 * 60_000,
   });
 
   const live = jobs.filter((j) => LIVE.includes(j.status));
@@ -38,7 +43,8 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
   return (
     <Link
       to="/mining"
-      className="fixed inset-x-0 bottom-[68px] z-40 mx-auto flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-card/95 px-3 py-1.5 text-xs font-medium text-foreground shadow-lg backdrop-blur"
+      style={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }}
+      className="fixed inset-x-0 z-[60] mx-auto flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-xl"
     >
       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
       {live.length} {label}
