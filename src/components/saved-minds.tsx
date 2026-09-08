@@ -22,6 +22,8 @@ import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 
 import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
+import { listMiningJobs } from "@/lib/mining-jobs.functions";
+import { jobProgress, type MiningJob } from "@/lib/mining-jobs";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import { listProjectsByPersona, type Project } from "@/lib/projects";
@@ -95,6 +97,9 @@ export function SavedMinds({
     mine: pickCopy({ en: "Mine", mn: "Олборлох", ko: "마이닝" }, lang),
     mined: pickCopy({ en: "Mined", mn: "Олборлосон", ko: "마이닝 완료" }, lang),
     pending: pickCopy({ en: "Ready to mine", mn: "Олборлоход бэлэн", ko: "마이닝 대기" }, lang),
+    mining: pickCopy({ en: "Mining now", mn: "Одоо олборлож байна", ko: "마이닝 중" }, lang),
+    queued: pickCopy({ en: "Queued", mn: "Дараалалд", ko: "대기열" }, lang),
+    paused: pickCopy({ en: "Paused", mn: "Түр зогссон", ko: "일시중지" }, lang),
     saves: pickCopy({ en: "saves", mn: "хадгалалт", ko: "저장본" }, lang),
     selectAll: pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "전체 선택" }, lang),
     clear: pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang),
@@ -133,6 +138,29 @@ export function SavedMinds({
     enabled: isAuthenticated,
     refetchOnMount: "always",
   });
+
+  /** Live mining jobs, so a video that is already being mined never invites another run. */
+  const fetchJobs = useServerFn(listMiningJobs);
+  const { data: jobs = [] } = useQuery<MiningJob[]>({
+    queryKey: ["mining-jobs", "saved-minds"],
+    queryFn: () => fetchJobs({}),
+    enabled: isAuthenticated,
+    refetchInterval: 8000,
+    staleTime: 4000,
+  });
+
+  /** youtube id -> the newest job that is still in flight for that video. */
+  const activeJobs = useMemo(() => {
+    const live = new Set(["queued", "running", "paused", "paused_quota"]);
+    const map = new Map<string, MiningJob>();
+    for (const j of jobs) {
+      if (!live.has(j.status)) continue;
+      const id = j.sourceUrl.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)?.[1];
+      if (!id || map.has(id)) continue;
+      map.set(id, j);
+    }
+    return map;
+  }, [jobs]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
 
@@ -234,9 +262,15 @@ export function SavedMinds({
   const mineable = useMemo(
     () =>
       groups
-        .filter((g) => g.source && !g.mined && (g.source.payload as unknown as SourcePayload)?.status !== "mined")
+        .filter(
+          (g) =>
+            g.source &&
+            !g.mined &&
+            (g.source.payload as unknown as SourcePayload)?.status !== "mined" &&
+            !(g.youtubeId && activeJobs.has(g.youtubeId)),
+        )
         .map((g) => g.source!.id),
-    [groups],
+    [groups, activeJobs],
   );
 
   if (!isAuthenticated) return null;
@@ -306,10 +340,19 @@ export function SavedMinds({
             const openRow = g.mined ?? v;
             const sourceId = g.source?.id ?? null;
             const ticked = sourceId ? selected.includes(sourceId) : false;
+            const job = g.youtubeId ? activeJobs.get(g.youtubeId) : undefined;
+            const busy = Boolean(job) && !mined;
+            const jobLabel = job
+              ? job.status === "queued"
+                ? t.queued
+                : job.status === "running"
+                  ? `${t.mining} ${jobProgress(job)}%`
+                  : t.paused
+              : "";
             return (
             <li key={v.id} className="rounded-lg border border-border bg-background p-3">
               <div className="flex items-start gap-2">
-                {!mined && sourceId && (
+                {!mined && !busy && sourceId && (
                   <input
                     type="checkbox"
                     checked={ticked}
@@ -336,8 +379,8 @@ export function SavedMinds({
                   <p className="text-xs text-muted-foreground">
                     {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
                     {video ? " · " : ""}
-                    <span className={mined ? "text-emerald-500" : "text-amber-500"}>
-                      {mined ? t.mined : t.pending}
+                    <span className={mined ? "text-emerald-500" : busy ? "text-primary" : "text-amber-500"}>
+                      {mined ? t.mined : busy ? jobLabel : t.pending}
                     </span>
                     {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
                   </p>
@@ -345,7 +388,15 @@ export function SavedMinds({
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
                   )}
                 </div>
-                {!mined ? (
+                {busy ? (
+                  <Link
+                    to="/mining"
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {jobLabel}
+                  </Link>
+                ) : !mined ? (
                   <Link
                     to="/creator"
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
