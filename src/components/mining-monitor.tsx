@@ -97,6 +97,12 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
     refetchOnWindowFocus: true,
   });
 
+  const clearHistory = useServerFn(clearMiningHistory);
+  const wipe = useMutation({
+    mutationFn: () => clearHistory(),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
+  });
+
   const control = useMutation({
     mutationFn: (input: { jobId: string; action: "pause" | "stop" | "resume" }) => setState({ data: input }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
