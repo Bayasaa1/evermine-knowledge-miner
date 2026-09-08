@@ -177,6 +177,8 @@ export async function finalizeMiningJob(
     if (vaultErr || !inserted) return null;
     vault = inserted;
   }
+  const savedVault: { id: string } = vault;
+
 
   const { data: last } = await admin
     .from("mind_versions")
