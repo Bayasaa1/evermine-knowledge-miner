@@ -451,6 +451,18 @@ export function SavedMinds({
         />
       )}
 
+      {comparing && (
+        <ResultCompare
+          lang={lang}
+          open={!!comparing}
+          onOpenChange={(o) => { if (!o) setComparing(null); }}
+          vaultId={comparing.id}
+          title={comparing.title}
+          payload={((vaults.find((v) => v.id === comparing.id) ?? comparing).payload ?? {}) as MindPayload}
+          onChanged={refresh}
+        />
+      )}
+
 
 
 
