@@ -28,6 +28,21 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
         const { unpackInstructions } = await import("@/lib/mining-jobs");
+        const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
+
+        // Rescue pass: jobs that finished earlier but were never written into a
+        // Mind (the creator's tab was closed) get saved now.
+        const { data: stranded } = await supabaseAdmin
+          .from("mining_jobs")
+          .select("*")
+          .eq("status", "done")
+          .is("vault_id", null)
+          .limit(10);
+        let saved = 0;
+        for (const row of stranded ?? []) {
+          const vaultId = await finalizeMiningJob(supabaseAdmin, row as never).catch(() => null);
+          if (vaultId) saved += 1;
+        }
         // Keep one worker run well inside the platform request budget.
         const deadline = Date.now() + 4 * 60_000;
 
@@ -39,7 +54,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           .from("mining_jobs")
           // Creator-paused and stopped jobs are deliberately excluded.
           .select("*")
-          .in("status", ["paused_quota", "queued", "running"])
+          // "error" is included so a one-off network/timeout failure is retried
+          // automatically instead of stranding the video forever.
+          .in("status", ["paused_quota", "queued", "running", "error"])
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           .order("updated_at", { ascending: true })
@@ -61,6 +78,8 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           let index = job.next_index ?? 0;
           if (index >= chunks.length) {
             await supabaseAdmin.from("mining_jobs").update({ status: "done" }).eq("id", job.id);
+            const done = await finalizeMiningJob(supabaseAdmin, { ...job, results } as never).catch(() => null);
+            if (done) saved += 1;
             continue;
           }
           // Same context the creator's tab uses: speaker hint, source metadata
@@ -113,6 +132,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               break;
             }
           }
+          // Everything mined: store it as a real Mind right here, so the
+          // creator finds it in My Vaults even if the app was never reopened.
+          if (index >= chunks.length) {
+            const vaultId = await finalizeMiningJob(
+              supabaseAdmin,
+              { ...job, results, next_index: index } as never,
+            ).catch(() => null);
+            if (vaultId) saved += 1;
+          }
           // A creator pause/stop mid-run must win over this worker.
           const { data: fresh } = await supabaseAdmin
             .from("mining_jobs")
@@ -122,7 +150,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
         }
 
-        return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused }, 200);
+        return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused, saved }, 200);
       },
     },
   },

@@ -981,14 +981,29 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   );
 
   /** YouTube: plan the server-side checkpoint jobs, then mine them. */
+  /** Destination stored on every job so the server can file the finished Mind. */
+  const jobDestination = useCallback(
+    async () => ({
+      personaId: target.personaId ?? null,
+      projectId: (await ensureTargetProject().catch(() => null)) ?? (target.mode === "existing" ? target.projectId : null),
+      contentKind: target.contentKind,
+      publishToFeed: Boolean(target.publishToFeed),
+    }),
+    [target, ensureTargetProject],
+  );
+
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
-      const jobs = await withNetworkRetry(() => startMiningJobs({ data: { url: source.url, assessment } }), {
-        onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
-      });
+      const dest = await jobDestination();
+      const jobs = await withNetworkRetry(
+        () => startMiningJobs({ data: { url: source.url, assessment, ...dest } }),
+        {
+          onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
+        },
+      );
       await driveJobs(jobs);
     },
-    [driveJobs, say, term],
+    [driveJobs, say, term, jobDestination],
   );
 
   /**
@@ -1074,8 +1089,11 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             await runYoutubeJobs({ ...source, url: urls[0]! }, assessment);
           } else {
             const jobs: MiningJob[] = [];
+            const dest = await jobDestination();
             for (const u of urls) {
-              jobs.push(...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment } }))));
+              jobs.push(
+                ...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment, ...dest } }))),
+              );
             }
             await driveJobs(jobs);
           }

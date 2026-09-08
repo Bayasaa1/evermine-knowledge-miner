@@ -438,13 +438,17 @@ export type Database = {
       mining_jobs: {
         Row: {
           chunks: Json
+          content_kind: string
           created_at: string
           custom_instructions: string
           id: string
           last_error: string | null
           next_index: number
+          persona_id: string | null
           playlist_id: string | null
           primary_focus: string
+          project_id: string | null
+          publish_to_feed: boolean
           queue_position: number
           results: Json
           retry_after: string | null
@@ -460,13 +464,17 @@ export type Database = {
         }
         Insert: {
           chunks?: Json
+          content_kind?: string
           created_at?: string
           custom_instructions?: string
           id?: string
           last_error?: string | null
           next_index?: number
+          persona_id?: string | null
           playlist_id?: string | null
           primary_focus?: string
+          project_id?: string | null
+          publish_to_feed?: boolean
           queue_position?: number
           results?: Json
           retry_after?: string | null
@@ -482,13 +490,17 @@ export type Database = {
         }
         Update: {
           chunks?: Json
+          content_kind?: string
           created_at?: string
           custom_instructions?: string
           id?: string
           last_error?: string | null
           next_index?: number
+          persona_id?: string | null
           playlist_id?: string | null
           primary_focus?: string
+          project_id?: string | null
+          publish_to_feed?: boolean
           queue_position?: number
           results?: Json
           retry_after?: string | null
@@ -502,7 +514,22 @@ export type Database = {
           vault_id?: string | null
           video_context?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "mining_jobs_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "creator_personas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mining_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
