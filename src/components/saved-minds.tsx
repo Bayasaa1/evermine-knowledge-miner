@@ -262,9 +262,15 @@ export function SavedMinds({
   const mineable = useMemo(
     () =>
       groups
-        .filter((g) => g.source && !g.mined && (g.source.payload as unknown as SourcePayload)?.status !== "mined")
+        .filter(
+          (g) =>
+            g.source &&
+            !g.mined &&
+            (g.source.payload as unknown as SourcePayload)?.status !== "mined" &&
+            !(g.youtubeId && activeJobs.has(g.youtubeId)),
+        )
         .map((g) => g.source!.id),
-    [groups],
+    [groups, activeJobs],
   );
 
   if (!isAuthenticated) return null;
