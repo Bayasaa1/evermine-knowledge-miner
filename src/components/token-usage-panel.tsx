@@ -38,6 +38,11 @@ const copy = {
     callsLeft: "left today",
     unlimited: "Pay per use — no daily call limit",
     creditsNone: "No AI calls today yet.",
+    geminiTitle: "Gemini free quota",
+    geminiCalls: "Free calls left today",
+    geminiTokens: "Free tokens left today",
+    resetIn: "Resets in",
+    resetAt: "at",
   },
   mn: {
     title: "AI токен ба зарлага",
@@ -65,6 +70,11 @@ const copy = {
     callsLeft: "өнөөдөр үлдсэн",
     unlimited: "Ашигласнаараа төлдөг — өдрийн хязгааргүй",
     creditsNone: "Өнөөдөр AI дуудлага хийгээгүй байна.",
+    geminiTitle: "Gemini-ийн үнэгүй эрх",
+    geminiCalls: "Өнөөдөр үлдсэн үнэгүй дуудлага",
+    geminiTokens: "Өнөөдөр үлдсэн үнэгүй токен",
+    resetIn: "Шинэчлэгдэх хугацаа",
+    resetAt: "цагт",
   },
   ko: {
     title: "AI 토큰 및 지출",
@@ -92,6 +102,11 @@ const copy = {
     callsLeft: "오늘 남음",
     unlimited: "사용량 과금 — 일일 호출 제한 없음",
     creditsNone: "오늘은 아직 AI 호출이 없습니다.",
+    geminiTitle: "Gemini 무료 한도",
+    geminiCalls: "오늘 남은 무료 호출",
+    geminiTokens: "오늘 남은 무료 토큰",
+    resetIn: "초기화까지",
+    resetAt: "시각",
   },
 };
 
