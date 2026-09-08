@@ -57,6 +57,8 @@ type TimedCue = { start: number; end: number; speech: string; speaker: string };
 
 const MAX_SUBTITLE_WORDS = 7;
 const MAX_SUBTITLE_CHARS = 46;
+/** Shortest time a caption phrase may stay on screen. */
+const MIN_PART_SECONDS = 1.1;
 
 /** Break dense mined transcript lines into readable caption-sized phrases.
  *  Splits on word count AND character length so long words / CJK text still fit. */
@@ -85,8 +87,37 @@ function splitSubtitle(speech: string): string[] {
     length = next;
   }
   flush();
-  return parts;
+  return mergeStragglers(parts);
 }
+
+/** Fold a tiny trailing fragment ("...and", "ok") back into the previous phrase
+ *  so captions never flash one lonely word. */
+function mergeStragglers(parts: string[]): string[] {
+  const out: string[] = [];
+  for (const part of parts) {
+    const previous = out[out.length - 1];
+    const tiny = part.split(/\s+/).length <= 1 && part.length <= 12;
+    if (previous && tiny && previous.length + part.length + 1 <= MAX_SUBTITLE_CHARS + 10) {
+      out[out.length - 1] = `${previous} ${part}`;
+      continue;
+    }
+    out.push(part);
+  }
+  return out;
+}
+
+/** Re-join phrases until each one can stay on screen for at least MIN_PART_SECONDS.
+ *  Without this a long line inside a short window is shown word-by-word and the
+ *  tail of the sentence keeps running after the speaker moved on. */
+function fitPartsToWindow(parts: string[], seconds: number): string[] {
+  const maxParts = Math.max(1, Math.floor(seconds / MIN_PART_SECONDS));
+  if (parts.length <= maxParts) return parts;
+  const perChunk = Math.ceil(parts.length / maxParts);
+  const merged: string[] = [];
+  for (let i = 0; i < parts.length; i += perChunk) merged.push(parts.slice(i, i + perChunk).join(" "));
+  return merged;
+}
+
 
 /** Parse "MM:SS", "HH:MM:SS" or a "start - end" range. Returns null when unusable. */
 function parseStamp(raw: string): { start: number; end: number | null } | null {
@@ -185,17 +216,19 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   }).sort((a, b) => a.start - b.start);
 
   return windows.flatMap((cue) => {
-    const parts = splitSubtitle(cue.speech);
+    const window = Math.max(0.6, cue.end - cue.start);
+    const parts = fitPartsToWindow(splitSubtitle(cue.speech), window);
     if (parts.length <= 1) return [cue];
-    const span = Math.max(parts.length * 0.8, cue.end - cue.start);
+    // Stay strictly inside this line's own window: spilling over is what made
+    // captions lag behind the speaker.
     const weights = parts.map((part) => Math.max(1, part.length));
     const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
     let elapsed = 0;
     return parts.map((speech, index) => {
-      const start = cue.start + span * (elapsed / totalWeight);
+      const start = cue.start + window * (elapsed / totalWeight);
       elapsed += weights[index] ?? 1;
-      const end = index === parts.length - 1 ? cue.end : cue.start + span * (elapsed / totalWeight);
-      return { ...cue, start, end: Math.max(start + 0.8, end), speech };
+      const end = index === parts.length - 1 ? cue.end : cue.start + window * (elapsed / totalWeight);
+      return { ...cue, start, end: Math.max(start + 0.4, end), speech };
     });
   });
 }
