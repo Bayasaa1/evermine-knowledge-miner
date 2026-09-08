@@ -319,3 +319,37 @@ function marks(value: unknown): TimelineMark[] {
     .filter((m) => m.label.length > 0)
     .sort((a, b) => a.t - b.t);
 }
+
+/**
+ * Files an existing project (and every Mind saved inside it) under one persona.
+ * Videos mined before a persona was chosen ended up "unfiled" and vanished from
+ * the profile — this puts them back where the creator expects them.
+ */
+export async function assignProjectToPersona(
+  projectId: string,
+  personaId: string | null,
+  branding?: { creatorName?: string; creatorAvatarUrl?: string | null },
+): Promise<string | null> {
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      persona_id: personaId,
+      ...(branding?.creatorName ? { creator_name: branding.creatorName } : {}),
+      ...(branding?.creatorAvatarUrl !== undefined ? { creator_avatar_url: branding.creatorAvatarUrl } : {}),
+    })
+    .eq("id", projectId);
+  if (error) return error.message;
+  await supabase.from("mind_vaults").update({ persona_id: personaId }).eq("project_id", projectId);
+  return null;
+}
+
+/** Projects of this owner that are not filed under any persona yet. */
+export async function listUnfiledProjects(userId: string): Promise<Project[]> {
+  const { data } = await supabase
+    .from("projects")
+    .select(PROJECT_COLS)
+    .eq("user_id", userId)
+    .is("persona_id", null)
+    .order("created_at", { ascending: false });
+  return (data as Project[] | null) ?? [];
+}
