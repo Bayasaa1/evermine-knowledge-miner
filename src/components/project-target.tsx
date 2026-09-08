@@ -41,7 +41,9 @@ export const DEFAULT_TARGET: ProjectTarget = {
 /** Step 2 is strictly hierarchical: persona -> project -> link. */
 export function isTargetReady(t: ProjectTarget): boolean {
   if (!t.personaId) return false;
-  return t.mode === "existing" ? Boolean(t.projectId) : t.newTitle.trim().length > 0;
+  // Typing a project name does not create a project. The creator must press
+  // Save project first; mining only accepts the resulting persisted id.
+  return t.mode === "existing" && Boolean(t.projectId);
 }
 
 
@@ -71,7 +73,7 @@ const copy = {
     name: "Project name",
     namePlaceholder: "e.g. Morning Podcast Season 2",
     choose: "Choose project",
-    none: "You have no projects yet — a new one will be created.",
+    none: "You have no projects yet — create and save one first.",
     intent: "Update intent",
     intentContinuation: "Chronological Continuation (New Episode)",
     intentPatch: "Error Fix / Patch",
@@ -109,7 +111,7 @@ const copy = {
     name: "Төслийн нэр",
     namePlaceholder: "жишээ нь: Өглөөний подкаст 2-р улирал",
     choose: "Төсөл сонгох",
-    none: "Танд төсөл алга — шинэ төсөл үүснэ.",
+    none: "Танд төсөл алга — эхлээд төсөл үүсгэж хадгална уу.",
     intent: "Шинэчлэлийн зорилго",
     intentContinuation: "Дараалсан үргэлжлэл (шинэ дугаар)",
     intentPatch: "Алдаа засвар",
@@ -147,7 +149,7 @@ const copy = {
     name: "프로젝트 이름",
     namePlaceholder: "예: 모닝 팟캐스트 시즌 2",
     choose: "프로젝트 선택",
-    none: "아직 프로젝트가 없습니다 — 새로 생성됩니다.",
+    none: "아직 프로젝트가 없습니다 — 먼저 프로젝트를 만들고 저장하세요.",
     intent: "업데이트 의도",
     intentContinuation: "시간순 연속 (새 에피소드)",
     intentPatch: "오류 수정 / 패치",

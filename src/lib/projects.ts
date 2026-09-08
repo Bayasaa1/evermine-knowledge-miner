@@ -60,6 +60,10 @@ const CONTENT_COLS =
   "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,created_at,updated_at";
 
 export async function listMyProjects(userId: string): Promise<Project[]> {
+  // My Vaults is not a public-project lookup. Refuse stale or caller-supplied
+  // account ids even though published projects are readable in the news feed.
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user || auth.user.id !== userId) return [];
   const { data } = await supabase
     .from("projects")
     .select(PROJECT_COLS)
