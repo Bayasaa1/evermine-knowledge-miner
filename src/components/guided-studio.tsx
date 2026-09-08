@@ -358,6 +358,30 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [hasAuth, setHasAuth] = useState(true);
   const { isAuthenticated: signedIn, userId } = useAuth();
   const [target, setTarget] = useState<ProjectTarget>(DEFAULT_TARGET);
+
+  // The chosen destination (persona / project / feed switch) survives a page
+  // refresh, so returning to the studio never loses what the creator set up.
+  const TARGET_KEY = "evermind.studio-target";
+  const targetLoaded = useRef(false);
+  useEffect(() => {
+    if (targetLoaded.current) return;
+    targetLoaded.current = true;
+    try {
+      const raw = window.localStorage.getItem(TARGET_KEY);
+      if (raw) setTarget({ ...DEFAULT_TARGET, ...(JSON.parse(raw) as Partial<ProjectTarget>) });
+    } catch {
+      /* a corrupt draft just falls back to the default target */
+    }
+  }, []);
+  useEffect(() => {
+    if (!targetLoaded.current) return;
+    try {
+      window.localStorage.setItem(TARGET_KEY, JSON.stringify(target));
+    } catch {
+      /* storage full or blocked — the studio still works in memory */
+    }
+  }, [target]);
+
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
