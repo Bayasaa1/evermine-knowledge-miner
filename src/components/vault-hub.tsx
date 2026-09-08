@@ -66,6 +66,8 @@ import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
 import { KnowledgeGraph } from "@/components/knowledge-graph";
 import { MindReviews } from "@/components/mind-reviews";
+import { CloneStudio } from "@/components/clone-studio";
+
 
 const C = {
   personas: { en: "Your Personas", mn: "Таны Персонууд", ko: "내 페르소나" },
@@ -549,7 +551,14 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
 
       {tab === "brain" ? (
         <div className="space-y-4">
-          {personaId && <CloneStudio userId={userId} personaId={personaId} personaName={personaName} />}
+          {project.persona_id && (
+            <CloneStudio
+              userId={project.user_id}
+              personaId={project.persona_id}
+              personaName={project.creator_name || project.title}
+            />
+          )}
+
           <VaultCoreBrain lang={lang} mindIds={mindIds} />
         </div>
 
