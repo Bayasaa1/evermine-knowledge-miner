@@ -151,6 +151,12 @@ export type ProviderUsage = {
   label: string;
   free: boolean;
   calls: number;
+  /** AI calls ("credits") spent with this AI since midnight. */
+  callsToday: number;
+  /** Daily free call allowance; 0 means the AI is billed per token instead. */
+  dailyFreeCalls: number;
+  /** Calls left today out of the free allowance (null when uncapped/paid). */
+  callsLeftToday: number | null;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
@@ -163,6 +169,9 @@ export type ProviderUsage = {
 export type UsageSummary = {
   providers: ProviderUsage[];
   totalCalls: number;
+  callsToday: number;
+  totalFreeCalls: number;
+  remainingCallsToday: number;
   totalTokens: number;
   todayTokens: number;
   totalFreeTokens: number;
@@ -171,6 +180,7 @@ export type UsageSummary = {
   todayCost: number;
   lastCallAt: number | null;
 };
+
 
 function startOfDay(now: number): number {
   const d = new Date(now);
