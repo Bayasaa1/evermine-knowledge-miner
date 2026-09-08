@@ -11,6 +11,8 @@ export type SubtitleHealthRow = {
   youtubeId: string;
   sourceUrl: string;
   updatedAt: string;
+  /** Persona this video is filed under; null when it was never filed. */
+  personaId: string | null;
 } & TimingHealth;
 
 function lines(value: unknown): TranscriptLine[] {
@@ -23,19 +25,23 @@ export const listSubtitleHealth = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<SubtitleHealthRow[]> => {
     const { data, error } = await context.supabase
       .from("project_content")
-      .select("id, title, youtube_id, source_url, transcript, updated_at")
+      .select("id, title, youtube_id, source_url, transcript, updated_at, projects(persona_id)")
       .eq("user_id", context.userId)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    return (data ?? []).map((row) => ({
-      contentId: row.id,
-      title: row.title,
-      youtubeId: row.youtube_id ?? "",
-      sourceUrl: row.source_url ?? "",
-      updatedAt: row.updated_at,
-      ...analyzeTiming(lines(row.transcript)),
-    }));
+    return (data ?? []).map((row) => {
+      const project = (row as unknown as { projects?: { persona_id?: string | null } | null }).projects;
+      return {
+        contentId: row.id,
+        title: row.title,
+        youtubeId: row.youtube_id ?? "",
+        sourceUrl: row.source_url ?? "",
+        updatedAt: row.updated_at,
+        personaId: project?.persona_id ?? null,
+        ...analyzeTiming(lines(row.transcript)),
+      };
+    });
   });
 
 async function loadContent(context: Ctx, contentId: string) {
