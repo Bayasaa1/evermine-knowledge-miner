@@ -182,6 +182,9 @@ export const Route = createFileRoute("/api/mind-chat")({
           apiKey?: string;
           /** Live mode: stream the answer out word by word. */
           stream?: boolean;
+          /** What the Mind currently sees on a video call. */
+          seen?: string;
+
 
         };
         try {
@@ -219,8 +222,20 @@ export const Route = createFileRoute("/api/mind-chat")({
           return new Response(JSON.stringify({ error: "AI is not configured" }), { status: 500 });
         }
 
+        // On a video call the Mind is also told what it can see right now, so it
+        // reacts to the person in front of it the way a caller would expect.
+        const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
         const input = [
-          { role: "developer", content: [{ type: "input_text", text: system }] },
+          {
+            role: "developer",
+            content: [
+              {
+                type: "input_text",
+                text: seen ? `${system}\n\nRight now you can see on the video call: ${seen}` : system,
+              },
+            ],
+          },
+
           ...history.map((m) => ({
             role: m.role === "user" ? "user" : "assistant",
             content: [
