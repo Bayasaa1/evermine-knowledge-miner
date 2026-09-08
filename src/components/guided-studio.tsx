@@ -155,7 +155,12 @@ function GoogleMark() {
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  // Arriving from "Mine" in Saved Minds means the creator already picked a
+  // video, so open the mining step straight away instead of step 1.
+  const [step, setStep] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    return window.localStorage.getItem("evermind.mine-batch") ? 3 : 1;
+  });
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6">

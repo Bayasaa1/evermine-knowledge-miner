@@ -8,7 +8,7 @@
  */
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
@@ -342,12 +342,16 @@ export function SavedMinds({
                   )}
                 </div>
                 {!mined ? (
-                  <Link
-                    to="/creator"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sourceId) window.localStorage.setItem("evermind.mine-batch", JSON.stringify([sourceId]));
+                      void navigate({ to: "/creator" });
+                    }}
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
                   >
                     {t.mine}
-                  </Link>
+                  </button>
                 ) : (
                   <>
                     <button
