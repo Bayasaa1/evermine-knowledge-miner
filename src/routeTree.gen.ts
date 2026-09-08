@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as MiningRouteImport } from './routes/mining'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -53,6 +54,11 @@ const ExploreRoute = ExploreRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MiningRoute = MiningRouteImport.update({
+  id: '/mining',
+  path: '/mining',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/mcp': typeof McpRoute
+  '/mining': typeof MiningRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -162,6 +169,7 @@ export interface FileRoutesByTo {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/mcp': typeof McpRoute
+  '/mining': typeof MiningRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/mcp': typeof McpRoute
+  '/mining': typeof MiningRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
     | '/creator'
     | '/explore'
     | '/mcp'
+    | '/mining'
     | '/profile'
     | '/search'
     | '/sitemap.xml'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/creator'
     | '/explore'
     | '/mcp'
+    | '/mining'
     | '/profile'
     | '/search'
     | '/sitemap.xml'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/creator'
     | '/explore'
     | '/mcp'
+    | '/mining'
     | '/profile'
     | '/search'
     | '/sitemap.xml'
@@ -276,6 +288,7 @@ export interface RootRouteChildren {
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
   McpRoute: typeof McpRoute
+  MiningRoute: typeof MiningRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -328,6 +341,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mining': {
+      id: '/mining'
+      path: '/mining'
+      fullPath: '/mining'
+      preLoaderRoute: typeof MiningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -444,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
   McpRoute: McpRoute,
+  MiningRoute: MiningRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

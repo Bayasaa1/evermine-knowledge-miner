@@ -34,9 +34,17 @@ function VaultsPage() {
     <div className="dark min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-semibold tracking-tight">My Vaults</h1>
-        <p className="mb-6 mt-1 text-sm text-muted-foreground">
+        <p className="mb-3 mt-1 text-sm text-muted-foreground">
           Personas, projects, mined content, Core Brain, monetization and reviews — one ecosystem.
         </p>
+        <Link
+          to="/mining"
+          className="mb-6 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+          Live mining progress
+        </Link>
+
         <VaultHub lang={lang} selected={persona} onSelect={setPersona} />
         <div className="mt-8 space-y-6 border-t border-border pt-6">
           <SubtitleHealth />

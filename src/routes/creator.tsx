@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ModeSwitch } from "@/components/mode-switch";
 import { AnalyticsPanel } from "@/components/analytics-panel";
@@ -1877,7 +1877,17 @@ function Index() {
                 <p className="truncate text-sm text-muted-foreground">{t.tagline}</p>
               </div>
             </div>
-            <ModeSwitch lang={lang} />
+            <div className="flex items-center gap-2">
+              <Link
+                to="/mining"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                {pickCopy({ en: "Live mining", mn: "Шууд мining", ko: "실시간 마이닝" }, lang)}
+              </Link>
+              <ModeSwitch lang={lang} />
+            </div>
+
           </div>
         </header>
 
