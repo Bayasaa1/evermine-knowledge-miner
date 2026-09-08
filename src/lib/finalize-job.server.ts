@@ -131,33 +131,68 @@ export async function finalizeMiningJob(
     projectId = data?.id ?? null;
   }
 
-  // 3. Mind vault + version row.
-  const { data: vault, error: vaultErr } = await admin
-    .from("mind_vaults")
-    .insert({
-      user_id: job.user_id,
-      title,
-      kind: "mine",
-      payload: payload as never,
-      persona_id: personaId ?? null,
-      project_id: projectId,
-    })
-    .select("id")
-    .single();
-  if (vaultErr || !vault) return null;
+  // 3. Mind vault + version row. One vault per source video: a second mining
+  //    pass of the same link updates the existing brain instead of creating a
+  //    duplicate card in Saved Minds.
+  let vault: { id: string } | null = null;
+  if (videoId) {
+    const { data: existingVault } = await admin
+      .from("mind_vaults")
+      .select("id")
+      .eq("user_id", job.user_id)
+      .eq("kind", "mine")
+      .like("payload->source->>url", `%${videoId}%`)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (existingVault) {
+      const { data: updated } = await admin
+        .from("mind_vaults")
+        .update({
+          title,
+          payload: payload as never,
+          persona_id: personaId ?? null,
+          project_id: projectId,
+        })
+        .eq("id", existingVault.id)
+        .eq("user_id", job.user_id)
+        .select("id")
+        .single();
+      vault = updated ?? existingVault;
+    }
+  }
+  if (!vault) {
+    const { data: inserted, error: vaultErr } = await admin
+      .from("mind_vaults")
+      .insert({
+        user_id: job.user_id,
+        title,
+        kind: "mine",
+        payload: payload as never,
+        persona_id: personaId ?? null,
+        project_id: projectId,
+      })
+      .select("id")
+      .single();
+    if (vaultErr || !inserted) return null;
+    vault = inserted;
+  }
+  if (!vault) return null;
+  const savedVault: { id: string } = vault;
+
 
   const { data: last } = await admin
     .from("mind_versions")
     .select("version_num")
-    .eq("vault_id", vault.id)
+    .eq("vault_id", savedVault.id)
     .order("version_num", { ascending: false })
     .limit(1)
     .maybeSingle();
   const versionNum = (last?.version_num ?? 0) + 1;
   await admin.from("mind_versions").insert({
     user_id: job.user_id,
-    vault_id: vault.id,
-    mind_id: vault.id,
+    vault_id: savedVault.id,
+    mind_id: savedVault.id,
     title,
     version: `v1.${versionNum - 1}`,
     version_num: versionNum,
@@ -181,7 +216,7 @@ export async function finalizeMiningJob(
           kind,
           transcript: mined.transcript as never,
           emotion_timeline: mined.emotionTimeline as never,
-          mind_id: vault.id,
+          mind_id: savedVault.id,
         })
         .eq("id", existingContent.id)
         .eq("user_id", job.user_id);
@@ -197,7 +232,7 @@ export async function finalizeMiningJob(
         tags,
         transcript: mined.transcript as never,
         emotion_timeline: mined.emotionTimeline as never,
-        mind_id: vault.id,
+        mind_id: savedVault.id,
       });
     }
     if (job.publish_to_feed !== false && kind === "VISUAL_CONTENT") {
@@ -207,8 +242,8 @@ export async function finalizeMiningJob(
 
   await admin
     .from("mining_jobs")
-    .update({ vault_id: vault.id, status: "done" })
+    .update({ vault_id: savedVault.id, status: "done" })
     .eq("id", job.id);
 
-  return vault.id as string;
+  return savedVault.id as string;
 }
