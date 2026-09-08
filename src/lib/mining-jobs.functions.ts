@@ -118,11 +118,34 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         .filter(Boolean) as string[],
     );
 
+    // Where the creator filed the video when saving it stays authoritative.
+    // Mining started from Saved Minds carries no wizard target, and losing the
+    // persona there is what made videos disappear from a profile.
+    const { data: savedRows } = await context.supabase
+      .from("mind_vaults")
+      .select("payload, persona_id, project_id")
+      .eq("user_id", context.userId)
+      .eq("kind", "source");
+    const filedBy = new Map<string, { persona: string | null; project: string | null }>();
+    for (const row of savedRows ?? []) {
+      const payload = (row as { payload?: { source?: { url?: string } } }).payload;
+      const vid = /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(payload?.source?.url ?? "")?.[1];
+      if (!vid || filedBy.has(vid)) continue;
+      filedBy.set(vid, {
+        persona: (row as { persona_id: string | null }).persona_id ?? null,
+        project: (row as { project_id: string | null }).project_id ?? null,
+      });
+    }
+
     const rows = [];
     for (let i = 0; i < videoIds.length; i++) {
       if (busy.has(videoIds[i]!)) continue;
+      const filed = filedBy.get(videoIds[i]!);
+      const personaId = data.personaId ?? filed?.persona ?? null;
+      const projectId = data.projectId ?? filed?.project ?? null;
       const meta = await fetchVideoMeta(videoIds[i]!);
       // Chunk count is always derived from the real duration: ceil(seconds / 300).
+
       const chunks = splitIntoChunks(meta.durationSec);
       rows.push({
         user_id: context.userId,
