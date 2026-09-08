@@ -27,6 +27,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
+        const { unpackInstructions } = await import("@/lib/mining-jobs");
+        // Keep one worker run well inside the platform request budget.
+        const deadline = Date.now() + 4 * 60_000;
 
         const nowIso = new Date().toISOString();
         // Single-flight lease: a job touched in the last 3 minutes is being mined
