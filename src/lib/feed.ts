@@ -6,11 +6,20 @@
 import { MINDS } from "./minds";
 import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
-import { listPublicVisualContent, type SubtitleCue, type TimelineMark } from "./projects";
+import {
+  getPublicContentTracks,
+  listPublicVisualContentLight,
+  type SubtitleCue,
+  type TimelineMark,
+} from "./projects";
+
 import type { CreationCategory } from "./creation-category";
 
 export type FeedItem = {
   id: string;
+  /** project_content row id, used to lazily load subtitles for this clip. */
+  contentId?: string;
+
   /** Marketplace mind this clip belongs to, when it is a published Mind. */
   mindId: string | null;
   creator: string;
