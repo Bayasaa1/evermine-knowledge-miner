@@ -106,7 +106,9 @@ export async function loadUsage(): Promise<UsageLedger> {
 /** Appends one AI call to the ledger. Never throws — usage must not break mining. */
 export async function recordUsage(entry: Omit<UsageEntry, "at">): Promise<void> {
   try {
-    if (entry.inputTokens + entry.outputTokens <= 0) return;
+    // A call with no reported token counts still spent one AI credit, so it
+    // is recorded — only nonsense (negative) input is dropped by `num()`.
+
     const ledger = await loadUsage();
     const next: UsageLedger = { entries: [...ledger.entries, { at: Date.now(), ...entry }].slice(-2000) };
     await idbSet(STORES.SETTINGS, KEY, next);
