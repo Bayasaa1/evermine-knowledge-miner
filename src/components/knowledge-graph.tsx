@@ -506,6 +506,8 @@ export function KnowledgeGraph({
             <NodeInspector
               lang={lang}
               node={inspect}
+              projects={projects}
+              personaId={personaId}
               customLinkIds={graph.links
                 .filter((l) => l.custom && (l.source === inspect.key || l.target === inspect.key))
                 .map((l) => l.id!)
@@ -527,6 +529,8 @@ export function KnowledgeGraph({
 function NodeInspector({
   lang,
   node,
+  projects,
+  personaId,
   customLinkIds,
   onClose,
   onHide,
@@ -535,6 +539,8 @@ function NodeInspector({
 }: {
   lang: Lang;
   node: GraphNode;
+  projects: Project[];
+  personaId: string | null;
   customLinkIds: string[];
   onClose: () => void;
   onHide: (key: string) => void;
@@ -542,6 +548,7 @@ function NodeInspector({
   onLinksChanged: () => Promise<void>;
 }) {
   const removeVideo = useServerFn(permanentlyDeleteVideo);
+  const moveVault = useServerFn(updateVault);
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const [label, setLabel] = useState(node.label);
   const [busy, setBusy] = useState(false);
