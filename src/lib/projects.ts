@@ -196,6 +196,12 @@ export async function updateProjectContent(
   return error?.message ?? null;
 }
 
+/** Moves one mined video card into another project of the same owner. */
+export async function moveProjectContent(id: string, projectId: string): Promise<string | null> {
+  const { error } = await supabase.from("project_content").update({ project_id: projectId }).eq("id", id);
+  return error?.message ?? null;
+}
+
 export async function deleteProjectContent(id: string): Promise<string | null> {
   const { error } = await supabase.from("project_content").delete().eq("id", id);
   return error?.message ?? null;

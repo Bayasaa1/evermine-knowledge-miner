@@ -16,13 +16,15 @@ import { Link2, Loader2, Maximize, Search, Trash2, ZoomIn, ZoomOut } from "lucid
 import { toast } from "sonner";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { listVaults, type VaultRow } from "@/lib/cloud-vault.functions";
+import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
 import {
   deleteProject,
   listProjectContent,
   listProjectsByPersona,
+  moveProjectContent,
   updateProject,
   updateProjectContent,
+  type Project,
   type ProjectContent,
 } from "@/lib/projects";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
@@ -54,6 +56,9 @@ const C = {
     ko: "아직 지식이 없습니다 — 이 페르소나로 영상을 마이닝하세요.",
   },
   inspector: { en: "Node inspector", mn: "Зангилааны шинжүүр", ko: "노드 인스펙터" },
+  connect: { en: "Connect to project", mn: "Төсөлд холбох", ko: "프로젝트에 연결" },
+  noProject: { en: "Not in a project", mn: "Төсөлгүй", ko: "프로젝트 없음" },
+  connected: { en: "Connected to project", mn: "Төсөлд холбогдлоо", ko: "프로젝트에 연결됨" },
   rename: { en: "Rename", mn: "Нэр солих", ko: "이름 변경" },
   remove: { en: "Delete", mn: "Устгах", ko: "삭제" },
   saved: { en: "Saved", mn: "Хадгаллаа", ko: "저장됨" },
@@ -501,6 +506,8 @@ export function KnowledgeGraph({
             <NodeInspector
               lang={lang}
               node={inspect}
+              projects={projects}
+              personaId={personaId}
               customLinkIds={graph.links
                 .filter((l) => l.custom && (l.source === inspect.key || l.target === inspect.key))
                 .map((l) => l.id!)
@@ -522,6 +529,8 @@ export function KnowledgeGraph({
 function NodeInspector({
   lang,
   node,
+  projects,
+  personaId,
   customLinkIds,
   onClose,
   onHide,
@@ -530,6 +539,8 @@ function NodeInspector({
 }: {
   lang: Lang;
   node: GraphNode;
+  projects: Project[];
+  personaId: string | null;
   customLinkIds: string[];
   onClose: () => void;
   onHide: (key: string) => void;
@@ -537,6 +548,7 @@ function NodeInspector({
   onLinksChanged: () => Promise<void>;
 }) {
   const removeVideo = useServerFn(permanentlyDeleteVideo);
+  const moveVault = useServerFn(updateVault);
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const [label, setLabel] = useState(node.label);
   const [busy, setBusy] = useState(false);
@@ -544,6 +556,26 @@ function NodeInspector({
 
   const thumb = node.meta.youtubeId ? `https://i.ytimg.com/vi/${node.meta.youtubeId}/hqdefault.jpg` : null;
   const editable = node.kind === "content" ? !!node.meta.contentId : node.kind === "project";
+
+  /** Attaches a mined video / core brain to a project so it stops floating alone. */
+  const connectToProject = async (projectId: string) => {
+    setBusy(true);
+    let error: string | null = null;
+    try {
+      if (node.meta.vaultId) {
+        await moveVault({ data: { id: node.meta.vaultId, projectId: projectId || null, personaId } });
+      } else if (node.meta.contentId) {
+        if (!projectId) { setBusy(false); return; }
+        error = await moveProjectContent(node.meta.contentId, projectId);
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+    setBusy(false);
+    if (error) { toast.error(error); return; }
+    toast.success(t("connected"));
+    await onChanged();
+  };
 
   const save = async () => {
     setBusy(true);
@@ -621,6 +653,26 @@ function NodeInspector({
           {t("customLinks")}: {customLinkIds.length}
         </p>
       ) : null}
+
+      {node.kind === "content" && projects.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-foreground">{t("connect")}</p>
+          <select
+            disabled={busy}
+            value={node.meta.projectId ?? ""}
+            onChange={(e) => void connectToProject(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          >
+            <option value="">{t("noProject")}</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
 
       {editable ? (
         <input
