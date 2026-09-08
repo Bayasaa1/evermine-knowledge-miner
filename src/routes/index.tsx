@@ -24,7 +24,7 @@ import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { YouTubeStage } from "@/components/youtube-stage";
-import { loadFeed, type FeedItem } from "@/lib/feed";
+import { loadFeed, loadFeedTracks, type FeedItem } from "@/lib/feed";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
