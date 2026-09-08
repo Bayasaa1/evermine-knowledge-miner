@@ -23,6 +23,12 @@ const assessmentSchema = z.object({
 const startSchema = z.object({
   url: z.string().min(5).max(2_048),
   assessment: assessmentSchema,
+  // Where the finished Mind must be filed. Stored on the job so the background
+  // worker can save the result without the creator's tab being open.
+  personaId: z.string().uuid().nullable().default(null),
+  projectId: z.string().uuid().nullable().default(null),
+  contentKind: z.string().max(32).default("VISUAL_CONTENT"),
+  publishToFeed: z.boolean().default(true),
 });
 
 type JobRow = {
