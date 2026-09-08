@@ -52,6 +52,8 @@ import {
   deleteProject,
   listProjectContent,
   listProjectsByPersona,
+  listUnfiledProjects,
+  assignProjectToPersona,
   updateProject,
   updateProjectContent,
   type ContentKind,
@@ -86,6 +88,14 @@ const C = {
   newProject: { en: "New project name", mn: "Шинэ төслийн нэр", ko: "새 프로젝트 이름" },
   createProject: { en: "Create project", mn: "Төсөл үүсгэх", ko: "프로젝트 만들기" },
   noProjects: { en: "No projects for this persona yet.", mn: "Энэ персонд төсөл алга.", ko: "이 페르소나에는 아직 프로젝트가 없습니다." },
+  unfiled: { en: "Not filed under any persona", mn: "Аль ч персонд хамаараагүй", ko: "페르소나에 등록되지 않음" },
+  unfiledDesc: {
+    en: "These projects were mined before a persona was chosen. Move them here and they stay on this profile until you delete them.",
+    mn: "Эдгээр төслийг персон сонгохоос өмнө олборлосон. Энд шилжүүлбэл устгах хүртэл энэ профайлд үлдэнэ.",
+    ko: "페르소나를 선택하기 전에 마이닝된 프로젝트입니다. 여기로 옮기면 삭제할 때까지 이 프로필에 남습니다.",
+  },
+  moveHere: { en: "Move to this persona", mn: "Энэ персон руу шилжүүлэх", ko: "이 페르소나로 이동" },
+  moved: { en: "Filed under this persona", mn: "Энэ персонд бүртгэлээ", ko: "이 페르소나에 등록됨" },
   published: { en: "Public", mn: "Нийтийн", ko: "공개" },
   hidden: { en: "Hidden", mn: "Нуусан", ko: "숨김" },
   visual: { en: "Visual content", mn: "Үзэх контент", ko: "비주얼 콘텐츠" },
@@ -375,6 +385,15 @@ function PersonaWorkspace({
     queryFn: () => listProjectsByPersona(userId, personaId),
   });
 
+  // Projects mined before a persona was picked. Shown only inside a real
+  // persona so the creator can put them back on the right profile.
+  const { data: unfiled = [] } = useQuery<Project[]>({
+    queryKey: ["unfiled-projects", userId],
+    queryFn: () => listUnfiledProjects(userId),
+    enabled: Boolean(personaId),
+  });
+
+
   const load = async () => {
     await queryClient.invalidateQueries({ queryKey: ["projects", userId, personaId] });
     await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
@@ -478,8 +497,41 @@ function PersonaWorkspace({
               ))}
             </ul>
           )}
+
+          {personaId && unfiled.length > 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-card p-4">
+              <p className="text-sm font-semibold text-foreground">{t("unfiled")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("unfiledDesc")}</p>
+              <ul className="mt-3 space-y-2">
+                {unfiled.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+                    <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                      <Localized text={p.title} />
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const err = await assignProjectToPersona(p.id, personaId, { creatorName: personaName });
+                        if (err) {
+                          toast.error(err);
+                          return;
+                        }
+                        toast.success(t("moved"));
+                        await queryClient.invalidateQueries({ queryKey: ["unfiled-projects", userId] });
+                        void load();
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground"
+                    >
+                      <UserSquare2 className="h-3 w-3" /> {t("moveHere")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </>
       )}
+
     </section>
   );
 }

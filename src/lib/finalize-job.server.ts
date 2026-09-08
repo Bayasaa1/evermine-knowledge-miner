@@ -109,11 +109,17 @@ export async function finalizeMiningJob(
   if (projectId) {
     const { data } = await admin
       .from("projects")
-      .select("id")
+      .select("id,persona_id")
       .eq("id", projectId)
       .eq("user_id", job.user_id)
       .maybeSingle();
     if (!data) projectId = null;
+    // The project the creator filed this video under owns it. Keep both sides
+    // in step so the video never drops off the persona's profile.
+    else if (data.persona_id && !personaId) personaId = data.persona_id;
+    else if (personaId && !data.persona_id) {
+      await admin.from("projects").update({ persona_id: personaId }).eq("id", projectId).eq("user_id", job.user_id);
+    }
   }
   if (!projectId) {
     const { data } = await admin
