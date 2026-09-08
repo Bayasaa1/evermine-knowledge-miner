@@ -136,6 +136,29 @@ export function SavedMinds({
     refetchOnMount: "always",
   });
 
+  /** Live mining jobs, so a video that is already being mined never invites another run. */
+  const fetchJobs = useServerFn(listMiningJobs);
+  const { data: jobs = [] } = useQuery<MiningJob[]>({
+    queryKey: ["mining-jobs", "saved-minds"],
+    queryFn: () => fetchJobs({}),
+    enabled: isAuthenticated,
+    refetchInterval: 8000,
+    staleTime: 4000,
+  });
+
+  /** youtube id -> the newest job that is still in flight for that video. */
+  const activeJobs = useMemo(() => {
+    const live = new Set(["queued", "running", "paused", "paused_quota"]);
+    const map = new Map<string, MiningJob>();
+    for (const j of jobs) {
+      if (!live.has(j.status)) continue;
+      const id = j.sourceUrl.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/)?.[1];
+      if (!id || map.has(id)) continue;
+      map.set(id, j);
+    }
+    return map;
+  }, [jobs]);
+
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
 
   const patch = useMutation({
