@@ -85,8 +85,37 @@ function splitSubtitle(speech: string): string[] {
     length = next;
   }
   flush();
-  return parts;
+  return mergeStragglers(parts);
 }
+
+/** Fold a tiny trailing fragment ("...and", "ok") back into the previous phrase
+ *  so captions never flash one lonely word. */
+function mergeStragglers(parts: string[]): string[] {
+  const out: string[] = [];
+  for (const part of parts) {
+    const previous = out[out.length - 1];
+    const tiny = part.split(/\s+/).length <= 1 && part.length <= 12;
+    if (previous && tiny && previous.length + part.length + 1 <= MAX_SUBTITLE_CHARS + 10) {
+      out[out.length - 1] = `${previous} ${part}`;
+      continue;
+    }
+    out.push(part);
+  }
+  return out;
+}
+
+/** Re-join phrases until each one can stay on screen for at least MIN_PART_SECONDS.
+ *  Without this a long line inside a short window is shown word-by-word and the
+ *  tail of the sentence keeps running after the speaker moved on. */
+function fitPartsToWindow(parts: string[], seconds: number): string[] {
+  const maxParts = Math.max(1, Math.floor(seconds / MIN_PART_SECONDS));
+  if (parts.length <= maxParts) return parts;
+  const perChunk = Math.ceil(parts.length / maxParts);
+  const merged: string[] = [];
+  for (let i = 0; i < parts.length; i += perChunk) merged.push(parts.slice(i, i + perChunk).join(" "));
+  return merged;
+}
+
 
 /** Parse "MM:SS", "HH:MM:SS" or a "start - end" range. Returns null when unusable. */
 function parseStamp(raw: string): { start: number; end: number | null } | null {
