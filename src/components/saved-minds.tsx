@@ -428,12 +428,14 @@ export function SavedMinds({
                     {jobLabel}
                   </Link>
                 ) : !mined ? (
-                  <Link
-                    to="/creator"
-                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                  <button
+                    type="button"
+                    disabled={!sourceId}
+                    onClick={() => sourceId && sendToMiner([sourceId], g.source)}
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
                   >
                     {t.mine}
-                  </Link>
+                  </button>
                 ) : (
                   <>
                     <button
