@@ -30,6 +30,12 @@ const copy = {
     paid: "Paid",
     note: "Costs are estimated from each provider's own token counts and public prices — not a bill.",
     lastCall: "Last call",
+    creditsTitle: "AI credits today",
+    creditsSub: "One credit = one AI call. Resets every midnight.",
+    callsUsed: "used today",
+    callsLeft: "left today",
+    unlimited: "Pay per use — no daily call limit",
+    creditsNone: "No AI calls today yet.",
   },
   mn: {
     title: "AI токен ба зарлага",
@@ -51,6 +57,12 @@ const copy = {
     paid: "Төлбөртэй",
     note: "Зардлыг тухайн AI-ийн токен тоо, нийтэлсэн үнээр тооцсон тооцоолол — албан ёсны нэхэмжлэх биш.",
     lastCall: "Сүүлийн дуудлага",
+    creditsTitle: "Өнөөдрийн AI кредит",
+    creditsSub: "1 кредит = 1 AI дуудлага. Шөнө дунд шинэчлэгдэнэ.",
+    callsUsed: "өнөөдөр ашигласан",
+    callsLeft: "өнөөдөр үлдсэн",
+    unlimited: "Ашигласнаараа төлдөг — өдрийн хязгааргүй",
+    creditsNone: "Өнөөдөр AI дуудлага хийгээгүй байна.",
   },
   ko: {
     title: "AI 토큰 및 지출",
@@ -72,6 +84,12 @@ const copy = {
     paid: "유료",
     note: "비용은 각 제공사의 토큰 수와 공개 단가로 추정한 값이며 청구서가 아닙니다.",
     lastCall: "마지막 호출",
+    creditsTitle: "오늘의 AI 크레딧",
+    creditsSub: "크레딧 1 = AI 호출 1회. 매일 자정에 초기화됩니다.",
+    callsUsed: "오늘 사용",
+    callsLeft: "오늘 남음",
+    unlimited: "사용량 과금 — 일일 호출 제한 없음",
+    creditsNone: "오늘은 아직 AI 호출이 없습니다.",
   },
 };
 
@@ -111,6 +129,58 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
     { key: "spend", icon: Wallet, label: t.spend, value: usd(s.totalCost), note: `${usd(s.todayCost)} ${t.todaySpend}` },
   ];
 
+  // Per-AI credit counters: how many calls each AI has burned today and how
+  // many of its free daily calls are still available.
+  const credits = (
+    <div className="mt-5 min-w-0 rounded-xl border border-border p-4">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <h4 className="text-sm font-semibold text-foreground">{t.creditsTitle}</h4>
+        <p className="text-xs text-muted-foreground">{t.creditsSub}</p>
+        <p className="ml-auto text-xs tabular-nums text-muted-foreground">
+          {s.callsToday} {t.callsUsed} · {s.remainingCallsToday} {t.callsLeft}
+        </p>
+      </div>
+      {s.providers.length === 0 ? (
+        <p className="mt-3 text-xs text-muted-foreground">{t.creditsNone}</p>
+      ) : (
+        <ul className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+          {s.providers.map((p) => {
+            const capped = p.dailyFreeCalls > 0;
+            const left = p.callsLeftToday ?? 0;
+            const pct = capped ? Math.min(100, Math.round((p.callsToday / p.dailyFreeCalls) * 100)) : 0;
+            const low = capped && left <= Math.max(1, Math.round(p.dailyFreeCalls * 0.1));
+            return (
+              <li key={p.provider} className="min-w-0 rounded-lg border border-border bg-muted p-3">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">{p.label}</span>
+                  <span className="ml-auto shrink-0 text-sm tabular-nums text-foreground">
+                    {p.callsToday}
+                    {capped ? ` / ${p.dailyFreeCalls}` : ""}
+                  </span>
+                </div>
+                {capped ? (
+                  <>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-background">
+                      <div
+                        className={`h-full rounded-full transition-all ${low ? "bg-destructive" : "bg-primary"}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <p className={`mt-1.5 text-xs tabular-nums ${low ? "text-destructive" : "text-muted-foreground"}`}>
+                      {left} {t.callsLeft}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">{t.unlimited}</p>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
   return (
     <section id="tokens" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -148,6 +218,8 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
           );
         })}
       </div>
+
+      {credits}
 
       <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[520px] text-left text-sm">
