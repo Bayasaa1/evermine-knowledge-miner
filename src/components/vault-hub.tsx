@@ -52,6 +52,8 @@ import {
   deleteProject,
   listProjectContent,
   listProjectsByPersona,
+  listUnfiledProjects,
+  assignProjectToPersona,
   updateProject,
   updateProjectContent,
   type ContentKind,
