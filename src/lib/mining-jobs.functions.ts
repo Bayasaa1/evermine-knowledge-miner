@@ -125,7 +125,12 @@ export const startMiningJobs = createServerFn({ method: "POST" })
       .from("mining_jobs")
       .select("id, source_url, status")
       .eq("user_id", context.userId)
-      .in("status", ["queued", "running", "paused_quota", "paused_user", "done"]);
+      .in(
+        "status",
+        data.force
+          ? ["queued", "running", "paused_quota", "paused_user"]
+          : ["queued", "running", "paused_quota", "paused_user", "done"],
+      );
     const idOf = (url: string) => /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(url ?? "")?.[1];
     const busy = new Set((active ?? []).map((row) => idOf(row.source_url ?? "")).filter(Boolean) as string[]);
 
