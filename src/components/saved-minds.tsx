@@ -22,6 +22,8 @@ import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 
 import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
+import { listMiningJobs } from "@/lib/mining-jobs.functions";
+import { jobProgress, type MiningJob } from "@/lib/mining-jobs";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import { listProjectsByPersona, type Project } from "@/lib/projects";
