@@ -24,7 +24,7 @@ import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { YouTubeStage } from "@/components/youtube-stage";
-import { loadFeed, type FeedItem } from "@/lib/feed";
+import { loadFeed, loadFeedTracks, type FeedItem } from "@/lib/feed";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
@@ -296,10 +296,11 @@ function HomeFeed() {
   const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["home-feed"],
     queryFn: loadFeed,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
     retry: 2,
   });
+
 
   // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
   useEffect(() => {
@@ -397,6 +398,9 @@ function HomeFeed() {
             index={i}
             onVisible={setActive}
             isActive={active === i}
+            // Only the current clip and its immediate neighbours load a player;
+            // mounting every video at once is what made the feed stutter.
+            near={Math.abs(active - i) <= 1}
             liked={!!liked[item.id]}
             purchased={!!owned[mindKey(item)]}
             buying={buying === mindKey(item)}
@@ -409,6 +413,7 @@ function HomeFeed() {
             onFeedback={() => setFeedback(item)}
           />
         ))}
+
       </main>
 
       <TalkToMindModal
@@ -440,6 +445,7 @@ function FeedCard({
   muted,
   index,
   isActive,
+  near,
   onVisible,
   liked,
   purchased,
@@ -456,6 +462,7 @@ function FeedCard({
   muted: boolean;
   index: number;
   isActive: boolean;
+  near: boolean;
   onVisible: (i: number) => void;
   liked: boolean;
   purchased: boolean;
@@ -479,22 +486,40 @@ function FeedCard({
   const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [expanded, setExpanded] = useState(false);
 
+  // Subtitles and mined moments are large; fetch them only for the clip on
+  // screen (and keep them cached so scrolling back is instant).
+  const { data: tracks } = useQuery({
+    queryKey: ["feed-tracks", item.contentId],
+    queryFn: () => loadFeedTracks(item.contentId!),
+    enabled: !!item.contentId && near,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+  });
+  const transcript = tracks?.transcript ?? item.transcript;
+  const timeline = tracks?.timeline ?? item.timeline;
+  const emotionTimeline = tracks?.emotion_timeline ?? item.emotionTimeline;
+
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
   const shownTitle = useDisplayText(item.title);
   const shownDescription = useDisplayText(item.description);
   const shownTags = useDisplayTexts(item.tags);
-  const shownMarks = useDisplayTexts((item.timeline ?? []).map((m) => m.label));
-  const shownEmotions = useDisplayTexts((item.emotionTimeline ?? []).map((m) => m.emotion ?? m.label));
+  // Translating every mined label of every card at once flooded the app with
+  // requests — only the visible card needs translated moment labels.
+  const shownMarks = useDisplayTexts(isActive ? (timeline ?? []).map((m) => m.label) : []);
+  const shownEmotions = useDisplayTexts(
+    isActive ? (emotionTimeline ?? []).map((m) => m.emotion ?? m.label) : [],
+  );
 
   const caps = capabilitiesFor(item.category);
   const primary = primaryActionFor(item.category);
   const shownPrimary = useDisplayText(primary.en);
   const has = (c: Capability) => caps.includes(c);
-  const activeMark = markAt(item.timeline, now);
-  const activeEmotion = markAt(item.emotionTimeline, now);
-  const timedCues = useMemo(() => buildCues(item.transcript, duration), [item.transcript, duration]);
+  const activeMark = markAt(timeline, now);
+  const activeEmotion = markAt(emotionTimeline, now);
+  const timedCues = useMemo(() => buildCues(transcript, duration), [transcript, duration]);
   const activeSubtitle = cueAt(timedCues, now + subtitleOffset);
+
 
 
   useEffect(() => {
@@ -538,7 +563,7 @@ function FeedCard({
 
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
       <div className="relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*9/16),92vw)] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16] 2xl:w-[min(calc((100dvh-3rem)*9/16),92vw)]">
-        {item.youtubeId ? (
+        {item.youtubeId && near ? (
           <YouTubeStage
             videoId={item.youtubeId}
             active={isActive}
@@ -550,7 +575,15 @@ function FeedCard({
             }}
             onToggle={toggle}
           />
+        ) : item.youtubeId ? (
+          <img
+            src={item.poster}
+            alt={item.title}
+            loading="lazy"
+            className="h-full w-full object-cover md:object-contain md:bg-black"
+          />
         ) : item.src ? (
+
           <video
             ref={videoRef}
             src={item.src}
@@ -585,7 +618,7 @@ function FeedCard({
             {activeSubtitle.speech}
           </p>
         )}
-        {!!item.transcript?.length && (
+        {!!transcript?.length && (
           <div className="absolute right-3 top-28 z-30 flex flex-col gap-2">
             <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
               <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
@@ -621,12 +654,13 @@ function FeedCard({
             {activeMark && (
               <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
-                {shownMarks[(item.timeline ?? []).indexOf(activeMark)] || activeMark.label}
+                {shownMarks[(timeline ?? []).indexOf(activeMark)] || activeMark.label}
               </p>
             )}
             {activeEmotion && (
               <span className="inline-flex shrink-0 items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
-                {shownEmotions[(item.emotionTimeline ?? []).indexOf(activeEmotion)] ||
+                {shownEmotions[(emotionTimeline ?? []).indexOf(activeEmotion)] ||
+
                   activeEmotion.emotion ||
                   activeEmotion.label}
               </span>

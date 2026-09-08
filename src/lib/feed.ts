@@ -6,11 +6,20 @@
 import { MINDS } from "./minds";
 import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
-import { listPublicVisualContent, type SubtitleCue, type TimelineMark } from "./projects";
+import {
+  getPublicContentTracks,
+  listPublicVisualContentLight,
+  type SubtitleCue,
+  type TimelineMark,
+} from "./projects";
+
 import type { CreationCategory } from "./creation-category";
 
 export type FeedItem = {
   id: string;
+  /** project_content row id, used to lazily load subtitles for this clip. */
+  contentId?: string;
+
   /** Marketplace mind this clip belongs to, when it is a published Mind. */
   mindId: string | null;
   creator: string;
@@ -86,11 +95,12 @@ export async function removeFromFeed(id: string): Promise<FeedItem[]> {
 
 /** Playable YouTube clips published inside public Projects. */
 export async function projectFeed(): Promise<FeedItem[]> {
-  const rows = await listPublicVisualContent();
+  const rows = await listPublicVisualContentLight();
   return rows
     .filter((row) => row.youtube_id)
     .map((row) => ({
       id: `project:${row.id}`,
+      contentId: row.id,
       mindId: `project:${row.project_id}`,
       creator: row.project?.creator_name ?? "Evermind creator",
       avatarUrl: row.project?.creator_avatar_url ?? null,
@@ -100,15 +110,17 @@ export async function projectFeed(): Promise<FeedItem[]> {
       category: "knowledge" as CreationCategory,
       src: null,
       youtubeId: row.youtube_id,
-      timeline: row.timeline,
-      emotionTimeline: row.emotion_timeline,
-      transcript: row.transcript,
       poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
       tags: row.tags,
       price: Number(row.project?.price ?? 0),
       currency: row.project?.currency ?? "USD",
       publishedAt: row.created_at,
     }));
+}
+
+/** Subtitles + mined moments for the clip currently on screen. */
+export async function loadFeedTracks(contentId: string) {
+  return getPublicContentTracks(contentId);
 }
 
 /**
@@ -128,4 +140,5 @@ export async function loadFeed(): Promise<FeedItem[]> {
     return true;
   });
 }
+
 

@@ -227,6 +227,56 @@ export async function listPublicVisualContent(limit = 60): Promise<
   }));
 }
 
+/**
+ * Feed listing without the heavy mined arrays. Transcripts alone can be
+ * hundreds of lines per video, so the scroll list stays light and each card
+ * pulls its own subtitles/timeline only when it is the one being watched.
+ */
+const CONTENT_LIGHT_COLS =
+  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,mind_id,view_count,created_at,updated_at";
+
+export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline" | "transcript"> & {
+  project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency"> | null;
+};
+
+export async function listPublicVisualContentLight(limit = 30): Promise<PublicFeedRow[]> {
+  const { data, error } = await supabase
+    .from("project_content")
+    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published)`)
+    .eq("kind", "VISUAL_CONTENT")
+    .eq("projects.published", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const rows = (data as unknown as Array<Record<string, unknown>> | null) ?? [];
+  return rows.map((row) => ({
+    ...(row as unknown as PublicFeedRow),
+    tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
+    project: (row["projects"] as Project | null) ?? null,
+  }));
+}
+
+/** Subtitles + mined moments for one clip, fetched only when it is watched. */
+export async function getPublicContentTracks(contentId: string): Promise<{
+  timeline: TimelineMark[];
+  emotion_timeline: TimelineMark[];
+  transcript: SubtitleCue[];
+}> {
+  const { data, error } = await supabase
+    .from("project_content")
+    .select("timeline,emotion_timeline,transcript")
+    .eq("id", contentId)
+    .maybeSingle();
+  if (error) throw error;
+  const row = (data as Record<string, unknown> | null) ?? {};
+  return {
+    timeline: marks(row["timeline"]),
+    emotion_timeline: marks(row["emotion_timeline"]),
+    transcript: subtitleCues(row["transcript"]),
+  };
+}
+
+
 function normalizeMany(data: unknown): ProjectContent[] {
   return (Array.isArray(data) ? data : []).map((row) => normalizeOne(row as Record<string, unknown>));
 }
