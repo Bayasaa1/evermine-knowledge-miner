@@ -557,6 +557,26 @@ function NodeInspector({
   const thumb = node.meta.youtubeId ? `https://i.ytimg.com/vi/${node.meta.youtubeId}/hqdefault.jpg` : null;
   const editable = node.kind === "content" ? !!node.meta.contentId : node.kind === "project";
 
+  /** Attaches a mined video / core brain to a project so it stops floating alone. */
+  const connectToProject = async (projectId: string) => {
+    setBusy(true);
+    let error: string | null = null;
+    try {
+      if (node.meta.vaultId) {
+        await moveVault({ data: { id: node.meta.vaultId, projectId: projectId || null, personaId } });
+      } else if (node.meta.contentId) {
+        if (!projectId) { setBusy(false); return; }
+        error = await moveProjectContent(node.meta.contentId, projectId);
+      }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+    setBusy(false);
+    if (error) { toast.error(error); return; }
+    toast.success(t("connected"));
+    await onChanged();
+  };
+
   const save = async () => {
     setBusy(true);
     const error = node.kind === "project"
