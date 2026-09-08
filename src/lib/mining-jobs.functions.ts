@@ -125,6 +125,10 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         next_index: 0,
         total_chunks: chunks.length,
         status: "queued",
+        persona_id: data.personaId,
+        project_id: data.projectId,
+        content_kind: data.contentKind,
+        publish_to_feed: data.publishToFeed,
       });
     }
 
