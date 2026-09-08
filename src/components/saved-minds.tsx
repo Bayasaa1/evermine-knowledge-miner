@@ -61,6 +61,32 @@ export function SavedMinds({
   const [selected, setSelected] = useState<string[]>([]);
   const navigate = useNavigate();
 
+  /**
+   * Hands videos to the Creator Studio mining step. The studio only lists the
+   * videos of the persona/project it is pointed at, so the destination travels
+   * with the handoff — otherwise the studio opens empty on step 1.
+   */
+  const sendToMiner = (ids: string[], row?: VaultRow | null) => {
+    if (ids.length === 0) return;
+    try {
+      window.localStorage.setItem("evermind.mine-batch", JSON.stringify(ids));
+      window.localStorage.setItem("evermind.mine-step", "3");
+      const persona = row?.personaId ?? personaId ?? null;
+      const project = row?.projectId ?? null;
+      if (persona && project) {
+        const raw = window.localStorage.getItem("evermind.studio-target");
+        const prev = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+        window.localStorage.setItem(
+          "evermind.studio-target",
+          JSON.stringify({ ...prev, personaId: persona, mode: "existing", projectId: project }),
+        );
+      }
+    } catch {
+      /* blocked storage still navigates — the studio just starts empty */
+    }
+    void navigate({ to: "/creator" });
+  };
+
   const t = {
     title: pickCopy({ en: "Saved Minds", mn: "Хадгалсан оюунууд", ko: "저장된 마인드" }, lang),
     all: pickCopy({ en: "All personas", mn: "Бүх дүр", ko: "모든 페르소나" }, lang),
@@ -319,8 +345,8 @@ export function SavedMinds({
             type="button"
             disabled={selected.length === 0}
             onClick={() => {
-              window.localStorage.setItem("evermind.mine-batch", JSON.stringify(selected));
-              void navigate({ to: "/creator" });
+              const first = groups.find((g) => g.source && selected.includes(g.source.id))?.source ?? null;
+              sendToMiner(selected, first);
             }}
             className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
           >
@@ -402,12 +428,14 @@ export function SavedMinds({
                     {jobLabel}
                   </Link>
                 ) : !mined ? (
-                  <Link
-                    to="/creator"
-                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                  <button
+                    type="button"
+                    disabled={!sourceId}
+                    onClick={() => sourceId && sendToMiner([sourceId], g.source)}
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
                   >
                     {t.mine}
-                  </Link>
+                  </button>
                 ) : (
                   <>
                     <button
