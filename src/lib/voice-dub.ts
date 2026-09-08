@@ -22,6 +22,8 @@ export function startDub(opts: {
   lang: LangCode;
   /** Active emotion tag so the voice engine can shift pitch and tone. */
   emotion?: AvatarEmotion;
+  /** Persona's real cloned voice id, when the owner has built one. */
+  voiceId?: string;
   onViseme?: (openness: number) => void;
   onStart?: () => void;
   onError?: (message: string) => void;
@@ -41,6 +43,7 @@ export function startDub(opts: {
           text: opts.text,
           lang: opts.lang,
           emotion: opts.emotion,
+          voiceId: opts.voiceId,
         }),
         signal: controller.signal,
       });

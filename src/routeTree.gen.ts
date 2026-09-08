@@ -24,8 +24,11 @@ import { Route as AdminControlSessionRouteImport } from './routes/admin/control-
 import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindCoachRouteImport } from './routes/api/mind-coach'
+import { Route as ApiMindFaceRouteImport } from './routes/api/mind-face'
+import { Route as ApiMindVisionRouteImport } from './routes/api/mind-vision'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
+import { Route as ApiVoiceCloneRouteImport } from './routes/api/voice-clone'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
 import { Route as ApiPublicCronResumeMiningRouteImport } from './routes/api/public/cron/resume-mining'
@@ -107,6 +110,16 @@ const ApiMindCoachRoute = ApiMindCoachRouteImport.update({
   path: '/api/mind-coach',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMindFaceRoute = ApiMindFaceRouteImport.update({
+  id: '/api/mind-face',
+  path: '/api/mind-face',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMindVisionRoute = ApiMindVisionRouteImport.update({
+  id: '/api/mind-vision',
+  path: '/api/mind-vision',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMindVoiceRoute = ApiMindVoiceRouteImport.update({
   id: '/api/mind-voice',
   path: '/api/mind-voice',
@@ -115,6 +128,11 @@ const ApiMindVoiceRoute = ApiMindVoiceRouteImport.update({
 const ApiUserMineRoute = ApiUserMineRouteImport.update({
   id: '/api/user-mine',
   path: '/api/user-mine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVoiceCloneRoute = ApiVoiceCloneRouteImport.update({
+  id: '/api/voice-clone',
+  path: '/api/voice-clone',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
@@ -156,8 +174,11 @@ export interface FileRoutesByFullPath {
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
+  '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
+  '/api/voice-clone': typeof ApiVoiceCloneRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
@@ -179,8 +200,11 @@ export interface FileRoutesByTo {
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
+  '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
+  '/api/voice-clone': typeof ApiVoiceCloneRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
@@ -203,8 +227,11 @@ export interface FileRoutesById {
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
+  '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
+  '/api/voice-clone': typeof ApiVoiceCloneRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
@@ -228,8 +255,11 @@ export interface FileRouteTypes {
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-coach'
+    | '/api/mind-face'
+    | '/api/mind-vision'
     | '/api/mind-voice'
     | '/api/user-mine'
+    | '/api/voice-clone'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
@@ -251,8 +281,11 @@ export interface FileRouteTypes {
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-coach'
+    | '/api/mind-face'
+    | '/api/mind-vision'
     | '/api/mind-voice'
     | '/api/user-mine'
+    | '/api/voice-clone'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
@@ -274,8 +307,11 @@ export interface FileRouteTypes {
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-coach'
+    | '/api/mind-face'
+    | '/api/mind-vision'
     | '/api/mind-voice'
     | '/api/user-mine'
+    | '/api/voice-clone'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
@@ -298,8 +334,11 @@ export interface RootRouteChildren {
   ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindCoachRoute: typeof ApiMindCoachRoute
+  ApiMindFaceRoute: typeof ApiMindFaceRoute
+  ApiMindVisionRoute: typeof ApiMindVisionRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
+  ApiVoiceCloneRoute: typeof ApiVoiceCloneRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
   ApiPublicCronResumeMiningRoute: typeof ApiPublicCronResumeMiningRoute
@@ -413,6 +452,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMindCoachRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mind-face': {
+      id: '/api/mind-face'
+      path: '/api/mind-face'
+      fullPath: '/api/mind-face'
+      preLoaderRoute: typeof ApiMindFaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mind-vision': {
+      id: '/api/mind-vision'
+      path: '/api/mind-vision'
+      fullPath: '/api/mind-vision'
+      preLoaderRoute: typeof ApiMindVisionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mind-voice': {
       id: '/api/mind-voice'
       path: '/api/mind-voice'
@@ -425,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/api/user-mine'
       fullPath: '/api/user-mine'
       preLoaderRoute: typeof ApiUserMineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/voice-clone': {
+      id: '/api/voice-clone'
+      path: '/api/voice-clone'
+      fullPath: '/api/voice-clone'
+      preLoaderRoute: typeof ApiVoiceCloneRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.lovable/oauth/consent': {
@@ -475,8 +535,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindCoachRoute: ApiMindCoachRoute,
+  ApiMindFaceRoute: ApiMindFaceRoute,
+  ApiMindVisionRoute: ApiMindVisionRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
+  ApiVoiceCloneRoute: ApiVoiceCloneRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
   ApiPublicCronResumeMiningRoute: ApiPublicCronResumeMiningRoute,

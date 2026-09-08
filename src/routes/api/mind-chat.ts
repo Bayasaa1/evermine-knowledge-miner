@@ -180,6 +180,9 @@ export const Route = createFileRoute("/api/mind-chat")({
           provider?: string;
           model?: string;
           apiKey?: string;
+          /** Live mode: stream the answer out word by word. */
+          stream?: boolean;
+
         };
         try {
           body = (await request.json()) as typeof body;
@@ -238,7 +241,7 @@ export const Route = createFileRoute("/api/mind-chat")({
               "X-Lovable-AIG-SDK": "fetch",
             },
             body: JSON.stringify({
-              model: "openai/gpt-5.6-luna",
+              model: "openai/gpt-6-astra",
               input,
               stream: true,
               store: false,
@@ -264,7 +267,48 @@ export const Route = createFileRoute("/api/mind-chat")({
           return new Response(JSON.stringify({ error: message }), { status: res.status });
         }
 
+        // Live mode: forward the answer word by word so the voice clone can start
+        // speaking the first phrase while the rest is still being written. This is
+        // what removes the "wait, then talk" delay on voice and video calls.
+        if (body.stream === true) {
+          const upstream = res.body.getReader();
+          const enc = new TextEncoder();
+          const dec = new TextDecoder();
+          let carry = "";
+          const live = new ReadableStream<Uint8Array>({
+            async pull(controller) {
+              const { done, value } = await upstream.read();
+              if (done) {
+                controller.enqueue(enc.encode("data: [DONE]\n\n"));
+                controller.close();
+                return;
+              }
+              carry += dec.decode(value, { stream: true });
+              const parts = carry.split("\n");
+              carry = parts.pop() ?? "";
+              for (const line of parts) {
+                if (!line.startsWith("data:")) continue;
+                const payload = line.slice(5).trim();
+                if (!payload || payload === "[DONE]") continue;
+                try {
+                  const evt = JSON.parse(payload) as { type?: string; delta?: string };
+                  if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
+                    controller.enqueue(enc.encode(`data: ${JSON.stringify({ delta: evt.delta })}\n\n`));
+                  }
+                } catch {
+                  /* keep-alive fragment */
+                }
+              }
+            },
+            cancel: () => void upstream.cancel(),
+          });
+          return new Response(live, {
+            headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+          });
+        }
+
         const reader = res.body.getReader();
+
         const decoder = new TextDecoder();
         let buffer = "";
         let text = "";
