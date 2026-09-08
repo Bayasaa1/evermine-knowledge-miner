@@ -49,9 +49,13 @@ export function SubtitleHealth() {
             Subtitle timing
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            “Fix (free)” spreads zero-time lines between the timed ones — no AI credits, instantly,
-            but estimated. “Re-listen (exact)” plays the video back in short windows and rewrites the transcript from what is actually heard, so every line lands on its real
-            second. Words, story and brain are never touched.
+            This is where you repair captions that appear too early or too late. “In sync” only means
+            every line has a time on it — it does not prove the time is the real one. If a video’s
+            subtitles still feel off while you watch it, press <strong>Re-listen (exact)</strong>: the
+            video is played back in short windows and each line is written onto the second it is
+            actually spoken. <strong>Fix (free)</strong> only spreads lines that have no time at all
+            between the timed ones — instant and free, but estimated. Words, story and brain are never
+            changed.
           </p>
         </div>
         {rows.length > 0 && (
@@ -95,28 +99,29 @@ export function SubtitleHealth() {
                 )}
                 {badge.label}
               </span>
-              {row.status !== "synced" && (
-                <div className="flex gap-2">
+              <div className="flex w-full gap-2 sm:w-auto">
+                {row.status !== "synced" && (
                   <button
                     type="button"
                     disabled={fixTimings.isPending}
                     onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "free" })}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent disabled:opacity-50"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent disabled:opacity-50 sm:flex-none"
                   >
                     {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                     Fix (free)
                   </button>
-                  <button
-                    type="button"
-                    disabled={fixTimings.isPending}
-                    onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "ai" })}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-                    title="Listens to the video again in short windows — uses AI credits"
-                  >
-                    Re-listen (exact)
-                  </button>
-                </div>
-              )}
+                )}
+                <button
+                  type="button"
+                  disabled={fixTimings.isPending}
+                  onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "ai" })}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50 sm:flex-none"
+                  title="Listens to the video again in short windows — uses AI credits"
+                >
+                  {busy && row.status === "synced" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Re-listen (exact)
+                </button>
+              </div>
             </li>
           );
         })}
@@ -124,3 +129,4 @@ export function SubtitleHealth() {
     </section>
   );
 }
+
