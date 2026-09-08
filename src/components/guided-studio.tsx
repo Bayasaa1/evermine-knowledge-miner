@@ -1089,8 +1089,11 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             await runYoutubeJobs({ ...source, url: urls[0]! }, assessment);
           } else {
             const jobs: MiningJob[] = [];
+            const dest = await jobDestination();
             for (const u of urls) {
-              jobs.push(...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment } }))));
+              jobs.push(
+                ...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment, ...dest } }))),
+              );
             }
             await driveJobs(jobs);
           }
