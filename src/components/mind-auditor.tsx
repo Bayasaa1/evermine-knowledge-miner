@@ -145,6 +145,7 @@ export function MindAuditor({
     }
     window.localStorage.setItem("evermind.mine-batch", JSON.stringify([sourceId]));
     window.localStorage.setItem("evermind.mine-ai", JSON.stringify({ [sourceId]: record.auditorId }));
+    window.localStorage.setItem("evermind.mine-step", "3");
     toast.success(`${t.sentToMiner} ${record.auditorLabel}`);
     void navigate({ to: "/creator" });
   };
