@@ -5,7 +5,8 @@ import { Mic, MicOff, PhoneOff, Send, Sparkles, Video, X } from "lucide-react";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
-import { emotionStyle } from "@/lib/emotion";
+import { MindAvatar } from "@/components/mind-avatar";
+
 
 type Msg = { role: "user" | "agent"; text: string };
 
