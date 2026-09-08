@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Plus, Trash2, UserSquare2 } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, UserSquare2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -10,6 +10,7 @@ import {
   listPersonas,
   personaHandle,
   switchPersona,
+  updatePersona,
   type Persona,
 } from "@/lib/personas";
 import {
@@ -38,6 +39,19 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
   const { data: personas = [] } = usePersonas();
   const [draft, setDraft] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editHandle, setEditHandle] = useState("");
+  const [editAvatar, setEditAvatar] = useState("");
+  const [editBio, setEditBio] = useState("");
+
+  const startEdit = (p: Persona) => {
+    setEditingId(p.id);
+    setEditName(p.name);
+    setEditHandle(p.handle);
+    setEditAvatar(p.avatar_url ?? "");
+    setEditBio(p.bio ?? "");
+  };
 
   const active = personas.find((p) => p.is_active) ?? null;
 
