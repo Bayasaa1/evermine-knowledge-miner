@@ -445,6 +445,7 @@ function FeedCard({
   muted,
   index,
   isActive,
+  near,
   onVisible,
   liked,
   purchased,
@@ -461,6 +462,7 @@ function FeedCard({
   muted: boolean;
   index: number;
   isActive: boolean;
+  near: boolean;
   onVisible: (i: number) => void;
   liked: boolean;
   purchased: boolean;
@@ -484,22 +486,40 @@ function FeedCard({
   const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [expanded, setExpanded] = useState(false);
 
+  // Subtitles and mined moments are large; fetch them only for the clip on
+  // screen (and keep them cached so scrolling back is instant).
+  const { data: tracks } = useQuery({
+    queryKey: ["feed-tracks", item.contentId],
+    queryFn: () => loadFeedTracks(item.contentId!),
+    enabled: !!item.contentId && near,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+  });
+  const transcript = tracks?.transcript ?? item.transcript;
+  const timeline = tracks?.timeline ?? item.timeline;
+  const emotionTimeline = tracks?.emotion_timeline ?? item.emotionTimeline;
+
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
   const shownTitle = useDisplayText(item.title);
   const shownDescription = useDisplayText(item.description);
   const shownTags = useDisplayTexts(item.tags);
-  const shownMarks = useDisplayTexts((item.timeline ?? []).map((m) => m.label));
-  const shownEmotions = useDisplayTexts((item.emotionTimeline ?? []).map((m) => m.emotion ?? m.label));
+  // Translating every mined label of every card at once flooded the app with
+  // requests — only the visible card needs translated moment labels.
+  const shownMarks = useDisplayTexts(isActive ? (timeline ?? []).map((m) => m.label) : []);
+  const shownEmotions = useDisplayTexts(
+    isActive ? (emotionTimeline ?? []).map((m) => m.emotion ?? m.label) : [],
+  );
 
   const caps = capabilitiesFor(item.category);
   const primary = primaryActionFor(item.category);
   const shownPrimary = useDisplayText(primary.en);
   const has = (c: Capability) => caps.includes(c);
-  const activeMark = markAt(item.timeline, now);
-  const activeEmotion = markAt(item.emotionTimeline, now);
-  const timedCues = useMemo(() => buildCues(item.transcript, duration), [item.transcript, duration]);
+  const activeMark = markAt(timeline, now);
+  const activeEmotion = markAt(emotionTimeline, now);
+  const timedCues = useMemo(() => buildCues(transcript, duration), [transcript, duration]);
   const activeSubtitle = cueAt(timedCues, now + subtitleOffset);
+
 
 
   useEffect(() => {
