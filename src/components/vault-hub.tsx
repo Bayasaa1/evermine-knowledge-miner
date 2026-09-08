@@ -548,7 +548,11 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
       </div>
 
       {tab === "brain" ? (
-        <VaultCoreBrain lang={lang} mindIds={mindIds} />
+        <div className="space-y-4">
+          {personaId && <CloneStudio userId={userId} personaId={personaId} personaName={personaName} />}
+          <VaultCoreBrain lang={lang} mindIds={mindIds} />
+        </div>
+
       ) : tab === "analytics" ? (
         <ProjectAnalytics lang={lang} project={project} items={items} />
       ) : loading ? (
