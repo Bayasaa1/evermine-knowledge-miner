@@ -117,18 +117,15 @@ export const startMiningJobs = createServerFn({ method: "POST" })
       videoIds = [single];
     }
 
-    // A video that is already being mined must not be queued twice — that is
-    // what produced duplicate cards and double AI spend.
+    // A video that is already being mined — or already finished — must never be
+    // queued again. That is what produced duplicate cards and double AI spend.
     const { data: active } = await context.supabase
       .from("mining_jobs")
       .select("id, source_url, status")
       .eq("user_id", context.userId)
-      .in("status", ["queued", "running", "paused_quota", "paused_user"]);
-    const busy = new Set(
-      (active ?? [])
-        .map((row) => /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/.exec(row.source_url ?? "")?.[1])
-        .filter(Boolean) as string[],
-    );
+      .in("status", ["queued", "running", "paused_quota", "paused_user", "done"]);
+    const idOf = (url: string) => /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(url ?? "")?.[1];
+    const busy = new Set((active ?? []).map((row) => idOf(row.source_url ?? "")).filter(Boolean) as string[]);
 
     // Where the creator filed the video when saving it stays authoritative.
     // Mining started from Saved Minds carries no wizard target, and losing the
