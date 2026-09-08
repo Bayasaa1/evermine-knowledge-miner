@@ -123,6 +123,12 @@ function usd(n: number): string {
 export function TokenUsagePanel({ lang }: { lang: Lang }) {
   const t = pickCopy(copy, lang);
   const [ledger, setLedger] = useState<UsageLedger>({ entries: [] });
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     let alive = true;
