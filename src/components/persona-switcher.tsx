@@ -110,6 +110,27 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
     },
   });
 
+  const saving = useMutation({
+    mutationFn: async () => {
+      if (!editingId) return "Nothing to save";
+      return updatePersona(editingId, {
+        name: editName,
+        handle: editHandle || personaHandle(editName),
+        avatarUrl: editAvatar.trim() || null,
+        bio: editBio,
+      });
+    },
+    onSuccess: async (error) => {
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      setEditingId(null);
+      await refresh();
+      toast.success("Persona updated");
+    },
+  });
+
   if (!isAuthenticated) return null;
 
   const label = active?.name ?? profile?.displayName ?? "Master account";
