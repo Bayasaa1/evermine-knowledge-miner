@@ -296,10 +296,11 @@ function HomeFeed() {
   const { data: items = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["home-feed"],
     queryFn: loadFeed,
-    refetchOnWindowFocus: true,
-    staleTime: 0,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
     retry: 2,
   });
+
 
   // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
   useEffect(() => {
@@ -397,6 +398,9 @@ function HomeFeed() {
             index={i}
             onVisible={setActive}
             isActive={active === i}
+            // Only the current clip and its immediate neighbours load a player;
+            // mounting every video at once is what made the feed stutter.
+            near={Math.abs(active - i) <= 1}
             liked={!!liked[item.id]}
             purchased={!!owned[mindKey(item)]}
             buying={buying === mindKey(item)}
@@ -409,6 +413,7 @@ function HomeFeed() {
             onFeedback={() => setFeedback(item)}
           />
         ))}
+
       </main>
 
       <TalkToMindModal
