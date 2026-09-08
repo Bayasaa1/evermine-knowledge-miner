@@ -197,13 +197,16 @@ export function summarizeUsage(ledger: UsageLedger, now = Date.now()): UsageSumm
 
   for (const e of ledger.entries) {
     const r = rateFor(e.provider);
-    const row =
+    const row: ProviderUsage =
       byProvider.get(e.provider) ??
       {
         provider: e.provider,
         label: r.label,
         free: r.free,
         calls: 0,
+        callsToday: 0,
+        dailyFreeCalls: r.dailyFreeCalls,
+        callsLeftToday: r.dailyFreeCalls > 0 ? r.dailyFreeCalls : null,
         inputTokens: 0,
         outputTokens: 0,
         totalTokens: 0,
@@ -219,23 +222,29 @@ export function summarizeUsage(ledger: UsageLedger, now = Date.now()): UsageSumm
     row.totalTokens += e.inputTokens + e.outputTokens;
     row.cost += cost;
     if (e.at >= dayStart) {
+      row.callsToday += 1;
       row.todayTokens += e.inputTokens + e.outputTokens;
       todayCost += cost;
     }
+    row.callsLeftToday = r.dailyFreeCalls > 0 ? Math.max(0, r.dailyFreeCalls - row.callsToday) : null;
     row.remainingToday = Math.max(0, r.dailyFreeTokens - row.todayTokens);
     totalCost += cost;
     lastCallAt = lastCallAt === null ? e.at : Math.max(lastCallAt, e.at);
     byProvider.set(e.provider, row);
   }
 
-  const providers = [...byProvider.values()].sort((a, b) => b.totalTokens - a.totalTokens);
+  const providers = [...byProvider.values()].sort((a, b) => b.callsToday - a.callsToday || b.totalTokens - a.totalTokens);
   return {
     providers,
     totalCalls: providers.reduce((n, p) => n + p.calls, 0),
+    callsToday: providers.reduce((n, p) => n + p.callsToday, 0),
+    totalFreeCalls: providers.reduce((n, p) => n + p.dailyFreeCalls, 0),
+    remainingCallsToday: providers.reduce((n, p) => n + (p.callsLeftToday ?? 0), 0),
     totalTokens: providers.reduce((n, p) => n + p.totalTokens, 0),
     todayTokens: providers.reduce((n, p) => n + p.todayTokens, 0),
     totalFreeTokens: providers.reduce((n, p) => n + p.dailyFreeTokens, 0),
     remainingFreeToday: providers.reduce((n, p) => n + p.remainingToday, 0),
+
     totalCost,
     todayCost,
     lastCallAt,
