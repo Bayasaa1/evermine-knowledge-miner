@@ -68,7 +68,6 @@ import { runUnderstandingPass } from "@/lib/miner-reason";
 import { DEFAULT_TARGET, ProjectTargetPicker, isTargetReady, type ProjectTarget } from "@/components/project-target";
 import {
   addProjectContent,
-  createProject,
   findContentByVideo,
   updateProject,
   updateProjectContent,
@@ -522,29 +521,6 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
 
 
-  /**
-   * A brand-new project is written to the database the moment the creator
-   * commits to it — not at the end of mining — so it is still there after a
-   * refresh and every later step files content into the same project.
-   */
-  const ensureTargetProject = useCallback(async (): Promise<string | null> => {
-    if (!userId) return null;
-    if (target.mode === "existing") return target.projectId;
-    const title = target.newTitle.trim();
-    if (!title) return null;
-    const persona = target.personaId ? await getPersona(target.personaId).catch(() => null) : null;
-    const { project } = await createProject(userId, {
-      title,
-      personaId: target.personaId ?? null,
-      ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
-    });
-    if (!project) return null;
-    setTarget((prev) => ({ ...prev, mode: "existing", projectId: project.id, newTitle: "" }));
-    await queryClient.invalidateQueries({ queryKey: ["my-projects"] });
-    await queryClient.invalidateQueries({ queryKey: ["projects", userId] });
-    return project.id;
-  }, [userId, target, queryClient]);
-
   /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
   const saveLink = useCallback(async (answers?: Assessment) => {
     setErrorKey(null);
@@ -555,7 +531,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     }
     setSaving(true);
     try {
-      const projectId = await ensureTargetProject().catch(() => null);
+      const projectId = target.mode === "existing" ? target.projectId : null;
+      if (!target.personaId || !projectId) throw new Error("Save and select a project before adding videos.");
       const res = await saveSourcesToVault({
         data: {
           url: url.trim(),
@@ -577,7 +554,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     } finally {
       setSaving(false);
     }
-  }, [signedIn, url, target, queryClient, lib, ensureTargetProject]);
+  }, [signedIn, url, target, queryClient, lib]);
 
 
 
@@ -726,15 +703,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       const existingContent = userId ? await findContentByVideo(userId, videoId) : null;
       let projectId = target.mode === "existing" ? target.projectId : null;
       if (!projectId && existingContent) projectId = existingContent.project_id;
-      if (userId && !projectId) {
-        const created = await createProject(userId, {
-          title: target.newTitle.trim() || title,
-          description: mined.story.summary ?? "",
-          personaId: target.personaId ?? persona?.id ?? null,
-          ...(persona ? { creatorName: persona.name, creatorAvatarUrl: persona.avatar_url } : {}),
-        });
-        projectId = created.project?.id ?? null;
-      }
+      if (!projectId) throw new Error("This video has no saved project. Choose its project before mining.");
       if (userId && projectId) {
         const description = assessment.sourceDescription?.slice(0, 500) || (mined.story.summary ?? "");
         const tags = mined.subconsciousness.skills.slice(0, 6);
@@ -985,11 +954,11 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const jobDestination = useCallback(
     async () => ({
       personaId: target.personaId ?? null,
-      projectId: (await ensureTargetProject().catch(() => null)) ?? (target.mode === "existing" ? target.projectId : null),
+      projectId: target.mode === "existing" ? target.projectId : null,
       contentKind: target.contentKind,
       publishToFeed: Boolean(target.publishToFeed),
     }),
-    [target, ensureTargetProject],
+    [target],
   );
 
   const runYoutubeJobs = useCallback(
@@ -1072,9 +1041,9 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       abortRef.current = controller;
       setBusy(true);
       setProgress(5);
-      // Make sure the destination project exists in the database before a single
-      // checkpoint runs, so results always have a home even after a refresh.
-      await ensureTargetProject().catch(() => null);
+      if (!isTargetReady(target)) {
+        throw new Error("Save and select a project before mining.");
+      }
 
       try {
 

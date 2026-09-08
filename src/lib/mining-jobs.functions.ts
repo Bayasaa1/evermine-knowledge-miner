@@ -94,6 +94,18 @@ export const startMiningJobs = createServerFn({ method: "POST" })
     const { playlistId, fetchPlaylistVideoIds, fetchVideoMeta } = await import("@/lib/youtube-meta.server");
     const { youtubeId } = await import("@/lib/import-sources");
 
+    if (!data.personaId || !data.projectId) {
+      throw new Error("Choose a persona and a saved project before mining.");
+    }
+    const { data: destination } = await context.supabase
+      .from("projects")
+      .select("id, persona_id")
+      .eq("id", data.projectId)
+      .eq("user_id", context.userId)
+      .eq("persona_id", data.personaId)
+      .maybeSingle();
+    if (!destination) throw new Error("That project does not belong to the selected persona.");
+
     const list = playlistId(data.url);
     let videoIds: string[] = [];
     if (list) {
@@ -141,8 +153,11 @@ export const startMiningJobs = createServerFn({ method: "POST" })
     for (let i = 0; i < videoIds.length; i++) {
       if (busy.has(videoIds[i]!)) continue;
       const filed = filedBy.get(videoIds[i]!);
-      const personaId = data.personaId ?? filed?.persona ?? null;
-      const projectId = data.projectId ?? filed?.project ?? null;
+      const personaId = filed?.persona ?? data.personaId;
+      const projectId = filed?.project ?? data.projectId;
+      if (personaId !== data.personaId || projectId !== data.projectId) {
+        throw new Error("This video is already filed under a different persona or project.");
+      }
       const meta = await fetchVideoMeta(videoIds[i]!);
       // Chunk count is always derived from the real duration: ceil(seconds / 300).
 

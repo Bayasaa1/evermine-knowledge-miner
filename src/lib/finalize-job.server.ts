@@ -90,8 +90,8 @@ export async function finalizeMiningJob(
     personaId = persona?.id ?? personaId;
   }
 
-  // 2. Destination project — reuse the chosen one, the card this video already
-  //    has, or create one so the mind is never homeless.
+  // 2. Destination project — only the creator's saved choice is valid. Mining
+  //    must never invent a project or move a video between projects/personas.
   const videoId = youtubeIdOf(job.source_url);
   let projectId = job.project_id;
   let existingContent: { id: string; project_id: string } | null = null;
@@ -113,29 +113,11 @@ export async function finalizeMiningJob(
       .eq("id", projectId)
       .eq("user_id", job.user_id)
       .maybeSingle();
-    if (!data) projectId = null;
-    // The project the creator filed this video under owns it. Keep both sides
-    // in step so the video never drops off the persona's profile.
-    else if (data.persona_id && !personaId) personaId = data.persona_id;
-    else if (personaId && !data.persona_id) {
-      await admin.from("projects").update({ persona_id: personaId }).eq("id", projectId).eq("user_id", job.user_id);
-    }
+    if (!data) return null;
+    if (!data.persona_id || (personaId && data.persona_id !== personaId)) return null;
+    personaId = data.persona_id;
   }
-  if (!projectId) {
-    const { data } = await admin
-      .from("projects")
-      .insert({
-        user_id: job.user_id,
-        title,
-        description: mined.story?.summary ?? "",
-        persona_id: personaId ?? null,
-        creator_name: persona?.name ?? "Evermind creator",
-        creator_avatar_url: persona?.avatar_url ?? null,
-      })
-      .select("id")
-      .single();
-    projectId = data?.id ?? null;
-  }
+  if (!projectId || !personaId) return null;
 
   // 3. Mind vault + version row. One vault per source video: a second mining
   //    pass of the same link updates the existing brain instead of creating a
