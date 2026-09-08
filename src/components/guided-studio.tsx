@@ -427,7 +427,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
   // A handoff from Saved Minds or from the Auditor is read once, before the
   // saved-video list arrives. Auditor fixes point at videos already mined, so
-  // those rows must stay选 selectable here too.
+  // those rows must stay selectable here too.
   const [handoff, setHandoff] = useState<{ ids: string[]; ai: Record<string, MinerId> }>({ ids: [], ai: {} });
   useEffect(() => {
     try {
