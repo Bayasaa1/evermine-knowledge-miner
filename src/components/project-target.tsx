@@ -328,15 +328,29 @@ export function ProjectTargetPicker({
       </div>
 
       {value.mode === "new" ? (
-        <label className="mt-4 block">
-          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.name}</span>
-          <input
-            value={value.newTitle}
-            onChange={(e) => set({ newTitle: e.target.value.slice(0, 120) })}
-            placeholder={t.namePlaceholder}
-            className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-          />
-        </label>
+        <div className="mt-4">
+          <label className="block">
+            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.name}</span>
+            <input
+              value={value.newTitle}
+              onChange={(e) => set({ newTitle: e.target.value.slice(0, 120) })}
+              placeholder={t.namePlaceholder}
+              className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            />
+          </label>
+          {/* Saving now writes the project to the account immediately, so it
+              survives a refresh instead of only existing during the wizard. */}
+          <button
+            type="button"
+            disabled={savingProject || !value.newTitle.trim()}
+            onClick={() => void saveProject()}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {savingProject ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderPlus className="h-3.5 w-3.5" />}
+            {t.saveProject}
+          </button>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">{t.saveProjectHint}</p>
+        </div>
       ) : (
         <div className="mt-4 space-y-4">
           <label className="block">
