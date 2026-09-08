@@ -76,6 +76,8 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           let index = job.next_index ?? 0;
           if (index >= chunks.length) {
             await supabaseAdmin.from("mining_jobs").update({ status: "done" }).eq("id", job.id);
+            const done = await finalizeMiningJob(supabaseAdmin, { ...job, results } as never).catch(() => null);
+            if (done) saved += 1;
             continue;
           }
           // Same context the creator's tab uses: speaker hint, source metadata
