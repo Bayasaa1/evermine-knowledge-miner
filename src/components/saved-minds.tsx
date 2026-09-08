@@ -351,7 +351,7 @@ export function SavedMinds({
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
                   >
                     {t.mine}
-                  </Link>
+                  </button>
                 ) : (
                   <>
                     <button
