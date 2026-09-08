@@ -373,8 +373,8 @@ export function SavedMinds({
                   <p className="text-xs text-muted-foreground">
                     {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
                     {video ? " · " : ""}
-                    <span className={mined ? "text-emerald-500" : "text-amber-500"}>
-                      {mined ? t.mined : t.pending}
+                    <span className={mined ? "text-emerald-500" : busy ? "text-primary" : "text-amber-500"}>
+                      {mined ? t.mined : busy ? jobLabel : t.pending}
                     </span>
                     {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
                   </p>
