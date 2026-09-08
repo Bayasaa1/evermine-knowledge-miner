@@ -2,6 +2,7 @@
 
 ## Vault ownership and project stability
 - [x] Keep My Vaults scoped to the signed-in owner and selected persona
+- [x] Show Step 3 mining choices only from the selected persona and saved project
 - [x] Prevent mining and background finalization from creating projects
 - [x] Require the owner to save and select a project before mining
 - [x] Consolidate Digital Diary of Arika videos into the owner-created Arika mind project

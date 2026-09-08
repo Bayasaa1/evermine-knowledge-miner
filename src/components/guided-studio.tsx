@@ -473,15 +473,22 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     }
   }, []);
 
-  const { data: allSources = [], refetch: refetchPending } = useQuery({
-    queryKey: ["pending-sources"],
+  const { data: allSources = [], refetch: refetchPending, isFetched: sourcesFetched } = useQuery({
+    queryKey: ["pending-sources", target.personaId, target.mode === "existing" ? target.projectId : null],
     queryFn: async () => {
-      const rows = await listVaults({ data: {} });
+      if (!target.personaId || target.mode !== "existing" || !target.projectId) return [];
+      const rows = await listVaults({
+        data: {
+          personaId: target.personaId,
+          projectId: target.projectId,
+          scoped: true,
+        },
+      });
       return rows
         .filter((r) => r.kind === "source")
         .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }));
     },
-    enabled: signedIn && !saveMode,
+    enabled: signedIn && !saveMode && isTargetReady(target),
     refetchOnMount: "always",
   });
 
@@ -489,6 +496,18 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     () => allSources.filter((r) => r.payload?.status !== "mined" || handoff.ids.includes(r.id)),
     [allSources, handoff],
   );
+
+  // A project switch must never retain selections from the previous project.
+  // Explicit handoffs are accepted only when that source belongs to this exact
+  // persona/project and is therefore present in the scoped result above.
+  useEffect(() => {
+    if (!sourcesFetched) return;
+    const allowed = new Set(pendingSources.map((source) => source.id));
+    setPickedIds((current) => current.filter((id) => allowed.has(id)));
+    setPerVideo((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => allowed.has(id))) as Record<string, MinerId>,
+    );
+  }, [pendingSources, sourcesFetched]);
 
   // Mine mode: preselect the newest saved video so Start mining is usable at once.
   // A batch ticked in Saved Minds (or an Auditor fix) wins — those arrive selected.
