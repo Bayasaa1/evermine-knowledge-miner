@@ -375,8 +375,9 @@ export function SavedMinds({
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{g.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  {/* Two readable lines — a single truncated line hid long titles. */}
+                  <p className="line-clamp-2 break-words text-sm font-medium leading-snug text-foreground">{g.title}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
                     {video ? " · " : ""}
                     <span className={mined ? "text-emerald-500" : busy ? "text-primary" : "text-amber-500"}>
@@ -388,6 +389,10 @@ export function SavedMinds({
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
                   )}
                 </div>
+              </div>
+
+              {/* Actions live on their own wrapped row so nothing overflows on phones. */}
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {busy ? (
                   <Link
                     to="/mining"
@@ -399,7 +404,7 @@ export function SavedMinds({
                 ) : !mined ? (
                   <Link
                     to="/creator"
-                    className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
+                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
                   >
                     {t.mine}
                   </Link>
@@ -409,27 +414,31 @@ export function SavedMinds({
                       type="button"
                       onClick={() => setInspect(openRow)}
                       title={t.view}
-                      className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                      aria-label={t.view}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <Eye className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{t.view}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setAuditing({ row: openRow, sourceId })}
                       title={t.auditor}
+                      aria-label={t.auditor}
                       className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <Gavel className="h-3.5 w-3.5" />
-                      {t.auditor}
+                      <span className="hidden sm:inline">{t.auditor}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setComparing(openRow)}
                       title={t.compare}
+                      aria-label={t.compare}
                       className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <Columns3 className="h-3.5 w-3.5" />
-                      {t.compare}
+                      <span className="hidden sm:inline">{t.compare}</span>
                     </button>
                   </>
                 )}
@@ -438,6 +447,7 @@ export function SavedMinds({
                   type="button"
                   onClick={() => setEditing(v)}
                   title={t.edit}
+                  aria-label={t.edit}
                   className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <Pencil className="h-3.5 w-3.5" />
@@ -451,6 +461,7 @@ export function SavedMinds({
                     }
                   }}
                   title={t.del}
+                  aria-label={t.del}
                   className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
