@@ -16,13 +16,15 @@ import { Link2, Loader2, Maximize, Search, Trash2, ZoomIn, ZoomOut } from "lucid
 import { toast } from "sonner";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { listVaults, type VaultRow } from "@/lib/cloud-vault.functions";
+import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
 import {
   deleteProject,
   listProjectContent,
   listProjectsByPersona,
+  moveProjectContent,
   updateProject,
   updateProjectContent,
+  type Project,
   type ProjectContent,
 } from "@/lib/projects";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
