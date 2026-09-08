@@ -169,9 +169,7 @@ export async function addProjectContent(
 /** Projects that belong to one persona (or the master account when null). */
 export async function listProjectsByPersona(userId: string, personaId: string | null): Promise<Project[]> {
   const all = await listMyProjects(userId);
-  // Projects made outside a persona have no owner identity yet, so they stay
-  // visible in every persona view instead of disappearing entirely.
-  return all.filter((p) => (p.persona_id ?? null) === personaId || p.persona_id === null);
+  return all.filter((p) => (p.persona_id ?? null) === personaId);
 }
 
 /** Edits the editable metadata of one mined video card. */
