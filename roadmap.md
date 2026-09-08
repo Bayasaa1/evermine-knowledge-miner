@@ -1,5 +1,11 @@
 # Roadmap
 
+## Vault ownership and project stability
+- [x] Keep My Vaults scoped to the signed-in owner and selected persona
+- [x] Prevent mining and background finalization from creating projects
+- [x] Require the owner to save and select a project before mining
+- [x] Consolidate Digital Diary of Arika videos into the owner-created Arika mind project
+
 ## Permanent video deletion and multi-display feed
 - [x] Delete the video, saved brain/version data, mining jobs, feed card, and interaction records together
 - [x] Refresh every affected view immediately after deletion
