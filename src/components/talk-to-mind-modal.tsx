@@ -90,11 +90,48 @@ export function TalkToMindModal({
     setBusy(true);
     try {
       if (!mindId) throw new Error("This mind is still private to its creator.");
+      const live = callMode !== "chat";
       const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mindId, lang, messages: next }),
+        body: JSON.stringify({ mindId, lang, messages: next, stream: live, seen: call.sees || undefined }),
       });
+
+      // On a call the answer is spoken phrase by phrase while it is still being
+      // written, so the voice starts almost immediately instead of after a wait.
+      if (live && res.ok && res.body && (res.headers.get("Content-Type") ?? "").includes("text/event-stream")) {
+        const voice = call.speakStreaming();
+        const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+        let carry = "";
+        let full = "";
+        setMessages([...next, { role: "agent", text: "" }]);
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          carry += value;
+          const lines = carry.split("\n");
+          carry = lines.pop() ?? "";
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            const payload = line.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const evt = JSON.parse(payload) as { delta?: string };
+              if (!evt.delta) continue;
+              full += evt.delta;
+              const clean = full.replace(/\[\[clip:[^\]]+\]\]/g, "");
+              voice.push(evt.delta.replace(/\[\[clip:[^\]]+\]\]/g, ""));
+              setMessages([...next, { role: "agent", text: clean }]);
+            } catch {
+              /* keep-alive */
+            }
+          }
+        }
+        voice.end();
+        if (!full.trim()) setMessages([...next, { role: "agent", text: "…" }]);
+        return;
+      }
+
       const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `Request failed (${res.status})`);
       const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
@@ -105,6 +142,7 @@ export function TalkToMindModal({
     } finally {
       setBusy(false);
     }
+
   };
   sendRef.current = send;
 
@@ -130,12 +168,19 @@ export function TalkToMindModal({
         {callMode !== "chat" && (
           <div className="flex flex-col items-center gap-3 border-b border-border bg-muted/30 p-5">
             {callMode === "video" && (
-              <div className={`relative flex h-28 w-28 items-center justify-center rounded-full bg-card ring-4 ${avatarStyle.ring}`}>
-                <Sparkles className="h-10 w-10 text-primary" />
-                <span className="absolute bottom-6 h-1.5 rounded-full bg-foreground transition-all" style={{ width: `${18 + call.mouth * 22}px`, transform: `scaleY(${1 + call.mouth * 3})` }} />
+              <div className="flex w-full items-center justify-center gap-4">
+                <MindAvatar imageUrl={faceUrl} mouth={call.mouth} emotion={call.emotion} speaking={call.speaking} size={128} />
+                <video ref={camRef} muted playsInline className="h-24 w-32 rounded-lg border border-border object-cover" />
               </div>
             )}
+            {callMode === "voice" && (
+              <MindAvatar imageUrl={faceUrl} mouth={call.mouth} emotion={call.emotion} speaking={call.speaking} size={96} />
+            )}
+            {callMode === "video" && call.sees && (
+              <p className="max-w-xs text-center text-[11px] italic text-muted-foreground">Sees: {call.sees}</p>
+            )}
             <p className="text-xs font-medium text-muted-foreground">{call.listening ? "Listening…" : call.speaking ? "Speaking…" : `${mindName} AI Mind call`}</p>
+
             <div className="flex gap-3">
               <button type="button" onClick={() => { try { call.listen(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }} aria-label={call.listening ? "Stop listening" : "Speak"} className={`rounded-full p-3 ${call.listening ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
                 {call.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
