@@ -425,50 +425,58 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
     ),
   };
 
-  const { data: pendingSources = [], refetch: refetchPending } = useQuery({
+  // A handoff from Saved Minds or from the Auditor is read once, before the
+  // saved-video list arrives. Auditor fixes point at videos already mined, so
+  // those rows must stay选 selectable here too.
+  const [handoff, setHandoff] = useState<{ ids: string[]; ai: Record<string, MinerId> }>({ ids: [], ai: {} });
+  useEffect(() => {
+    try {
+      const rawIds = window.localStorage.getItem("evermind.mine-batch");
+      window.localStorage.removeItem("evermind.mine-batch");
+      const rawAi = window.localStorage.getItem("evermind.mine-ai");
+      window.localStorage.removeItem("evermind.mine-ai");
+      const ids = rawIds ? (JSON.parse(rawIds) as unknown) : null;
+      const map = rawAi ? (JSON.parse(rawAi) as unknown) : null;
+      const cleanIds = Array.isArray(ids) ? ids.filter((i): i is string => typeof i === "string") : [];
+      const cleanAi: Record<string, MinerId> = {};
+      if (map && typeof map === "object") {
+        for (const [id, ai] of Object.entries(map as Record<string, unknown>)) {
+          if (typeof ai === "string") cleanAi[id] = ai as MinerId;
+        }
+      }
+      if (cleanIds.length || Object.keys(cleanAi).length) setHandoff({ ids: cleanIds, ai: cleanAi });
+    } catch {
+      /* a broken handoff just falls back to the newest video */
+    }
+  }, []);
+
+  const { data: allSources = [], refetch: refetchPending } = useQuery({
     queryKey: ["pending-sources"],
     queryFn: async () => {
       const rows = await listVaults({ data: {} });
       return rows
         .filter((r) => r.kind === "source")
-        .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }))
-        .filter((r) => r.payload?.status !== "mined");
+        .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }));
     },
     enabled: signedIn && !saveMode,
     refetchOnMount: "always",
   });
 
+  const pendingSources = useMemo(
+    () => allSources.filter((r) => r.payload?.status !== "mined" || handoff.ids.includes(r.id)),
+    [allSources, handoff],
+  );
+
   // Mine mode: preselect the newest saved video so Start mining is usable at once.
-  // A batch ticked in Saved Minds wins — those videos arrive already selected.
+  // A batch ticked in Saved Minds (or an Auditor fix) wins — those arrive selected.
   useEffect(() => {
     if (saveMode || pickedSourceId || pendingSources.length === 0) return;
-    let handed: string[] = [];
-    try {
-      const raw = window.localStorage.getItem("evermind.mine-batch");
-      window.localStorage.removeItem("evermind.mine-batch");
-      if (raw) {
-        const ids = JSON.parse(raw) as unknown;
-        if (Array.isArray(ids)) {
-          handed = ids.filter((id): id is string => typeof id === "string" && pendingSources.some((p) => p.id === id));
-        }
-      }
-      // An Auditor "fix" hands the video over with the auditing AI attached,
-      // so the re-mine already runs on the brain that spotted the problem.
-      const rawAi = window.localStorage.getItem("evermind.mine-ai");
-      window.localStorage.removeItem("evermind.mine-ai");
-      if (rawAi) {
-        const map = JSON.parse(rawAi) as unknown;
-        if (map && typeof map === "object") {
-          const clean: Record<string, MinerId> = {};
-          for (const [id, ai] of Object.entries(map as Record<string, unknown>)) {
-            if (typeof ai === "string" && pendingSources.some((p) => p.id === id)) clean[id] = ai as MinerId;
-          }
-          if (Object.keys(clean).length) setPerVideo((prev) => ({ ...prev, ...clean }));
-        }
-      }
-    } catch {
-      /* a broken handoff just falls back to the newest video */
+    const handed = handoff.ids.filter((id) => pendingSources.some((p) => p.id === id));
+    const ai: Record<string, MinerId> = {};
+    for (const [id, m] of Object.entries(handoff.ai)) {
+      if (pendingSources.some((p) => p.id === id)) ai[id] = m;
     }
+    if (Object.keys(ai).length) setPerVideo((prev) => ({ ...prev, ...ai }));
 
     const first = pendingSources.find((p) => p.id === handed[0]) ?? pendingSources[0]!;
     setPickedIds(handed.length ? handed : [first.id]);
@@ -486,7 +494,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       sourceChannel: v.channel,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveMode, pendingSources, pickedSourceId]);
+  }, [saveMode, pendingSources, pickedSourceId, handoff]);
+
 
 
   /** Step 2 — store the pasted link (or the whole playlist) in Saved Minds. */
