@@ -28,6 +28,21 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
         const { unpackInstructions } = await import("@/lib/mining-jobs");
+        const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
+
+        // Rescue pass: jobs that finished earlier but were never written into a
+        // Mind (the creator's tab was closed) get saved now.
+        const { data: stranded } = await supabaseAdmin
+          .from("mining_jobs")
+          .select("*")
+          .eq("status", "done")
+          .is("vault_id", null)
+          .limit(10);
+        let saved = 0;
+        for (const row of stranded ?? []) {
+          const vaultId = await finalizeMiningJob(supabaseAdmin, row as never).catch(() => null);
+          if (vaultId) saved += 1;
+        }
         // Keep one worker run well inside the platform request budget.
         const deadline = Date.now() + 4 * 60_000;
 
