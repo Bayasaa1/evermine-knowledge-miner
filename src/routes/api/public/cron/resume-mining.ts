@@ -130,6 +130,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               break;
             }
           }
+          // Everything mined: store it as a real Mind right here, so the
+          // creator finds it in My Vaults even if the app was never reopened.
+          if (index >= chunks.length) {
+            const vaultId = await finalizeMiningJob(
+              supabaseAdmin,
+              { ...job, results, next_index: index } as never,
+            ).catch(() => null);
+            if (vaultId) saved += 1;
+          }
           // A creator pause/stop mid-run must win over this worker.
           const { data: fresh } = await supabaseAdmin
             .from("mining_jobs")
@@ -139,7 +148,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
         }
 
-        return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused }, 200);
+        return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused, saved }, 200);
       },
     },
   },
