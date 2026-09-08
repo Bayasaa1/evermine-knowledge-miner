@@ -300,6 +300,7 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
         })}
       </div>
 
+      {geminiCard}
       {credits}
 
       <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
