@@ -21,6 +21,8 @@ const COPY = {
     stop: "Stop",
     refreshing: "Live",
     retry: "Waiting for AI quota to reset",
+    clear: "Clear history",
+    kept: "Finished runs are only history — clearing them never deletes your mined Minds.",
   },
   mn: {
     title: "Шууд мining",
@@ -35,6 +37,8 @@ const COPY = {
     stop: "Зогсоох",
     refreshing: "Шууд",
     retry: "AI-н квот сэргэхийг хүлээж байна",
+    clear: "Түүх цэвэрлэх",
+    kept: "Дууссан бичлэгүүд зөвхөн түүх — цэвэрлэсэн ч олборлосон Mind устахгүй.",
   },
   ko: {
     title: "실시간 마이닝",
@@ -49,6 +53,8 @@ const COPY = {
     stop: "중지",
     refreshing: "실시간",
     retry: "AI 사용량 초기화를 기다리는 중",
+    clear: "기록 지우기",
+    kept: "완료된 작업은 기록일 뿐이며, 지워도 채굴된 Mind는 삭제되지 않습니다.",
   },
 } as const;
 
