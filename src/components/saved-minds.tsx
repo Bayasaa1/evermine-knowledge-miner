@@ -382,7 +382,15 @@ export function SavedMinds({
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
                   )}
                 </div>
-                {!mined ? (
+                {busy ? (
+                  <Link
+                    to="/mining"
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary"
+                  >
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    {jobLabel}
+                  </Link>
+                ) : !mined ? (
                   <Link
                     to="/creator"
                     className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
