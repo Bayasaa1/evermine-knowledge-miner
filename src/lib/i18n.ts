@@ -384,28 +384,30 @@ export function tr(lang: Lang, key: string): string {
 }
 
 /**
- * Translates arbitrary English content (mined titles, topics, notes, terminal
- * logs) for display only — the stored JSON stays English.
+ * Content mined from a creator can be in any language (Mongolian speech, Korean
+ * titles…). Whatever the source language is, it is shown in the viewer's active
+ * language — including English. Only plain Latin text is left alone when the
+ * viewer is on English, so we never spend a call translating English→English.
  */
-export function useDisplayText(text: string | null | undefined): string {
-  const { lang } = useLang();
+const LATIN_ONLY = /^[\u0000-\u024F\u2000-\u206F\u20A0-\u20BF]*$/u;
+
+function display(text: string | null | undefined, lang: Lang): string {
   if (!text) return "";
-  if (lang === "en") return text;
+  if (lang === "en" && LATIN_ONLY.test(text)) return text;
   const cached = getCachedTranslation(text, lang);
   if (cached) return cached;
   requestTranslation(text, lang);
   return text;
 }
 
+export function useDisplayText(text: string | null | undefined): string {
+  const { lang } = useLang();
+  return display(text, lang);
+}
+
 /** Batch variant of {@link useDisplayText}. */
 export function useDisplayTexts(texts: (string | null | undefined)[]): string[] {
   const { lang } = useLang();
-  return texts.map((text) => {
-    if (!text) return "";
-    if (lang === "en") return text;
-    const cached = getCachedTranslation(text, lang);
-    if (cached) return cached;
-    requestTranslation(text, lang);
-    return text;
-  });
+  return texts.map((text) => display(text, lang));
 }
+

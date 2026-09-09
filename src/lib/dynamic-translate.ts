@@ -58,7 +58,7 @@ export function translationVersion(): number {
 
 /** Returns the cached translation, or null when it has not been fetched yet. */
 export function getCachedTranslation(text: string, lang: LangCode): string | null {
-  if (!text || lang === "en") return text || "";
+  if (!text) return "";
   return loadCache(lang)[text] ?? null;
 }
 
@@ -67,7 +67,16 @@ async function flush() {
   const jobs = [...pending.entries()];
   pending.clear();
   for (const [lang, set] of jobs) {
-    const texts = [...set].filter((t) => !inflight.has(`${lang}:${t}`)).slice(0, 60);
+    const queued = [...set].filter((t) => !inflight.has(`${lang}:${t}`));
+    const texts = queued.slice(0, 40);
+    // Anything over one batch stays queued instead of being silently dropped —
+    // that is why long pages used to stay half-translated.
+    const rest = queued.slice(40);
+    if (rest.length) {
+      const keep = pending.get(lang) ?? new Set<string>();
+      for (const t of rest) keep.add(t);
+      pending.set(lang, keep);
+    }
     if (!texts.length) continue;
     for (const t of texts) inflight.add(`${lang}:${t}`);
     try {
@@ -82,7 +91,7 @@ async function flush() {
       persist(lang);
       emit();
     } catch {
-      /* keep the English fallback */
+      /* keep the original text */
     } finally {
       for (const t of texts) inflight.delete(`${lang}:${t}`);
     }
@@ -90,10 +99,10 @@ async function flush() {
   if (pending.size && !timer) timer = setTimeout(flush, 200);
 }
 
-/** Queues an English string for translation into `lang`. Safe to call in render. */
+/** Queues a string for translation into `lang`. Safe to call in render. */
 export function requestTranslation(text: string, lang: LangCode): void {
   if (typeof window === "undefined") return;
-  if (!text || lang === "en") return;
+  if (!text) return;
   if (text.length > 3000) return;
   if (loadCache(lang)[text] != null) return;
   if (inflight.has(`${lang}:${text}`)) return;
