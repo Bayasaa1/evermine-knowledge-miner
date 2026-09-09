@@ -389,7 +389,7 @@ export function tr(lang: Lang, key: string): string {
  * language — including English. Only plain Latin text is left alone when the
  * viewer is on English, so we never spend a call translating English→English.
  */
-const LATIN_ONLY = /^[\p{Script=Latin}\p{Common}\s]*$/u;
+const LATIN_ONLY = /^[\u0000-\u024F\u2000-\u206F\u20A0-\u20BF]*$/u;
 
 function display(text: string | null | undefined, lang: Lang): string {
   if (!text) return "";
