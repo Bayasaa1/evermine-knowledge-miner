@@ -658,7 +658,7 @@ function FeedCard({
             className="pointer-events-none absolute inset-x-3 z-30 mx-auto line-clamp-3 w-fit max-w-[92%] overflow-hidden rounded-md bg-background/85 px-3 py-1.5 text-center font-semibold leading-snug text-balance break-words hyphens-auto text-foreground shadow-lg sm:inset-x-6"
             style={{ bottom: `${subtitlePosition}%`, fontSize: `min(${subtitleSize}px, ${(subtitleSize / 4).toFixed(2)}cqw)` }}
           >
-            {activeSubtitle.speech}
+            {shownSubtitle || activeSubtitle.speech}
           </p>
         )}
         {!!transcript?.length && (
