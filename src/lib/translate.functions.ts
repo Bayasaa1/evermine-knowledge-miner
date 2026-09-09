@@ -55,11 +55,17 @@ export const translateTexts = createServerFn({ method: "POST" })
           ],
         }),
       });
-      if (!res.ok) return { texts: data.texts };
+      if (!res.ok) {
+        console.error("translate gateway error", res.status, (await res.text().catch(() => "")).slice(0, 300));
+        return { texts: data.texts };
+      }
       const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       const raw = json.choices?.[0]?.message?.content ?? "";
       const match = raw.match(/\[[\s\S]*\]/);
-      if (!match) return { texts: data.texts };
+      if (!match) {
+        console.error("translate unparsable reply", raw.slice(0, 300));
+        return { texts: data.texts };
+      }
       const parsed = JSON.parse(match[0]) as unknown;
       if (!Array.isArray(parsed) || parsed.length !== data.texts.length) return { texts: data.texts };
       const out = parsed.map((v, i) => (typeof v === "string" && v.trim() ? v : data.texts[i]!));
