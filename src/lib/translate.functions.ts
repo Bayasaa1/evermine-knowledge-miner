@@ -16,25 +16,25 @@ const schema = z.object({
 export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(async ({ data }) => {
-    if (data.target === "en") return { texts: data.texts };
-
     // Abuse guard: anonymous callers share a per-IP sliding window so a script
     // cannot drain the shared AI credit balance. Over the limit we return the
-    // original English text instead of spending credits.
+    // original text instead of spending credits.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
     const ip =
       getRequestHeader("cf-connecting-ip") ??
       getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ??
       "unknown";
-    if (rateLimit("translate", ip, 30)) return { texts: data.texts };
+    if (rateLimit("translate", ip, 120)) return { texts: data.texts };
 
     const apiKey = process.env["LOVABLE_API_KEY"];
     if (!apiKey) return { texts: data.texts };
 
     const system = [
-      `You are a UI localisation engine for Evermind, a video-mining AI platform.`,
-      `Translate each input string from English into ${data.targetName}.`,
+      `You are a UI and subtitle localisation engine for Evermind, a video-mining AI platform.`,
+      `Each input string may be in ANY language (English, Mongolian, Korean, Japanese, …).`,
+      `Translate every string into ${data.targetName}, whatever its source language is.`,
+      `If a string is already in ${data.targetName}, return it unchanged.`,
       data.domain ? `Context: ${data.domain}.` : "",
       `Rules: keep the meaning and tone; keep product names (Evermind, YouTube, Gemini, JSON, Mind Vault) untranslated;`,
       `keep numbers, timestamps, URLs, emoji and placeholder tokens such as {n} exactly as they are;`,
