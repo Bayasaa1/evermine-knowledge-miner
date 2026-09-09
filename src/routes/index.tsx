@@ -552,8 +552,16 @@ function FeedCard({
   const activeEmotion = markAt(emotionTimeline, now);
   const timedCues = useMemo(() => buildCues(transcript, duration), [transcript, duration]);
   const activeSubtitle = cueAt(timedCues, now + subtitleOffset);
-  // Subtitles follow the chosen language too — only the visible card is translated.
-  const shownSubtitle = useDisplayText(isActive ? (activeSubtitle?.speech ?? "") : "");
+  // Subtitles follow the chosen language too. The whole line list of the visible
+  // card is translated ahead of time so lines never lag behind the speech.
+  const cueTexts = useMemo(
+    () => (isActive ? timedCues.map((cue) => cue.speech) : []),
+    [isActive, timedCues],
+  );
+  const shownCues = useDisplayTexts(cueTexts);
+  const activeCueIndex = activeSubtitle ? timedCues.indexOf(activeSubtitle) : -1;
+  const shownSubtitle =
+    activeCueIndex >= 0 ? (shownCues[activeCueIndex] ?? activeSubtitle?.speech ?? "") : "";
 
 
 
