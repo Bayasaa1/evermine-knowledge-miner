@@ -70,6 +70,7 @@ const en: Dict = {
   errQuota: "Your AI quota is used up. Add another key or wait for the reset.",
   errGeneric: "Something went wrong while analysing this video. Please try again.",
   errNoKey: "Sign in with Google (Step 1) first — it links your Gemini API automatically.",
+  errNoTarget: "Choose a persona and a saved project before starting mining.",
   errSafety:
     "Google's AI safety filters stopped this analysis. Pick another clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.",
   retry: "Retry",
@@ -157,6 +158,7 @@ const mn: Dict = {
   errQuota: "AI хязгаар дууслаа. Өөр түлхүүр нэмэх эсвэл сэргэхийг хүлээнэ үү.",
   errGeneric: "Бичлэгийг задлах үед алдаа гарлаа. Дахин оролдоно уу.",
   errNoKey: "Эхлээд 1-р алхамд Google-ээр нэвтэрнэ үү — Gemini API автоматаар холбогдоно.",
+  errNoTarget: "Олборлохын өмнө persona болон хадгалсан төслөө сонгоно уу.",
   errSafety:
     "Google-ийн AI аюулгүй байдлын шүүлтүүр энэ задалгааг зогсоолоо. Өөр хэсэг сонгох буюу эмзэг, насанд хүрэгчдийн, хүчирхийллийн агуулгыг хасна уу — ижил бичлэгийг дахин оролдох нь тус болохгүй.",
   retry: "Дахин оролдох",
@@ -244,6 +246,7 @@ const ko: Dict = {
   errQuota: "AI 사용량이 모두 소진되었습니다. 다른 키를 추가하거나 초기화를 기다려 주세요.",
   errGeneric: "영상을 분석하는 중 문제가 발생했습니다. 다시 시도해 주세요.",
   errNoKey: "먼저 1단계에서 Google로 로그인하세요 — Gemini API가 자동으로 연결됩니다.",
+  errNoTarget: "마이닝을 시작하기 전에 페르소나와 저장된 프로젝트를 선택하세요.",
   errSafety:
     "Google AI 안전 필터가 이 분석을 중단했습니다. 다른 장면을 선택하거나 민감·성인·폭력적인 부분을 잘라내 주세요 — 같은 영상을 다시 시도해도 통과되지 않습니다.",
   retry: "다시 시도",

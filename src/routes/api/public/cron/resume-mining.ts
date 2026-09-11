@@ -9,6 +9,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
 const MAX_JOBS_PER_RUN = 5;
+/** Permanent failures (bad link, unsupported video) stop after this many tries. */
+const MAX_ATTEMPTS = 4;
 
 export const Route = createFileRoute("/api/public/cron/resume-mining")({
   server: {
@@ -57,6 +59,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // "error" is included so a one-off network/timeout failure is retried
           // automatically instead of stranding the video forever.
           .in("status", ["paused_quota", "queued", "running", "error"])
+          // A video that keeps failing for a permanent reason is abandoned after
+          // a few tries instead of re-mining itself forever.
+          .lt("attempts", MAX_ATTEMPTS)
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           .order("updated_at", { ascending: true })
@@ -112,18 +117,25 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
                   status: index >= chunks.length ? "done" : "running",
                   last_error: null,
                   retry_after: null,
+                  // Real progress clears the failure budget.
+                  attempts: 0,
                 })
                 .eq("id", job.id);
               resumed += 1;
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               const quota = /quota|rate limit|429|too many requests|resource_exhausted/i.test(message);
+              // Quota is transient and does not count against the budget;
+              // every other failure does, with growing backoff between tries.
+              const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
+              const backoffMin = quota ? 15 : Math.min(120, 15 * 2 ** (tries - 1));
               await supabaseAdmin
                 .from("mining_jobs")
                 .update({
                   status: quota ? "paused_quota" : "error",
                   last_error: message.slice(0, 500),
-                  retry_after: quota ? new Date(Date.now() + 15 * 60_000).toISOString() : null,
+                  attempts: tries,
+                  retry_after: new Date(Date.now() + backoffMin * 60_000).toISOString(),
                 })
                 .eq("id", job.id);
               paused += 1;

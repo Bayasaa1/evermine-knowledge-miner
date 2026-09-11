@@ -1068,13 +1068,18 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       // videos use the authenticated built-in AI service and need no provider token.
       const key = "";
 
+      // The destination must exist before any work starts, otherwise the button
+      // would spin forever with nothing to file the result into.
+      if (!isTargetReady(target)) {
+        setErrorKey("errNoTarget");
+        return;
+      }
+
       const controller = new AbortController();
       abortRef.current = controller;
       setBusy(true);
       setProgress(5);
-      if (!isTargetReady(target)) {
-        throw new Error("Save and select a project before mining.");
-      }
+
 
       try {
 

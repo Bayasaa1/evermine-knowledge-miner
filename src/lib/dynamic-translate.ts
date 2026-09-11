@@ -17,6 +17,9 @@ const inflight = new Set<string>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let version = 0;
+/** Set when the AI balance is exhausted — no further requests are sent. */
+let blocked = false;
+let noticeShown = false;
 
 const storageKey = (lang: LangCode) => `evermind-i18n-cache:${lang}`;
 
@@ -83,6 +86,20 @@ async function flush() {
       const res = await translateTexts({
         data: { texts, target: lang, targetName: LANGUAGES[lang].name, domain: "AI video-mining app UI" },
       });
+      if ((res as { blocked?: string }).blocked === "credits") {
+        // The shared AI balance is empty: stop queueing work and say so once,
+        // instead of quietly showing the original language forever.
+        blocked = true;
+        pending.clear();
+        for (const t of texts) inflight.delete(`${lang}:${t}`);
+        if (!noticeShown) {
+          noticeShown = true;
+          void import("sonner").then(({ toast }) =>
+            toast.error("Translation is paused — the AI credits for this app have run out."),
+          );
+        }
+        return;
+      }
       const cache = loadCache(lang);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
@@ -102,6 +119,7 @@ async function flush() {
 /** Queues a string for translation into `lang`. Safe to call in render. */
 export function requestTranslation(text: string, lang: LangCode): void {
   if (typeof window === "undefined") return;
+  if (blocked) return;
   if (!text) return;
   if (text.length > 3000) return;
   if (loadCache(lang)[text] != null) return;

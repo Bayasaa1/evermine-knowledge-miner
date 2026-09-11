@@ -1,0 +1,1 @@
+ALTER TABLE public.mining_jobs ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 0;

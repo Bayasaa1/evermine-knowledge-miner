@@ -57,6 +57,12 @@ export const translateTexts = createServerFn({ method: "POST" })
       });
       if (!res.ok) {
         console.error("translate gateway error", res.status, (await res.text().catch(() => "")).slice(0, 300));
+        // 402/403 are terminal: the AI balance is empty or blocked. Tell the
+        // caller so the app can stop retrying and show an honest notice
+        // instead of silently rendering untranslated text.
+        if (res.status === 402 || res.status === 403) {
+          return { texts: data.texts, blocked: "credits" as const };
+        }
         return { texts: data.texts };
       }
       const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
