@@ -70,6 +70,7 @@ const en: Dict = {
   errQuota: "Your AI quota is used up. Add another key or wait for the reset.",
   errGeneric: "Something went wrong while analysing this video. Please try again.",
   errNoKey: "Sign in with Google (Step 1) first — it links your Gemini API automatically.",
+  errNoTarget: "Choose a persona and a saved project before starting mining.",
   errSafety:
     "Google's AI safety filters stopped this analysis. Pick another clip or trim out sensitive, adult or violent moments — retrying the same footage won't help.",
   retry: "Retry",
