@@ -17,6 +17,9 @@ const inflight = new Set<string>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let version = 0;
+/** Set when the AI balance is exhausted — no further requests are sent. */
+let blocked = false;
+let noticeShown = false;
 
 const storageKey = (lang: LangCode) => `evermind-i18n-cache:${lang}`;
 
