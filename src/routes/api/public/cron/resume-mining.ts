@@ -9,6 +9,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
 const MAX_JOBS_PER_RUN = 5;
+/** Permanent failures (bad link, unsupported video) stop after this many tries. */
+const MAX_ATTEMPTS = 4;
 
 export const Route = createFileRoute("/api/public/cron/resume-mining")({
   server: {
