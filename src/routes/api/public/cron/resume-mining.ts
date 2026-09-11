@@ -57,6 +57,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // "error" is included so a one-off network/timeout failure is retried
           // automatically instead of stranding the video forever.
           .in("status", ["paused_quota", "queued", "running", "error"])
+          // A video that keeps failing for a permanent reason is abandoned after
+          // a few tries instead of re-mining itself forever.
+          .lt("attempts", MAX_ATTEMPTS)
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           .order("updated_at", { ascending: true })
