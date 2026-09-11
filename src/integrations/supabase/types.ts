@@ -437,6 +437,7 @@ export type Database = {
       }
       mining_jobs: {
         Row: {
+          attempts: number
           chunks: Json
           content_kind: string
           created_at: string
@@ -463,6 +464,7 @@ export type Database = {
           video_context: string
         }
         Insert: {
+          attempts?: number
           chunks?: Json
           content_kind?: string
           created_at?: string
@@ -489,6 +491,7 @@ export type Database = {
           video_context?: string
         }
         Update: {
+          attempts?: number
           chunks?: Json
           content_kind?: string
           created_at?: string
