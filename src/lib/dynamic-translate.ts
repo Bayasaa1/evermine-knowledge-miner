@@ -83,6 +83,20 @@ async function flush() {
       const res = await translateTexts({
         data: { texts, target: lang, targetName: LANGUAGES[lang].name, domain: "AI video-mining app UI" },
       });
+      if ((res as { blocked?: string }).blocked === "credits") {
+        // The shared AI balance is empty: stop queueing work and say so once,
+        // instead of quietly showing the original language forever.
+        blocked = true;
+        pending.clear();
+        for (const t of texts) inflight.delete(`${lang}:${t}`);
+        if (!noticeShown) {
+          noticeShown = true;
+          void import("sonner").then(({ toast }) =>
+            toast.error("Translation is paused — the AI credits for this app have run out."),
+          );
+        }
+        return;
+      }
       const cache = loadCache(lang);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
