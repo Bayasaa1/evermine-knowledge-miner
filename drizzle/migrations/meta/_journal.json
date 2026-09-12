@@ -22,6 +22,13 @@
       "when": 1789183940540,
       "tag": "0002_mind_purchase_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789183980311,
+      "tag": "0003_project_plan_tiers",
+      "breakpoints": true
     }
   ]
 }

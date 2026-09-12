@@ -710,6 +710,7 @@ export type Database = {
           description: string
           id: string
           persona_id: string | null
+          plan_tiers: Json
           price: number
           published: boolean
           title: string
@@ -726,6 +727,7 @@ export type Database = {
           description?: string
           id?: string
           persona_id?: string | null
+          plan_tiers?: Json
           price?: number
           published?: boolean
           title?: string
@@ -742,6 +744,7 @@ export type Database = {
           description?: string
           id?: string
           persona_id?: string | null
+          plan_tiers?: Json
           price?: number
           published?: boolean
           title?: string
