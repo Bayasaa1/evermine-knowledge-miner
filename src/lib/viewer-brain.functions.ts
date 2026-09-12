@@ -416,9 +416,11 @@ export const eraseBrain = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const EraseSinceInput = z.object({ mindId: z.string(), since: z.string() });
+
 export const eraseSince = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; since: string }) => input)
+  .inputValidator((input) => EraseSinceInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
