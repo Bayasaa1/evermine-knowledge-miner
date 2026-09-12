@@ -318,9 +318,17 @@ function hydrate() {
   hydrated = true;
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (isLang(stored) && stored !== current) {
-    current = stored;
-    document.documentElement.lang = stored;
-    document.documentElement.dir = LANGUAGES[stored].rtl ? "rtl" : "ltr";
+    // Applied after hydration, never during it: swapping the language while
+    // React is matching the server HTML makes the whole tree mismatch and be
+    // thrown away, which is what made pages flash and re-render on open.
+    const next = stored;
+    queueMicrotask(() => {
+      if (current === next) return;
+      current = next;
+      document.documentElement.lang = next;
+      document.documentElement.dir = LANGUAGES[next].rtl ? "rtl" : "ltr";
+      notifyLang();
+    });
   }
   window.addEventListener("storage", (e) => {
     if (e.key !== STORAGE_KEY) return;

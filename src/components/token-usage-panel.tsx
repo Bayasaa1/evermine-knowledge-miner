@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { Cpu, Gauge, Wallet, RotateCcw } from "lucide-react";
 import {
   clearUsage,
@@ -125,24 +126,20 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
   const [ledger, setLedger] = useState<UsageLedger>({ entries: [] });
   const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(tick);
-  }, []);
+  useVisibleInterval(() => setNow(Date.now()), 30_000);
 
   useEffect(() => {
     let alive = true;
-    const pull = async () => {
+    void (async () => {
       const l = await loadUsage();
       if (alive) setLedger(l);
-    };
-    void pull();
-    const poll = setInterval(() => void pull(), 5000);
+    })();
     return () => {
       alive = false;
-      clearInterval(poll);
     };
   }, []);
+
+  useVisibleInterval(() => void loadUsage().then(setLedger), 5000);
 
   const s: UsageSummary = summarizeUsage(ledger);
 

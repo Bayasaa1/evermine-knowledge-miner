@@ -36,6 +36,13 @@
       "when": 1789185900978,
       "tag": "0004_viewer_brains_signals_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789189907393,
+      "tag": "0005_audit_missing_indexes",
+      "breakpoints": true
     }
   ]
 }

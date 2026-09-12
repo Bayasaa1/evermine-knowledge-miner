@@ -54,6 +54,11 @@ export function TalkToMindModal({
     if (turns.length === 0) return;
     const startedAt = sessionStartRef.current;
     const endedAt = new Date().toISOString();
+    // Claim this stretch of conversation before the network call so switching
+    // between chat, voice and video cannot save the same turns twice or
+    // measure the next stretch from the first one's start time.
+    turnsRef.current = [];
+    sessionStartRef.current = endedAt;
     const seconds = Math.max(1, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
     try {
       await mergeSessionFn({
@@ -70,7 +75,6 @@ export function TalkToMindModal({
     } catch {
       // best-effort memory merge
     }
-    turnsRef.current = [];
   };
 
   useEffect(() => {

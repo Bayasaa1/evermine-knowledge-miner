@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2 } from "lucide-react";
@@ -87,6 +87,8 @@ function StatusIcon({ status }: { status: MiningJobStatus }) {
 export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const t = pickCopy(COPY, lang);
   const { isAuthenticated } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const fetchJobs = useServerFn(listMiningJobs);
   const setState = useServerFn(setMiningJobState);
   const qc = useQueryClient();
@@ -215,7 +217,9 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
         </div>
       ) : null}
 
-      {isLoading ? (
+      {/* Same markup on the server and on the first paint in the browser, so the
+          page never has to be thrown away and rebuilt while it is opening. */}
+      {!mounted || isLoading ? (
         <p className="text-sm text-muted-foreground">…</p>
       ) : jobs.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.none}</p>

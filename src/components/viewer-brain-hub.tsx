@@ -4,14 +4,30 @@ import { Brain, Share2, Lock, Trash2, MessageSquare, Trophy, Clock } from "lucid
 import { listViewerBrains, setBrainSharing, eraseBrain } from "@/lib/viewer-brain.functions";
 import { useDisplayTexts } from "@/lib/i18n";
 import { stageLabel } from "@/lib/viewer-brain";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 export function ViewerBrainHub() {
-  const [viewerBrainsTitle, refreshLabel, viewerBrainsEmpty] = useDisplayTexts([
+  const [
+    viewerBrainsTitle,
+    refreshLabel,
+    viewerBrainsEmpty,
+    signedOutText,
+    sharedText,
+    privateText,
+    erasedText,
+    confirmText,
+  ] = useDisplayTexts([
     "Your Core Brains",
     "Refresh",
     "Talk, call, or watch any Mind to build your private relationship memory here.",
+    "Sign in to see the private memory you build with each creator.",
+    "Shared with creator",
+    "Private again",
+    "Core Brain erased",
+    "Erase this Core Brain? This cannot be undone.",
   ]);
+  const { isAuthenticated } = useAuth();
   const load = useServerFn(listViewerBrains);
   const share = useServerFn(setBrainSharing);
   const erase = useServerFn(eraseBrain);
@@ -20,6 +36,9 @@ export function ViewerBrainHub() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const refresh = async () => {
+    // Signed-out visitors have no Core Brains — asking the server would only
+    // return an "unauthorized" error at them.
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await load({ data: undefined });
@@ -34,7 +53,7 @@ export function ViewerBrainHub() {
   const toggleShare = async (mindId: string, next: boolean) => {
     try {
       await share({ data: { mindId, shared: next } });
-      toast.success(next ? "Shared with creator" : "Private again");
+      toast.success(next ? sharedText : privateText);
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -42,10 +61,10 @@ export function ViewerBrainHub() {
   };
 
   const handleErase = async (mindId: string) => {
-    if (!confirm("Erase this Core Brain? This cannot be undone.")) return;
+    if (!confirm(confirmText)) return;
     try {
       await erase({ data: { mindId } });
-      toast.success("Core Brain erased");
+      toast.success(erasedText);
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -59,17 +78,21 @@ export function ViewerBrainHub() {
           <Brain className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold">{viewerBrainsTitle}</h2>
         </div>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {loading ? "…" : refreshLabel}
-        </button>
+        {isAuthenticated && (
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {loading ? "…" : refreshLabel}
+          </button>
+        )}
       </div>
 
-      {brains.length === 0 && !loading && (
+      {!isAuthenticated && <p className="text-sm text-muted-foreground">{signedOutText}</p>}
+
+      {isAuthenticated && brains.length === 0 && !loading && (
         <p className="text-sm text-muted-foreground">{viewerBrainsEmpty}</p>
       )}
 
