@@ -23,6 +23,8 @@ export type Project = {
   price: number;
   currency: string;
   published: boolean;
+  /** Creator-wide subscription lengths mirrored onto each project. */
+  plan_tiers?: Json;
   persona_id: string | null;
   view_count: number;
   created_at: string;
@@ -221,7 +223,7 @@ export async function listPublicVisualContent(limit = 60): Promise<
   const { data, error } = await supabase
     .from("project_content")
     // Only clips whose parent project is published reach the public feed.
-    .select(`${CONTENT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published)`)
+    .select(`${CONTENT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
     .order("created_at", { ascending: false })
@@ -243,13 +245,13 @@ const CONTENT_LIGHT_COLS =
   "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,mind_id,view_count,created_at,updated_at";
 
 export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline" | "transcript"> & {
-  project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency"> | null;
+  project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency" | "plan_tiers"> | null;
 };
 
 export async function listPublicVisualContentLight(limit = 30): Promise<PublicFeedRow[]> {
   const { data, error } = await supabase
     .from("project_content")
-    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published)`)
+    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
     .order("created_at", { ascending: false })

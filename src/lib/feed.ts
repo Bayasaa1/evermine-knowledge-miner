@@ -13,6 +13,8 @@ import {
   type TimelineMark,
 } from "./projects";
 
+import { normalizeTiers, offeredTiers, type PlanLength } from "./subscription";
+
 import type { CreationCategory } from "./creation-category";
 
 export type FeedItem = {
@@ -41,9 +43,11 @@ export type FeedItem = {
   transcript?: SubtitleCue[];
   poster: string;
   tags: string[];
-  /** Monthly subscription price set by the creator. 0 = free. */
+  /** Base subscription price set by the creator. 0 = free. */
   price: number;
   currency: string;
+  /** Subscription lengths this creator offers (1 month / 3 months / 1 year / lifetime). */
+  tiers?: Array<{ length: PlanLength; price: number }>;
   /** Robot deployment token, when a Robot Brain package was published. */
   deployToken?: string;
   publishedAt: string;
@@ -98,7 +102,12 @@ export async function projectFeed(): Promise<FeedItem[]> {
   const rows = await listPublicVisualContentLight();
   return rows
     .filter((row) => row.youtube_id)
-    .map((row) => ({
+    .map((row) => {
+      const raw = (row.project?.plan_tiers ?? null) as Record<string, unknown> | null;
+      // A creator selling access marks plan_tiers.enabled; otherwise the mind is free.
+      const tiers = raw?.['enabled'] === true ? offeredTiers(normalizeTiers(raw)) : [];
+      const cheapest = tiers.length ? Math.min(...tiers.map((t) => t.price)) : null;
+      return {
       id: `project:${row.id}`,
       contentId: row.id,
       mindId: `project:${row.project_id}`,
@@ -112,10 +121,12 @@ export async function projectFeed(): Promise<FeedItem[]> {
       youtubeId: row.youtube_id,
       poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
       tags: row.tags,
-      price: Number(row.project?.price ?? 0),
-      currency: row.project?.currency ?? "USD",
+      price: cheapest ?? Number(row.project?.price ?? 0),
+      currency: (raw?.['currency'] as string | undefined) || row.project?.currency || "USD",
+      tiers,
       publishedAt: row.created_at,
-    }));
+      };
+    });
 }
 
 /** Subtitles + mined moments for the clip currently on screen. */

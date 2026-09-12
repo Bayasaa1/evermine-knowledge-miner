@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { CreditCard, Check, Percent, Wallet } from "lucide-react";
 import {
   PLATFORM_COMMISSION,
+  PLAN_LENGTHS,
   PRICE_HINTS,
   createPlan,
   formatMoney,
   loadPlan,
   savePlan,
   splitRevenue,
+  type PlanLength,
   type SubscriptionPlan,
 } from "@/lib/subscription";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -15,66 +17,66 @@ import { pickCopy, type Lang } from "@/lib/i18n";
 const copy = {
   en: {
     title: "Monetization",
-    hint: "Fans pay a flat monthly price for full access to your AI clone — chat, voice and video calls.",
+    hint: "Fans pay for full access to your AI clone — chat, voice and video calls. Offer as many plan lengths as you like.",
     freeMode: "Free",
     paidMode: "Paid",
     freeNote: "Free mode is on — anyone can chat with your AI clone for free. Switch to Paid any time.",
-    price: "Monthly price — set any amount you want",
-    priceHint: "No caps, no fixed tiers. Type $1, $250 or anything in between. 0 means free access.",
+    lengths: "Plan lengths you offer",
+    lengthsHint: "Turn on the lengths you want and set any price. Lifetime is a one-time payment that never expires.",
+    price: "Price",
     currency: "Currency",
     perks: "What subscribers get",
     hints: "Quick fill (optional)",
     freeChip: "Free",
-    split: "Revenue split",
-    gross: "Subscriber pays",
+    split: "You receive after commission",
     fee: `Platform commission (${Math.round(PLATFORM_COMMISSION * 100)}%)`,
-    net: "You receive",
-    per100: "At 100 subscribers",
+    noneOn: "Turn on at least one plan length so fans can subscribe.",
     payoutLater: "Payouts later",
     payoutLaterHint:
       "You don't need a wallet or bank details to publish. Earnings collect as Unclaimed Earnings — connect a payout method only when you decide to withdraw.",
+    names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime" },
   },
   mn: {
     title: "Орлого",
-    hint: "Дэмжигчид таны AI хуулбартай чат, дуу, видео дуудлагаар бүрэн харилцах сарын төлбөр төлнө.",
+    hint: "Дэмжигчид таны AI хуулбартай чат, дуу, видеогоор бүрэн харилцахын төлөө төлнө. Хүссэн хугацааны багцаа санал болго.",
     freeMode: "Үнэгүй",
     paidMode: "Төлбөртэй",
-    freeNote: "Үнэгүй горим идэвхтэй — хэн ч таны AI клонтой үнэгүй чатлаж чадна. Хүссэн үедээ Төлбөртэй болгож сольж болно.",
-    price: "Сарын үнэ — дурын дүн тавь",
-    priceHint: "Хязгаар, тогтсон багц байхгүй. $1, $250 эсвэл дурын дүн бичиж болно. 0 бол үнэгүй.",
+    freeNote: "Үнэгүй горим идэвхтэй — хэн ч таны AI клонтой үнэгүй чатлаж чадна. Хүссэн үедээ Төлбөртэй болгоно.",
+    lengths: "Санал болгох хугацаанууд",
+    lengthsHint: "Хүссэн хугацаагаа асааж дурын үнэ тавь. Насан туршийн багц нэг удаа төлөгдөж, хэзээ ч дуусахгүй.",
+    price: "Үнэ",
     currency: "Валют",
     perks: "Захиалагч юу авах вэ",
     hints: "Түргэн бөглөх (заавал биш)",
     freeChip: "Үнэгүй",
-    split: "Орлогын хуваарилалт",
-    gross: "Захиалагчийн төлбөр",
+    split: "Шимтгэлийн дараа танд",
     fee: `Платформын шимтгэл (${Math.round(PLATFORM_COMMISSION * 100)}%)`,
-    net: "Танд ногдох",
-    per100: "100 захиалагчтай үед",
+    noneOn: "Дор хаяж нэг хугацааг асаавал дэмжигчид захиалж чадна.",
     payoutLater: "Төлбөрөө дараа холбоно",
     payoutLaterHint:
-      "Нийтлэхэд хэтэвч, дансны мэдээлэл шаардлагагүй. Орлого “Аваагүй орлого” болж хуримтлагдана — та мөнгөө авахаар шийдсэн үедээ л төлбөрийн суваг холбоно.",
+      "Нийтлэхэд хэтэвч, дансны мэдээлэл шаардлагагүй. Орлого “Аваагүй орлого” болж хуримтлагдана — мөнгөө авахаар шийдсэн үедээ л төлбөрийн суваг холбоно.",
+    names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан турш" },
   },
   ko: {
     title: "수익화",
-    hint: "팬들은 월 정액 요금으로 당신의 AI 클론에 완전히 접근합니다 — 채팅, 음성, 영상 통화 포함.",
+    hint: "팬들은 당신의 AI 클론에 완전히 접근하기 위해 결제합니다 — 채팅, 음성, 영상 통화. 원하는 기간제를 자유롭게 제공하세요.",
     freeMode: "무료",
     paidMode: "유료",
-    freeNote: "무료 모드가 켜져 있습니다 — 누구나 당신의 AI 클론과 무료로 대화할 수 있습니다. 언제든 유료로 전환할 수 있습니다.",
-    price: "월 요금 — 원하는 금액을 설정하세요",
-    priceHint: "상한선이나 고정 등급이 없습니다. $1, $250 또는 그 사이 아무 값이나 입력하세요. 0은 무료 이용을 뜻합니다.",
+    freeNote: "무료 모드가 켜져 있습니다 — 누구나 무료로 대화할 수 있습니다. 언제든 유료로 전환할 수 있습니다.",
+    lengths: "제공하는 구독 기간",
+    lengthsHint: "원하는 기간을 켜고 금액을 입력하세요. 평생 이용권은 1회 결제로 만료되지 않습니다.",
+    price: "가격",
     currency: "통화",
     perks: "구독자가 받는 혜택",
     hints: "빠른 입력 (선택 사항)",
     freeChip: "무료",
-    split: "수익 분배",
-    gross: "구독자 결제액",
+    split: "수수료 후 실수령액",
     fee: `플랫폼 수수료 (${Math.round(PLATFORM_COMMISSION * 100)}%)`,
-    net: "실수령액",
-    per100: "구독자 100명 기준",
+    noneOn: "최소 한 가지 기간을 켜야 팬이 구독할 수 있습니다.",
     payoutLater: "출금은 나중에",
     payoutLaterHint:
-      "공개하는 데 지갑이나 은행 정보가 필요하지 않습니다. 수익은 '미청구 수익'으로 쌓이며, 출금하기로 결정했을 때만 결제 수단을 연결하면 됩니다.",
+      "공개하는 데 지갑이나 은행 정보가 필요하지 않습니다. 수익은 '미청구 수익'으로 쌓이며, 출금할 때만 결제 수단을 연결하면 됩니다.",
+    names: { month: "1개월", quarter: "3개월", year: "1년", lifetime: "평생" },
   },
 } as const;
 
@@ -82,13 +84,10 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
   const t = pickCopy(copy, lang);
   const [plan, setPlan] = useState<SubscriptionPlan>(createPlan);
   const [hydrated, setHydrated] = useState(false);
-  const [priceText, setPriceText] = useState("");
 
   useEffect(() => {
     void (async () => {
-      const next = await loadPlan();
-      setPlan(next);
-      setPriceText(String(next.monthlyPrice));
+      setPlan(await loadPlan());
       setHydrated(true);
     })();
   }, []);
@@ -99,13 +98,10 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
     return () => clearTimeout(id);
   }, [hydrated, plan]);
 
-  const setPrice = (value: number) => {
-    setPriceText(String(value));
-    setPlan((p) => ({ ...p, monthlyPrice: value }));
-  };
+  const setTier = (length: PlanLength, patch: { enabled?: boolean; price?: number }) =>
+    setPlan((p) => ({ ...p, tiers: { ...p.tiers, [length]: { ...p.tiers[length], ...patch } } }));
 
-  const one = splitRevenue(plan.monthlyPrice);
-  const hundred = splitRevenue(plan.monthlyPrice, 100);
+  const anyOn = PLAN_LENGTHS.some((l) => plan.tiers[l]?.enabled);
 
   return (
     <section id="subscription" className="min-w-0 rounded-[12px] border border-border bg-card p-5 sm:p-6">
@@ -143,31 +139,94 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
         </p>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="sm:col-span-2">
-              <label htmlFor="subPrice" className="mb-2 block text-sm text-muted-foreground">{t.price}</label>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 focus-within:border-primary">
-                <span className="text-sm text-muted-foreground">{plan.currency}</span>
-                <input
-                  id="subPrice"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step="0.01"
-                  value={priceText}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    setPriceText(raw);
-                    const n = Number(raw);
-                    setPlan((p) => ({ ...p, monthlyPrice: Number.isFinite(n) && n > 0 ? n : 0 }));
-                  }}
-                  onBlur={() => setPriceText(String(plan.monthlyPrice))}
-                  className="w-full bg-transparent py-2.5 text-sm text-foreground outline-none"
-                />
-                <span className="text-xs text-muted-foreground">/mo</span>
-              </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">{t.priceHint}</p>
-            </div>
+          <div className="mb-2 flex flex-wrap items-baseline gap-2">
+            <span className="text-sm font-medium text-foreground">{t.lengths}</span>
+            <span className="text-xs text-muted-foreground">{t.lengthsHint}</span>
+          </div>
+
+          <div className="grid gap-3">
+            {PLAN_LENGTHS.map((length) => {
+              const tier = plan.tiers[length];
+              const net = splitRevenue(tier.price).net;
+              return (
+                <div
+                  key={length}
+                  className={`rounded-[12px] border p-4 transition-colors ${
+                    tier.enabled ? "border-primary/40 bg-muted/40" : "border-border bg-muted/20"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={tier.enabled}
+                      aria-label={t.names[length]}
+                      onClick={() => setTier(length, { enabled: !tier.enabled })}
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                        tier.enabled ? "bg-primary" : "bg-border"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-card transition-all ${
+                          tier.enabled ? "left-[22px]" : "left-0.5"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-sm font-semibold text-foreground">{t.names[length]}</span>
+
+                    {tier.enabled && (
+                      <div className="ml-auto flex items-center gap-2 rounded-lg border border-border bg-muted px-3 focus-within:border-primary">
+                        <span className="text-xs text-muted-foreground">{plan.currency}</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step="0.01"
+                          aria-label={`${t.names[length]} ${t.price}`}
+                          value={tier.price}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            setTier(length, { price: Number.isFinite(n) && n > 0 ? n : 0 });
+                          }}
+                          className="w-24 bg-transparent py-2 text-sm text-foreground outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {tier.enabled && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {PRICE_HINTS.map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setTier(length, { price: p })}
+                          className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+                        >
+                          {p === 0 ? t.freeChip : `$${p}`}
+                        </button>
+                      ))}
+                      <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Percent className="h-3.5 w-3.5 text-primary" />
+                        {t.split}{" "}
+                        <span className="font-mono font-semibold text-status-green">
+                          {formatMoney(net, plan.currency)}
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {!anyOn && (
+            <p className="mt-3 rounded-[12px] border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
+              {t.noneOn}
+            </p>
+          )}
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
             <div>
               <label htmlFor="subCurrency" className="mb-2 block text-sm text-muted-foreground">{t.currency}</label>
               <input
@@ -177,22 +236,7 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
                 className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
               />
             </div>
-            <div className="sm:col-span-3">
-              <span className="mb-2 block text-sm text-muted-foreground">{t.hints}</span>
-              <div className="flex flex-wrap gap-2">
-                {PRICE_HINTS.map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPrice(p)}
-                    className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-                  >
-                    {p === 0 ? t.freeChip : `$${p}`}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="sm:col-span-3">
+            <div className="sm:col-span-2">
               <label htmlFor="subPerks" className="mb-2 block text-sm text-muted-foreground">{t.perks}</label>
               <textarea
                 id="subPerks"
@@ -202,38 +246,12 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
                 className="w-full resize-y rounded-lg border border-border bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground outline-none transition-colors focus:border-primary"
               />
             </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[12px] border border-border bg-muted/40 p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Percent className="h-4 w-4 text-primary" /> {t.split}
-              </div>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">{t.gross}</dt>
-                  <dd className="font-mono text-foreground">{formatMoney(one.gross, plan.currency)}/mo</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">{t.fee}</dt>
-                  <dd className="font-mono text-status-amber">−{formatMoney(one.commission, plan.currency)}</dd>
-                </div>
-                <div className="flex justify-between gap-3 border-t border-border pt-2">
-                  <dt className="font-medium text-foreground">{t.net}</dt>
-                  <dd className="font-mono font-semibold text-status-green">{formatMoney(one.net, plan.currency)}</dd>
-                </div>
-                <div className="flex justify-between gap-3 text-xs">
-                  <dt className="text-muted-foreground">{t.per100}</dt>
-                  <dd className="font-mono text-muted-foreground">{formatMoney(hundred.net, plan.currency)}/mo</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="rounded-[12px] border border-border bg-muted/40 p-4">
+            <div className="sm:col-span-3 rounded-[12px] border border-border bg-muted/40 p-4">
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                 <Wallet className="h-4 w-4 text-primary" /> {t.payoutLater}
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">{t.payoutLaterHint}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t.fee}</p>
             </div>
           </div>
         </>
