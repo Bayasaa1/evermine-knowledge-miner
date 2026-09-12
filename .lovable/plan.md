@@ -68,9 +68,8 @@ In Creator Studio, a **Subscribers & signals** panel, built for any audience siz
 1. A chat or call session ends (modal closed or 2 min idle).
 2. The session's new turns are summarised with the viewer's own Gemini key, then merged
    into the existing brain. Every moment and fact is kept forever unless the viewer
-   deletes it. When the brain grows large, the AI summary layer condenses older exchanges
-   into a compact "early years" summary, but the original raw moments stay available in
-   the archive tab and can be searched.
+   deletes it. The active prompt uses a rolling summary of the oldest exchanges to stay
+   within token limits, but the full archive is always viewable and searchable.
 3. Without an AI key, the brain still records facts that need no AI: dates, counts,
    durations, achievements, languages used, and raw pinned moments. The card says
    memory summaries are paused until a key is added.
