@@ -36,6 +36,9 @@ export function ViewerBrainHub() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const refresh = async () => {
+    // Signed-out visitors have no Core Brains — asking the server would only
+    // return an "unauthorized" error at them.
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const data = await load({ data: undefined });
@@ -50,7 +53,7 @@ export function ViewerBrainHub() {
   const toggleShare = async (mindId: string, next: boolean) => {
     try {
       await share({ data: { mindId, shared: next } });
-      toast.success(next ? "Shared with creator" : "Private again");
+      toast.success(next ? sharedText : privateText);
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -58,10 +61,10 @@ export function ViewerBrainHub() {
   };
 
   const handleErase = async (mindId: string) => {
-    if (!confirm("Erase this Core Brain? This cannot be undone.")) return;
+    if (!confirm(confirmText)) return;
     try {
       await erase({ data: { mindId } });
-      toast.success("Core Brain erased");
+      toast.success(erasedText);
       await refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
