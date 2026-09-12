@@ -87,6 +87,8 @@ function StatusIcon({ status }: { status: MiningJobStatus }) {
 export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const t = pickCopy(COPY, lang);
   const { isAuthenticated } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const fetchJobs = useServerFn(listMiningJobs);
   const setState = useServerFn(setMiningJobState);
   const qc = useQueryClient();
