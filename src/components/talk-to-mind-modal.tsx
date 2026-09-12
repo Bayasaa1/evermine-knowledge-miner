@@ -61,10 +61,9 @@ export function TalkToMindModal({
         startedAt,
         endedAt,
         mode: callMode,
-        turns: turns.map((t) => ({ role: t.role === "user" ? "user" : "agent", text: t.content })),
+        turns,
         seconds,
         lang,
-        latestUpdateTitle: undefined,
       });
     } catch {
       // best-effort memory merge
