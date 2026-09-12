@@ -4,6 +4,7 @@ import { Search, Home, Boxes, Plus, User } from "lucide-react";
 
 import { CreateWizard } from "@/components/create-wizard";
 import { MiningStatusPill } from "@/components/mining-status-pill";
+import { NotificationCenter } from "@/components/notification-center";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Item = { to: "/" | "/search" | "/vaults" | "/profile"; label: string; icon: typeof Home };
@@ -69,6 +70,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
             <Plus className="h-6 w-6" />
           </button>
           {right.map(cell)}
+          <NotificationCenter lang={lang} />
         </div>
       </nav>
       <CreateWizard open={wizard} onClose={() => setWizard(false)} lang={lang} />
