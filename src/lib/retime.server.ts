@@ -1,4 +1,5 @@
 import { secondsToStamp, stampToSeconds, type TranscriptLine } from "@/lib/subtitle-health";
+import { geminiGenerate, youtubeVideoPart, type AiCredential } from "@/lib/user-ai.server";
 
 /**
  * Re-mines *only* the timing layer of an already mined transcript: the spoken
@@ -27,41 +28,21 @@ LINES:
 ${numbered}`;
 }
 
-async function callGateway(apiKey: string, url: string, text: string): Promise<Timed[]> {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-3.7-flash",
-      messages: [
+async function callGemini(credential: AiCredential, url: string, text: string): Promise<Timed[]> {
+  const content = (
+    await geminiGenerate({
+      credential,
+      model: "gemini-2.5-flash",
+      json: true,
+      maxTokens: 4096,
+      turns: [
         {
           role: "user",
-          content: [
-            { type: "text", text },
-            { type: "video_url", video_url: { url } },
-          ],
+          parts: [{ text }, youtubeVideoPart(url, credential, 0, 0)],
         },
       ],
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  if (!response.ok) {
-    const raw = await response.text().catch(() => "");
-    let detail = raw.slice(0, 300);
-    try {
-      const parsed = JSON.parse(raw) as { error?: { message?: string } };
-      detail = parsed.error?.message ?? detail;
-    } catch {
-      // keep the bounded raw text
-    }
-    if (response.status === 429) throw new Error("Re-timing is rate limited — try again shortly.");
-    if (response.status === 402) throw new Error("AI credits are exhausted for this workspace.");
-    throw new Error(detail || `Re-timing failed (${response.status}).`);
-  }
-
-  const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = body.choices?.[0]?.message?.content?.trim();
+    })
+  ).trim();
   if (!content) return [];
   try {
     const parsed = JSON.parse(content) as { times?: Timed[] } | Timed[];
@@ -72,15 +53,17 @@ async function callGateway(apiKey: string, url: string, text: string): Promise<T
 }
 
 /** Returns the same lines with repaired, monotonically increasing timestamps. */
-export async function retimeTranscript(url: string, lines: TranscriptLine[]): Promise<TranscriptLine[]> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("Built-in AI is not configured.");
+export async function retimeTranscript(
+  url: string,
+  lines: TranscriptLine[],
+  credential: AiCredential,
+): Promise<TranscriptLine[]> {
   if (!lines.length) return lines;
 
   const found = new Map<number, { start: number; end: number }>();
   for (let offset = 0; offset < lines.length; offset += BATCH) {
     const slice = lines.slice(offset, offset + BATCH);
-    const times = await callGateway(apiKey, url, prompt(slice, offset));
+    const times = await callGemini(credential, url, prompt(slice, offset));
     for (const item of times) {
       const index = Number(item?.i);
       const start = stampToSeconds(item?.start ?? null);
@@ -137,11 +120,12 @@ import { youtubeId as extractYoutubeId } from "@/lib/import-sources";
 export async function relistenTranscript(
   url: string,
   previous: TranscriptLine[],
+  credential: AiCredential,
 ): Promise<TranscriptLine[]> {
   const id = extractYoutubeId(url);
   const meta = id ? await fetchVideoMeta(id).catch(() => null) : null;
   const duration = meta?.durationSec && meta.durationSec > 30 ? meta.durationSec : 20 * 60;
-  const cues = await buildTimeline(url, 0, duration);
+  const cues = await buildTimeline(url, 0, duration, credential);
   if (!cues.length) return previous;
   const roleOf = new Map(
     previous.map((l) => [String(l.speaker ?? "").toLowerCase().trim(), l.role] as const),
