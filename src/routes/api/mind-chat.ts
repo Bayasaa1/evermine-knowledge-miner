@@ -287,9 +287,9 @@ export const Route = createFileRoute("/api/mind-chat")({
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
 
-        const brain = await loadBrainContext(request, auth.userId, body.mindId);
+        const brain = body.mindId ? await loadBrainContext(request, auth.userId, body.mindId) : { context: "", latestUpdateTitle: undefined, ok: true };
         if (!brain.ok) {
-          return new Response(JSON.stringify({ error: brain.error }), { status: 403 });
+          return new Response(JSON.stringify({ error: brain.error ?? "Access denied" }), { status: 403 });
         }
         const systemWithMemory = brain.context ? `${system}\n\n${brain.context}` : system;
 
