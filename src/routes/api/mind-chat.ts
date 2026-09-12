@@ -326,7 +326,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         // On a video call the Mind is also told what it can see right now, so it
         // reacts to the person in front of it the way a caller would expect.
         const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
-        const systemText = seen ? `${system}\n\nRight now you can see on the video call: ${seen}` : system;
+        const systemText = seen ? `${systemWithMemory}\n\nRight now you can see on the video call: ${seen}` : systemWithMemory;
         const turns = history.map((m) => ({
           role: (m.role === "user" ? "user" : "model") as "user" | "model",
           parts: [{ text: m.text }],
