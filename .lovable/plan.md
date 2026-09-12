@@ -26,6 +26,23 @@ New **My Core Brains** section in Profile:
   reaction, or a content request straight from the brain card. Shared brains let the
   creator answer.
 
+### Editing the brain
+
+The viewer owns this memory and can rewrite any part of it:
+
+- **Edit mode** on every section — tap any fact, topic, subject, goal, moment or open
+  thread to change its wording, or delete it with one tap.
+- **Add** your own facts, topics and moments the AI never captured.
+- **Topics & subjects** get their own editor: rename, merge duplicates, remove ones you
+  no longer care about, and mark a topic "don't bring this up".
+- **Raw view** for anyone who wants it: the whole brain as editable JSON, validated and
+  bounded before it saves.
+- **Erase**: one moment, one topic, everything learned since a date, or the whole brain
+  for that creator. Erased items are gone from the next conversation immediately, and
+  from the shared creator view too.
+- Every edit is saved server-side with a "last edited by you" marker, and the AI merge
+  never overwrites a fact the viewer edited by hand unless they allow it.
+
 ## What the creator gets
 
 In Creator Studio, a **Subscribers & signals** panel, built for any audience size
