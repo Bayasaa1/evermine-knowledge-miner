@@ -83,19 +83,31 @@ async function flush() {
     if (!texts.length) continue;
     for (const t of texts) inflight.add(`${lang}:${t}`);
     try {
+      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await translateTexts({
-        data: { texts, target: lang, targetName: LANGUAGES[lang].name, domain: "AI video-mining app UI" },
+        data: {
+          texts,
+          target: lang,
+          targetName: LANGUAGES[lang].name,
+          domain: "AI video-mining app UI",
+          ...(await credentialPayload()),
+        },
       });
-      if ((res as { blocked?: string }).blocked === "credits") {
-        // The shared AI balance is empty: stop queueing work and say so once,
-        // instead of quietly showing the original language forever.
+      const state = (res as { blocked?: string }).blocked;
+      if (state === "no_key" || state === "quota") {
+        // The viewer has no working AI access of their own: stop queueing work
+        // and say so once, instead of quietly showing the original language.
         blocked = true;
         pending.clear();
         for (const t of texts) inflight.delete(`${lang}:${t}`);
         if (!noticeShown) {
           noticeShown = true;
           void import("sonner").then(({ toast }) =>
-            toast.error("Translation is paused — the AI credits for this app have run out."),
+            toast.error(
+              state === "quota"
+                ? "Translation is paused — your free Gemini quota is used up for now. It resets daily, or add another key in Engines."
+                : "Translation needs your own free Gemini key — add it once in Engines.",
+            ),
           );
         }
         return;

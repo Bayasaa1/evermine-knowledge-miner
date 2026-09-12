@@ -50,11 +50,52 @@ export function startDub(opts: {
 
       if (!res.ok || !res.body) {
         let message = `Voice dubbing failed (${res.status}).`;
+        let code = "";
         try {
-          const data = (await res.json()) as { error?: string };
+          const data = (await res.json()) as { error?: string; code?: string };
           if (data.error) message = data.error;
+          code = data.code ?? "";
         } catch {
           /* non-JSON error body */
+        }
+        // No cloned voice yet — speak with the device's own voice for free,
+        // with a simple simulated mouth so the avatar still moves.
+        if (code === "no_clone" && typeof window !== "undefined" && "speechSynthesis" in window) {
+          const utter = new SpeechSynthesisUtterance(opts.text);
+          const bcp47 = opts.lang === "mn" ? "mn-MN" : opts.lang === "ko" ? "ko-KR" : "en-US";
+          utter.lang = bcp47;
+          const voices = window.speechSynthesis.getVoices();
+          const match = voices.find((v) => v.lang.toLowerCase().startsWith(opts.lang));
+          if (match) utter.voice = match;
+          let mouth = 0;
+          opts.onStart?.();
+          const animate = () => {
+            if (stopped) return;
+            mouth = mouth > 0.4 ? 0.15 : 0.75;
+            opts.onViseme?.(mouth);
+            raf = window.setTimeout(animate, 140) as unknown as number;
+          };
+          animate();
+          await new Promise<void>((resolve) => {
+            utter.onend = () => resolve();
+            utter.onerror = () => resolve();
+            window.speechSynthesis.speak(utter);
+            // A stop() during speech cancels the utterance.
+            const watch = setInterval(() => {
+              if (stopped) {
+                window.speechSynthesis.cancel();
+                clearInterval(watch);
+                resolve();
+              }
+            }, 150);
+            utter.onend = () => {
+              clearInterval(watch);
+              resolve();
+            };
+          });
+          window.clearTimeout(raf);
+          opts.onViseme?.(0);
+          return;
         }
         opts.onError?.(message);
         return;

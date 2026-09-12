@@ -13,8 +13,8 @@ import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
  * The client sends only the small gaming brain (skills/tactics/decisions), not
  * the whole vault payload, and frames are analysed in memory — never stored.
  *
- * Model note: the platform default chat model is text-only; coaching needs
- * image input, so this call uses a vision-capable Gemini on the gateway.
+ * Coaching runs on the creator's own Gemini key or Google sign-in — never on
+ * shared platform credit.
  */
 export const Route = createFileRoute("/api/mind-coach")({
   server: {
@@ -37,6 +37,8 @@ export const Route = createFileRoute("/api/mind-coach")({
             mindset?: string[];
             emotions?: { trigger?: string; reaction?: string; quote?: string }[];
           };
+          apiKey?: string;
+          googleToken?: string;
         };
         try {
           body = (await request.json()) as typeof body;
@@ -109,56 +111,33 @@ export const Route = createFileRoute("/api/mind-coach")({
           ? `The player just said: "${heard}". Coach them on the current frame.`
           : "Coach me on the current frame.";
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
-        if (!apiKey) {
-          return new Response(JSON.stringify({ error: "AI is not configured" }), { status: 500 });
-        }
-
-        let res: Response;
+        const { resolveGeminiCredential, geminiGenerate, aiErrorResponse } = await import(
+          "@/lib/user-ai.server"
+        );
         try {
-          res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Lovable-API-Key": apiKey,
-              "X-Lovable-AIG-SDK": "fetch",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-3.1-flash-lite-preview",
-              messages: [
-                { role: "system", content: system },
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: userText },
-                    { type: "image_url", image_url: { url: image } },
-                  ],
-                },
-              ],
-            }),
+          const credential = await resolveGeminiCredential(auth.userId, body);
+          const advice = await geminiGenerate({
+            credential,
+            model: "gemini-2.5-flash",
+            system,
+            maxTokens: 512,
+            turns: [
+              {
+                role: "user",
+                parts: [
+                  { text: userText },
+                  { inline_data: { mime_type: "image/jpeg", data: image.split(",", 2)[1] ?? "" } },
+                ],
+              },
+            ],
           });
-        } catch {
-          return new Response(JSON.stringify({ error: "Could not reach the AI service" }), { status: 502 });
+          return new Response(JSON.stringify({ advice }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (err) {
+          return aiErrorResponse(err);
         }
-
-        if (!res.ok) {
-          const message =
-            res.status === 429
-              ? "The coach is rate limited — wait a moment."
-              : res.status === 402
-                ? "AI credits are exhausted for this workspace."
-                : res.status === 403
-                  ? "AI access is blocked for this workspace."
-                  : `Coaching failed (${res.status}).`;
-          return new Response(JSON.stringify({ error: message }), { status: res.status });
-        }
-
-        const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-        const advice = (data.choices?.[0]?.message?.content ?? "").trim();
-        return new Response(JSON.stringify({ advice }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       },
     },
   },

@@ -2,6 +2,13 @@ import { LANGUAGES } from "@/lib/languages";
 import { normalizeYoutubeUrl } from "@/lib/import-sources";
 import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
 import { buildTimeline, secondsToStamp, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+import {
+  GeminiHttpError,
+  UserAiError,
+  geminiGenerate,
+  youtubeVideoPart,
+  type AiCredential,
+} from "@/lib/user-ai.server";
 
 const miningPrompt = `You are building an AI Avatar (digital twin) from this personal-archive video.
 Analyze only the requested time range and return JSON only with these keys:
@@ -104,74 +111,44 @@ export async function analyzeYoutubeVideo(input: {
   startSec: number;
   endSec: number;
   assessment?: Assessment;
+  /** The job owner's own Gemini credential — mining never uses platform AI. */
+  credential: AiCredential;
 }): Promise<ChunkResult> {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
 
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("Built-in AI is not configured.");
-
   // Step 1 — measure the clock before anything is described.
   let cues: Cue[] = [];
   try {
-    cues = await buildTimeline(url, input.startSec, input.endSec);
+    cues = await buildTimeline(url, input.startSec, input.endSec, input.credential);
   } catch (err) {
-    const status = (err as { status?: number }).status;
-    if (status === 402 || status === 403) throw err;
+    if (err instanceof UserAiError) throw err;
   }
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3.7-flash",
-      messages: [
+  let text: string;
+  try {
+    text = await geminiGenerate({
+      credential: input.credential,
+      model: "gemini-2.5-flash",
+      json: true,
+      maxTokens: 65536,
+      turns: [
         {
           role: "user",
-          content: [
+          parts: [
             {
-              type: "text",
               text: `${miningPrompt}${assessmentDirective(input.assessment)}${timelineDirective(timelineForPrompt(cues))}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.`,
             },
-            {
-              type: "video_url",
-              video_url: {
-                url,
-                start_offset: `${Math.floor(input.startSec)}s`,
-                end_offset: `${Math.ceil(input.endSec)}s`,
-              },
-            },
+            youtubeVideoPart(url, input.credential, input.startSec, input.endSec),
           ],
         },
       ],
-      response_format: { type: "json_object" },
-
-    }),
-  });
-
-  if (!response.ok) {
-    const raw = await response.text().catch(() => "");
-    let detail = raw.slice(0, 500);
-    try {
-      const parsed = JSON.parse(raw) as { error?: { message?: string }; message?: string };
-      detail = parsed.error?.message ?? parsed.message ?? detail;
-    } catch {
-      // Keep the bounded raw response when the gateway did not return JSON.
-    }
-    throw Object.assign(new Error(gatewayMessage(response.status, detail)), { status: response.status });
+    });
+  } catch (err) {
+    if (err instanceof GeminiHttpError && err.message === "SAFETY_BLOCKED") throw new Error(SAFETY_MESSAGE);
+    if (err instanceof GeminiHttpError) throw new Error(gatewayMessage(err.status, err.message));
+    throw err;
   }
-
-  const body = (await response.json()) as {
-    choices?: { message?: { content?: string }; finish_reason?: string }[];
-  };
-  const choice = body.choices?.[0];
-  if (choice?.finish_reason && /safety|content_filter/i.test(choice.finish_reason)) {
-    throw new Error(SAFETY_MESSAGE);
-  }
-  const text = choice?.message?.content?.trim();
   if (!text) throw new Error("AI returned an empty video analysis.");
 
   let result: ChunkResult;

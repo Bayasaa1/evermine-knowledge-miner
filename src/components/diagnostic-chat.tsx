@@ -116,10 +116,15 @@ async function askGemini(
 
 /** Server-side fallback so a signed-in user is never blocked on a missing key. */
 async function askBackend(lang: Lang, history: ChatMsg[]): Promise<string> {
+  const { credentialPayload } = await import("@/lib/api-keys");
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
-    body: JSON.stringify({ system: systemPrompt(lang, getCapturedErrors()), messages: history }),
+    body: JSON.stringify({
+      system: systemPrompt(lang, getCapturedErrors()),
+      messages: history,
+      ...(await credentialPayload()),
+    }),
   });
   const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
   if (!res.ok) throw new Error(data.error ?? `Diagnostics service error (${res.status}).`);

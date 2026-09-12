@@ -1,8 +1,9 @@
 /**
  * Server side of the Auditor.
  *
- * - `auditWithBuiltIn` lets the built-in Evermind engine audit for free,
- *   so a creator without any personal API key can still get a second opinion.
+ * - `auditWithBuiltIn` runs the Gemini audit on the creator's OWN access —
+ *   their Google sign-in token, a key from their device vault, or the key
+ *   saved on their account. There is no shared platform credit behind it.
  * - `saveAudit` / `chooseAudit` store audits inside the saved mind itself,
  *   owner-scoped, so nothing an auditor said is ever hidden or lost.
  */
@@ -11,33 +12,31 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const auditWithBuiltIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { prompt: string; brief: string }) => {
+  .inputValidator((input: { prompt: string; brief: string; apiKey?: string; googleToken?: string }) => {
     if (!input?.brief?.trim()) throw new Error("Nothing to audit.");
-    return { prompt: String(input.prompt).slice(0, 4000), brief: String(input.brief).slice(0, 20000) };
+    return {
+      prompt: String(input.prompt).slice(0, 4000),
+      brief: String(input.brief).slice(0, 20000),
+      apiKey: typeof input.apiKey === "string" ? input.apiKey : undefined,
+      googleToken: typeof input.googleToken === "string" ? input.googleToken : undefined,
+    };
   })
-  .handler(async ({ data }): Promise<string> => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("The built-in AI is not configured.");
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-3.7-flash",
-        messages: [
-          { role: "system", content: data.prompt },
-          { role: "user", content: data.brief },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
-    if (!res.ok) {
-      const raw = (await res.text().catch(() => "")).slice(0, 300);
-      if (res.status === 429) throw new Error("The built-in auditor is rate limited — try again shortly.");
-      if (res.status === 402) throw new Error("AI credits are exhausted for this workspace.");
-      throw new Error(raw || `The audit failed (${res.status}).`);
+  .handler(async ({ data, context }): Promise<string> => {
+    const { resolveGeminiCredential, geminiGenerate, UserAiError } = await import("@/lib/user-ai.server");
+    try {
+      const credential = await resolveGeminiCredential(context.userId, data);
+      return await geminiGenerate({
+        credential,
+        model: "gemini-2.5-flash",
+        system: data.prompt,
+        json: true,
+        maxTokens: 8192,
+        turns: [{ role: "user", parts: [{ text: data.brief }] }],
+      });
+    } catch (err) {
+      if (err instanceof UserAiError) throw new Error(err.message);
+      throw err;
     }
-    const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    return body.choices?.[0]?.message?.content ?? "";
   });
 
 /** Appends one audit to a saved mind's payload (owner-scoped). */

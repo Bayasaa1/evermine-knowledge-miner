@@ -33,6 +33,12 @@ const startSchema = z.object({
   publishToFeed: z.boolean().default(true),
   /** Only true when the creator deliberately asks to mine a finished video again. */
   force: z.boolean().default(false),
+  /**
+   * The creator's own Gemini key from their device vault. Saved on the job so
+   * the background worker keeps mining on the creator's own free quota while
+   * their tab is closed. Never returned to any client.
+   */
+  apiKey: z.string().max(200).optional(),
 });
 
 type JobRow = {
@@ -100,6 +106,25 @@ export const startMiningJobs = createServerFn({ method: "POST" })
 
     if (!data.personaId || !data.projectId) {
       throw new Error("Choose a persona and a saved project before mining.");
+    }
+
+    // Mining always runs on the creator's own AI key — there is no shared
+    // platform credit to fall back to. The key rides along on the job row so
+    // the background worker can keep going after the tab closes.
+    let ownerKey = (data.apiKey ?? "").trim();
+    if (!ownerKey) {
+      const { data: savedKey } = await context.supabase
+        .from("user_ai_keys")
+        .select("api_key")
+        .eq("user_id", context.userId)
+        .eq("provider", "gemini")
+        .maybeSingle();
+      ownerKey = (savedKey?.api_key ?? "").trim();
+    }
+    if (!ownerKey) {
+      throw new Error(
+        "Add your free Gemini key in Engines first — mining runs on your own free quota, and it takes a minute to set up.",
+      );
     }
     const { data: destination } = await context.supabase
       .from("projects")
@@ -188,6 +213,7 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         content_kind: data.contentKind,
         category: data.category,
         publish_to_feed: data.publishToFeed,
+        ai_credential: ownerKey,
       });
     }
 
@@ -203,7 +229,9 @@ export const startMiningJobs = createServerFn({ method: "POST" })
  */
 export const runNextChunk = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ jobId: z.string().uuid(), apiKey: z.string().max(200).optional() }).parse(input),
+  )
   .handler(async ({ data, context }): Promise<ChunkStepResult> => {
     const { assertNotBanned } = await import("@/lib/api-guard.server");
     await assertNotBanned(context.supabase, context.userId);
@@ -231,12 +259,39 @@ export const runNextChunk = createServerFn({ method: "POST" })
     const chunk = job.chunks[job.nextIndex]!;
     const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
 
+    // The chunk is mined on the creator's own key: the one their tab sent, the
+    // one saved on the job, or the one saved on their account.
+    const sentKey = (data.apiKey ?? "").trim();
+    const { data: credRow } = await context.supabase
+      .from("mining_jobs")
+      .select("ai_credential")
+      .eq("id", data.jobId)
+      .maybeSingle();
+    const jobKey = ((credRow as { ai_credential?: string | null } | null)?.ai_credential ?? "").trim();
+    let accountKey = "";
+    if (!sentKey && !jobKey) {
+      const { data: savedKey } = await context.supabase
+        .from("user_ai_keys")
+        .select("api_key")
+        .eq("user_id", context.userId)
+        .eq("provider", "gemini")
+        .maybeSingle();
+      accountKey = (savedKey?.api_key ?? "").trim();
+    }
+    const activeKey = sentKey || jobKey || accountKey;
+    if (!activeKey) {
+      throw new Error(
+        "Add your free Gemini key in Engines first — mining runs on your own free quota, and it takes a minute to set up.",
+      );
+    }
+
     try {
       const mined = await analyzeYoutubeVideo({
         url: job.sourceUrl,
         startSec: chunk.start,
         endSec: chunk.end,
         assessment: job.assessment,
+        credential: { kind: "gemini_key", value: activeKey },
       });
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;

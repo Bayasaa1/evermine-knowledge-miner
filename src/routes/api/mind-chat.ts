@@ -180,6 +180,8 @@ export const Route = createFileRoute("/api/mind-chat")({
           provider?: string;
           model?: string;
           apiKey?: string;
+          /** The caller's Google session token, when their sign-in covers Gemini. */
+          googleToken?: string;
           /** Live mode: stream the answer out word by word. */
           stream?: boolean;
           /** What the Mind currently sees on a video call. */
@@ -217,147 +219,66 @@ export const Route = createFileRoute("/api/mind-chat")({
           }
         }
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
-        if (!apiKey) {
-          return new Response(JSON.stringify({ error: "AI is not configured" }), { status: 500 });
+        // Default brain: the caller's own Gemini — a key from their vault or
+        // account, or their Google sign-in token. There is no shared platform
+        // credit to fall back to.
+        const {
+          resolveGeminiCredential,
+          geminiStream,
+          geminiGenerate,
+          aiErrorResponse,
+        } = await import("@/lib/user-ai.server");
+        let credential;
+        try {
+          credential = await resolveGeminiCredential(auth.userId, body);
+        } catch (err) {
+          return aiErrorResponse(err);
         }
 
         // On a video call the Mind is also told what it can see right now, so it
         // reacts to the person in front of it the way a caller would expect.
         const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
-        const input = [
-          {
-            role: "developer",
-            content: [
-              {
-                type: "input_text",
-                text: seen ? `${system}\n\nRight now you can see on the video call: ${seen}` : system,
-              },
-            ],
-          },
-
-          ...history.map((m) => ({
-            role: m.role === "user" ? "user" : "assistant",
-            content: [
-              m.role === "user"
-                ? { type: "input_text", text: m.text }
-                : { type: "output_text", text: m.text },
-            ],
-          })),
-        ];
-
-        let res: Response;
-        try {
-          res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Lovable-API-Key": apiKey,
-              "X-Lovable-AIG-SDK": "fetch",
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-6-astra",
-              input,
-              stream: true,
-              store: false,
-            }),
-          });
-        } catch {
-          return new Response(JSON.stringify({ error: "Could not reach the AI service" }), {
-            status: 502,
-          });
-        }
-
-        if (!res.ok || !res.body) {
-          const detail = await res.text().catch(() => "");
-          const message =
-            res.status === 429
-              ? "This mind is busy right now — try again in a moment."
-              : res.status === 402
-                ? "AI credits are exhausted for this workspace."
-                : res.status === 403
-                  ? "AI access is blocked for this workspace."
-                  : `AI request failed (${res.status}).`;
-          console.error("mind-chat gateway error", res.status, detail.slice(0, 500));
-          return new Response(JSON.stringify({ error: message }), { status: res.status });
-        }
+        const systemText = seen ? `${system}\n\nRight now you can see on the video call: ${seen}` : system;
+        const turns = history.map((m) => ({
+          role: (m.role === "user" ? "user" : "model") as "user" | "model",
+          parts: [{ text: m.text }],
+        }));
 
         // Live mode: forward the answer word by word so the voice clone can start
         // speaking the first phrase while the rest is still being written. This is
         // what removes the "wait, then talk" delay on voice and video calls.
         if (body.stream === true) {
-          const upstream = res.body.getReader();
           const enc = new TextEncoder();
-          const dec = new TextDecoder();
-          let carry = "";
           const live = new ReadableStream<Uint8Array>({
-            async pull(controller) {
-              const { done, value } = await upstream.read();
-              if (done) {
+            async start(controller) {
+              try {
+                await geminiStream({
+                  credential,
+                  system: systemText,
+                  turns,
+                  onDelta: (delta) =>
+                    controller.enqueue(enc.encode(`data: ${JSON.stringify({ delta })}\n\n`)),
+                });
                 controller.enqueue(enc.encode("data: [DONE]\n\n"));
+              } catch (err) {
+                const message = err instanceof Error ? err.message : "AI request failed.";
+                controller.enqueue(enc.encode(`data: ${JSON.stringify({ error: message })}\n\n`));
+              } finally {
                 controller.close();
-                return;
-              }
-              carry += dec.decode(value, { stream: true });
-              const parts = carry.split("\n");
-              carry = parts.pop() ?? "";
-              for (const line of parts) {
-                if (!line.startsWith("data:")) continue;
-                const payload = line.slice(5).trim();
-                if (!payload || payload === "[DONE]") continue;
-                try {
-                  const evt = JSON.parse(payload) as { type?: string; delta?: string };
-                  if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
-                    controller.enqueue(enc.encode(`data: ${JSON.stringify({ delta: evt.delta })}\n\n`));
-                  }
-                } catch {
-                  /* keep-alive fragment */
-                }
               }
             },
-            cancel: () => void upstream.cancel(),
           });
           return new Response(live, {
             headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
           });
         }
 
-        const reader = res.body.getReader();
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let text = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.startsWith("data:")) continue;
-            const payload = line.slice(5).trim();
-            if (!payload || payload === "[DONE]") continue;
-            try {
-              const evt = JSON.parse(payload) as {
-                type?: string;
-                delta?: string;
-                response?: { output_text?: string };
-              };
-              if (evt.type === "response.output_text.delta" && typeof evt.delta === "string") {
-                text += evt.delta;
-              } else if (evt.type === "response.completed" && !text) {
-                text = evt.response?.output_text ?? "";
-              }
-            } catch {
-              /* ignore keep-alive fragments */
-            }
-          }
+        try {
+          const text = await geminiGenerate({ credential, system: systemText, turns, maxTokens: 1024 });
+          return jsonReply(text);
+        } catch (err) {
+          return aiErrorResponse(err);
         }
-
-        return new Response(JSON.stringify({ text: text.trim() }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
       },
     },
   },

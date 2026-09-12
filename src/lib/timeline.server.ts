@@ -8,6 +8,13 @@
  * Everything else in the Mind is anchored to the timeline this produces.
  */
 
+import {
+  UserAiError,
+  geminiGenerate,
+  youtubeVideoPart,
+  type AiCredential,
+} from "@/lib/user-ai.server";
+
 export type Cue = {
   /** Seconds from the start of the whole video. */
   start: number;
@@ -54,45 +61,25 @@ Rules:
 type RawLine = { start?: unknown; end?: unknown; text?: unknown; speaker?: unknown };
 
 async function listenWindow(
-  apiKey: string,
+  credential: AiCredential,
   url: string,
   start: number,
   end: number,
 ): Promise<Cue[]> {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-3.7-flash",
-      messages: [
+  const content = (
+    await geminiGenerate({
+      credential,
+      model: "gemini-2.5-flash",
+      json: true,
+      maxTokens: 4096,
+      turns: [
         {
           role: "user",
-          content: [
-            { type: "text", text: PROMPT(start, end) },
-            {
-              type: "video_url",
-              video_url: {
-                url,
-                start_offset: `${Math.floor(start)}s`,
-                end_offset: `${Math.ceil(end)}s`,
-              },
-            },
-          ],
+          parts: [{ text: PROMPT(start, end) }, youtubeVideoPart(url, credential, start, end)],
         },
       ],
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  if (!response.ok) {
-    const raw = await response.text().catch(() => "");
-    throw Object.assign(new Error(raw.slice(0, 300) || `Timeline pass failed (${response.status}).`), {
-      status: response.status,
-    });
-  }
-
-  const body = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-  const content = body.choices?.[0]?.message?.content?.trim();
+    })
+  ).trim();
   if (!content) return [];
   let parsed: { lines?: RawLine[] } | RawLine[];
   try {
@@ -152,21 +139,20 @@ export async function buildTimeline(
   url: string,
   startSec: number,
   endSec: number,
+  credential: AiCredential,
   options: { signal?: AbortSignal } = {},
 ): Promise<Cue[]> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("Built-in AI is not configured.");
   const cues: Cue[] = [];
   for (let from = startSec; from < endSec; from += WINDOW_SECONDS) {
     if (options.signal?.aborted) break;
     const to = Math.min(from + WINDOW_SECONDS, endSec);
     if (to - from < 2) break;
     try {
-      cues.push(...(await listenWindow(apiKey, url, from, to)));
+      cues.push(...(await listenWindow(credential, url, from, to)));
     } catch (err) {
-      // One deaf window must not lose the rest of the video.
-      const status = (err as { status?: number }).status;
-      if (status === 402 || status === 403) throw err;
+      // One deaf window must not lose the rest of the video — but a missing
+      // key or an exhausted quota stops the whole pass honestly.
+      if (err instanceof UserAiError) throw err;
     }
   }
   return tidyCues(cues);

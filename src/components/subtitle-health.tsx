@@ -29,8 +29,12 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
   });
 
   const fixTimings = useMutation({
-    mutationFn: (v: { contentId: string; mode: "free" | "ai" }) =>
-      v.mode === "free" ? repair({ data: { contentId: v.contentId } }) : retime({ data: { contentId: v.contentId } }),
+    mutationFn: async (v: { contentId: string; mode: "free" | "ai" }) => {
+      if (v.mode === "free") return repair({ data: { contentId: v.contentId } });
+      const { bestGeminiKey } = await import("@/lib/api-keys");
+      const apiKey = (await bestGeminiKey()) ?? undefined;
+      return retime({ data: { contentId: v.contentId, apiKey } });
+    },
     onSuccess: (row, v) => {
       toast.success(
         row.status === "synced"

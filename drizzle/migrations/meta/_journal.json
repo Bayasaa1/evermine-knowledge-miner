@@ -8,6 +8,13 @@
       "when": 1789173206135,
       "tag": "0000_add_creation_category",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789179914768,
+      "tag": "0001_user_ai_keys_and_mining_credential",
+      "breakpoints": true
     }
   ]
 }

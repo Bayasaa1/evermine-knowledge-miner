@@ -7,18 +7,24 @@ const schema = z.object({
   targetName: z.string().min(2).max(40),
   /** Optional hint so the model keeps product terminology consistent. */
   domain: z.string().max(200).optional(),
+  /** The viewer's own Gemini key (from their device vault) or Google token. */
+  apiKey: z.string().max(200).optional(),
+  googleToken: z.string().max(4096).optional(),
 });
 
 /**
  * Display-layer translation. The Core Brain JSON stays English in the database;
  * this only renders English source strings into the viewer's active language.
+ *
+ * Translation runs on the viewer's OWN free Gemini access — a key from their
+ * device vault or their Google sign-in token. With neither, the original text
+ * comes back with `blocked: "no_key"` so the app can say why instead of
+ * silently showing untranslated strings.
  */
 export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
-  .handler(async ({ data }) => {
-    // Abuse guard: anonymous callers share a per-IP sliding window so a script
-    // cannot drain the shared AI credit balance. Over the limit we return the
-    // original text instead of spending credits.
+  .handler(async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota" }> => {
+    // Abuse guard: anonymous callers share a per-IP sliding window.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
     const ip =
@@ -27,8 +33,9 @@ export const translateTexts = createServerFn({ method: "POST" })
       "unknown";
     if (rateLimit("translate", ip, 120)) return { texts: data.texts };
 
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) return { texts: data.texts };
+    const apiKey = (data.apiKey ?? "").trim();
+    const googleToken = (data.googleToken ?? "").trim();
+    if (!apiKey && !googleToken) return { texts: data.texts, blocked: "no_key" as const };
 
     const system = [
       `You are a UI and subtitle localisation engine for Evermind, a video-mining AI platform.`,
@@ -44,29 +51,17 @@ export const translateTexts = createServerFn({ method: "POST" })
       .join(" ");
 
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "google/gemini-3.6-flash",
-          messages: [
-            { role: "system", content: system },
-            { role: "user", content: JSON.stringify(data.texts) },
-          ],
-        }),
+      const { geminiGenerate, UserAiError } = await import("@/lib/user-ai.server");
+      const credential = apiKey
+        ? ({ kind: "gemini_key", value: apiKey } as const)
+        : ({ kind: "google_token", value: googleToken } as const);
+      const raw = await geminiGenerate({
+        credential,
+        model: "gemini-2.5-flash",
+        system,
+        maxTokens: 8192,
+        turns: [{ role: "user", parts: [{ text: JSON.stringify(data.texts) }] }],
       });
-      if (!res.ok) {
-        console.error("translate gateway error", res.status, (await res.text().catch(() => "")).slice(0, 300));
-        // 402/403 are terminal: the AI balance is empty or blocked. Tell the
-        // caller so the app can stop retrying and show an honest notice
-        // instead of silently rendering untranslated text.
-        if (res.status === 402 || res.status === 403) {
-          return { texts: data.texts, blocked: "credits" as const };
-        }
-        return { texts: data.texts };
-      }
-      const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const raw = json.choices?.[0]?.message?.content ?? "";
       const match = raw.match(/\[[\s\S]*\]/);
       if (!match) {
         console.error("translate unparsable reply", raw.slice(0, 300));
@@ -76,7 +71,12 @@ export const translateTexts = createServerFn({ method: "POST" })
       if (!Array.isArray(parsed) || parsed.length !== data.texts.length) return { texts: data.texts };
       const out = parsed.map((v, i) => (typeof v === "string" && v.trim() ? v : data.texts[i]!));
       return { texts: out };
-    } catch {
+    } catch (err) {
+      const { UserAiError } = await import("@/lib/user-ai.server");
+      if (err instanceof UserAiError) {
+        if (err.code === "quota") return { texts: data.texts, blocked: "quota" as const };
+        return { texts: data.texts, blocked: "no_key" as const };
+      }
       return { texts: data.texts };
     }
   });

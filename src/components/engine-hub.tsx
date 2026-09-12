@@ -18,6 +18,7 @@ import {
 import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { GeminiKeyCard } from "@/components/gemini-key-card";
 
 const copy = {
   en: {
@@ -166,6 +167,11 @@ export function EngineHub({ lang }: { lang: Lang }) {
         </button>
       </div>
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
+
+      <div className="mb-5">
+        <GeminiKeyCard />
+      </div>
+
 
       <div className="grid gap-4 lg:grid-cols-3">
         {SLOT_ORDER.map((slot) => (

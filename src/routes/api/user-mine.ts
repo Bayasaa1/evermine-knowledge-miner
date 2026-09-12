@@ -13,7 +13,7 @@ const SYSTEM = [
   "Only include items genuinely supported by the text. Output JSON only, no prose, no markdown fences.",
 ].join("\n");
 
-type Body = { utterances?: unknown };
+type Body = { utterances?: unknown; apiKey?: string; googleToken?: string };
 
 export const Route = createFileRoute("/api/user-mine")({
   server: {
@@ -33,65 +33,30 @@ export const Route = createFileRoute("/api/user-mine")({
           : [];
         if (utterances.length === 0) return json({ error: "No utterances" }, 400);
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
-        if (!apiKey) return json({ error: "AI is not configured" }, 500);
+        const { resolveGeminiCredential, geminiGenerate, aiErrorResponse } = await import(
+          "@/lib/user-ai.server"
+        );
 
-        let res: Response;
+        let text = "";
         try {
-          res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Lovable-API-Key": apiKey,
-              "X-Lovable-AIG-SDK": "fetch",
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-5.6-luna",
-              store: false,
-              input: [
-                { role: "developer", content: [{ type: "input_text", text: SYSTEM }] },
-                {
-                  role: "user",
-                  content: [
-                    {
-                      type: "input_text",
-                      text: `USER TURNS:\n${utterances.map((u) => `- ${u}`).join("\n")}`,
-                    },
-                  ],
-                },
-              ],
-            }),
+          const credential = await resolveGeminiCredential(auth.userId, body);
+          text = await geminiGenerate({
+            credential,
+            model: "gemini-2.5-flash",
+            system: SYSTEM,
+            json: true,
+            maxTokens: 1024,
+            turns: [
+              {
+                role: "user",
+                parts: [{ text: `USER TURNS:\n${utterances.map((u) => `- ${u}`).join("\n")}` }],
+              },
+            ],
           });
-        } catch {
-          return json({ error: "Could not reach the AI service" }, 502);
+        } catch (err) {
+          return aiErrorResponse(err);
         }
 
-        if (!res.ok) {
-          const detail = await res.text().catch(() => "");
-          console.error("user-mine gateway error", res.status, detail.slice(0, 400));
-          const message =
-            res.status === 429
-              ? "Mind Miner is rate limited — it will retry later."
-              : res.status === 402
-                ? "AI credits are exhausted for this workspace."
-                : res.status === 403
-                  ? "AI access is blocked for this workspace."
-                  : `Mind Miner failed (${res.status}).`;
-          return json({ error: message }, res.status);
-        }
-
-        const data = (await res.json()) as {
-          output_text?: string;
-          output?: { content?: { type?: string; text?: string }[] }[];
-        };
-        let text = data.output_text ?? "";
-        if (!text) {
-          for (const item of data.output ?? []) {
-            for (const part of item.content ?? []) {
-              if (part.type === "output_text" && part.text) text += part.text;
-            }
-          }
-        }
         const match = text.match(/\{[\s\S]*\}/);
         if (!match) return json({ interests: [], beliefs: [], questions: [], toneNotes: [] }, 200);
         try {

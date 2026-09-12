@@ -102,6 +102,7 @@ async function backendDiagnosis(
   signal?: AbortSignal,
 ): Promise<Diagnosis> {
   try {
+    const { credentialPayload } = await import("@/lib/api-keys");
     const res = await apiFetch("/api/diagnose-chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -109,6 +110,7 @@ async function backendDiagnosis(
       body: JSON.stringify({
         system: `You are the in-app support assistant for Evermind. Reply in ${LANG_NAME[lang]} only, as strict JSON: {"problem":"one or two short sentences","steps":["short imperative step"]}. 2-4 steps, no jargon, no stack traces.`,
         messages: [{ role: "user", text: `Context: ${context}\nRaw developer log:\n${raw.slice(0, 4000)}` }],
+        ...(await credentialPayload()),
       }),
     });
     if (!res.ok) return fallback(lang, errorKey, raw);

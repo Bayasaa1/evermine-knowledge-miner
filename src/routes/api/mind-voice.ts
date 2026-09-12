@@ -154,68 +154,20 @@ export const Route = createFileRoute("/api/mind-voice")({
           // call never goes silent.
         }
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
-
-        if (!apiKey) {
-          return new Response(JSON.stringify({ error: "Voice is not configured" }), { status: 500 });
-        }
-
-        const instructions = [
-          `You are performing the AI Mind voice of ${mind?.name ?? projectMind?.name ?? "this creator"}.`,
-          `Timbre and delivery: ${vp.timbre}`,
-          `Accent characteristics to preserve: ${vp.accent}`,
-          `Emotional signature: ${vp.emotion}`,
-          `Pace: ${vp.pace}`,
-          `ACTIVE EMOTION for this line: ${primary} (intensity ${intensity.toFixed(2)}, facial cue ${facial}, vocal marker ${vocal}). ${delivery[primary]}`,
-          `Blend that emotion into the speaker's own voice — never replace their timbre or accent with a generic performance.`,
-          `Speak fluent, natural ${language.name} (${language.native}) as a native speaker would — correct pronunciation and prosody for that language — while keeping the speaker's own timbre, accent colour and emotion completely unchanged.`,
-          `This is dubbing, not narration: it must sound like this same person genuinely speaking ${language.name}. Never add commentary, translation notes or subtitles.`,
-        ].join("\n");
-
-        let res: Response;
-        try {
-          res = await fetch("https://ai.gateway.lovable.dev/v1/audio/speech", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: "openai/gpt-4o-mini-tts",
-              input: text.slice(0, 4000),
-              voice: vp.voice,
-              instructions,
-              speed,
-              stream_format: "sse",
-              response_format: "pcm",
-            }),
-          });
-        } catch {
-          return new Response(JSON.stringify({ error: "Could not reach the voice service" }), {
-            status: 502,
-          });
-        }
-
-        if (!res.ok || !res.body) {
-          const detail = await res.text().catch(() => "");
-          console.error("mind-voice gateway error", res.status, detail.slice(0, 500));
-          const message =
-            res.status === 429
-              ? "Voice dubbing is rate limited — try again in a moment."
-              : res.status === 402
-                ? "AI credits are exhausted for this workspace."
-                : res.status === 403
-                  ? "AI access is blocked for this workspace."
-                  : `Voice dubbing failed (${res.status}).`;
-          return new Response(JSON.stringify({ error: message }), { status: res.status });
-        }
-
-        return new Response(res.body, {
-          headers: {
-            "Content-Type": "text/event-stream",
-            "Cache-Control": "no-cache",
-          },
-        });
+        // No shared platform voice: when the owner has not built a real voice
+        // clone (or the clone service is not configured), the client speaks
+        // the reply with the device's own speech voice instead. The `no_clone`
+        // code tells the player to take that free local path.
+        void vp;
+        void language;
+        void speed;
+        return new Response(
+          JSON.stringify({
+            error: "No cloned voice is built for this mind yet — using the device voice instead.",
+            code: "no_clone",
+          }),
+          { status: 404, headers: { "Content-Type": "application/json" } },
+        );
       },
     },
   },
