@@ -14,14 +14,18 @@ import { Loader2 } from "lucide-react";
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { useAuth } from "@/hooks/use-auth";
 
 const LIVE: MiningJobStatus[] = ["queued", "running", "paused_quota", "paused_user"];
 
 export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
+  const { isAuthenticated } = useAuth();
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({
     queryKey: ["mining-jobs"],
     queryFn: () => fetchJobs(),
+    // The job list is owner-scoped and 401s without a session.
+    enabled: isAuthenticated,
     refetchInterval: 8_000,
     refetchOnWindowFocus: true,
     // Keep the last known jobs on screen while a refetch is in flight, so the

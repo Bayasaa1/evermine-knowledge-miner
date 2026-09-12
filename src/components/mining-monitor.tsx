@@ -6,6 +6,7 @@ import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash
 import { clearMiningHistory, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { useAuth } from "@/hooks/use-auth";
 
 const COPY = {
   en: {
@@ -85,6 +86,7 @@ function StatusIcon({ status }: { status: MiningJobStatus }) {
  */
 export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const t = pickCopy(COPY, lang);
+  const { isAuthenticated } = useAuth();
   const fetchJobs = useServerFn(listMiningJobs);
   const setState = useServerFn(setMiningJobState);
   const qc = useQueryClient();
@@ -95,6 +97,7 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
     // Poll while the tab is open; the worker keeps going when it is not.
     refetchInterval: 4_000,
     refetchOnWindowFocus: true,
+    enabled: isAuthenticated,
   });
 
   const clearHistory = useServerFn(clearMiningHistory);
