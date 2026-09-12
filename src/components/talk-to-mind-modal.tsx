@@ -6,6 +6,8 @@ import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
 import { MindAvatar } from "@/components/mind-avatar";
+import { mergeSession } from "@/lib/viewer-brain.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 
 type Msg = { role: "user" | "agent"; text: string };
