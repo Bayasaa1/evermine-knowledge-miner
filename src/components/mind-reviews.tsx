@@ -228,11 +228,11 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: La
                 </span>
               </div>
               {r.body && <p className="text-xs leading-relaxed text-muted-foreground">{r.body}</p>}
-              {r.video_proof_url && (
+              {safeHttpUrl(r.video_proof_url) && (
                 <a
-                  href={r.video_proof_url}
+                  href={safeHttpUrl(r.video_proof_url) as string}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noreferrer noopener"
                   className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
                 >
                   <Video className="h-3 w-3" /> video proof
