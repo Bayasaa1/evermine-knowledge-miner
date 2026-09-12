@@ -102,7 +102,12 @@ export async function projectFeed(): Promise<FeedItem[]> {
   const rows = await listPublicVisualContentLight();
   return rows
     .filter((row) => row.youtube_id)
-    .map((row) => ({
+    .map((row) => {
+      const raw = (row.project?.plan_tiers ?? null) as Record<string, unknown> | null;
+      // A creator selling access marks plan_tiers.enabled; otherwise the mind is free.
+      const tiers = raw?.['enabled'] === true ? offeredTiers(normalizeTiers(raw)) : [];
+      const cheapest = tiers.length ? Math.min(...tiers.map((t) => t.price)) : null;
+      return {
       id: `project:${row.id}`,
       contentId: row.id,
       mindId: `project:${row.project_id}`,
