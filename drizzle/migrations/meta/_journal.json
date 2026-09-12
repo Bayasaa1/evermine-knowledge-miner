@@ -15,6 +15,13 @@
       "when": 1789179914768,
       "tag": "0001_user_ai_keys_and_mining_credential",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789183940540,
+      "tag": "0002_mind_purchase_plans",
+      "breakpoints": true
     }
   ]
 }

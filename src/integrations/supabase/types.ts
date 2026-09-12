@@ -216,8 +216,10 @@ export type Database = {
           category: string
           created_at: string
           currency: string
+          expires_at: string | null
           id: string
           mind_id: string
+          plan: string
           price: number
           updated_at: string
           user_id: string
@@ -226,8 +228,10 @@ export type Database = {
           category?: string
           created_at?: string
           currency?: string
+          expires_at?: string | null
           id?: string
           mind_id: string
+          plan?: string
           price?: number
           updated_at?: string
           user_id: string
@@ -236,8 +240,10 @@ export type Database = {
           category?: string
           created_at?: string
           currency?: string
+          expires_at?: string | null
           id?: string
           mind_id?: string
+          plan?: string
           price?: number
           updated_at?: string
           user_id?: string
