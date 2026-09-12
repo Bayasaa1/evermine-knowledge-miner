@@ -243,9 +243,11 @@ export const editFact = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const FactIdInput = z.object({ mindId: z.string(), factId: z.string() });
+
 export const deleteFact = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; factId: string }) => input)
+  .inputValidator((input) => FactIdInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
