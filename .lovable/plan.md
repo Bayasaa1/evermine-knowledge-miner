@@ -28,14 +28,22 @@ New **My Core Brains** section in Profile:
 
 ## What the creator gets
 
-In Creator Studio, a **Subscribers & signals** panel:
+In Creator Studio, a **Subscribers & signals** panel, built for any audience size
+(100 viewers or 100 million — the creator never has to read individuals one by one):
 
+- **Auto-FAQ**: viewer questions and requests are clustered by topic, so the same
+  question asked by thousands surfaces once with its count. The creator answers once
+  and the answer is pushed back into the Mind's brain — every future viewer asking it
+  gets the creator's answer instantly, without the creator touching anything.
+- **Trending demand**: most-requested topics this week, so the creator knows exactly
+  what content to make next.
+- **Audience summary**: aggregate stats — how many brains exist, shared vs private,
+  languages, viewer levels, relationship stages — no personal details.
+- **Searchable subscriber list**: shared brains only, sortable by most active, longest
+  streak, newest, with search. A creator can zoom into one relationship when they want.
 - Access rule per project: chat/calls open to everyone, or subscribers only (creator's
-  choice, default open). The setting is enforced server-side on the chat and call routes.
-- For viewers who chose to share: the brain summary — who they are, their level, top
-  topics, achievements — so the creator can steer future content.
-- All incoming viewer questions, reactions and content requests, grouped by topic with
-  counts, so repeated demand is obvious.
+  choice, default open). Enforced server-side on the chat and call routes.
+- Incoming viewer questions, reactions and content requests, grouped with counts.
 - Private brains never appear here — only aggregate counts.
 
 ## How the memory grows
@@ -66,7 +74,8 @@ Migration (additive only):
 - `public.viewer_signals` — viewer questions/reactions/requests: `user_id`,
   `mind_id`, `creator_user_id`, `kind` (`question` | `reaction` | `request`), `body`,
   `status`, `creator_reply`, timestamps. Viewer manages own rows; creator reads and
-  replies to rows addressed to them.
+  replies to rows addressed to them. A `topic` column (filled by AI on the viewer's
+  key when present, else keyword buckets) powers FAQ clustering at any scale.
 - `projects.chat_access text default 'open'` (`open` | `subscribers`).
 
 Code:
@@ -82,8 +91,9 @@ Code:
   server function on close; show a small "remembers you" badge.
 - `src/components/viewer-brain-hub.tsx` — the Profile section and detail sheet.
 - `src/routes/profile.tsx` — mount the hub.
-- `src/components/subscriber-signals.tsx` + Creator Studio tab — access rule, shared
-  brain summaries, signal inbox.
+- `src/components/subscriber-signals.tsx` + Creator Studio tab — access rule, auto-FAQ
+  with clustered questions and answer-once publishing, trending demand, aggregate
+  audience summary, searchable shared-brain list, signal inbox.
 - All new copy localized in English, Mongolian and Korean, phone-width layouts.
 
 Not included: payments changes; paid checkout still shows the existing "coming soon"
