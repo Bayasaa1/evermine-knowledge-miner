@@ -13,6 +13,8 @@ import {
   type TimelineMark,
 } from "./projects";
 
+import { normalizeTiers, offeredTiers, type PlanLength } from "./subscription";
+
 import type { CreationCategory } from "./creation-category";
 
 export type FeedItem = {
@@ -41,9 +43,11 @@ export type FeedItem = {
   transcript?: SubtitleCue[];
   poster: string;
   tags: string[];
-  /** Monthly subscription price set by the creator. 0 = free. */
+  /** Base subscription price set by the creator. 0 = free. */
   price: number;
   currency: string;
+  /** Subscription lengths this creator offers (1 month / 3 months / 1 year / lifetime). */
+  tiers?: Array<{ length: PlanLength; price: number }>;
   /** Robot deployment token, when a Robot Brain package was published. */
   deployToken?: string;
   publishedAt: string;
