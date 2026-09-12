@@ -18,6 +18,18 @@ type Review = {
   created_at: string;
 };
 
+/** Only plain web links are ever stored or rendered — other schemes can run code in a visitor's browser. */
+function safeHttpUrl(raw: string | null | undefined): string | null {
+  const value = (raw ?? "").trim();
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 const copy = {
   en: {
     title: "Mind interaction reviews",
