@@ -287,6 +287,12 @@ export const Route = createFileRoute("/api/mind-chat")({
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
 
+        const brain = await loadBrainContext(request, auth.userId, body.mindId);
+        if (!brain.ok) {
+          return new Response(JSON.stringify({ error: brain.error }), { status: 403 });
+        }
+        const systemWithMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+
         // Flexible routing: a selected brain engine (BYO key from the client or a
         // backend secret) wins; otherwise fall back to the platform default below.
         if (isProvider(body.provider)) {
