@@ -43,6 +43,13 @@
       "when": 1789189907393,
       "tag": "0005_audit_missing_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789190548803,
+      "tag": "0006_validate_review_proof_url",
+      "breakpoints": true
     }
   ]
 }

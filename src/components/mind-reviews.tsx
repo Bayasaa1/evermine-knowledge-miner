@@ -18,6 +18,18 @@ type Review = {
   created_at: string;
 };
 
+/** Only plain web links are ever stored or rendered — other schemes can run code in a visitor's browser. */
+function safeHttpUrl(raw: string | null | undefined): string | null {
+  const value = (raw ?? "").trim();
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 const copy = {
   en: {
     title: "Mind interaction reviews",
@@ -113,6 +125,11 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: La
       toast.error(t.signIn);
       return;
     }
+    const cleanProof = safeHttpUrl(proof);
+    if (proof.trim() && !cleanProof) {
+      toast.error("Proof link must start with http:// or https://");
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.from("mind_reviews").upsert(
       {
@@ -120,7 +137,7 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: La
         mind_id: mindId,
         rating,
         body: body.trim(),
-        video_proof_url: proof.trim() || null,
+        video_proof_url: cleanProof,
         author_name: profile?.displayName || user.email?.split("@")[0] || "Evermind user",
       },
       { onConflict: "user_id,mind_id" },
@@ -211,11 +228,11 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: La
                 </span>
               </div>
               {r.body && <p className="text-xs leading-relaxed text-muted-foreground">{r.body}</p>}
-              {r.video_proof_url && (
+              {safeHttpUrl(r.video_proof_url) && (
                 <a
-                  href={r.video_proof_url}
+                  href={safeHttpUrl(r.video_proof_url) as string}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noreferrer noopener"
                   className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
                 >
                   <Video className="h-3 w-3" /> video proof
