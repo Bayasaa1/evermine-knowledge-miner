@@ -65,6 +65,8 @@ function ProfilePage() {
             <span className="text-sm font-medium">Privacy & User Memory Vault</span>
           </Link>
         </div>
+
+        <ViewerBrainHub />
       </div>
     </div>
   );
