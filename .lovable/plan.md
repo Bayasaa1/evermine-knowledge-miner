@@ -9,7 +9,7 @@ Signing in with Google does **not** automatically create a Gemini API key — Go
 So the app will do this, in order, per user:
 
 1. Signed in with Google → use that Google session for Gemini. No key typing, no cost.
-2. If Google's session can't do the job (video mining, quota used up, permission missing) → the app shows a clear message and asks that user to paste their own free Gemini key from Google AI Studio (takes about a minute, still free).
+2. If the app can't use the Google session (video mining, quota used up, permission missing) → a simple card appears right where the user is: "Paste your free Gemini key", a Get my free key button opening Google AI Studio, one input, a Test button that confirms it works, saved once and reused everywhere. Written in their language (en/mn/ko).
 3. If the user wants a stronger/paid engine (OpenAI, Claude, DeepSeek, ElevenLabs voice) they add their own key in Engines. Nothing is billed to the app.
 
 At no point does anything fall back to Lovable credits.
