@@ -14,6 +14,7 @@ import { Bell, CheckCircle2, KeyRound, Loader2, PauseCircle, TriangleAlert } fro
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJob } from "@/lib/mining-jobs";
+import { listUnreadUpdates, markUpdateRead } from "@/lib/creator-updates.functions";
 import { hasAnyCredential } from "@/lib/api-keys";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
