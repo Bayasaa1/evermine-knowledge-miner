@@ -96,7 +96,7 @@ async function loadBrainContext(
   mindId: string,
 ): Promise<{ context: string; latestUpdateTitle: string | undefined; ok: boolean; error?: string }> {
   const supabase = createUserSupabase(request);
-  if (!supabase) return { context: "", ok: true };
+  if (!supabase) return { context: "", latestUpdateTitle: undefined, ok: true };
 
   // Resolve project and access rules.
   const projectId = mindId.startsWith("project:") ? mindId.slice(8) : null;
