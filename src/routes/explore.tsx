@@ -291,28 +291,27 @@ function Explore() {
   );
 
   /* Poll followed creators for new videos / Brain updates and push them. */
+  const checkUpdates = useCallback(async () => {
+    if (follows.length === 0) return;
+    const n = await nextCreatorUpdate(follows);
+    if (!n) return;
+    setNotifs((prev) => {
+      const list = [...prev, n];
+      void saveNotifications(list);
+      return list;
+    });
+    const delivered = await pushNotification(n);
+    if (!delivered) toast(n.title, { description: n.body });
+  }, [follows]);
+
   useEffect(() => {
     if (follows.length === 0) return;
-    let alive = true;
-    async function check() {
-      const n = await nextCreatorUpdate(follows);
-      if (!n || !alive) return;
-      setNotifs((prev) => {
-        const list = [...prev, n];
-        void saveNotifications(list);
-        return list;
-      });
-      const delivered = await pushNotification(n);
-      if (!delivered) toast(n.title, { description: n.body });
-    }
-    const t = window.setTimeout(() => void check(), 6000);
-    const iv = window.setInterval(() => void check(), 45000);
-    return () => {
-      alive = false;
-      window.clearTimeout(t);
-      window.clearInterval(iv);
-    };
-  }, [follows]);
+    const t = window.setTimeout(() => void checkUpdates(), 6000);
+    return () => window.clearTimeout(t);
+  }, [follows, checkUpdates]);
+
+  // Paused while the tab is hidden — no background polling.
+  useVisibleInterval(() => void checkUpdates(), 45000, follows.length > 0);
 
   const openNotifications = useCallback(() => {
     setNotifOpen(true);
