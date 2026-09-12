@@ -727,7 +727,9 @@ function VideoCard({
 
       <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-semibold text-primary">
-          {CATEGORY_LABELS[item.category]?.[lang]?.title ?? CATEGORY_LABELS.knowledge.en.title}
+          {(CATEGORY_LABELS[item.category] ?? CATEGORY_LABELS.knowledge)[
+            lang === "mn" || lang === "ko" ? lang : "en"
+          ].title}
         </span>
         <span className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5">
           <Tag className="h-3 w-3" /> {t("topics")}: {topics}
