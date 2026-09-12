@@ -229,8 +229,9 @@ export async function geminiStream(opts: {
   } catch {
     throw new GeminiHttpError(502, "Could not reach Gemini.");
   }
+  if (!res.ok) await raiseForGemini(res);
   const streamBody = res.body;
-  if (!res.ok || !streamBody) await raiseForGemini(res);
+  if (!streamBody) throw new GeminiHttpError(502, "Gemini returned no stream.");
 
   const reader = streamBody.getReader();
   const decoder = new TextDecoder();
