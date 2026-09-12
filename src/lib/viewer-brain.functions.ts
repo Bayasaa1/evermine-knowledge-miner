@@ -176,14 +176,20 @@ export const updateBrainPayload = createServerFn({ method: "POST" })
     if (!existing) throw new Error("Brain not found");
     const merged = ensurePayload(existing.payload);
     const patch = data.payload;
+    const aboutMe: BrainFact[] =
+      patch.aboutMe?.map((f) => ({ ...f, editedByUser: true })) ?? merged.aboutMe;
     const next: ViewerBrainPayload = {
-      ...merged,
-      aboutMe: patch.aboutMe?.map((f) => ({ ...f, editedByUser: true })) ?? merged.aboutMe,
+      aboutMe,
       topics: patch.topics ?? merged.topics,
       blockedTopics: patch.blockedTopics ?? merged.blockedTopics,
-      goals: patch.goals ?? merged.goals,
-      level: patch.level ?? merged.level,
+      moments: merged.moments,
+      achievements: merged.achievements,
+      threads: merged.threads,
       summary: patch.summary ?? merged.summary,
+      earliestSummary: merged.earliestSummary,
+      languages: merged.languages,
+      level: patch.level ?? merged.level,
+      goals: patch.goals ?? merged.goals,
     };
     const { error } = await supabase
       .from("viewer_brains")
