@@ -164,7 +164,7 @@ export const mergeSession = createServerFn({ method: "POST" })
 
 export const updateBrainPayload = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; payload: ViewerBrainPayload }) => input)
+  .inputValidator((input: { mindId: string; payload: Partial<ViewerBrainPayload> }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
@@ -175,14 +175,15 @@ export const updateBrainPayload = createServerFn({ method: "POST" })
       .single();
     if (!existing) throw new Error("Brain not found");
     const merged = ensurePayload(existing.payload);
+    const patch = data.payload;
     const next: ViewerBrainPayload = {
       ...merged,
-      aboutMe: data.payload.aboutMe?.map((f) => ({ ...f, editedByUser: true })) ?? merged.aboutMe,
-      topics: data.payload.topics ?? merged.topics,
-      blockedTopics: data.payload.blockedTopics ?? merged.blockedTopics,
-      goals: data.payload.goals ?? merged.goals,
-      level: data.payload.level ?? merged.level,
-      summary: data.payload.summary ?? merged.summary,
+      aboutMe: patch.aboutMe?.map((f) => ({ ...f, editedByUser: true })) ?? merged.aboutMe,
+      topics: patch.topics ?? merged.topics,
+      blockedTopics: patch.blockedTopics ?? merged.blockedTopics,
+      goals: patch.goals ?? merged.goals,
+      level: patch.level ?? merged.level,
+      summary: patch.summary ?? merged.summary,
     };
     const { error } = await supabase
       .from("viewer_brains")
