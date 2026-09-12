@@ -213,9 +213,11 @@ export const updateBrainPayload = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const EditFactInput = z.object({ mindId: z.string(), factId: z.string(), key: z.string(), value: z.string() });
+
 export const editFact = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; factId: string; key: string; value: string }) => input)
+  .inputValidator((input) => EditFactInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
