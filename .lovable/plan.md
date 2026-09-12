@@ -1,4 +1,4 @@
-# Viewer Core Brain — memory of the viewer/creator relationship
+# Viewer Core Brain — memory of the viewer/creator relationship (single AI, memory-augmented)
 
 Every viewer gets their own Core Brain for each creator they talk to. It remembers who
 they are, what they asked, what they achieved together, and the moments that mattered —
