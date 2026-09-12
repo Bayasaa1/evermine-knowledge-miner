@@ -173,9 +173,11 @@ export const mergeSession = createServerFn({ method: "POST" })
     return next;
   });
 
+const BrainPayloadInput = z.object({ mindId: z.string(), payload: z.custom<Partial<ViewerBrainPayload>>() });
+
 export const updateBrainPayload = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; payload: Partial<ViewerBrainPayload> }) => input)
+  .inputValidator((input) => BrainPayloadInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
