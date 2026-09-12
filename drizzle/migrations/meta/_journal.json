@@ -29,6 +29,13 @@
       "when": 1789183980311,
       "tag": "0003_project_plan_tiers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789185900978,
+      "tag": "0004_viewer_brains_signals_updates",
+      "breakpoints": true
     }
   ]
 }

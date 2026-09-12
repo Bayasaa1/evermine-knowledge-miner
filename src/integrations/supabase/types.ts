@@ -116,6 +116,47 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_updates: {
+        Row: {
+          body: string
+          created_at: string
+          creator_user_id: string
+          id: string
+          kind: string
+          mind_id: string | null
+          project_id: string
+          title: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          creator_user_id: string
+          id?: string
+          kind: string
+          mind_id?: string | null
+          project_id: string
+          title: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          creator_user_id?: string
+          id?: string
+          kind?: string
+          mind_id?: string | null
+          project_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_updates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       featured_minds: {
         Row: {
           created_at: string
@@ -702,6 +743,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          chat_access: string
           cover_url: string | null
           created_at: string
           creator_avatar_url: string | null
@@ -719,6 +761,7 @@ export type Database = {
           view_count: number
         }
         Insert: {
+          chat_access?: string
           cover_url?: string | null
           created_at?: string
           creator_avatar_url?: string | null
@@ -736,6 +779,7 @@ export type Database = {
           view_count?: number
         }
         Update: {
+          chat_access?: string
           cover_url?: string | null
           created_at?: string
           creator_avatar_url?: string | null
@@ -797,6 +841,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      update_reads: {
+        Row: {
+          id: string
+          read_at: string
+          update_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          read_at?: string
+          update_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          read_at?: string
+          update_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "update_reads_update_id_fkey"
+            columns: ["update_id"]
+            isOneToOne: false
+            referencedRelation: "creator_updates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_ai_keys: {
         Row: {
@@ -869,6 +942,104 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      viewer_brains: {
+        Row: {
+          created_at: string
+          creator_user_id: string | null
+          id: string
+          last_seen_at: string | null
+          mind_id: string
+          payload: Json
+          project_id: string | null
+          sessions: number
+          shared_with_creator: boolean
+          talk_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          creator_user_id?: string | null
+          id?: string
+          last_seen_at?: string | null
+          mind_id: string
+          payload?: Json
+          project_id?: string | null
+          sessions?: number
+          shared_with_creator?: boolean
+          talk_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          creator_user_id?: string | null
+          id?: string
+          last_seen_at?: string | null
+          mind_id?: string
+          payload?: Json
+          project_id?: string | null
+          sessions?: number
+          shared_with_creator?: boolean
+          talk_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viewer_brains_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viewer_signals: {
+        Row: {
+          body: string
+          created_at: string
+          creator_reply: string | null
+          creator_user_id: string | null
+          id: string
+          kind: string
+          mind_id: string
+          read_by_creator: boolean
+          status: string
+          topic: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          creator_reply?: string | null
+          creator_user_id?: string | null
+          id?: string
+          kind: string
+          mind_id: string
+          read_by_creator?: boolean
+          status?: string
+          topic?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          creator_reply?: string | null
+          creator_user_id?: string | null
+          id?: string
+          kind?: string
+          mind_id?: string
+          read_by_creator?: boolean
+          status?: string
+          topic?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
