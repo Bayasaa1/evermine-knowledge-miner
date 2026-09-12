@@ -91,6 +91,11 @@ Migration (additive only):
   replies to rows addressed to them. A `topic` column (filled by AI on the viewer's
   key when present, else keyword buckets) powers FAQ clustering at any scale.
 - `projects.chat_access text default 'open'` (`open` | `subscribers`).
+- `public.creator_updates` — `project_id`, `creator_user_id`, `mind_id`, `kind`
+  (`content` | `version` | `note`), `title`, `body`, `created_at`. Public SELECT for
+  published projects; creator writes own rows.
+- `public.update_reads` — `user_id`, `update_id`, `read_at`, so the bell badge and the
+  "New" markers clear per viewer.
 
 Code:
 
