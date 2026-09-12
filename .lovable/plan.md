@@ -13,8 +13,10 @@ New **My Core Brains** section in Profile:
   of talks, total time, chat/voice/video counts, and the current relationship stage
   (New → Regular → Close → Inner circle).
 - Opening a card shows:
-  - **About me** — what the Mind learned about this viewer (goals, level, interests,
+- **About me** — what the Mind learned about this viewer (goals, level, interests,
     language), editable by the viewer.
+  - **Archive** — the complete, unfiltered history of every exchange with this creator,
+    searchable and never auto-deleted.
   - **Moments** — memorable exchanges with dates; the viewer can pin their own note to
     any moment or add a moment by hand.
   - **Achievements** — first meeting, first voice call, first video call, 10/50/100
