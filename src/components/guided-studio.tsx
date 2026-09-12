@@ -100,33 +100,36 @@ type Tab = "youtube" | "drive" | "file";
 
 const googleCopy = {
   en: {
-    linked: "Gemini API auto-linked",
-    linkedBody: "Your Google account powers the AI mining on its free tier. Nothing else to set up — ever.",
+    linked: "Google account linked",
+    linkedBody:
+      "Chat, calls and vision now run on your own free Google access. To mine YouTube videos — especially in the background — add your free Gemini API key once below.",
     signedNoScope: "You're signed in, but Gemini access isn't linked yet.",
     relink: "Link Gemini API access",
     signIn: "Sign in with Google",
     connecting: "Connecting…",
-    free: "Free tier · No API key · No maintenance",
+    free: "Free tier · your own access · nothing to maintain",
     failed: "Google sign-in failed",
   },
   mn: {
-    linked: "Gemini API автоматаар холбогдсон",
-    linkedBody: "Таны Google бүртгэл AI шинжилгээг үнэгүй түвшиндээ хангана. Өөр ямар ч тохиргоо байхгүй.",
+    linked: "Google бүртгэл холбогдлоо",
+    linkedBody:
+      "Чат, дуудлага, харах функцууд таны өөрийн үнэгүй Google хандалтаар ажиллана. YouTube видео шинжлэхийн тулд — ялангуяа ард ажиллуулахдаа — доор үнэгүй Gemini API түлхүүрээ нэг удаа нэмнэ үү.",
     signedNoScope: "Та нэвтэрсэн боловч Gemini хандалт хараахан холбогдоогүй байна.",
     relink: "Gemini API хандалт холбох",
     signIn: "Google-ээр нэвтрэх",
     connecting: "Холбож байна…",
-    free: "Үнэгүй түвшин · API түлхүүргүй · Засвар үйлчилгээгүй",
+    free: "Үнэгүй түвшин · өөрийн хандалт · засвар үйлчилгээгүй",
     failed: "Google нэвтрэлт амжилтгүй боллоо",
   },
   ko: {
-    linked: "Gemini API 자동 연결됨",
-    linkedBody: "Google 계정이 무료 등급으로 AI 분석을 지원합니다. 그 외에 설정할 것은 없습니다.",
+    linked: "Google 계정 연결됨",
+    linkedBody:
+      "이제 채팅, 통화, 비전 기능이 본인의 무료 Google 접근 권한으로 실행됩니다. YouTube 영상을 분석하려면 — 특히 백그라운드에서 — 아래에 무료 Gemini API 키를 한 번만 추가하세요.",
     signedNoScope: "로그인은 되어 있지만 아직 Gemini 접근이 연결되지 않았습니다.",
     relink: "Gemini API 접근 연결",
     signIn: "Google로 로그인",
     connecting: "연결하는 중…",
-    free: "무료 등급 · API 키 불필요 · 유지보수 불필요",
+    free: "무료 등급 · 본인 접근 권한 · 유지보수 불필요",
     failed: "Google 로그인에 실패했습니다",
   },
 };
