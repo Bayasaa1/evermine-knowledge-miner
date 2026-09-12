@@ -116,9 +116,13 @@ Migration (additive only):
 
 Code:
 
-- `src/lib/viewer-brain.ts` — types, stage/achievement rules, bounding/merge helpers.
+- `src/lib/viewer-brain.ts` — types, stage/achievement rules, bounding/merge helpers,
+  plus a validator for hand-edited brains (`editedByUser` flags protected from merges).
 - `src/lib/viewer-brain.functions.ts` — authenticated server functions: load, list,
-  merge session, edit facts, pin/delete moment, set sharing, wipe.
+  merge session, edit/add/delete facts, topics, moments and threads, replace raw brain
+  JSON, erase since a date, set sharing, wipe.
+- `src/components/viewer-brain-editor.tsx` — inline edit mode, topic manager and raw
+  JSON editor inside the brain detail sheet.
 - `src/lib/viewer-signals.functions.ts` — send/list/reply signals.
 - `src/routes/api/mind-chat.ts` — load the caller's brain, inject a `RELATIONSHIP
   MEMORY` block into the system prompt, and enforce `chat_access` against
