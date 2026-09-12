@@ -14,6 +14,15 @@ So the app will do this, in order, per user:
 
 At no point does anything fall back to Lovable credits.
 
+## Fix the misleading sign-in screen
+
+The creator wizard's step 1 (shown in your screenshot) currently claims "Gemini API auto-linked — no API keys, no copy-pasting, no setup — ever". That overpromises: a Google sign-in does NOT always grant Gemini access. The screen will be rewritten to say what is actually true:
+
+- "Your Google account is used first — for most features it just works."
+- "If a task needs more (video mining, high volume), we'll ask you for a free Gemini key once, with a one-tap Get my free key button. That's it."
+
+Same fix anywhere else the app makes that "nothing else to set up — ever" claim.
+
 ## What changes
 
 **Remove the shared AI connection from all 11 places that use it:**
