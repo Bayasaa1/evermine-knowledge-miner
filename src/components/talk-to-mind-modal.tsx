@@ -46,6 +46,7 @@ export function TalkToMindModal({
   const { isAuthenticated } = useAuth();
   const sessionStartRef = useRef<string | null>(null);
   const turnsRef = useRef<Msg[]>([]);
+  const mergeSessionFn = useServerFn(mergeSession);
 
   const mergeCurrentSession = async () => {
     if (!isAuthenticated || !mindId || !sessionStartRef.current) return;
@@ -55,7 +56,7 @@ export function TalkToMindModal({
     const endedAt = new Date().toISOString();
     const seconds = Math.max(1, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
     try {
-      await mergeSession({
+      await mergeSessionFn({
         mindId,
         startedAt,
         endedAt,
