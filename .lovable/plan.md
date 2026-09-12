@@ -28,14 +28,22 @@ New **My Core Brains** section in Profile:
 
 ## What the creator gets
 
-In Creator Studio, a **Subscribers & signals** panel:
+In Creator Studio, a **Subscribers & signals** panel, built for any audience size
+(100 viewers or 100 million — the creator never has to read individuals one by one):
 
+- **Auto-FAQ**: viewer questions and requests are clustered by topic, so the same
+  question asked by thousands surfaces once with its count. The creator answers once
+  and the answer is pushed back into the Mind's brain — every future viewer asking it
+  gets the creator's answer instantly, without the creator touching anything.
+- **Trending demand**: most-requested topics this week, so the creator knows exactly
+  what content to make next.
+- **Audience summary**: aggregate stats — how many brains exist, shared vs private,
+  languages, viewer levels, relationship stages — no personal details.
+- **Searchable subscriber list**: shared brains only, sortable by most active, longest
+  streak, newest, with search. A creator can zoom into one relationship when they want.
 - Access rule per project: chat/calls open to everyone, or subscribers only (creator's
-  choice, default open). The setting is enforced server-side on the chat and call routes.
-- For viewers who chose to share: the brain summary — who they are, their level, top
-  topics, achievements — so the creator can steer future content.
-- All incoming viewer questions, reactions and content requests, grouped by topic with
-  counts, so repeated demand is obvious.
+  choice, default open). Enforced server-side on the chat and call routes.
+- Incoming viewer questions, reactions and content requests, grouped with counts.
 - Private brains never appear here — only aggregate counts.
 
 ## How the memory grows
