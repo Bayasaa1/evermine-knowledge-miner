@@ -110,7 +110,7 @@ export function newId(): string {
 }
 
 export function ensurePayload(p: unknown): ViewerBrainPayload {
-  const raw = typeof p === "object" && p !== null ? (p as ViewerBrainPayload) : {};
+  const raw = (typeof p === "object" && p !== null ? p : {}) as Partial<ViewerBrainPayload>;
   return {
     aboutMe: Array.isArray(raw.aboutMe) ? raw.aboutMe : [],
     topics: Array.isArray(raw.topics) ? raw.topics : [],
