@@ -105,7 +105,7 @@ async function loadBrainContext(
     : { data: null };
 
   if (project) {
-    if (!project.published) return { context: "", ok: false, error: "This project is not published yet." };
+    if (!project.published) return { context: "", latestUpdateTitle: undefined, ok: false, error: "This project is not published yet." };
     if (project.chat_access === "subscribers") {
       const { data: purchase } = await supabase
         .from("mind_purchases")
