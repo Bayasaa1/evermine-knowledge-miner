@@ -102,10 +102,11 @@ export function GameCoach({
     heardRef.current = "";
     setBusy(true);
     try {
+      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await apiFetch("/api/mind-coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: mindName, lang, image, heard, brain }),
+        body: JSON.stringify({ name: mindName, lang, image, heard, brain, ...(await credentialPayload()) }),
       });
       const data = (await res.json().catch(() => ({}))) as { advice?: string; error?: string };
       if (!res.ok) {

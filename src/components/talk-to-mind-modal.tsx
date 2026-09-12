@@ -91,10 +91,18 @@ export function TalkToMindModal({
     try {
       if (!mindId) throw new Error("This mind is still private to its creator.");
       const live = callMode !== "chat";
+      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mindId, lang, messages: next, stream: live, seen: call.sees || undefined }),
+        body: JSON.stringify({
+          mindId,
+          lang,
+          messages: next,
+          stream: live,
+          seen: call.sees || undefined,
+          ...(await credentialPayload()),
+        }),
       });
 
       // On a call the answer is spoken phrase by phrase while it is still being
@@ -116,7 +124,8 @@ export function TalkToMindModal({
             const payload = line.slice(5).trim();
             if (!payload || payload === "[DONE]") continue;
             try {
-              const evt = JSON.parse(payload) as { delta?: string };
+              const evt = JSON.parse(payload) as { delta?: string; error?: string };
+              if (evt.error) throw new Error(evt.error);
               if (!evt.delta) continue;
               full += evt.delta;
               const clean = full.replace(/\[\[clip:[^\]]+\]\]/g, "");
