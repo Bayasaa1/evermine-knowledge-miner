@@ -15,25 +15,39 @@ import {
   type BrainThread,
 } from "@/lib/viewer-brain";
 
-function toBrain(row: unknown): ViewerBrain {
-  const r = row as Record<string, unknown>;
-  const payload = ensurePayload(r.payload);
+type BrainRow = {
+  id: string;
+  user_id: string;
+  mind_id: string;
+  project_id: string | null;
+  creator_user_id: string | null;
+  shared_with_creator: boolean;
+  payload: unknown;
+  sessions: number;
+  talk_seconds: number;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function toBrain(row: BrainRow): ViewerBrain {
+  const payload = ensurePayload(row.payload);
   return {
-    id: String(r.id),
-    userId: String(r.user_id),
-    mindId: String(r.mind_id),
-    projectId: r.project_id ? String(r.project_id) : null,
-    creatorUserId: r.creator_user_id ? String(r.creator_user_id) : null,
-    sharedWithCreator: Boolean(r.shared_with_creator),
+    id: row.id,
+    userId: row.user_id,
+    mindId: row.mind_id,
+    projectId: row.project_id,
+    creatorUserId: row.creator_user_id,
+    sharedWithCreator: row.shared_with_creator,
     payload,
     stats: {
-      sessions: Number(r.sessions ?? 0),
-      talkSeconds: Number(r.talk_seconds ?? 0),
-      lastSeenAt: r.last_seen_at ? String(r.last_seen_at) : null,
-      stage: stageFromTalks(Number(r.sessions ?? 0)),
+      sessions: row.sessions,
+      talkSeconds: row.talk_seconds,
+      lastSeenAt: row.last_seen_at,
+      stage: stageFromTalks(row.sessions),
     },
-    createdAt: String(r.created_at),
-    updatedAt: String(r.updated_at),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -50,7 +64,6 @@ export const loadViewerBrain = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw error;
     if (!row) {
-      // Resolve creator_user_id from project/mind when possible.
       const { data: project } = await supabase
         .from("projects")
         .select("id, user_id")
@@ -69,9 +82,9 @@ export const loadViewerBrain = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (insertErr) throw insertErr;
-      return toBrain(inserted);
+      return toBrain(inserted as BrainRow);
     }
-    return toBrain(row);
+    return toBrain(row as BrainRow);
   });
 
 export const listViewerBrains = createServerFn({ method: "GET" })
@@ -84,7 +97,7 @@ export const listViewerBrains = createServerFn({ method: "GET" })
       .eq("user_id", userId)
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(toBrain);
+    return (data ?? []).map((r) => toBrain(r as BrainRow));
   });
 
 export const mergeSession = createServerFn({ method: "POST" })
@@ -129,9 +142,9 @@ export const mergeSession = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (error) throw error;
-      brain = toBrain(inserted);
+      brain = toBrain(inserted as BrainRow);
     } else {
-      brain = toBrain(existing);
+      brain = toBrain(existing as BrainRow);
     }
 
     const next = mergeSessionIntoBrain(brain, data);
@@ -243,15 +256,16 @@ export const editMoment = createServerFn({ method: "POST" })
       .single();
     if (!existing) throw new Error("Brain not found");
     const p = ensurePayload(existing.payload);
+    const note = data.note ?? "";
     const moments: BrainMoment[] = (p.moments ?? []).map((m) =>
-      m.id === data.momentId ? { ...m, title: data.title, note: data.note ?? m.note, pinnedByUser: true } : m,
+      m.id === data.momentId ? { ...m, title: data.title, note, pinnedByUser: true } : m,
     );
     if (!moments.some((m) => m.id === data.momentId)) {
       moments.push({
         id: data.momentId,
         date: new Date().toISOString(),
         title: data.title,
-        note: data.note,
+        note,
         pinnedByUser: true,
         source: "manual",
         createdAt: new Date().toISOString(),
