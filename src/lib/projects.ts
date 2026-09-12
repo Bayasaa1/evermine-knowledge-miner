@@ -24,7 +24,7 @@ export type Project = {
   currency: string;
   published: boolean;
   /** Creator-wide subscription lengths mirrored onto each project. */
-  plan_tiers?: unknown;
+  plan_tiers?: Json;
   persona_id: string | null;
   view_count: number;
   created_at: string;
