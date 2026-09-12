@@ -102,11 +102,24 @@ async function flush() {
         for (const t of texts) inflight.delete(`${lang}:${t}`);
         if (!noticeShown) {
           noticeShown = true;
+          const goToEngines = () => {
+            window.location.href = "/creator#engines";
+          };
           void import("sonner").then(({ toast }) =>
             toast.error(
               state === "quota"
                 ? "Translation is paused — your free Gemini quota is used up for now. It resets daily, or add another key in Engines."
                 : "Translation needs your own free Gemini key — add it once in Engines.",
+              {
+                duration: 12_000,
+                // Tapping the message (or the button) takes the viewer straight
+                // to the key setup guide instead of leaving them stuck.
+                onDismiss: undefined,
+                action: { label: "Add key", onClick: goToEngines },
+                onAutoClose: undefined,
+                className: "cursor-pointer",
+                onClick: goToEngines,
+              },
             ),
           );
         }
