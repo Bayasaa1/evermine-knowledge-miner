@@ -97,6 +97,7 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
     // Poll while the tab is open; the worker keeps going when it is not.
     refetchInterval: 4_000,
     refetchOnWindowFocus: true,
+    enabled: isAuthenticated,
   });
 
   const clearHistory = useServerFn(clearMiningHistory);
