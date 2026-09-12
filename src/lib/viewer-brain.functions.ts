@@ -103,20 +103,20 @@ export const listViewerBrains = createServerFn({ method: "GET" })
     return (data ?? []).map((r) => toBrain(r as BrainRow));
   });
 
+const MergeSessionInput = z.object({
+  mindId: z.string(),
+  startedAt: z.string(),
+  endedAt: z.string(),
+  mode: z.enum(["chat", "voice", "video"]),
+  turns: z.array(z.object({ role: z.enum(["user", "agent"]), text: z.string() })),
+  seconds: z.number(),
+  lang: z.string(),
+  latestUpdateTitle: z.string().optional(),
+});
+
 export const mergeSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (input: {
-      mindId: string;
-      startedAt: string;
-      endedAt: string;
-      mode: "chat" | "voice" | "video";
-      turns: { role: "user" | "agent"; text: string }[];
-      seconds: number;
-      lang: string;
-      latestUpdateTitle?: string;
-    }) => input,
-  )
+  .inputValidator((input) => MergeSessionInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
