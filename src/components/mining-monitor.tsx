@@ -6,6 +6,7 @@ import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash
 import { clearMiningHistory, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { useAuth } from "@/hooks/use-auth";
 
 const COPY = {
   en: {
