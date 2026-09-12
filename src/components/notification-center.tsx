@@ -14,6 +14,7 @@ import { Bell, CheckCircle2, KeyRound, Loader2, PauseCircle, TriangleAlert } fro
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJob } from "@/lib/mining-jobs";
+import { listUnreadUpdates, markUpdateRead } from "@/lib/creator-updates.functions";
 import { hasAnyCredential } from "@/lib/api-keys";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
@@ -44,6 +45,8 @@ const COPY = {
     failed: "Mining failed",
     done: "Mining finished",
     signedOut: "Sign in to see your notifications.",
+    updateTitle: "New update from a Mind you follow",
+    updateBody: (title: string) => title,
   },
   mn: {
     title: "Мэдэгдэл",
@@ -59,6 +62,8 @@ const COPY = {
     failed: "Олборлолт амжилтгүй",
     done: "Олборлолт дууслаа",
     signedOut: "Мэдэгдлээ харахын тулд нэвтэрнэ үү.",
+    updateTitle: "Дагаж буй оюун ухаанаас шинэ мэдээ",
+    updateBody: (title: string) => title,
   },
   ko: {
     title: "알림",
@@ -74,6 +79,8 @@ const COPY = {
     failed: "마이닝 실패",
     done: "마이닝 완료",
     signedOut: "알림을 보려면 로그인하세요.",
+    updateTitle: "구독 중인 Mind의 새 업데이트",
+    updateBody: (title: string) => title,
   },
 };
 
@@ -130,6 +137,17 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
     staleTime: 30_000,
   });
 
+  const fetchUpdates = useServerFn(listUnreadUpdates);
+  const { data: updates = [] } = useQuery({
+    queryKey: ["unread-creator-updates"],
+    queryFn: () => fetchUpdates(),
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+    staleTime: 60_000,
+  });
+
+  const markRead = useServerFn(markUpdateRead);
+
   const notes: Note[] = [];
   if (isAuthenticated && !hasKey) {
     notes.push({
@@ -145,6 +163,17 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
   for (const job of jobs.slice(0, 20)) {
     const n = jobNote(job, t);
     if (n) notes.push(n);
+  }
+  for (const update of updates.slice(0, 10)) {
+    notes.push({
+      id: `update-${update.id}`,
+      tone: "ok",
+      icon: Bell,
+      title: t.updateTitle,
+      body: t.updateBody(update.title),
+      href: `/feed?mind=${update.mind_id}`,
+      attention: true,
+    });
   }
 
   const attention = notes.filter((n) => n.attention).length;
@@ -193,16 +222,22 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
                   </div>
                 </div>
               );
+              const onClick = () => {
+                setOpen(false);
+                if (n.id.startsWith("update-")) {
+                  void markRead({ data: { updateId: n.id.replace("update-", "") } });
+                }
+              };
               if (!n.href) return <div key={n.id}>{inner}</div>;
               if (n.href.includes("#")) {
                 return (
-                  <a key={n.id} href={n.href} onClick={() => setOpen(false)} className="block">
+                  <a key={n.id} href={n.href} onClick={onClick} className="block">
                     {inner}
                   </a>
                 );
               }
               return (
-                <Link key={n.id} to={n.href} onClick={() => setOpen(false)} className="block">
+                <Link key={n.id} to={n.href} onClick={onClick} className="block">
                   {inner}
                 </Link>
               );

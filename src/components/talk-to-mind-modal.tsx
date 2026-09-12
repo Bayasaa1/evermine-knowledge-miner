@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Mic, MicOff, PhoneOff, Send, Sparkles, Video, X } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
 import { MindAvatar } from "@/components/mind-avatar";
+import { mergeSession } from "@/lib/viewer-brain.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 
 type Msg = { role: "user" | "agent"; text: string };
@@ -40,10 +43,45 @@ export function TalkToMindModal({
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
   const call = useMindCall(mindId, lang, (text) => void sendRef.current(text));
   const [faceUrl, setFaceUrl] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const sessionStartRef = useRef<string | null>(null);
+  const turnsRef = useRef<Msg[]>([]);
+  const mergeSessionFn = useServerFn(mergeSession);
+
+  const mergeCurrentSession = async () => {
+    if (!isAuthenticated || !mindId || !sessionStartRef.current) return;
+    const turns = turnsRef.current;
+    if (turns.length === 0) return;
+    const startedAt = sessionStartRef.current;
+    const endedAt = new Date().toISOString();
+    const seconds = Math.max(1, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
+    try {
+      await mergeSessionFn({
+        data: {
+          mindId,
+          startedAt,
+          endedAt,
+          mode: callMode,
+          turns,
+          seconds,
+          lang,
+        },
+      });
+    } catch {
+      // best-effort memory merge
+    }
+    turnsRef.current = [];
+  };
 
   useEffect(() => {
-    if (open) setMessages([]);
-    else call.stop();
+    if (open) {
+      setMessages([]);
+      sessionStartRef.current = new Date().toISOString();
+      turnsRef.current = [];
+    } else {
+      void mergeCurrentSession();
+      call.stop();
+    }
   }, [open, mindId]);
 
   // The creator's own face, only when they built and consented to a face clone.
@@ -86,6 +124,7 @@ export function TalkToMindModal({
     if (!text || busy) return;
     const next: Msg[] = [...messages, { role: "user", text }];
     setMessages(next);
+    turnsRef.current = [...turnsRef.current, { role: "user", text }];
     setInput("");
     setBusy(true);
     try {
@@ -137,17 +176,22 @@ export function TalkToMindModal({
           }
         }
         voice.end();
-        if (!full.trim()) setMessages([...next, { role: "agent", text: "…" }]);
+        const answer = full.trim() ? full.replace(/\[\[clip:[^\]]+\]\]/g, "").trim() : "…";
+        setMessages([...next, { role: "agent", text: answer }]);
+        turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
         return;
       }
 
       const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `Request failed (${res.status})`);
-      const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
-      setMessages([...next, { role: "agent", text: answer || "…" }]);
+      const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim() || "…";
+      setMessages([...next, { role: "agent", text: answer }]);
+      turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
       if (callMode !== "chat") call.speak(answer);
     } catch (e) {
-      setMessages([...next, { role: "agent", text: e instanceof Error ? e.message : String(e) }]);
+      const err = e instanceof Error ? e.message : String(e);
+      setMessages([...next, { role: "agent", text: err }]);
+      turnsRef.current = [...turnsRef.current, { role: "agent", text: err }];
     } finally {
       setBusy(false);
     }
@@ -163,10 +207,10 @@ export function TalkToMindModal({
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
             {heading} — {mindName}
           </h2>
-          <button type="button" onClick={() => setCallMode((mode) => mode === "voice" ? "chat" : "voice")} aria-label="Voice call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "voice" ? "chat" : "voice"); }} aria-label="Voice call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Mic className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => setCallMode((mode) => mode === "video" ? "chat" : "video")} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "video" ? "chat" : "video"); }} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Video className="h-4 w-4" />
           </button>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
@@ -194,7 +238,7 @@ export function TalkToMindModal({
               <button type="button" onClick={() => { try { call.listen(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }} aria-label={call.listening ? "Stop listening" : "Speak"} className={`rounded-full p-3 ${call.listening ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
                 {call.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
-              <button type="button" onClick={() => { call.stop(); setCallMode("chat"); }} aria-label="End call" className="rounded-full bg-destructive p-3 text-destructive-foreground">
+              <button type="button" onClick={() => { void mergeCurrentSession(); call.stop(); setCallMode("chat"); }} aria-label="End call" className="rounded-full bg-destructive p-3 text-destructive-foreground">
                 <PhoneOff className="h-5 w-5" />
               </button>
             </div>

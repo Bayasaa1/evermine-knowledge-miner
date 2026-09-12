@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
 import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 import { getPublicProjectMind } from "@/lib/project-mind.server";
+import { buildPromptContext, ensurePayload } from "@/lib/viewer-brain";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
 
@@ -73,6 +75,86 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode) {
     `Verbatim source transcript:\n${project.transcript.join("\n")}`,
     `Answer in first person, in ${LANGUAGES[lang].name}, using only this source knowledge. If it is not present, say that this Mind has not learned it yet. Keep answers concise.`,
   ].join("\n\n");
+}
+
+function createUserSupabase(request: Request) {
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !key) return null;
+  const header = request.headers.get("authorization") ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) return null;
+  return createClient(url, key, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function loadBrainContext(
+  request: Request,
+  userId: string,
+  mindId: string,
+): Promise<{ context: string; latestUpdateTitle: string | undefined; ok: boolean; error?: string }> {
+  const supabase = createUserSupabase(request);
+  if (!supabase) return { context: "", latestUpdateTitle: undefined, ok: true };
+
+  // Resolve project and access rules.
+  const projectId = mindId.startsWith("project:") ? mindId.slice(8) : null;
+  const { data: project } = projectId
+    ? await supabase.from("projects").select("id, user_id, chat_access, published").eq("id", projectId).single()
+    : { data: null };
+
+  if (project) {
+    if (!project.published) return { context: "", latestUpdateTitle: undefined, ok: false, error: "This project is not published yet." };
+    if (project.chat_access === "subscribers") {
+      const { data: purchase } = await supabase
+        .from("mind_purchases")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("mind_id", mindId)
+        .maybeSingle();
+      if (!purchase && project.user_id !== userId) {
+        return { context: "", latestUpdateTitle: undefined, ok: false, error: "Subscribe to chat with this Mind." };
+      }
+    }
+  }
+
+  const { data: brainRow } = await supabase
+    .from("viewer_brains")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("mind_id", mindId)
+    .maybeSingle();
+
+  let latestUpdateTitle: string | undefined;
+  const { data: latestUpdate } = await supabase
+    .from("creator_updates")
+    .select("title")
+    .eq("mind_id", mindId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (latestUpdate?.title) latestUpdateTitle = latestUpdate.title;
+
+  if (!brainRow) return { context: "", latestUpdateTitle, ok: true };
+  const brain = {
+    id: brainRow.id,
+    userId: brainRow.user_id,
+    mindId: brainRow.mind_id,
+    projectId: brainRow.project_id,
+    creatorUserId: brainRow.creator_user_id,
+    sharedWithCreator: brainRow.shared_with_creator,
+    payload: ensurePayload(brainRow.payload),
+    stats: {
+      sessions: brainRow.sessions,
+      talkSeconds: brainRow.talk_seconds,
+      lastSeenAt: brainRow.last_seen_at,
+      stage: "new" as const,
+    },
+    createdAt: brainRow.created_at,
+    updatedAt: brainRow.updated_at,
+  };
+  return { context: buildPromptContext(brain, LANGUAGES["en"].name, latestUpdateTitle), latestUpdateTitle, ok: true };
 }
 
 type ProviderId = "gemini" | "openai" | "anthropic" | "deepseek";
@@ -205,6 +287,12 @@ export const Route = createFileRoute("/api/mind-chat")({
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
 
+        const brain = body.mindId ? await loadBrainContext(request, auth.userId, body.mindId) : { context: "", latestUpdateTitle: undefined, ok: true };
+        if (!brain.ok) {
+          return new Response(JSON.stringify({ error: brain.error ?? "Access denied" }), { status: 403 });
+        }
+        const systemWithMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+
         // Flexible routing: a selected brain engine (BYO key from the client or a
         // backend secret) wins; otherwise fall back to the platform default below.
         if (isProvider(body.provider)) {
@@ -238,7 +326,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         // On a video call the Mind is also told what it can see right now, so it
         // reacts to the person in front of it the way a caller would expect.
         const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
-        const systemText = seen ? `${system}\n\nRight now you can see on the video call: ${seen}` : system;
+        const systemText = seen ? `${systemWithMemory}\n\nRight now you can see on the video call: ${seen}` : systemWithMemory;
         const turns = history.map((m) => ({
           role: (m.role === "user" ? "user" : "model") as "user" | "model",
           parts: [{ text: m.text }],
