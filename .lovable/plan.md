@@ -91,8 +91,9 @@ Code:
   server function on close; show a small "remembers you" badge.
 - `src/components/viewer-brain-hub.tsx` — the Profile section and detail sheet.
 - `src/routes/profile.tsx` — mount the hub.
-- `src/components/subscriber-signals.tsx` + Creator Studio tab — access rule, shared
-  brain summaries, signal inbox.
+- `src/components/subscriber-signals.tsx` + Creator Studio tab — access rule, auto-FAQ
+  with clustered questions and answer-once publishing, trending demand, aggregate
+  audience summary, searchable shared-brain list, signal inbox.
 - All new copy localized in English, Mongolian and Korean, phone-width layouts.
 
 Not included: payments changes; paid checkout still shows the existing "coming soon"
