@@ -52,9 +52,11 @@ function toBrain(row: BrainRow): ViewerBrain {
   };
 }
 
+const MindIdInput = z.object({ mindId: z.string() });
+
 export const loadViewerBrain = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string }) => input)
+  .inputValidator((input) => MindIdInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: row, error } = await supabase
