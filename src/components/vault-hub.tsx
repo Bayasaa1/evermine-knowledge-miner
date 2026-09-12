@@ -650,6 +650,7 @@ function VideoCard({
       await startMining({
         data: {
           url: sourceUrl,
+          category: item.category,
           assessment: {
             ...DEFAULT_ASSESSMENT,
             sourceTitle: item.title,

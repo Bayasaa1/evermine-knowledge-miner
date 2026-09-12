@@ -7,6 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import type { CreationCategory } from "@/lib/creation-category";
 
 export type ContentKind = "VISUAL_CONTENT" | "TRAINING_ONLY";
 export type SubtitleCue = { timestamp: string; speech: string; speaker: string; role: string };
@@ -290,6 +291,7 @@ function normalizeMany(data: unknown): ProjectContent[] {
 function normalizeOne(row: Record<string, unknown>): ProjectContent {
   return {
     ...(row as unknown as ProjectContent),
+    category: (row["category"] as CreationCategory) ?? "knowledge",
     tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
     timeline: marks(row["timeline"]),
     emotion_timeline: marks(row["emotion_timeline"]),
