@@ -13,8 +13,10 @@ New **My Core Brains** section in Profile:
   of talks, total time, chat/voice/video counts, and the current relationship stage
   (New → Regular → Close → Inner circle).
 - Opening a card shows:
-  - **About me** — what the Mind learned about this viewer (goals, level, interests,
+- **About me** — what the Mind learned about this viewer (goals, level, interests,
     language), editable by the viewer.
+  - **Archive** — the complete, unfiltered history of every exchange with this creator,
+    searchable and never auto-deleted.
   - **Moments** — memorable exchanges with dates; the viewer can pin their own note to
     any moment or add a moment by hand.
   - **Achievements** — first meeting, first voice call, first video call, 10/50/100
@@ -67,8 +69,9 @@ In Creator Studio, a **Subscribers & signals** panel, built for any audience siz
 
 1. A chat or call session ends (modal closed or 2 min idle).
 2. The session's new turns are summarised with the viewer's own Gemini key, then merged
-   into the existing brain — facts are updated, not appended forever (bounded: 40
-   moments, 30 facts, newest kept, oldest compressed into a summary line).
+   into the existing brain. Every moment and fact is kept forever unless the viewer
+   deletes it. The active prompt uses a rolling summary of the oldest exchanges to stay
+   within token limits, but the full archive is always viewable and searchable.
 3. Without an AI key, the brain still records facts that need no AI: dates, counts,
    durations, achievements, languages used, and raw pinned moments. The card says
    memory summaries are paused until a key is added.
