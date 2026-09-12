@@ -98,7 +98,9 @@ export const repairTimings = createServerFn({ method: "POST" })
  */
 export const retimeContent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ contentId: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ contentId: z.string().uuid(), apiKey: z.string().max(200).optional() }).parse(input),
+  )
   .handler(async ({ data, context }): Promise<SubtitleHealthRow> => {
     const row = await loadContent(context, data.contentId);
     const original = lines(row.transcript);
@@ -107,7 +109,9 @@ export const retimeContent = createServerFn({ method: "POST" })
     const url = row.source_url || (row.youtube_id ? `https://www.youtube.com/watch?v=${row.youtube_id}` : "");
     if (!url) throw new Error("This mind has no linked YouTube source to re-watch.");
 
-    const repaired = await relistenTranscript(url, original);
+    const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
+    const credential = await resolveGeminiCredential(context.userId, data);
+    const repaired = await relistenTranscript(url, original, credential);
     return saveTimings(context, row, repaired);
   });
 
