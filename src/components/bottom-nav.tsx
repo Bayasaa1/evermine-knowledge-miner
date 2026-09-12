@@ -76,10 +76,3 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
     </>
   );
 }
-
-        </div>
-      </nav>
-      <CreateWizard open={wizard} onClose={() => setWizard(false)} lang={lang} />
-    </>
-  );
-}
