@@ -15,17 +15,19 @@ export const sendSignal = createServerFn({ method: "POST" })
       creatorUserId: string;
       kind: SignalKind;
       body: string;
+      topic?: string;
     }) => input,
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase.from("viewer_signals").insert({
-      viewer_user_id: userId,
+      user_id: userId,
       creator_user_id: data.creatorUserId,
       project_id: data.projectId,
       mind_id: data.mindId,
       kind: data.kind,
       body: data.body,
+      topic: data.topic ?? null,
       status: "open",
     });
     if (error) throw error;
@@ -39,7 +41,7 @@ export const listMySignals = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("viewer_signals")
       .select("*")
-      .eq("viewer_user_id", userId)
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data ?? [];
@@ -65,7 +67,21 @@ export const replyToSignal = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { error } = await supabase
       .from("viewer_signals")
-      .update({ reply: data.reply, status: data.status ?? "closed" })
+      .update({ creator_reply: data.reply, status: data.status ?? "closed" })
+      .eq("id", data.signalId)
+      .eq("creator_user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const markSignalRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { signalId: string }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("viewer_signals")
+      .update({ read_by_creator: true })
       .eq("id", data.signalId)
       .eq("creator_user_id", userId);
     if (error) throw error;
