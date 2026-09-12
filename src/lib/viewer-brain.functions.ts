@@ -150,7 +150,15 @@ export const mergeSession = createServerFn({ method: "POST" })
       brain = toBrain(existing as BrainRow);
     }
 
-    const next = mergeSessionIntoBrain(brain, data);
+    const next = mergeSessionIntoBrain(brain, {
+      startedAt: data.startedAt,
+      endedAt: data.endedAt,
+      mode: data.mode,
+      turns: data.turns,
+      seconds: data.seconds,
+      lang: data.lang,
+      latestUpdateTitle: data.latestUpdateTitle,
+    });
     const { error } = await supabase
       .from("viewer_brains")
       .update({
