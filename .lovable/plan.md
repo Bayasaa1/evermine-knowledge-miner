@@ -1,4 +1,4 @@
-# Viewer Core Brain — memory of the viewer/creator relationship
+# Viewer Core Brain — memory of the viewer/creator relationship (single AI, memory-augmented)
 
 Every viewer gets their own Core Brain for each creator they talk to. It remembers who
 they are, what they asked, what they achieved together, and the moments that mattered —
@@ -47,9 +47,10 @@ In Creator Studio, a **Subscribers & signals** panel:
 3. Without an AI key, the brain still records facts that need no AI: dates, counts,
    durations, achievements, languages used, and raw pinned moments. The card says
    memory summaries are paused until a key is added.
-4. Before every answer, the Mind's prompt receives the brain: who it is talking to,
-   shared history, achievements, open threads. Voice and video calls use the same route,
-   so they share one memory.
+4. Before every answer, the Mind's prompt receives the brain as plain text context: who
+   it is talking to, shared history, achievements, open threads. Voice and video calls
+   use the same route, so they share one memory. Only one AI runs per answer — the
+   creator's Mind. The viewer brain is data, not a second AI.
 
 ## Technical notes
 
