@@ -438,6 +438,7 @@ export type Database = {
       mining_jobs: {
         Row: {
           attempts: number
+          category: string
           chunks: Json
           content_kind: string
           created_at: string
@@ -465,6 +466,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          category?: string
           chunks?: Json
           content_kind?: string
           created_at?: string
@@ -492,6 +494,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          category?: string
           chunks?: Json
           content_kind?: string
           created_at?: string
@@ -622,6 +625,7 @@ export type Database = {
       }
       project_content: {
         Row: {
+          category: string
           created_at: string
           description: string
           emotion_timeline: Json
@@ -640,6 +644,7 @@ export type Database = {
           youtube_id: string
         }
         Insert: {
+          category?: string
           created_at?: string
           description?: string
           emotion_timeline?: Json
@@ -658,6 +663,7 @@ export type Database = {
           youtube_id?: string
         }
         Update: {
+          category?: string
           created_at?: string
           description?: string
           emotion_timeline?: Json
