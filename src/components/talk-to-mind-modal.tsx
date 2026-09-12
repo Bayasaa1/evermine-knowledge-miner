@@ -75,7 +75,6 @@ export function TalkToMindModal({
     } catch {
       // best-effort memory merge
     }
-    turnsRef.current = [];
   };
 
   useEffect(() => {
