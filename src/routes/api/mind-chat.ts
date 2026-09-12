@@ -94,7 +94,7 @@ async function loadBrainContext(
   request: Request,
   userId: string,
   mindId: string,
-): Promise<{ context: string; latestUpdateTitle?: string; ok: boolean; error?: string }> {
+): Promise<{ context: string; latestUpdateTitle: string | undefined; ok: boolean; error?: string }> {
   const supabase = createUserSupabase(request);
   if (!supabase) return { context: "", ok: true };
 
