@@ -238,7 +238,7 @@ export function TalkToMindModal({
               <button type="button" onClick={() => { try { call.listen(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }} aria-label={call.listening ? "Stop listening" : "Speak"} className={`rounded-full p-3 ${call.listening ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
                 {call.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
-              <button type="button" onClick={() => { call.stop(); setCallMode("chat"); }} aria-label="End call" className="rounded-full bg-destructive p-3 text-destructive-foreground">
+              <button type="button" onClick={() => { void mergeCurrentSession(); call.stop(); setCallMode("chat"); }} aria-label="End call" className="rounded-full bg-destructive p-3 text-destructive-foreground">
                 <PhoneOff className="h-5 w-5" />
               </button>
             </div>
