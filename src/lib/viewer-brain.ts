@@ -166,14 +166,15 @@ export function addOrUpdateFact(
   value: string,
   opts?: { editedByUser?: boolean },
 ): BrainFact[] {
+  const edited = !!opts?.editedByUser;
   const existing = facts.find((f) => f.key.toLowerCase() === key.toLowerCase());
   if (existing) {
-    if (existing.editedByUser && !opts?.editedByUser) return facts; // AI merge never overwrites user edits
+    if (existing.editedByUser && !edited) return facts; // AI merge never overwrites user edits
     return facts.map((f) =>
-      f.id === existing.id ? { ...f, value, editedByUser: opts?.editedByUser || f.editedByUser } : f,
+      f.id === existing.id ? { ...f, value, editedByUser: edited || f.editedByUser } : f,
     );
   }
-  return [...facts, { id: newId(), key, value, editedByUser: opts?.editedByUser, createdAt: new Date().toISOString() }];
+  return [...facts, { id: newId(), key, value, editedByUser: edited, createdAt: new Date().toISOString() }];
 }
 
 export function mergeSessionIntoBrain(
