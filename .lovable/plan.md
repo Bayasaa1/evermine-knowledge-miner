@@ -39,6 +39,14 @@ Each of these gets rewritten to call Google's Gemini API directly with the curre
 - Typed error contract: `{ error, code: "no_credential" | "quota" | "unsupported_task" }` so the UI can show the right localized message (en/mn/ko) and offer "Add a key".
 - `guardApi` stays; per-user rate limits stay.
 
+## Nothing left behind
+
+This is done as one complete pass, not feature by feature:
+
+- Every place still touching the shared AI connection is found by a repo-wide search for `LOVABLE_API_KEY` and `ai.gateway.lovable.dev`, and the change is only finished when that search returns zero results.
+- The client callers of each changed endpoint are updated in the same pass (chat, voice call, video call, coach, gaming bot, auditor, diagnostics, translation, mining wizard, Vault Hub, Mind Explorer) so no screen keeps calling an old shape.
+- Every changed feature is exercised once end to end in the running app before I report it done, and the "add your Gemini key" card is checked on the small phone layout you use.
+
 ## Out of scope
 
 - Auto-creating Gemini API keys from a Google login (not possible).
