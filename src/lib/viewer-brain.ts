@@ -52,17 +52,17 @@ export type BrainAchievement = {
 };
 
 export type ViewerBrainPayload = {
-  aboutMe?: BrainFact[];
-  topics?: string[];
-  blockedTopics?: string[];
-  moments?: BrainMoment[];
-  achievements?: BrainAchievement[];
-  threads?: BrainThread[];
-  summary?: string;
-  earliestSummary?: string;
-  languages?: string[];
-  level?: string;
-  goals?: string[];
+  aboutMe: BrainFact[];
+  topics: string[];
+  blockedTopics: string[];
+  moments: BrainMoment[];
+  achievements: BrainAchievement[];
+  threads: BrainThread[];
+  summary: string;
+  earliestSummary: string;
+  languages: string[];
+  level: string;
+  goals: string[];
 };
 
 export type ViewerBrainStats = {
