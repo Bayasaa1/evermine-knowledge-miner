@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
 import { guardApi } from "@/lib/api-guard.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 import { getPublicProjectMind } from "@/lib/project-mind.server";
+import { buildPromptContext, ensurePayload } from "@/lib/viewer-brain";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
 
