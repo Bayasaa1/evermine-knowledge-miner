@@ -114,7 +114,7 @@ async function loadBrainContext(
         .eq("mind_id", mindId)
         .maybeSingle();
       if (!purchase && project.user_id !== userId) {
-        return { context: "", ok: false, error: "Subscribe to chat with this Mind." };
+        return { context: "", latestUpdateTitle: undefined, ok: false, error: "Subscribe to chat with this Mind." };
       }
     }
   }
