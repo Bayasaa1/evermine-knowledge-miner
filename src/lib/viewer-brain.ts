@@ -12,7 +12,7 @@ export type BrainFact = {
   id: string;
   key: string;
   value: string;
-  editedByUser?: boolean;
+  editedByUser: boolean;
   createdAt: string;
 };
 
