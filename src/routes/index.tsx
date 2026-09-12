@@ -31,6 +31,7 @@ import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
 import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
+import { formatMoney, type PlanLength } from "@/lib/subscription";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -256,12 +257,17 @@ const FEED_COPY = {
     robot: "Deploy to Robot",
     assets: "Assets",
     reviews: "Reviews",
-    buy: "Buy",
-    free: "Get · Free",
+    buy: "Subscribe",
+    subscribed: "Subscribed",
+    free: "Subscribe · Free",
+    chooseLength: "Choose your subscription",
+    checkoutSoon: "Paid subscriptions are coming soon — card checkout is not connected yet.",
+    lifetimeNote: "One payment, never expires",
+    lengths: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime" },
     minedTimeline: "Mined timeline",
     emotions: "Emotions",
-    signIn: "Sign in to buy this mind.",
-    locked: "Purchase this mind to unlock this service.",
+    signIn: "Sign in to subscribe to this mind.",
+    locked: "Subscribe to this mind to unlock this service.",
   },
   mn: {
     headline: "Evermind — Жинхэнэ оюунтай ярь",
@@ -273,12 +279,17 @@ const FEED_COPY = {
     robot: "Робот руу байршуулах",
     assets: "Файлууд",
     reviews: "Сэтгэгдэл",
-    buy: "Худалдан авах",
-    free: "Авах · Үнэгүй",
+    buy: "Захиалах",
+    subscribed: "Захиалсан",
+    free: "Захиалах · Үнэгүй",
+    chooseLength: "Захиалгаа сонгоно уу",
+    checkoutSoon: "Төлбөртэй захиалга удахгүй — картын төлбөр хараахан холбогдоогүй байна.",
+    lifetimeNote: "Нэг удаа төлнө, хэзээ ч дуусахгүй",
+    lengths: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан турш" },
     minedTimeline: "Задлагдсан цагийн хэлхээ",
     emotions: "Сэтгэл хөдлөл",
-    signIn: "Энэ оюуныг авахын тулд нэвтэрнэ үү.",
-    locked: "Энэ үйлчилгээг нээхийн тулд оюуныг худалдан авна уу.",
+    signIn: "Захиалахын тулд нэвтэрнэ үү.",
+    locked: "Энэ үйлчилгээг нээхийн тулд захиална уу.",
   },
   ko: {
     headline: "Evermind — 진짜 마인드와 대화하세요",
@@ -290,12 +301,17 @@ const FEED_COPY = {
     robot: "로봇에 배포",
     assets: "자료",
     reviews: "리뷰",
-    buy: "구매",
-    free: "무료로 받기",
+    buy: "구독하기",
+    subscribed: "구독 중",
+    free: "무료로 구독",
+    chooseLength: "구독 기간을 선택하세요",
+    checkoutSoon: "유료 구독은 곧 제공됩니다 — 카드 결제가 아직 연결되지 않았습니다.",
+    lifetimeNote: "1회 결제, 만료 없음",
+    lengths: { month: "1개월", quarter: "3개월", year: "1년", lifetime: "평생" },
     minedTimeline: "마이닝 타임라인",
     emotions: "감정",
-    signIn: "이 마인드를 구매하려면 로그인하세요.",
-    locked: "이 기능을 사용하려면 마인드를 구매하세요.",
+    signIn: "구독하려면 로그인하세요.",
+    locked: "이 기능을 사용하려면 구독하세요.",
   },
 };
 
@@ -359,6 +375,7 @@ function HomeFeed() {
   const [liked, setLiked] = useState<Record<string, boolean>>({});
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [buying, setBuying] = useState<string | null>(null);
+  const [planPicker, setPlanPicker] = useState<FeedItem | null>(null);
 
 
   const refreshPurchases = useCallback(async () => {
@@ -374,7 +391,7 @@ function HomeFeed() {
     void refreshPurchases();
   }, [refreshPurchases]);
 
-  const buy = async (item: FeedItem) => {
+  const subscribe = async (item: FeedItem, plan: PlanLength = "lifetime") => {
     if (!user) {
       toast.error(c.signIn);
       void navigate({ to: "/auth" });
@@ -382,18 +399,25 @@ function HomeFeed() {
     }
     const key = mindKey(item);
     setBuying(key);
-    const { error } = await purchaseMind({ mindId: key, category: item.category });
+    const { error } = await purchaseMind({ mindId: key, category: item.category, plan });
     setBuying(null);
+    setPlanPicker(null);
     if (error) {
-      toast.error(`Purchase failed: ${error}`);
+      toast.error(error.includes("Checkout is not connected") ? c.checkoutSoon : error);
       return;
     }
     setOwned((s) => ({ ...s, [key]: true }));
-    toast.success(
-      item.price > 0
-        ? `Unlocked ${item.creator} — ${item.currency} ${item.price}`
-        : `Unlocked ${item.creator} — free`,
-    );
+    toast.success(`${c.subscribed} — ${item.creator}`);
+  };
+
+  /** Paid minds ask for a length first; free minds subscribe straight away. */
+  const onSubscribe = (item: FeedItem) => {
+    const paid = (item.tiers ?? []).filter((t) => t.price > 0);
+    if (paid.length) {
+      setPlanPicker(item);
+      return;
+    }
+    void subscribe(item, "lifetime");
   };
 
   const runPrimary = (item: FeedItem) => {
@@ -438,7 +462,7 @@ function HomeFeed() {
             purchased={!!owned[mindKey(item)]}
             buying={buying === mindKey(item)}
             onLike={() => setLiked((s) => ({ ...s, [item.id]: !s[item.id] }))}
-            onBuy={() => void buy(item)}
+            onBuy={() => onSubscribe(item)}
             onPrimary={() => runPrimary(item)}
             onTalk={() => setTalk(item)}
             onRobot={() => setRobot(item)}
@@ -455,6 +479,41 @@ function HomeFeed() {
         mindId={talk?.mindId ?? null}
         mindName={talk?.creator ?? ""}
       />
+      {planPicker && (
+        <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+          <div className="w-full max-w-md rounded-t-2xl bg-background p-4 sm:rounded-2xl">
+            <div className="mb-3 flex items-center gap-3">
+              <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{c.chooseLength}</h2>
+              <button type="button" aria-label="Close" onClick={() => setPlanPicker(null)}>
+                <X className="h-5 w-5 text-foreground" />
+              </button>
+            </div>
+            <div className="grid gap-2">
+              {(planPicker.tiers ?? []).map((tier) => (
+                <button
+                  key={tier.length}
+                  type="button"
+                  disabled={buying === mindKey(planPicker)}
+                  onClick={() => void subscribe(planPicker, tier.length)}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary disabled:opacity-60"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-foreground">{c.lengths[tier.length]}</span>
+                    {tier.length === "lifetime" && (
+                      <span className="block text-xs text-muted-foreground">{c.lifetimeNote}</span>
+                    )}
+                  </span>
+                  <span className="font-mono text-sm font-semibold text-primary">
+                    {tier.price > 0 ? formatMoney(tier.price, planPicker.currency) : c.free}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{c.checkoutSoon}</p>
+          </div>
+        </div>
+      )}
+
       <RobotSyncModal open={!!robot} onClose={() => setRobot(null)} item={robot} />
       {feedback && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
@@ -818,9 +877,9 @@ function FeedCard({
           >
             {buying && <Loader2 className="h-3 w-3 animate-spin" />}
             {purchased
-              ? shownPrimary
+              ? c.subscribed
               : item.price > 0
-                ? `${c.buy} · ${item.currency} ${item.price}`
+                ? `${c.buy} · ${formatMoney(item.price, item.currency)}`
                 : c.free}
           </button>
         </div>
