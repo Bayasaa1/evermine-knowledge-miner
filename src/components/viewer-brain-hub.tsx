@@ -4,6 +4,7 @@ import { Brain, Share2, Lock, Trash2, MessageSquare, Trophy, Clock } from "lucid
 import { listViewerBrains, setBrainSharing, eraseBrain } from "@/lib/viewer-brain.functions";
 import { useDisplayTexts } from "@/lib/i18n";
 import { stageLabel } from "@/lib/viewer-brain";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 export function ViewerBrainHub() {
