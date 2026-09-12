@@ -137,6 +137,17 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
     staleTime: 30_000,
   });
 
+  const fetchUpdates = useServerFn(listUnreadUpdates);
+  const { data: updates = [] } = useQuery({
+    queryKey: ["unread-creator-updates"],
+    queryFn: () => fetchUpdates(),
+    enabled: isAuthenticated,
+    refetchInterval: 30_000,
+    staleTime: 60_000,
+  });
+
+  const markRead = useServerFn(markUpdateRead);
+
   const notes: Note[] = [];
   if (isAuthenticated && !hasKey) {
     notes.push({
