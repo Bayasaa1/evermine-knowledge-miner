@@ -57,13 +57,15 @@ export function TalkToMindModal({
     const seconds = Math.max(1, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
     try {
       await mergeSessionFn({
-        mindId,
-        startedAt,
-        endedAt,
-        mode: callMode,
-        turns,
-        seconds,
-        lang,
+        data: {
+          mindId,
+          startedAt,
+          endedAt,
+          mode: callMode,
+          turns,
+          seconds,
+          lang,
+        },
       });
     } catch {
       // best-effort memory merge
