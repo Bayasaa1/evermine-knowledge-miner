@@ -400,9 +400,11 @@ export const setBrainSharing = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const EraseBrainInput = z.object({ mindId: z.string() });
+
 export const eraseBrain = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string }) => input)
+  .inputValidator((input) => EraseBrainInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase
