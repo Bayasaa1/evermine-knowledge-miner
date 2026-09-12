@@ -112,13 +112,9 @@ async function flush() {
                 : "Translation needs your own free Gemini key — add it once in Engines.",
               {
                 duration: 12_000,
-                // Tapping the message (or the button) takes the viewer straight
-                // to the key setup guide instead of leaving them stuck.
-                onDismiss: undefined,
+                // Tapping the action takes the viewer straight to the key setup
+                // guide instead of leaving them stuck on untranslated text.
                 action: { label: "Add key", onClick: goToEngines },
-                onAutoClose: undefined,
-                className: "cursor-pointer",
-                onClick: goToEngines,
               },
             ),
           );
