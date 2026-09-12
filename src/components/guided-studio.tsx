@@ -337,6 +337,7 @@ function StepGoogle({ lang }: { lang: Lang }) {
           <p className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-500">
             <KeyRound className="h-3.5 w-3.5" /> {t.free}
           </p>
+          <GeminiKeyCard />
         </div>
       ) : (
         <div className="space-y-4">
@@ -999,8 +1000,10 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
       const dest = await jobDestination();
+      const { bestGeminiKey } = await import("@/lib/api-keys");
+      const apiKey = (await bestGeminiKey()) ?? undefined;
       const jobs = await withNetworkRetry(
-        () => startMiningJobs({ data: { url: source.url, assessment, ...dest } }),
+        () => startMiningJobs({ data: { url: source.url, assessment, ...dest, apiKey } }),
         {
           onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
         },
@@ -1099,9 +1102,13 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           } else {
             const jobs: MiningJob[] = [];
             const dest = await jobDestination();
+            const { bestGeminiKey } = await import("@/lib/api-keys");
+            const apiKey = (await bestGeminiKey()) ?? undefined;
             for (const u of urls) {
               jobs.push(
-                ...(await withNetworkRetry(() => startMiningJobs({ data: { url: u, assessment, ...dest } }))),
+                ...(await withNetworkRetry(() =>
+                  startMiningJobs({ data: { url: u, assessment, ...dest, apiKey } }),
+                )),
               );
             }
             await driveJobs(jobs);
