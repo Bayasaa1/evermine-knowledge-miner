@@ -437,6 +437,7 @@ export type Database = {
       }
       mining_jobs: {
         Row: {
+          ai_credential: string | null
           attempts: number
           category: string
           chunks: Json
@@ -465,6 +466,7 @@ export type Database = {
           video_context: string
         }
         Insert: {
+          ai_credential?: string | null
           attempts?: number
           category?: string
           chunks?: Json
@@ -493,6 +495,7 @@ export type Database = {
           video_context?: string
         }
         Update: {
+          ai_credential?: string | null
           attempts?: number
           category?: string
           chunks?: Json
@@ -781,6 +784,33 @@ export type Database = {
           package?: Json
           published?: boolean
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_ai_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          id?: string
+          provider: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          provider?: string
           updated_at?: string
           user_id?: string
         }
