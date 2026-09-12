@@ -1,0 +1,13 @@
+CREATE INDEX IF NOT EXISTS creator_updates_project_created_idx ON public.creator_updates (project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS creator_updates_creator_idx ON public.creator_updates (creator_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS viewer_signals_creator_idx ON public.viewer_signals (creator_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS viewer_signals_user_idx ON public.viewer_signals (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS viewer_brains_user_idx ON public.viewer_brains (user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS viewer_brains_creator_shared_idx ON public.viewer_brains (creator_user_id, shared_with_creator);
+CREATE INDEX IF NOT EXISTS project_content_user_idx ON public.project_content (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS project_content_mind_idx ON public.project_content (mind_id);
+CREATE INDEX IF NOT EXISTS projects_user_idx ON public.projects (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS projects_published_idx ON public.projects (published, created_at DESC);
+CREATE INDEX IF NOT EXISTS mind_purchases_mind_idx ON public.mind_purchases (mind_id);
+CREATE INDEX IF NOT EXISTS mind_purchases_user_idx ON public.mind_purchases (user_id);
+CREATE INDEX IF NOT EXISTS update_reads_user_idx ON public.update_reads (user_id);
