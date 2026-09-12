@@ -9,8 +9,8 @@ import { CheckCircle2, ExternalLink, KeyRound, Loader2, Trash2 } from "lucide-re
 import { toast } from "sonner";
 import { loadApiKeys, makeKeyEntry, saveApiKeys, type ApiKeyEntry } from "@/lib/keystore";
 import { deleteUserAiKey, getUserAiKeyStatus, saveUserAiKey } from "@/lib/user-ai-keys.functions";
-import { useAuth } from "@/lib/auth";
-import { useLanguage } from "@/lib/i18n";
+import { useAuth } from "@/hooks/use-auth";
+import { useLang } from "@/lib/i18n";
 
 const COPY = {
   en: {
@@ -86,7 +86,7 @@ async function testGeminiKey(key: string): Promise<boolean> {
 }
 
 export function GeminiKeyCard({ compact = false }: { compact?: boolean }) {
-  const { lang } = useLanguage();
+  const { lang } = useLang();
   const t = COPY[lang as keyof typeof COPY] ?? COPY.en;
   const { isAuthenticated } = useAuth();
   const [keys, setKeys] = useState<ApiKeyEntry[]>([]);
@@ -100,7 +100,7 @@ export function GeminiKeyCard({ compact = false }: { compact?: boolean }) {
       if (isAuthenticated) {
         try {
           const status = await getUserAiKeyStatus();
-          setAccountSaved(!!status.configured);
+          setAccountSaved(Array.isArray(status) ? status.length > 0 : !!status);
         } catch {
           /* account status is a bonus, never a blocker */
         }
