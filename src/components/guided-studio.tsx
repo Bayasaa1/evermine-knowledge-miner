@@ -92,6 +92,7 @@ import {
   startMiningJobs,
 } from "@/lib/mining-jobs.functions";
 import { withNetworkRetry } from "@/lib/retry";
+import { GeminiKeyCard } from "@/components/gemini-key-card";
 
 
 const MODEL = "gemini-2.5-flash";
