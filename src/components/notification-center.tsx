@@ -237,7 +237,7 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
                 );
               }
               return (
-                <Link key={n.id} to={n.href} onClick={() => setOpen(false)} className="block">
+                <Link key={n.id} to={n.href} onClick={onClick} className="block">
                   {inner}
                 </Link>
               );
