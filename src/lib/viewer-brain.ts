@@ -20,9 +20,9 @@ export type BrainMoment = {
   id: string;
   date: string;
   title: string;
-  note?: string;
-  pinnedByUser?: boolean;
-  source?: "chat" | "voice" | "video" | "update" | "manual";
+  note: string;
+  pinnedByUser: boolean;
+  source: "chat" | "voice" | "video" | "update" | "manual";
   createdAt: string;
 };
 
