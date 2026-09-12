@@ -74,7 +74,8 @@ Migration (additive only):
 - `public.viewer_signals` — viewer questions/reactions/requests: `user_id`,
   `mind_id`, `creator_user_id`, `kind` (`question` | `reaction` | `request`), `body`,
   `status`, `creator_reply`, timestamps. Viewer manages own rows; creator reads and
-  replies to rows addressed to them.
+  replies to rows addressed to them. A `topic` column (filled by AI on the viewer's
+  key when present, else keyword buckets) powers FAQ clustering at any scale.
 - `projects.chat_access text default 'open'` (`open` | `subscribers`).
 
 Code:
