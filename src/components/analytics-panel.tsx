@@ -129,19 +129,18 @@ export function AnalyticsPanel({ lang, ownership }: { lang: Lang; ownership: Own
 
   useEffect(() => {
     let alive = true;
-    const pull = async () => {
+    void (async () => {
       const a = await loadAnalytics();
       if (alive) setData(a);
-    };
-    void pull();
-    const poll = setInterval(() => void pull(), 4000);
-    const tick = setInterval(() => setNow(Date.now()), 1000);
+    })();
     return () => {
       alive = false;
-      clearInterval(poll);
-      clearInterval(tick);
     };
   }, []);
+
+  // Only refreshes while the tab is actually open.
+  useVisibleInterval(() => void loadAnalytics().then(setData), 4000);
+  useVisibleInterval(() => setNow(Date.now()), 1000);
 
   const s: AnalyticsSummary = summarize(data, ownership, now);
 
