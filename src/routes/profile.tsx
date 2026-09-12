@@ -3,6 +3,7 @@ import { Hammer, ShieldCheck, Wallet } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
+import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/profile")({
