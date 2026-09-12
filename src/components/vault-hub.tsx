@@ -648,10 +648,13 @@ function VideoCard({
   const remine = async () => {
     setWorking(true);
     try {
+      const { bestGeminiKey } = await import("@/lib/api-keys");
+      const apiKey = (await bestGeminiKey()) ?? undefined;
       await startMining({
         data: {
           url: sourceUrl,
           category: item.category,
+          apiKey,
           assessment: {
             ...DEFAULT_ASSESSMENT,
             sourceTitle: item.title,
