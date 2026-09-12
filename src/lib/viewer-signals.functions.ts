@@ -11,7 +11,6 @@ export const sendSignal = createServerFn({ method: "POST" })
   .inputValidator(
     (input: {
       mindId: string;
-      projectId: string;
       creatorUserId: string;
       kind: SignalKind;
       body: string;
@@ -23,7 +22,6 @@ export const sendSignal = createServerFn({ method: "POST" })
     const { error } = await supabase.from("viewer_signals").insert({
       user_id: userId,
       creator_user_id: data.creatorUserId,
-      project_id: data.projectId,
       mind_id: data.mindId,
       kind: data.kind,
       body: data.body,
