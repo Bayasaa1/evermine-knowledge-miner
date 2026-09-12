@@ -23,6 +23,7 @@ type JobRow = {
   persona_id: string | null;
   project_id: string | null;
   content_kind: string | null;
+  category: string | null;
   publish_to_feed: boolean | null;
 };
 
@@ -60,7 +61,9 @@ export async function finalizeMiningJob(
     label ||
     "New Mind";
 
+  const category = job.category || "knowledge";
   const payload = {
+    category,
     source: { kind: "youtube", label: job.source_label, url: job.source_url },
     minedAt: new Date().toISOString(),
     status: "mined",
@@ -202,6 +205,7 @@ export async function finalizeMiningJob(
           description,
           tags,
           kind,
+          category,
           transcript: mined.transcript as never,
           emotion_timeline: mined.emotionTimeline as never,
           mind_id: savedVault.id,
@@ -213,6 +217,7 @@ export async function finalizeMiningJob(
         project_id: projectId,
         user_id: job.user_id,
         kind,
+        category,
         youtube_id: videoId,
         source_url: job.source_url,
         title,

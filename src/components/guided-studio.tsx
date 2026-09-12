@@ -987,6 +987,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       personaId: target.personaId ?? null,
       projectId: target.mode === "existing" ? target.projectId : null,
       contentKind: target.contentKind,
+      category: getCreationCategory(),
       publishToFeed: Boolean(target.publishToFeed),
     }),
     [target],

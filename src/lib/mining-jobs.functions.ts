@@ -28,6 +28,8 @@ const startSchema = z.object({
   personaId: z.string().uuid().nullable().default(null),
   projectId: z.string().uuid().nullable().default(null),
   contentKind: z.string().max(32).default("VISUAL_CONTENT"),
+  /** Creation type picked in the "+" hub — kept with the video for good. */
+  category: z.string().max(32).default("knowledge"),
   publishToFeed: z.boolean().default(true),
   /** Only true when the creator deliberately asks to mine a finished video again. */
   force: z.boolean().default(false),
@@ -184,6 +186,7 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         persona_id: personaId,
         project_id: projectId,
         content_kind: data.contentKind,
+        category: data.category,
         publish_to_feed: data.publishToFeed,
       });
     }

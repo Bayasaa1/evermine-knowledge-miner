@@ -1,0 +1,2 @@
+ALTER TABLE public.mining_jobs ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'knowledge';
+ALTER TABLE public.project_content ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'knowledge';

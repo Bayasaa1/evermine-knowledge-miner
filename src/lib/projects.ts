@@ -7,6 +7,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
+import type { CreationCategory } from "@/lib/creation-category";
 
 export type ContentKind = "VISUAL_CONTENT" | "TRAINING_ONLY";
 export type SubtitleCue = { timestamp: string; speech: string; speaker: string; role: string };
@@ -40,6 +41,8 @@ export type ProjectContent = {
   project_id: string;
   user_id: string;
   kind: ContentKind;
+  /** Creation type this video was mined as (knowledge/robot/voice/sales/gaming). */
+  category: CreationCategory;
   youtube_id: string;
   source_url: string;
   title: string;
@@ -57,7 +60,7 @@ export type ProjectContent = {
 const PROJECT_COLS =
   "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,view_count,created_at,updated_at";
 const CONTENT_COLS =
-  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,created_at,updated_at";
+  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,created_at,updated_at";
 
 export async function listMyProjects(userId: string): Promise<Project[]> {
   // My Vaults is not a public-project lookup. Refuse stale or caller-supplied
@@ -237,7 +240,7 @@ export async function listPublicVisualContent(limit = 60): Promise<
  * pulls its own subtitles/timeline only when it is the one being watched.
  */
 const CONTENT_LIGHT_COLS =
-  "id,project_id,user_id,kind,youtube_id,source_url,title,description,tags,mind_id,view_count,created_at,updated_at";
+  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,mind_id,view_count,created_at,updated_at";
 
 export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline" | "transcript"> & {
   project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency"> | null;
@@ -288,6 +291,7 @@ function normalizeMany(data: unknown): ProjectContent[] {
 function normalizeOne(row: Record<string, unknown>): ProjectContent {
   return {
     ...(row as unknown as ProjectContent),
+    category: (row["category"] as CreationCategory) ?? "knowledge",
     tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
     timeline: marks(row["timeline"]),
     emotion_timeline: marks(row["emotion_timeline"]),

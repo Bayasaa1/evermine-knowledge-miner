@@ -107,7 +107,7 @@ export async function projectFeed(): Promise<FeedItem[]> {
       handle: `@${(row.project?.title ?? "project").toLowerCase().replace(/\s+/g, "")}`,
       title: row.title,
       description: row.description,
-      category: "knowledge" as CreationCategory,
+      category: (row.category ?? "knowledge") as CreationCategory,
       src: null,
       youtubeId: row.youtube_id,
       poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
