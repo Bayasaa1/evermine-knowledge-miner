@@ -186,7 +186,7 @@ export function mergeSessionIntoBrain(
     turns: { role: "user" | "agent"; text: string }[];
     seconds: number;
     lang: string;
-    latestUpdateTitle?: string;
+    latestUpdateTitle: string | undefined;
   },
 ): ViewerBrain {
   const p = ensurePayload(brain.payload);
