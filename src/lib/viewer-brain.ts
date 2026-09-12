@@ -139,7 +139,7 @@ export function buildPromptContext(
   if (p.languages?.length) lines.push(`- Languages used: ${p.languages.join(", ")}; active language now: ${langName}`);
   if (p.goals?.length) lines.push(`- Viewer goals: ${p.goals.join("; ")}`);
   if (p.aboutMe?.length) {
-    const facts = p.aboutMe.filter((f) => !f.blockedTopics?.includes(f.key)).map((f) => `${f.key}: ${f.value}`);
+    const facts = p.aboutMe.filter((f) => !(p.blockedTopics ?? []).includes(f.key)).map((f) => `${f.key}: ${f.value}`);
     if (facts.length) lines.push(`- About this viewer:\n  - ${facts.join("\n  - ")}`);
   }
   if (p.threads?.length) {
