@@ -124,6 +124,7 @@ export function TalkToMindModal({
     if (!text || busy) return;
     const next: Msg[] = [...messages, { role: "user", text }];
     setMessages(next);
+    turnsRef.current = [...turnsRef.current, { role: "user", text }];
     setInput("");
     setBusy(true);
     try {
@@ -175,17 +176,22 @@ export function TalkToMindModal({
           }
         }
         voice.end();
-        if (!full.trim()) setMessages([...next, { role: "agent", text: "…" }]);
+        const answer = full.trim() ? full.replace(/\[\[clip:[^\]]+\]\]/g, "").trim() : "…";
+        setMessages([...next, { role: "agent", text: answer }]);
+        turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
         return;
       }
 
       const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `Request failed (${res.status})`);
-      const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
-      setMessages([...next, { role: "agent", text: answer || "…" }]);
+      const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim() || "…";
+      setMessages([...next, { role: "agent", text: answer }]);
+      turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
       if (callMode !== "chat") call.speak(answer);
     } catch (e) {
-      setMessages([...next, { role: "agent", text: e instanceof Error ? e.message : String(e) }]);
+      const err = e instanceof Error ? e.message : String(e);
+      setMessages([...next, { role: "agent", text: err }]);
+      turnsRef.current = [...turnsRef.current, { role: "agent", text: err }];
     } finally {
       setBusy(false);
     }
