@@ -121,10 +121,12 @@ export async function projectFeed(): Promise<FeedItem[]> {
       youtubeId: row.youtube_id,
       poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
       tags: row.tags,
-      price: Number(row.project?.price ?? 0),
-      currency: row.project?.currency ?? "USD",
+      price: cheapest ?? Number(row.project?.price ?? 0),
+      currency: (raw?.['currency'] as string | undefined) || row.project?.currency || "USD",
+      tiers,
       publishedAt: row.created_at,
-    }));
+      };
+    });
 }
 
 /** Subtitles + mined moments for the clip currently on screen. */
