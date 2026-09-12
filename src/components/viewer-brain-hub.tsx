@@ -7,7 +7,11 @@ import { stageLabel } from "@/lib/viewer-brain";
 import { toast } from "sonner";
 
 export function ViewerBrainHub() {
-  const t = useDisplayTexts();
+  const [viewerBrainsTitle, refreshLabel, viewerBrainsEmpty] = useDisplayTexts([
+    "Your Core Brains",
+    "Refresh",
+    "Talk, call, or watch any Mind to build your private relationship memory here.",
+  ]);
   const load = useServerFn(listViewerBrains);
   const share = useServerFn(setBrainSharing);
   const erase = useServerFn(eraseBrain);
@@ -27,9 +31,9 @@ export function ViewerBrainHub() {
     }
   };
 
-  const toggleShare = async (id: string, mindId: string, next: boolean) => {
+  const toggleShare = async (mindId: string, next: boolean) => {
     try {
-      await share({ data: { id, mindId, shared: next } });
+      await share({ data: { mindId, shared: next } });
       toast.success(next ? "Shared with creator" : "Private again");
       await refresh();
     } catch (e) {
@@ -37,10 +41,10 @@ export function ViewerBrainHub() {
     }
   };
 
-  const handleErase = async (id: string, mindId: string) => {
+  const handleErase = async (mindId: string) => {
     if (!confirm("Erase this Core Brain? This cannot be undone.")) return;
     try {
-      await erase({ data: { id, mindId } });
+      await erase({ data: { mindId } });
       toast.success("Core Brain erased");
       await refresh();
     } catch (e) {
@@ -53,7 +57,7 @@ export function ViewerBrainHub() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-primary" />
-          <h2 className="text-base font-semibold">{t.viewerBrainsTitle ?? "Your Core Brains"}</h2>
+          <h2 className="text-base font-semibold">{viewerBrainsTitle}</h2>
         </div>
         <button
           type="button"
@@ -61,14 +65,12 @@ export function ViewerBrainHub() {
           disabled={loading}
           className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
         >
-          {loading ? "…" : t.refresh ?? "Refresh"}
+          {loading ? "…" : refreshLabel}
         </button>
       </div>
 
       {brains.length === 0 && !loading && (
-        <p className="text-sm text-muted-foreground">
-          {t.viewerBrainsEmpty ?? "Talk, call, or watch any Mind to build your private relationship memory here."}
-        </p>
+        <p className="text-sm text-muted-foreground">{viewerBrainsEmpty}</p>
       )}
 
       <div className="space-y-3">
@@ -90,7 +92,7 @@ export function ViewerBrainHub() {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => void toggleShare(brain.id, brain.mindId, !brain.sharedWithCreator)}
+                    onClick={() => void toggleShare(brain.mindId, !brain.sharedWithCreator)}
                     className={`rounded-full p-2 ${brain.sharedWithCreator ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted"}`}
                     aria-label={brain.sharedWithCreator ? "Shared with creator" : "Private"}
                     title={brain.sharedWithCreator ? "Shared with creator" : "Private"}
@@ -99,7 +101,7 @@ export function ViewerBrainHub() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleErase(brain.id, brain.mindId)}
+                    onClick={() => void handleErase(brain.mindId)}
                     className="rounded-full p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     aria-label="Erase"
                   >
