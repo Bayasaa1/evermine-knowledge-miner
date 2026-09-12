@@ -42,10 +42,42 @@ export function TalkToMindModal({
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
   const call = useMindCall(mindId, lang, (text) => void sendRef.current(text));
   const [faceUrl, setFaceUrl] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const sessionStartRef = useRef<string | null>(null);
+  const turnsRef = useRef<Msg[]>([]);
+
+  const mergeCurrentSession = async () => {
+    if (!isAuthenticated || !mindId || !sessionStartRef.current) return;
+    const turns = turnsRef.current;
+    if (turns.length === 0) return;
+    const startedAt = sessionStartRef.current;
+    const endedAt = new Date().toISOString();
+    const seconds = Math.max(1, Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
+    try {
+      await mergeSession({
+        mindId,
+        startedAt,
+        endedAt,
+        mode: callMode,
+        turns,
+        seconds,
+        lang,
+      });
+    } catch {
+      // best-effort memory merge
+    }
+    turnsRef.current = [];
+  };
 
   useEffect(() => {
-    if (open) setMessages([]);
-    else call.stop();
+    if (open) {
+      setMessages([]);
+      sessionStartRef.current = new Date().toISOString();
+      turnsRef.current = [];
+    } else {
+      void mergeCurrentSession();
+      call.stop();
+    }
   }, [open, mindId]);
 
   // The creator's own face, only when they built and consented to a face clone.
