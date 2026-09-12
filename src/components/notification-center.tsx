@@ -222,10 +222,16 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
                   </div>
                 </div>
               );
+              const onClick = () => {
+                setOpen(false);
+                if (n.id.startsWith("update-")) {
+                  void markRead({ data: { updateId: n.id.replace("update-", "") } });
+                }
+              };
               if (!n.href) return <div key={n.id}>{inner}</div>;
               if (n.href.includes("#")) {
                 return (
-                  <a key={n.id} href={n.href} onClick={() => setOpen(false)} className="block">
+                  <a key={n.id} href={n.href} onClick={onClick} className="block">
                     {inner}
                   </a>
                 );
