@@ -208,6 +208,8 @@ export function mergeSessionIntoBrain(
       id: newId(),
       date: session.startedAt,
       title: `${session.mode === "video" ? "Video call" : session.mode === "voice" ? "Voice call" : "Chat"}: ${firstUser}`,
+      note: "",
+      pinnedByUser: false,
       source: session.mode,
       createdAt: new Date().toISOString(),
     },
