@@ -215,7 +215,9 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
         </div>
       ) : null}
 
-      {isLoading ? (
+      {/* Same markup on the server and on the first paint in the browser, so the
+          page never has to be thrown away and rebuilt while it is opening. */}
+      {!mounted || isLoading ? (
         <p className="text-sm text-muted-foreground">…</p>
       ) : jobs.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.none}</p>
