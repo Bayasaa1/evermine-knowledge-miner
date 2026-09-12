@@ -360,9 +360,11 @@ export const editThread = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const ThreadIdInput = z.object({ mindId: z.string(), threadId: z.string() });
+
 export const deleteThread = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; threadId: string }) => input)
+  .inputValidator((input) => ThreadIdInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
