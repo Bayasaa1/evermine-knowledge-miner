@@ -60,6 +60,20 @@ In Creator Studio, a **Subscribers & signals** panel, built for any audience siz
    use the same route, so they share one memory. Only one AI runs per answer — the
    creator's Mind. The viewer brain is data, not a second AI.
 
+## When the creator posts an update
+
+- Publishing new content or a new Mind version creates an update entry for that project.
+- Every subscriber gets a notification in the bell (localized, with the creator's name
+  and what changed) and the project card shows a "New" badge until they open it.
+- The feed puts the newest update from creators the viewer follows at the top of their
+  home feed for its first days, so subscribers experience the latest work first.
+- The Mind is told what is new: it opens the next conversation by mentioning the update
+  ("I just released X — want to go through it?") and answers from the newest version
+  first, noting when something changed since they last talked.
+- The viewer's brain records the update as a shared moment ("was there on day one"),
+  which feeds streak and early-supporter achievements.
+
+
 ## Technical notes
 
 Migration (additive only):
