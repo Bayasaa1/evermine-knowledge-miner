@@ -113,6 +113,10 @@ Code:
 - `src/components/subscriber-signals.tsx` + Creator Studio tab — access rule, auto-FAQ
   with clustered questions and answer-once publishing, trending demand, aggregate
   audience summary, searchable shared-brain list, signal inbox.
+- `src/lib/creator-updates.functions.ts` — write an update on publish/new version, list
+  unread updates for a viewer's subscriptions, mark read.
+- `src/components/notification-center.tsx` — add a "New from your creators" group.
+- `src/lib/feed.ts` — boost recent updates from subscribed creators to the top.
 - All new copy localized in English, Mongolian and Korean, phone-width layouts.
 
 Not included: payments changes; paid checkout still shows the existing "coming soon"
