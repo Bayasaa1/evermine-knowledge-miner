@@ -78,17 +78,21 @@ export function ViewerBrainHub() {
           <Brain className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold">{viewerBrainsTitle}</h2>
         </div>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {loading ? "…" : refreshLabel}
-        </button>
+        {isAuthenticated && (
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {loading ? "…" : refreshLabel}
+          </button>
+        )}
       </div>
 
-      {brains.length === 0 && !loading && (
+      {!isAuthenticated && <p className="text-sm text-muted-foreground">{signedOutText}</p>}
+
+      {isAuthenticated && brains.length === 0 && !loading && (
         <p className="text-sm text-muted-foreground">{viewerBrainsEmpty}</p>
       )}
 
