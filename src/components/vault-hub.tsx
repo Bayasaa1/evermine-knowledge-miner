@@ -521,7 +521,11 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
 
 
   const fetchJobs = useServerFn(listMiningJobs);
-  const { data: jobs = [] } = useQuery({ queryKey: ["mining-jobs"], queryFn: () => fetchJobs() });
+  const { data: jobs = [] } = useQuery({
+    queryKey: ["mining-jobs"],
+    queryFn: () => fetchJobs(),
+    enabled: isAuthenticated,
+  });
 
   const mindIds = useMemo(() => [...new Set(items.map((i) => i.mind_id).filter(Boolean))], [items]);
   const list = items.filter((i) => i.kind === tab);
