@@ -384,9 +384,11 @@ export const deleteThread = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const SharingInput = z.object({ mindId: z.string(), shared: z.boolean() });
+
 export const setBrainSharing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; shared: boolean }) => input)
+  .inputValidator((input) => SharingInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase
