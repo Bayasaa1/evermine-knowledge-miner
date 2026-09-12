@@ -248,14 +248,18 @@ export function mergeSessionIntoBrain(
 
 export function sanitizePayload(input: unknown): ViewerBrainPayload {
   const p = ensurePayload(input);
-  // Bound active arrays so the prompt never explodes; archive stays in raw history elsewhere.
+  // The full archive is kept; prompt-context limiting happens in buildPromptContext.
+  return p;
+}
+
+export function limitPromptContext(payload: ViewerBrainPayload): ViewerBrainPayload {
   return {
-    ...p,
-    aboutMe: p.aboutMe?.slice(-30) ?? [],
-    topics: p.topics?.slice(-40) ?? [],
-    blockedTopics: p.blockedTopics?.slice(-20) ?? [],
-    moments: p.moments?.slice(-60) ?? [],
-    threads: p.threads?.slice(-20) ?? [],
-    goals: p.goals?.slice(-20) ?? [],
+    ...payload,
+    aboutMe: payload.aboutMe.slice(-40),
+    topics: payload.topics.slice(-60),
+    blockedTopics: payload.blockedTopics.slice(-40),
+    moments: payload.moments.slice(-20),
+    threads: payload.threads.slice(-20),
+    goals: payload.goals.slice(-20),
   };
 }
