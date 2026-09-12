@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { toast } from "sonner";
 import { BarChart3, Video, MessagesSquare, Timer, Sparkles, Coins, Wallet, Loader2 } from "lucide-react";
 import {
