@@ -306,9 +306,11 @@ export const editMoment = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+const MomentIdInput = z.object({ mindId: z.string(), momentId: z.string() });
+
 export const deleteMoment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; momentId: string }) => input)
+  .inputValidator((input) => MomentIdInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase
