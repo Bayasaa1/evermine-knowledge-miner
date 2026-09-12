@@ -207,10 +207,10 @@ export function TalkToMindModal({
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
             {heading} — {mindName}
           </h2>
-          <button type="button" onClick={() => setCallMode((mode) => mode === "voice" ? "chat" : "voice")} aria-label="Voice call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "voice" ? "chat" : "voice"); }} aria-label="Voice call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Mic className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => setCallMode((mode) => mode === "video" ? "chat" : "video")} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "video" ? "chat" : "video"); }} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Video className="h-4 w-4" />
           </button>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
