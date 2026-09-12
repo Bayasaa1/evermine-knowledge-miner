@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { useAuth } from "@/hooks/use-auth";
 
 const LIVE: MiningJobStatus[] = ["queued", "running", "paused_quota", "paused_user"];
 
