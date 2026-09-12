@@ -131,7 +131,7 @@ export function buildPromptContext(
   langName: string,
   latestUpdateTitle?: string,
 ): string {
-  const p = brain.payload;
+  const p = limitPromptContext(brain.payload);
   const lines: string[] = [];
   lines.push(`RELATIONSHIP MEMORY — the viewer you are talking to:`);
   lines.push(`- Viewer stage: ${stageLabel(brain.stats.stage)} (${brain.stats.sessions} talks, ${Math.round(brain.stats.talkSeconds / 60)} minutes together)`);
