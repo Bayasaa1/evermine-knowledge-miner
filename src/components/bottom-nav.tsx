@@ -69,6 +69,14 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
             <Plus className="h-6 w-6" />
           </button>
           {right.map(cell)}
+          <NotificationCenter lang={lang} />
+        </div>
+      </nav>
+      <CreateWizard open={wizard} onClose={() => setWizard(false)} lang={lang} />
+    </>
+  );
+}
+
         </div>
       </nav>
       <CreateWizard open={wizard} onClose={() => setWizard(false)} lang={lang} />
