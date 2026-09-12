@@ -81,10 +81,11 @@ export async function mineUserTurns(utterances: string[]): Promise<MinedDelta | 
   const clean = utterances.map((u) => u.trim()).filter(Boolean);
   if (clean.length === 0) return null;
   try {
+    const { credentialPayload } = await import("@/lib/api-keys");
     const res = await apiFetch("/api/user-mine", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ utterances: clean.slice(-12) }),
+      body: JSON.stringify({ utterances: clean.slice(-12), ...(await credentialPayload()) }),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as MinedDelta;
