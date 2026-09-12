@@ -125,6 +125,11 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: La
       toast.error(t.signIn);
       return;
     }
+    const cleanProof = safeHttpUrl(proof);
+    if (proof.trim() && !cleanProof) {
+      toast.error("Proof link must start with http:// or https://");
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.from("mind_reviews").upsert(
       {
@@ -132,7 +137,7 @@ export function MindReviews({ mindId, lang = "en" }: { mindId: string; lang?: La
         mind_id: mindId,
         rating,
         body: body.trim(),
-        video_proof_url: proof.trim() || null,
+        video_proof_url: cleanProof,
         author_name: profile?.displayName || user.email?.split("@")[0] || "Evermind user",
       },
       { onConflict: "user_id,mind_id" },
