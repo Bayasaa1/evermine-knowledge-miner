@@ -870,6 +870,7 @@ function FeedCard({
           <button
             type="button"
             onClick={purchased ? onPrimary : onBuy}
+            title={purchased ? shownPrimary : undefined}
             disabled={buying}
             className={`pointer-events-auto ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
               purchased ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
