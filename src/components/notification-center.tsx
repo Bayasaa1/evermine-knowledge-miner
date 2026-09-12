@@ -45,6 +45,8 @@ const COPY = {
     failed: "Mining failed",
     done: "Mining finished",
     signedOut: "Sign in to see your notifications.",
+    updateTitle: "New update from a Mind you follow",
+    updateBody: (title: string) => title,
   },
   mn: {
     title: "Мэдэгдэл",
@@ -60,6 +62,8 @@ const COPY = {
     failed: "Олборлолт амжилтгүй",
     done: "Олборлолт дууслаа",
     signedOut: "Мэдэгдлээ харахын тулд нэвтэрнэ үү.",
+    updateTitle: "Дагаж буй оюун ухаанаас шинэ мэдээ",
+    updateBody: (title: string) => title,
   },
   ko: {
     title: "알림",
@@ -75,6 +79,8 @@ const COPY = {
     failed: "마이닝 실패",
     done: "마이닝 완료",
     signedOut: "알림을 보려면 로그인하세요.",
+    updateTitle: "구독 중인 Mind의 새 업데이트",
+    updateBody: (title: string) => title,
   },
 };
 
