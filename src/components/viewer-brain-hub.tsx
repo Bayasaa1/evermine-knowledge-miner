@@ -7,11 +7,26 @@ import { stageLabel } from "@/lib/viewer-brain";
 import { toast } from "sonner";
 
 export function ViewerBrainHub() {
-  const [viewerBrainsTitle, refreshLabel, viewerBrainsEmpty] = useDisplayTexts([
+  const [
+    viewerBrainsTitle,
+    refreshLabel,
+    viewerBrainsEmpty,
+    signedOutText,
+    sharedText,
+    privateText,
+    erasedText,
+    confirmText,
+  ] = useDisplayTexts([
     "Your Core Brains",
     "Refresh",
     "Talk, call, or watch any Mind to build your private relationship memory here.",
+    "Sign in to see the private memory you build with each creator.",
+    "Shared with creator",
+    "Private again",
+    "Core Brain erased",
+    "Erase this Core Brain? This cannot be undone.",
   ]);
+  const { isAuthenticated } = useAuth();
   const load = useServerFn(listViewerBrains);
   const share = useServerFn(setBrainSharing);
   const erase = useServerFn(eraseBrain);
