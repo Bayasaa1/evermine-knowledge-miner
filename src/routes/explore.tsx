@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/hooks/use-auth";
+import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { appendChatMessages } from "@/lib/cloud-vault.functions";
 import remarkGfm from "remark-gfm";
 import {
