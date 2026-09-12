@@ -164,6 +164,17 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
     const n = jobNote(job, t);
     if (n) notes.push(n);
   }
+  for (const update of updates.slice(0, 10)) {
+    notes.push({
+      id: `update-${update.id}`,
+      tone: "ok",
+      icon: Bell,
+      title: t.updateTitle,
+      body: t.updateBody(update.title),
+      href: `/feed?mind=${update.mind_id}`,
+      attention: true,
+    });
+  }
 
   const attention = notes.filter((n) => n.attention).length;
 
