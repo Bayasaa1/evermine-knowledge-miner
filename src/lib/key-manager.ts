@@ -287,6 +287,11 @@ export async function setProviderCap(keyField: string, monthlyCapUsd: number): P
   await patchProvider(keyField, { monthlyCapUsd: Math.max(0, Math.min(10_000, monthlyCapUsd)) });
 }
 
+/** Remembers which model this key routes to, so free stays free. */
+export async function setProviderModel(keyField: string, model: string): Promise<void> {
+  await patchProvider(keyField, { model });
+}
+
 /** Adds estimated spend for a paid provider and keeps it inside the month it belongs to. */
 export async function recordProviderSpend(keyField: string, usd: number): Promise<void> {
   const stack = await loadStack();
@@ -299,8 +304,12 @@ export async function recordProviderSpend(keyField: string, usd: number): Promis
   });
 }
 
-/** True when this paid provider may be used right now (switched on, under cap). */
+/**
+ * True when this key may be used right now. A free tier or a free routed
+ * model is always usable — only genuinely paid use waits for the switch and
+ * the monthly cap.
+ */
 export function providerUsable(row: SavedKey): boolean {
-  if (!row.provider.paid) return true;
+  if (row.cost !== "paid") return true;
   return row.enabled && row.spendUsd < row.monthlyCapUsd;
 }
