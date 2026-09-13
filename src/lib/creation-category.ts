@@ -27,30 +27,30 @@ export const CATEGORY_LABELS: Record<
   },
   sales: {
     en: {
-      title: "Product & Service Sales Mind",
-      sub: "Promotions, product showcase & an automated sales agent",
+      title: "Sales Mind",
+      sub: "Shows your products and answers buyers for you",
     },
     mn: {
-      title: "Бүтээгдэхүүн, Үйлчилгээний Борлуулалтын Оюун",
-      sub: "Урамшуулал, бүтээгдэхүүний танилцуулга, автомат борлуулагч",
+      title: "Борлуулалтын Оюун",
+      sub: "Бүтээгдэхүүнээ танилцуулж, худалдан авагчдад хариулна",
     },
     ko: {
-      title: "제품 및 서비스 세일즈 마인드",
-      sub: "프로모션, 제품 소개, 자동 세일즈 에이전트",
+      title: "세일즈 마인드",
+      sub: "제품을 소개하고 구매자에게 대신 답합니다",
     },
   },
   gaming: {
     en: {
-      title: "Gaming Mind / Player Clone",
-      sub: "Skills, tactics & a Minecraft coach and teammate mined from gameplay",
+      title: "Gaming Mind",
+      sub: "Plays and coaches the way you play",
     },
     mn: {
-      title: "Тоглоомын Оюун / Тоглогчийн Клон",
-      sub: "Тоглолтын бичлэгээс чадвар, тактик, дасгалжуулагч болон Minecraft хамтрагч",
+      title: "Тоглоомын Оюун",
+      sub: "Таны тоглодог шиг тоглож, зааж өгнө",
     },
     ko: {
-      title: "게이밍 마인드 / 플레이어 클론",
-      sub: "게임플레이 영상에서 배우는 실력, 전술, 마인크래프트 코치와 팀메이트",
+      title: "게이밍 마인드",
+      sub: "당신이 하는 방식대로 플레이하고 코치합니다",
     },
   },
 };
