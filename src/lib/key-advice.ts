@@ -189,3 +189,70 @@ export function adviceFor(category: string, lang: Lang): KeyAdvice {
   const key = (category in ADVICE ? category : "knowledge") as CreationCategory;
   return pickCopy(ADVICE[key], lang);
 }
+
+/* ------------------------------------------------------------------ *
+ * Per-creation-type recommendations shown as badges on the key list.
+ * ------------------------------------------------------------------ */
+
+export type RecLevel = "required" | "recommended" | "team" | "avoid";
+
+export type Recommendation = { level: RecLevel; label: string; reason: string };
+
+/** Who is worth adding for each creation type. Everything unlisted is "team". */
+const PICKS: Record<CreationCategory, { recommended: string[]; avoid: string[] }> = {
+  knowledge: { recommended: ["groq", "cerebras", "openai"], avoid: ["perplexity", "cohere"] },
+  robot: { recommended: ["anthropic", "deepseek"], avoid: ["perplexity", "cohere", "github"] },
+  voice: { recommended: ["groq", "cerebras"], avoid: ["perplexity", "moonshot"] },
+  sales: { recommended: ["xai", "openai"], avoid: ["moonshot", "github"] },
+  gaming: { recommended: ["deepseek", "anthropic"], avoid: ["perplexity", "cohere"] },
+};
+
+const LEVEL_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
+  required: { en: "Required", mn: "Заавал", ko: "필수" },
+  recommended: { en: "Recommended", mn: "Санал болгосон", ko: "추천" },
+  team: { en: "Team backup", mn: "Нөөц баг", ko: "팀 백업" },
+  avoid: { en: "Not recommended", mn: "Санал болгохгүй", ko: "비추천" },
+};
+
+const REASON_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
+  required: {
+    en: "The only engine that watches and hears the video itself.",
+    mn: "Видеог өөрөө хардаг, сонсдог цорын ганц хөдөлгүүр.",
+    ko: "영상을 실제로 보고 듣는 유일한 엔진입니다.",
+  },
+  recommended: {
+    en: "Works well as the thinking partner for what you picked.",
+    mn: "Таны сонгосон төрөлд бодох хамтрагч болж сайн ажиллана.",
+    ko: "선택한 유형에서 사고 파트너로 잘 작동합니다.",
+  },
+  team: {
+    en: "Useful as a backup when the key above runs out.",
+    mn: "Дээрх түлхүүр дуусахад нөөц болж ажиллана.",
+    ko: "위 키가 소진될 때 백업으로 쓸 만합니다.",
+  },
+  avoid: {
+    en: "Adds cost or time without improving this kind of mind.",
+    mn: "Энэ төрөлд чанар нэмэлгүй зардал, цаг л нэмнэ.",
+    ko: "이 유형에서는 품질 향상 없이 비용과 시간만 늘립니다.",
+  },
+};
+
+export function recommendationFor(category: string, providerId: string, lang: Lang): Recommendation {
+  const key = (category in PICKS ? category : "knowledge") as CreationCategory;
+  const picks = PICKS[key];
+  const level: RecLevel =
+    providerId === "gemini"
+      ? "required"
+      : providerId === "custom"
+        ? "team"
+        : picks.recommended.includes(providerId)
+          ? "recommended"
+          : picks.avoid.includes(providerId)
+            ? "avoid"
+            : "team";
+  return {
+    level,
+    label: pickCopy(LEVEL_COPY[level], lang),
+    reason: pickCopy(REASON_COPY[level], lang),
+  };
+}
