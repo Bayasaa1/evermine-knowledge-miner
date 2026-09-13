@@ -49,118 +49,124 @@ export function isTargetReady(t: ProjectTarget): boolean {
 
 const copy = {
   en: {
-    stepA: "Step 2A · Persona",
-    personaQ: "Which Persona owns this content?",
-    personaSub: "Everything mined here is published under this identity.",
-    newPersona: "Create New Persona",
-    personaName: "Persona name",
+    stepA: "Who is posting this?",
+    personaQ: "Pick the name this video is published under.",
+    personaSub: "",
+    newPersona: "Add a new name",
+    personaName: "Name",
     personaPlaceholder: "e.g. Gremix",
-    save: "Save persona",
+    save: "Save",
     cancel: "Cancel",
-    noPersona: "No personas yet — create your first one.",
-    stepB: "Step 2B · Project",
-    lockedB: "Select a persona first.",
-    stepC: "Step 2C · Media & context",
-    lockedC: "Select a persona and project first.",
-    title: "Where should this Mind go?",
-    sub: "Pick a destination project first — everything mined from this video is filed there.",
-    newOpt: "Create a Brand New Mind Project",
-    newSub: "Starts a fresh project for this video.",
-    existingOpt: "Append / Update Existing Project",
-    existingSub: "Adds this video to a project you already own.",
-    saveProject: "Save project",
-    saveProjectHint: "Saves the project to your account right away, so it is still here after a refresh.",
-    name: "Project name",
+    noPersona: "No names yet — add your first one.",
+    stepB: "Which collection?",
+    lockedB: "Pick a name first.",
+    stepC: "The video",
+    lockedC: "Pick a name and a collection first.",
+    title: "Where does this video go?",
+    sub: "",
+    newOpt: "New collection",
+    newSub: "Start a fresh one for this video.",
+    existingOpt: "Existing collection",
+    existingSub: "Add this video to one you already have.",
+    saveProject: "Save collection",
+    saveProjectHint: "Saved to your account right away.",
+    name: "Collection name",
     namePlaceholder: "e.g. Morning Podcast Season 2",
-    choose: "Choose project",
-    none: "You have no projects yet — create and save one first.",
-    intent: "Update intent",
-    intentContinuation: "Chronological Continuation (New Episode)",
-    intentPatch: "Error Fix / Patch",
-    intentExpand: "Expand Topic",
-    date: "Content publication date",
-    kind: "Content type",
-    visual: "Visual content (playable)",
-    training: "Training-only archive",
-    publish: "Publish video directly to the public feed?",
-    publishOn: "This video appears on the home feed as soon as mining finishes.",
-    publishOff: "Stays private — used only to train your Mind.",
+    choose: "Choose a collection",
+    none: "No collections yet — create one first.",
+    intent: "Why are you adding it?",
+    intentContinuation: "Next episode",
+    intentPatch: "Fixing a mistake",
+    intentExpand: "More on the same topic",
+    date: "Date of the video",
+    kind: "Can people watch it?",
+    visual: "Yes, playable",
+    training: "No, only teaches my Mind",
+    publish: "Show this video on the public feed?",
+    publishOn: "It appears on the home feed as soon as mining finishes.",
+    publishOff: "Stays private — used only to teach your Mind.",
+    filed: "Filed under",
+    change: "Change",
   },
   mn: {
-    stepA: "Алхам 2A · Дүр",
-    personaQ: "Энэ контентыг аль дүр эзэмших вэ?",
-    personaSub: "Энд боловсруулсан бүхэн энэ дүрийн нэрээр нийтлэгдэнэ.",
-    newPersona: "Шинэ дүр үүсгэх",
-    personaName: "Дүрийн нэр",
+    stepA: "Хэн нийтэлж байна?",
+    personaQ: "Энэ видео аль нэрээр нийтлэгдэхийг сонгоно уу.",
+    personaSub: "",
+    newPersona: "Шинэ нэр нэмэх",
+    personaName: "Нэр",
     personaPlaceholder: "жишээ нь: Gremix",
-    save: "Дүр хадгалах",
+    save: "Хадгалах",
     cancel: "Болих",
-    noPersona: "Дүр алга — эхнийхээ үүсгэнэ үү.",
-    stepB: "Алхам 2B · Төсөл",
-    lockedB: "Эхлээд дүрээ сонгоно уу.",
-    stepC: "Алхам 2C · Медиа ба нөхцөл",
-    lockedC: "Эхлээд дүр болон төслөө сонгоно уу.",
-    title: "Энэ оюуныг хаана хадгалах вэ?",
-    sub: "Эхлээд төслөө сонго — энэ видеоноос гарсан бүх мэдээлэл тэнд хадгалагдана.",
-    newOpt: "Шинэ Mind төсөл үүсгэх",
-    newSub: "Энэ видеонд зориулж шинэ төсөл эхлүүлнэ.",
-    existingOpt: "Одоо байгаа төсөлд нэмэх / шинэчлэх",
-    existingSub: "Таны эзэмшиж буй төсөлд энэ видеог нэмнэ.",
-    saveProject: "Төсөл хадгалах",
-    saveProjectHint: "Төслийг шууд бүртгэлд хадгална — сэргээсэн ч алга болохгүй.",
-    name: "Төслийн нэр",
+    noPersona: "Нэр алга — эхнийхээ нэмнэ үү.",
+    stepB: "Аль цуглуулга руу?",
+    lockedB: "Эхлээд нэрээ сонгоно уу.",
+    stepC: "Видео",
+    lockedC: "Эхлээд нэр, цуглуулгаа сонгоно уу.",
+    title: "Энэ видео хаашаа орох вэ?",
+    sub: "",
+    newOpt: "Шинэ цуглуулга",
+    newSub: "Энэ видеонд зориулж шинээр эхлүүлнэ.",
+    existingOpt: "Одоо байгаа цуглуулга",
+    existingSub: "Байгаа цуглуулгадаа нэмнэ.",
+    saveProject: "Цуглуулга хадгалах",
+    saveProjectHint: "Бүртгэлд шууд хадгалагдана.",
+    name: "Цуглуулгын нэр",
     namePlaceholder: "жишээ нь: Өглөөний подкаст 2-р улирал",
-    choose: "Төсөл сонгох",
-    none: "Танд төсөл алга — эхлээд төсөл үүсгэж хадгална уу.",
-    intent: "Шинэчлэлийн зорилго",
-    intentContinuation: "Дараалсан үргэлжлэл (шинэ дугаар)",
-    intentPatch: "Алдаа засвар",
-    intentExpand: "Сэдвийг өргөтгөх",
-    date: "Нийтлэх огноо",
-    kind: "Контентын төрөл",
-    visual: "Үзэх контент (тоглуулах)",
-    training: "Зөвхөн сургалтын архив",
-    publish: "Видеог нийтийн фийдэд шууд нийтлэх үү?",
+    choose: "Цуглуулга сонгох",
+    none: "Цуглуулга алга — эхлээд нэгийг үүсгэнэ үү.",
+    intent: "Юуны учир нэмж байна?",
+    intentContinuation: "Дараагийн дугаар",
+    intentPatch: "Алдаа засах",
+    intentExpand: "Ижил сэдвийг нэмж тайлбарлах",
+    date: "Видеоны огноо",
+    kind: "Хүмүүс үзэж болох уу?",
+    visual: "Тийм, үзэж болно",
+    training: "Үгүй, зөвхөн Оюуныг сургана",
+    publish: "Энэ видеог нийтийн фийдэд харуулах уу?",
     publishOn: "Шинжилгээ дуусмагц нүүр фийдэд гарна.",
-    publishOff: "Хувийн хэвээр — зөвхөн оюуныг сургахад ашиглана.",
+    publishOff: "Хувийн хэвээр — зөвхөн Оюуныг сургана.",
+    filed: "Хадгалах газар",
+    change: "Солих",
   },
   ko: {
-    stepA: "2A단계 · 페르소나",
-    personaQ: "이 콘텐츠는 어떤 페르소나의 것인가요?",
-    personaSub: "여기서 추출된 모든 내용은 이 정체성으로 게시됩니다.",
-    newPersona: "새 페르소나 만들기",
-    personaName: "페르소나 이름",
+    stepA: "누가 올리나요?",
+    personaQ: "이 영상을 게시할 이름을 고르세요.",
+    personaSub: "",
+    newPersona: "새 이름 추가",
+    personaName: "이름",
     personaPlaceholder: "예: Gremix",
-    save: "페르소나 저장",
+    save: "저장",
     cancel: "취소",
-    noPersona: "페르소나가 없습니다 — 먼저 만들어 주세요.",
-    stepB: "2B단계 · 프로젝트",
-    lockedB: "먼저 페르소나를 선택하세요.",
-    stepC: "2C단계 · 미디어 및 컨텍스트",
-    lockedC: "먼저 페르소나와 프로젝트를 선택하세요.",
-    title: "이 마인드를 어디에 저장할까요?",
-    sub: "먼저 대상 프로젝트를 선택하세요 — 이 영상에서 추출된 모든 내용이 그곳에 저장됩니다.",
-    newOpt: "새 마인드 프로젝트 만들기",
-    newSub: "이 영상을 위한 새 프로젝트를 시작합니다.",
-    existingOpt: "기존 프로젝트에 추가 / 업데이트",
-    existingSub: "이미 보유한 프로젝트에 이 영상을 추가합니다.",
-    saveProject: "프로젝트 저장",
-    saveProjectHint: "프로젝트를 계정에 즉시 저장하므로 새로고침해도 남아 있습니다.",
-    name: "프로젝트 이름",
+    noPersona: "이름이 없습니다 — 먼저 추가하세요.",
+    stepB: "어떤 모음집에?",
+    lockedB: "먼저 이름을 고르세요.",
+    stepC: "영상",
+    lockedC: "먼저 이름과 모음집을 고르세요.",
+    title: "이 영상을 어디에 넣을까요?",
+    sub: "",
+    newOpt: "새 모음집",
+    newSub: "이 영상을 위해 새로 시작합니다.",
+    existingOpt: "기존 모음집",
+    existingSub: "이미 있는 모음집에 추가합니다.",
+    saveProject: "모음집 저장",
+    saveProjectHint: "계정에 바로 저장됩니다.",
+    name: "모음집 이름",
     namePlaceholder: "예: 모닝 팟캐스트 시즌 2",
-    choose: "프로젝트 선택",
-    none: "아직 프로젝트가 없습니다 — 먼저 프로젝트를 만들고 저장하세요.",
-    intent: "업데이트 의도",
-    intentContinuation: "시간순 연속 (새 에피소드)",
-    intentPatch: "오류 수정 / 패치",
-    intentExpand: "주제 확장",
-    date: "콘텐츠 공개일",
-    kind: "콘텐츠 유형",
-    visual: "시각 콘텐츠 (재생 가능)",
-    training: "학습 전용 아카이브",
-    publish: "영상을 공개 피드에 바로 게시할까요?",
+    choose: "모음집 선택",
+    none: "모음집이 없습니다 — 먼저 만드세요.",
+    intent: "왜 추가하나요?",
+    intentContinuation: "다음 에피소드",
+    intentPatch: "잘못된 부분 수정",
+    intentExpand: "같은 주제 더 다루기",
+    date: "영상 날짜",
+    kind: "사람들이 볼 수 있나요?",
+    visual: "네, 재생 가능",
+    training: "아니요, 마인드 학습만",
+    publish: "이 영상을 공개 피드에 보여줄까요?",
     publishOn: "분석이 끝나는 즉시 홈 피드에 표시됩니다.",
     publishOff: "비공개로 유지 — 마인드 학습에만 사용됩니다.",
+    filed: "저장 위치",
+    change: "변경",
   },
 };
 
@@ -181,6 +187,8 @@ export function ProjectTargetPicker({
   const [personaName, setPersonaName] = useState("");
   const [savingPersona, setSavingPersona] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
+  /** Collapsed once a persona + collection are chosen; "Change" reopens it. */
+  const [expanded, setExpanded] = useState(false);
 
   const { data: personas = [], isLoading: personasLoading } = useQuery({
     queryKey: ["my-personas", userId],
@@ -248,15 +256,35 @@ export function ProjectTargetPicker({
 
   const personaChosen = Boolean(value.personaId);
 
+  // Once a destination is picked the whole picker folds into one quiet line,
+  // so the video step is not three stacked forms.
+  if (isTargetReady(value) && !expanded) {
+    const personaName = personas.find((p) => p.id === value.personaId)?.name ?? "";
+    const projectName = allProjects.find((p) => p.id === value.projectId)?.title ?? "";
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+        <span className="text-muted-foreground">{t.filed}:</span>
+        <span className="font-medium text-foreground">
+          {personaName} › {projectName}
+        </span>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t.change}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="text-sm font-semibold text-foreground">{t.title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
 
-      {/* ---- Step 2A: persona ---- */}
+      {/* ---- Who is posting ---- */}
       <p className="mt-5 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepA}</p>
-      <p className="mt-1 text-sm font-medium text-foreground">{t.personaQ}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{t.personaSub}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{t.personaQ}</p>
 
       {personasLoading ? (
         <Loader2 className="mt-3 h-4 w-4 animate-spin text-muted-foreground" />

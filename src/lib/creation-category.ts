@@ -11,46 +11,46 @@ export const CATEGORY_LABELS: Record<
   { en: { title: string; sub: string }; mn: { title: string; sub: string }; ko: { title: string; sub: string } }
 > = {
   knowledge: {
-    en: { title: "AI Assistant / Knowledge Mind", sub: "Text & Q&A clone mined from your videos" },
-    mn: { title: "AI Туслах / Мэдлэгийн Оюун", sub: "Видеонээс мянган асуулт-хариултын клон" },
-    ko: { title: "AI 어시스턴트 / 지식 마인드", sub: "영상에서 추출한 Q&A 클론" },
+    en: { title: "Knowledge Mind", sub: "Answers questions using what you said in your videos" },
+    mn: { title: "Мэдлэгийн Оюун", sub: "Видеон дээрх яриандаа тулгуурлан асуултад хариулна" },
+    ko: { title: "지식 마인드", sub: "영상에서 말한 내용을 바탕으로 질문에 답합니다" },
   },
   robot: {
-    en: { title: "Robot Brain / Embodied VLA", sub: "Spatial trajectories, 3D grasp & ROS 2 OTA package" },
-    mn: { title: "Роботын Тархи / Биетэй VLA", sub: "Орон зайн траектор, 3D атгалт, ROS 2 багц" },
-    ko: { title: "로봇 브레인 / 임보디드 VLA", sub: "공간 궤적, 3D 그립, ROS 2 패키지" },
+    en: { title: "Robot Brain", sub: "Learns movement, grasping and space from your videos" },
+    mn: { title: "Роботын Тархи", sub: "Видеонээс хөдөлгөөн, барих, орон зайг сурна" },
+    ko: { title: "로봇 브레인", sub: "영상에서 움직임, 잡기, 공간을 배웁니다" },
   },
   voice: {
-    en: { title: "Voice Calling Agent", sub: "Real-time voice-to-voice interaction" },
-    mn: { title: "Дуут Дуудлагын Агент", sub: "Бодит цагийн дуу хоолойн харилцаа" },
-    ko: { title: "음성 통화 에이전트", sub: "실시간 음성 대 음성 상호작용" },
+    en: { title: "Voice Agent", sub: "Talks with people in your voice" },
+    mn: { title: "Дуут Агент", sub: "Таны дуу хоолойгоор хүмүүстэй ярина" },
+    ko: { title: "보이스 에이전트", sub: "당신의 목소리로 사람들과 대화합니다" },
   },
   sales: {
     en: {
-      title: "Product & Service Sales Mind",
-      sub: "Promotions, product showcase & an automated sales agent",
+      title: "Sales Mind",
+      sub: "Shows your products and answers buyers for you",
     },
     mn: {
-      title: "Бүтээгдэхүүн, Үйлчилгээний Борлуулалтын Оюун",
-      sub: "Урамшуулал, бүтээгдэхүүний танилцуулга, автомат борлуулагч",
+      title: "Борлуулалтын Оюун",
+      sub: "Бүтээгдэхүүнээ танилцуулж, худалдан авагчдад хариулна",
     },
     ko: {
-      title: "제품 및 서비스 세일즈 마인드",
-      sub: "프로모션, 제품 소개, 자동 세일즈 에이전트",
+      title: "세일즈 마인드",
+      sub: "제품을 소개하고 구매자에게 대신 답합니다",
     },
   },
   gaming: {
     en: {
-      title: "Gaming Mind / Player Clone",
-      sub: "Skills, tactics & a Minecraft coach and teammate mined from gameplay",
+      title: "Gaming Mind",
+      sub: "Plays and coaches the way you play",
     },
     mn: {
-      title: "Тоглоомын Оюун / Тоглогчийн Клон",
-      sub: "Тоглолтын бичлэгээс чадвар, тактик, дасгалжуулагч болон Minecraft хамтрагч",
+      title: "Тоглоомын Оюун",
+      sub: "Таны тоглодог шиг тоглож, зааж өгнө",
     },
     ko: {
-      title: "게이밍 마인드 / 플레이어 클론",
-      sub: "게임플레이 영상에서 배우는 실력, 전술, 마인크래프트 코치와 팀메이트",
+      title: "게이밍 마인드",
+      sub: "당신이 하는 방식대로 플레이하고 코치합니다",
     },
   },
 };

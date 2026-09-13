@@ -77,9 +77,45 @@ export const PRIMARY_FOCUSES = [
   "Physical Action",
 ] as const;
 
+/**
+ * The question chips only ever show choices that make sense for the kind of
+ * Mind being built — a Robot Brain was being offered "Football Match".
+ * The first entry of each list is the default answer.
+ */
+const CONTEXTS_BY_CATEGORY: Record<string, readonly string[]> = {
+  robot: ["Robot demo", "Hands-on task", "Workshop / factory", "Walkthrough"],
+  gaming: ["Gameplay", "Match replay", "Tutorial run"],
+  voice: ["Conversation", "Podcast", "Phone call", "Speech"],
+  sales: ["Product demo", "Sales call", "Ad / promo", "Review"],
+  knowledge: ["Talk / lecture", "Interview", "Podcast", "Tutorial"],
+};
+
+const FOCUSES_BY_CATEGORY: Record<string, readonly string[]> = {
+  robot: ["Movement & grasping", "Objects & space", "Step order"],
+  gaming: ["Tactics", "Reactions", "Mechanics"],
+  voice: ["Tone & emotion", "Wording", "Timing"],
+  sales: ["Offers & pricing", "Objections", "Product details"],
+  knowledge: ["Facts & answers", "Explanations", "Opinions"],
+};
+
+/** Video-type choices for a creation category. */
+export function contextsFor(category: string): readonly string[] {
+  return CONTEXTS_BY_CATEGORY[category] ?? CONTEXTS_BY_CATEGORY['knowledge']!;
+}
+
+/** Focus choices for a creation category. */
+export function focusesFor(category: string): readonly string[] {
+  return FOCUSES_BY_CATEGORY[category] ?? FOCUSES_BY_CATEGORY['knowledge']!;
+}
+
+/** Video types where naming the speakers actually helps the AI. */
+export function wantsSpeakerNames(context: string): boolean {
+  return ["Podcast", "Conversation", "Interview", "Phone call", "Sales call", "Talk / lecture"].includes(context);
+}
+
 export const DEFAULT_ASSESSMENT: Assessment = {
-  videoContext: "Podcast",
-  primaryFocus: "Knowledge / QA",
+  videoContext: "Talk / lecture",
+  primaryFocus: "Facts & answers",
   customInstructions: "",
   speakerIdentity: "",
   sourceTitle: "",
@@ -89,6 +125,16 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   sourceChannel: "",
   outputLanguage: "en",
 };
+
+/** Starting answers for a creation category — already sensible, so the
+ *  fine-tune panel can stay closed. */
+export function defaultAssessmentFor(category: string): Assessment {
+  return {
+    ...DEFAULT_ASSESSMENT,
+    videoContext: contextsFor(category)[0]!,
+    primaryFocus: focusesFor(category)[0]!,
+  };
+}
 
 const SPEAKER_MARKER = "[SPEAKER_IDENTITY]";
 const META_MARKER = "[SOURCE_META]";

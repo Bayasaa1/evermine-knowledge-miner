@@ -81,7 +81,7 @@ import {
 import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
 import {
-  DEFAULT_ASSESSMENT,
+  defaultAssessmentFor,
   formatDuration,
   formatPublishedDate,
   type Assessment,
@@ -105,61 +105,6 @@ const MODEL = "gemini-2.5-flash";
 
 type Tab = "youtube" | "drive" | "file";
 
-const googleCopy = {
-  en: {
-    linked: "Google account linked",
-    linkedBody:
-      "Chat, calls and vision now run on your own free Google access. To mine YouTube videos — especially in the background — add your free Gemini API key once below.",
-    signedNoScope: "You're signed in, but Gemini access isn't linked yet.",
-    relink: "Link Gemini API access",
-    signIn: "Sign in with Google",
-    connecting: "Connecting…",
-    free: "Free tier · your own access · nothing to maintain",
-    failed: "Google sign-in failed",
-  },
-  mn: {
-    linked: "Google бүртгэл холбогдлоо",
-    linkedBody:
-      "Чат, дуудлага, харах функцууд таны өөрийн үнэгүй Google хандалтаар ажиллана. YouTube видео шинжлэхийн тулд — ялангуяа ард ажиллуулахдаа — доор үнэгүй Gemini API түлхүүрээ нэг удаа нэмнэ үү.",
-    signedNoScope: "Та нэвтэрсэн боловч Gemini хандалт хараахан холбогдоогүй байна.",
-    relink: "Gemini API хандалт холбох",
-    signIn: "Google-ээр нэвтрэх",
-    connecting: "Холбож байна…",
-    free: "Үнэгүй түвшин · өөрийн хандалт · засвар үйлчилгээгүй",
-    failed: "Google нэвтрэлт амжилтгүй боллоо",
-  },
-  ko: {
-    linked: "Google 계정 연결됨",
-    linkedBody:
-      "이제 채팅, 통화, 비전 기능이 본인의 무료 Google 접근 권한으로 실행됩니다. YouTube 영상을 분석하려면 — 특히 백그라운드에서 — 아래에 무료 Gemini API 키를 한 번만 추가하세요.",
-    signedNoScope: "로그인은 되어 있지만 아직 Gemini 접근이 연결되지 않았습니다.",
-    relink: "Gemini API 접근 연결",
-    signIn: "Google로 로그인",
-    connecting: "연결하는 중…",
-    free: "무료 등급 · 본인 접근 권한 · 유지보수 불필요",
-    failed: "Google 로그인에 실패했습니다",
-  },
-};
-
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"
-      />
-      <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1z" />
-      <path
-        fill="#EA4335"
-        d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"
-      />
-    </svg>
-  );
-}
 
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
@@ -186,6 +131,11 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
   }, [step]);
 
   const continueSetup = useCallback(async () => {
+    // Already signed in? Never make the creator sit through the sign-in step.
+    if (step === 1 && isAuthenticated) {
+      setStep(3);
+      return;
+    }
     if (step === 2 && !isAuthenticated) {
       void navigate({ to: "/auth", search: { next: "/creator" } });
       return;
@@ -214,7 +164,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
             <button
               type="button"
               onClick={() => setStep(n)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-medium transition-colors ${
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium transition-colors sm:h-8 sm:w-8 sm:text-sm ${
                 step === n
                   ? "border-primary bg-primary text-primary-foreground"
                   : step > n
@@ -240,7 +190,25 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         </StepShell>
       )}
       {step === 2 && (
-        <StepShell title={t("step2Title")} sub={t("step2Sub")}>
+        <StepShell
+          title={
+            isAuthenticated
+              ? pickCopy({ en: "You're signed in", mn: "Та нэвтэрсэн байна", ko: "로그인되어 있습니다" }, lang)
+              : t("step2Title")
+          }
+          sub={
+            isAuthenticated
+              ? pickCopy(
+                  {
+                    en: "Your projects and keys are saved to this account.",
+                    mn: "Таны төсөл, түлхүүрүүд энэ бүртгэлд хадгалагдана.",
+                    ko: "프로젝트와 키가 이 계정에 저장됩니다.",
+                  },
+                  lang,
+                )
+              : t("step2Sub")
+          }
+        >
           <StepAccount lang={lang} />
         </StepShell>
       )}
@@ -255,8 +223,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 4 && (
         <div className="space-y-8">
           <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
-          <StepUpload lang={lang} mode="save" />
-          <StepUpload lang={lang} mode="mine" />
+          <StepUpload lang={lang} mode="both" category={category} />
         </div>
       )}
       {step === 5 && (
@@ -370,15 +337,21 @@ function StepAccount({ lang }: { lang: Lang }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       {isAuthenticated ? (
-        <div className="space-y-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {pickCopy({ en: "Account ready", mn: "Бүртгэл бэлэн", ko: "계정 준비 완료" }, lang)}
-          </p>
-          {profile && (
-            <p className="text-xs text-muted-foreground">
-              {profile.displayName} · {profile.email}
-            </p>
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {profile?.displayName ?? pickCopy({ en: "Signed in", mn: "Нэвтэрсэн", ko: "로그인됨" }, lang)}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">{profile?.email ?? ""}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/auth", search: { next: "/creator" } })}
+            className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {pickCopy({ en: "Use another account", mn: "Өөр бүртгэл ашиглах", ko: "다른 계정 사용" }, lang)}
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
@@ -397,7 +370,16 @@ function StepAccount({ lang }: { lang: Lang }) {
  * of its details, into Saved Minds. Nothing is analysed yet.
  * Step 3 (`mode="mine"`) — pick a saved video and run the mining pipeline on it.
  */
-function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
+function StepUpload({
+  lang,
+  mode,
+  category,
+}: {
+  lang: Lang;
+  /** "both" is the single combined step: save a link, then mine a saved video. */
+  mode: "save" | "mine" | "both";
+  category: CreationCategory;
+}) {
 
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
@@ -437,7 +419,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
-  const [assessment, setAssessment] = useState<Assessment>(DEFAULT_ASSESSMENT);
+  const [assessment, setAssessment] = useState<Assessment>(() => defaultAssessmentFor(category));
   const [meta, setMeta] = useState<VideoMetadata | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
@@ -453,7 +435,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   // ---- Library step (step 2): saving links, no analysis -------------------
-  const saveMode = mode === "save";
+  const saveMode = mode !== "mine";
+  const mineMode = mode !== "save";
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState<SavedSource[]>([]);
   const [saveNote, setSaveNote] = useState<string | null>(null);
@@ -539,7 +522,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         .filter((r) => r.kind === "source")
         .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }));
     },
-    enabled: signedIn && !saveMode && isTargetReady(target),
+    enabled: signedIn && mineMode && isTargetReady(target),
     refetchOnMount: "always",
   });
 
@@ -563,7 +546,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   // Mine mode: preselect the newest saved video so Start mining is usable at once.
   // A batch ticked in Saved Minds (or an Auditor fix) wins — those arrive selected.
   useEffect(() => {
-    if (saveMode || pickedSourceId || pendingSources.length === 0) return;
+    if (!mineMode || mode === "both" || pickedSourceId || pendingSources.length === 0) return;
     const handed = handoff.ids.filter((id) => pendingSources.some((p) => p.id === id));
     const ai: Record<string, MinerId> = {};
     for (const [id, m] of Object.entries(handoff.ai)) {
@@ -1215,17 +1198,20 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
   return (
     <StepShell
-      title={
-        saveMode
-          ? t("step2Title")
-          : pickCopy({ en: "Mine your saved videos", mn: "Хадгалсан видеогоо олборлох", ko: "저장한 영상 마이닝" }, lang)
-      }
-      sub={saveMode ? t("step2Sub") : lib.pickTitle}
-      tip={saveMode ? lib.saveHint : t("tipSource")}
+      title={pickCopy({ en: "Add your videos", mn: "Видеогоо нэмэх", ko: "영상 추가하기" }, lang)}
+      sub={pickCopy(
+        {
+          en: "Paste a link to save it, then tick a saved video and start mining.",
+          mn: "Холбоос оруулж хадгалаад, дараа нь хадгалсан видеогоо сонгож олборлоно уу.",
+          ko: "링크를 붙여넣어 저장한 뒤, 저장된 영상을 선택해 마이닝하세요.",
+        },
+        lang,
+      )}
+      tip={lib.saveHint}
     >
       {saveMode && <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />}
 
-      {!saveMode && (
+      {mineMode && (
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
@@ -1351,7 +1337,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       )}
 
       <div className={`mt-4 rounded-xl border border-border bg-card p-4 sm:p-5 ${gate ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!gate}>
-        {saveMode && (
+        {saveMode && !busy && (
         <>
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
           {(
@@ -1427,7 +1413,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </p>
         )}
 
-        {saveMode ? (
+        {saveMode && (
           <div className="mt-4 space-y-3">
             {(metaLoading || meta) && (
               <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
@@ -1448,6 +1434,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             )}
             <MiningWizard
               lang={lang}
+              category={category}
               value={assessment}
               onChange={setAssessment}
               busy={saving || !url.trim()}
@@ -1459,6 +1446,18 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                 void saveLink(a);
               }}
             />
+            {!url.trim() && (
+              <p className="text-xs text-muted-foreground">
+                {pickCopy(
+                  {
+                    en: "Paste a video link above to turn on Save video.",
+                    mn: "Хадгалах товчийг идэвхжүүлэхийн тулд дээр видеоны холбоос оруулна уу.",
+                    ko: "저장 버튼을 켜려면 위에 영상 링크를 붙여넣으세요.",
+                  },
+                  lang,
+                )}
+              </p>
+            )}
             {saveNote && <p className="text-xs text-emerald-500">{saveNote}</p>}
             {justSaved.length > 0 && (
               <ul className="space-y-2">
@@ -1487,12 +1486,14 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
               </button>
             )}
           </div>
-        ) : (
+        )}
+
+        {mineMode && (
           <div className="mt-4 space-y-4">
             <button
               type="button"
               onClick={() => void run(assessment)}
-              disabled={busy}
+              disabled={busy || !url.trim()}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -1502,7 +1503,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
               <p className="text-xs text-amber-500">
                 {pickCopy(
                   {
-                    en: "Pick one of your saved videos above first.",
+                    en: "Tick one of your saved videos above first.",
                     mn: "Эхлээд дээрх хадгалсан видеонуудаас нэгийг сонгоно уу.",
                     ko: "먼저 위에서 저장된 영상을 선택하세요.",
                   },
