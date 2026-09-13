@@ -49,6 +49,12 @@ const COPY = {
     on: "On",
     off: "Off",
     capHint: "Mining stops on this key when the limit is reached.",
+    freeTier: "free tier",
+    freeModel: "free model selected",
+    paidModel: "paid model selected",
+    geminiNote:
+      "Free tier. If you switch on billing in your own Google account, this same key just runs faster — Evermind never asks for it.",
+    ownKeys: "Every call runs on your own keys. Evermind never bills you and never uses its own AI budget.",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
@@ -74,6 +80,12 @@ const COPY = {
     on: "Асаалттай",
     off: "Унтраалттай",
     capHint: "Хязгаарт хүрэхэд энэ түлхүүр ашиглагдахаа болино.",
+    freeTier: "үнэгүй хувилбар",
+    freeModel: "үнэгүй загвар сонгосон",
+    paidModel: "төлбөртэй загвар сонгосон",
+    geminiNote:
+      "Үнэгүй хувилбар. Өөрийн Google данснаасаа төлбөрт шилжвэл яг энэ түлхүүр илүү хурдан ажиллана — Evermind үүнийг шаарддаггүй.",
+    ownKeys: "Бүх дуудлага таны өөрийн түлхүүрээр явна. Evermind танаас төлбөр авахгүй, өөрийн AI төсөв ашиглахгүй.",
   },
   ko: {
     title: "내 AI 키",
@@ -99,6 +111,12 @@ const COPY = {
     on: "켜짐",
     off: "꺼짐",
     capHint: "한도에 도달하면 이 키 사용이 중지됩니다.",
+    freeTier: "무료 티어",
+    freeModel: "무료 모델 선택됨",
+    paidModel: "유료 모델 선택됨",
+    geminiNote:
+      "무료 티어입니다. 본인 Google 계정에서 결제를 켜면 같은 키가 더 빨라질 뿐, Evermind가 요구하지는 않습니다.",
+    ownKeys: "모든 호출은 본인 키로 실행됩니다. Evermind는 요금을 청구하지 않으며 자체 AI 예산도 쓰지 않습니다.",
   },
 } as const;
 
