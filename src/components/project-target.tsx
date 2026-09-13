@@ -187,6 +187,8 @@ export function ProjectTargetPicker({
   const [personaName, setPersonaName] = useState("");
   const [savingPersona, setSavingPersona] = useState(false);
   const [savingProject, setSavingProject] = useState(false);
+  /** Collapsed once a persona + collection are chosen; "Change" reopens it. */
+  const [expanded, setExpanded] = useState(false);
 
   const { data: personas = [], isLoading: personasLoading } = useQuery({
     queryKey: ["my-personas", userId],
