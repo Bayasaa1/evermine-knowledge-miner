@@ -10,6 +10,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const KEY_RE = /^[A-Za-z0-9_\-:.]{8,200}$/;
 
+const PROVIDER = z.enum(["gemini", "groq", "mistral", "openai", "anthropic", "moonshot", "openrouter", "deepseek"]);
+
 async function verifyGeminiKey(apiKey: string): Promise<void> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -33,17 +35,18 @@ async function verifyGeminiKey(apiKey: string): Promise<void> {
 export const saveUserAiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ provider: z.literal("gemini"), apiKey: z.string().min(8).max(200) }).parse(input),
+    z.object({ provider: PROVIDER, apiKey: z.string().min(8).max(200) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const apiKey = data.apiKey.trim();
     if (!KEY_RE.test(apiKey)) throw new Error("That does not look like an API key.");
-    await verifyGeminiKey(apiKey);
+    // Only Gemini runs unattended background jobs, so only it is verified here.
+    if (data.provider === "gemini") await verifyGeminiKey(apiKey);
     const { error } = await context.supabase
       .from("user_ai_keys")
       .upsert(
         { user_id: context.userId, provider: data.provider, api_key: apiKey },
-        { onConflict: "user_id,provider" },
+        { onConflict: "user_id,provider,api_key" },
       );
     if (error) throw new Error(error.message);
     return { ok: true as const };
@@ -62,7 +65,7 @@ export const getUserAiKeyStatus = createServerFn({ method: "GET" })
 
 export const deleteUserAiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ provider: z.literal("gemini") }).parse(input))
+  .inputValidator((input) => z.object({ provider: PROVIDER }).parse(input))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("user_ai_keys")
