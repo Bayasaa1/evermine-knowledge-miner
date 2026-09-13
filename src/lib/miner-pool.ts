@@ -7,8 +7,8 @@
  * can do that job. Text-only AIs never appear for Robot Brain, so an
  * impossible job cannot be started.
  *
- * Mining always runs in two stages: a sight-and-sound pass on the built-in
- * Gemini engine (free, no key), then an understanding pass by the AI the
+ * Mining always runs in two stages: a sight-and-sound pass on the creator's
+ * Gemini key, then an understanding pass by the AI the
  * creator picked — or, in team mode, by 2–3 thinking AIs whose answers are
  * merged. Keys stay on the device, inside the per-account engine stack.
  */
@@ -65,19 +65,19 @@ export const MINERS: MinerOption[] = [
   {
     id: "gemini",
     label: "Gemini",
-    note: "Default · reads video natively · free tier, or your own paid key",
+    note: "Required · reads video natively · free tier available",
     senses: ["text", "image", "audio", "video"],
     price: "free",
     keyField: "GEMINI_API_KEY",
     keyPlaceholder: "AIza...",
     keyUrl: "https://aistudio.google.com/apikey",
     guidance:
-      "Optional. Mining works without a key on the built-in engine. Add your own key from Google AI Studio → Get API key (paid tier) to mine on your own quota — no daily free-tier limits, faster queues. Paid keys bill to your Google account; Evermind adds nothing.",
+      "Required. Create a free key in Google AI Studio. Google sign-in alone does not grant Gemini API access. A paid Google project raises limits but is never required by Evermind.",
     capability:
       "Mines video natively: subtitles with timestamps, faces, emotions, voice prints, topics, story beats — the only engine that sees the footage itself.",
     downside: "Free tier has a daily quota; long queues of videos may pause until the quota resets.",
     limits: {
-      youtube: "YouTube: public or unlisted links, up to 2 hours.",
+      youtube: "YouTube: public links only. Free tier: up to 8 hours total per day.",
       files: "Google Drive / file upload: MP4 or MOV, max 2GB — the video itself is read.",
       langs: "Languages: native recognition for English, Mongolian and all global languages.",
     },
@@ -217,7 +217,7 @@ export const MINERS: MinerOption[] = [
     capability: "The same full sight and sound as the default engine, on your own paid quota — no daily limits, priority speed.",
     downside: "Bills to your Google account per minute of video; the built-in free engine covers the same senses.",
     limits: {
-      youtube: "YouTube: public or unlisted links, up to 2 hours, on paid quota.",
+      youtube: "YouTube: public links only. Paid tier has no video-length allowance limit.",
       files: "Google Drive / file upload: MP4 or MOV, max 2GB — the video itself is read.",
       langs: "Languages: native recognition for English, Mongolian and all global languages.",
     },
@@ -227,42 +227,42 @@ export const MINERS: MinerOption[] = [
   {
     id: "qwen-vl",
     label: "Qwen-VL",
-    note: "Free vision via OpenRouter",
-    senses: ["text", "image", "video"],
+    note: "Experimental still-frame analysis via OpenRouter",
+    senses: ["text", "image"],
     price: "free",
     keyField: "OPENROUTER_API_KEY",
     keyPlaceholder: "sk-or-...",
     keyUrl: "https://openrouter.ai/keys",
     guidance: "openrouter.ai → Keys → Create Key. The “:free” vision models cost nothing.",
-    capability: "Sees video frames for free: object positions, movements and scene structure for Robot Brains — a zero-cost vision option.",
-    downside: "Frame-by-frame only — no audio, and free-tier availability varies at peak times.",
+    capability: "Analyzes still frames extracted by Gemini: object positions and scene structure for Robot and Gaming Minds.",
+    downside: "Experimental: it does not watch continuous video or hear audio, and free model availability can change.",
     limits: {
       youtube: "YouTube: frame-based analysis from extracted key frames.",
       files: "File upload: key frames and images; no direct 2GB video reading.",
       langs: "Languages: strong English and Chinese; good on other languages.",
     },
     baseUrl: "https://openrouter.ai/api/v1",
-    testModel: "qwen/qwen-2.5-vl-7b-instruct:free",
+    testModel: "openrouter/free",
   },
   {
     id: "llama-vision",
     label: "Llama Vision",
-    note: "Free vision via OpenRouter",
-    senses: ["text", "image", "video"],
+    note: "Experimental still-frame analysis via OpenRouter",
+    senses: ["text", "image"],
     price: "free",
     keyField: "OPENROUTER_API_KEY",
     keyPlaceholder: "sk-or-...",
     keyUrl: "https://openrouter.ai/keys",
     guidance: "openrouter.ai → Keys → Create Key. Llama 3.2 Vision models marked “:free” cost nothing.",
-    capability: "Sees video frames for free: object detection, spatial layout and action descriptions for Robot Brains.",
-    downside: "Frame-by-frame only — no audio, and smaller context than paid vision models.",
+    capability: "Analyzes still frames extracted by Gemini: objects, spatial layout and visible actions.",
+    downside: "Experimental: no continuous video or audio, and free model availability can change.",
     limits: {
       youtube: "YouTube: frame-based analysis from extracted key frames.",
       files: "File upload: key frames and images; no direct 2GB video reading.",
       langs: "Languages: good English; weaker on Mongolian.",
     },
     baseUrl: "https://openrouter.ai/api/v1",
-    testModel: "meta-llama/llama-3.2-11b-vision-instruct:free",
+    testModel: "openrouter/free",
   },
   {
     id: "whisper-groq",
@@ -275,7 +275,7 @@ export const MINERS: MinerOption[] = [
     keyUrl: "https://console.groq.com/keys",
     guidance: "console.groq.com → API Keys → Create API Key. Whisper transcription on Groq is free and extremely fast.",
     capability: "Hears audio for free: fast Whisper speech recognition and voice-segment analysis for Voice Calling Agents.",
-    downside: "Hearing only — no video, faces or images. Needs the built-in engine for anything visual.",
+    downside: "Transcription only — it does not create a live two-way voice call or analyze video.",
     limits: {
       youtube: "YouTube: audio track transcription at high speed.",
       files: "File upload: audio understanding; no video file reading.",
@@ -548,9 +548,7 @@ export async function minerReadiness(choice?: MinerChoice): Promise<Record<Miner
   const ready = {} as Record<MinerId, boolean>;
   for (const m of MINERS) {
     const key = m.keyField ? !!(stack.keys[m.keyField] ?? "").trim() : false;
-    // Gemini mining runs on Evermind's built-in engine — no creator key required.
-    if (m.id === "gemini") ready[m.id] = true;
-    else if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
+    if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
     else ready[m.id] = key;
   }
   return ready;
@@ -606,7 +604,7 @@ export function companionHint(
   if (plan.gaps.length === 0) {
     return {
       title: "Ready as it is",
-      body: `${label} covers everything this creation type needs. Evermind's built-in engine only fills in what ${label} cannot reach.`,
+      body: `${label} covers everything this creation type needs. Your Gemini key supplies any video material ${label} cannot reach.`,
       tone: "ok",
     };
   }
@@ -616,7 +614,7 @@ export function companionHint(
   return {
     title: `${label} cannot ${missing || "perceive the footage"} — and that is already handled`,
     body:
-      `Evermind's built-in engine watches and listens once, and hands ${label} the transcript, faces and emotion notes to think over. ` +
+      `Gemini watches and listens once using your key, then hands ${label} the transcript, faces and emotion notes to think over. ` +
       `You do not need to turn on another AI or add a second key. ` +
       (category === "robot"
         ? "For a Robot Brain, pick a vision AI (Gemini, Qwen-VL, ChatGPT or Claude) so trajectories and grasps come from an AI that truly sees."

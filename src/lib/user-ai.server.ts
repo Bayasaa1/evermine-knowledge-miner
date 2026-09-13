@@ -1,20 +1,18 @@
 /**
  * Per-user AI access — the one place every server-side AI call gets its
  * credentials from. Nothing here ever touches the platform's shared AI
- * account: a request runs on the signed-in user's own Gemini key, their own
- * Google sign-in token, or a key they pasted for another provider.
+ * account: a request runs on the signed-in user's own Gemini key.
  *
  * Resolution order for a request:
  *   1. a key the caller sent with the request (their device vault), or the
  *      key they saved on their account (used by background jobs too)
- *   2. their Google session token (from signing in with Google)
- *   3. nothing → a typed `no_credential` error the UI turns into the
+ *   2. nothing → a typed `no_credential` error the UI turns into the
  *      "paste your free Gemini key" card
  */
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-export type AiCredential = { kind: "gemini_key" | "google_token"; value: string };
+export type AiCredential = { kind: "gemini_key"; value: string };
 
 export type AiErrorCode = "no_credential" | "quota" | "rate_minute" | "unsupported_task";
 
@@ -48,12 +46,12 @@ const clean = (v: unknown, max = 200): string => (typeof v === "string" ? v.trim
 /**
  * Resolves the caller's Gemini credential.
  * `userId` must come from guardApi/requireSupabaseAuth. `body` may carry
- * `apiKey` (a key from the caller's own vault) and `googleToken` (their
- * Google session token). With neither, their saved account key is used.
+ * `apiKey` (a key from the caller's own vault). With none, their saved account
+ * key is used.
  */
 export async function resolveGeminiCredential(
   userId: string,
-  body?: { apiKey?: unknown; googleToken?: unknown },
+  body?: { apiKey?: unknown },
 ): Promise<AiCredential> {
   const key = clean(body?.apiKey);
   if (key) return { kind: "gemini_key", value: key };
@@ -69,11 +67,8 @@ export async function resolveGeminiCredential(
     const saved = clean(data?.api_key);
     if (saved) return { kind: "gemini_key", value: saved };
   } catch {
-    /* fall through to the Google token */
+    /* fall through to the clear missing-key error */
   }
-
-  const token = clean(body?.googleToken);
-  if (token) return { kind: "google_token", value: token };
 
   throw new UserAiError("no_credential", NO_CREDENTIAL);
 }
@@ -82,9 +77,6 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 function geminiUrl(model: string, method: string, cred: AiCredential): { url: string; headers: HeadersInit } {
   const path = `${GEMINI_BASE}/models/${model}:${method}`;
-  if (cred.kind === "google_token") {
-    return { url: path, headers: { "Content-Type": "application/json", Authorization: `Bearer ${cred.value}` } };
-  }
   return { url: `${path}?key=${encodeURIComponent(cred.value)}`, headers: { "Content-Type": "application/json" } };
 }
 
@@ -139,7 +131,7 @@ async function raiseForGemini(res: Response): Promise<never> {
     throw new UserAiError("no_credential", "That Gemini key was rejected. Add a valid free key in Engines.", 401);
   }
   if (res.status === 401 || res.status === 403) {
-    throw new UserAiError("no_credential", "Gemini rejected this sign-in or key. Re-link Google or add a free key in Engines.", 401);
+    throw new UserAiError("no_credential", "Gemini rejected this key. Add a valid free key in Engines.", 401);
   }
   throw new GeminiHttpError(res.status, detail || `Gemini request failed (${res.status}).`);
 }
@@ -216,16 +208,10 @@ export function youtubeIdFromUrl(url: string): string | null {
 }
 
 /**
- * Video analysis part for Gemini's native API. Google sign-in tokens cannot
- * pull YouTube video data, so video work requires a real Gemini key.
+ * Video analysis part for Gemini's native API. Video work requires a real
+ * Gemini key owned by the user.
  */
 export function youtubeVideoPart(url: string, credential: AiCredential, startSec: number, endSec: number): GeminiPart {
-  if (credential.kind !== "gemini_key") {
-    throw new UserAiError(
-      "unsupported_task",
-      "Video mining needs a free Gemini key — sign-in alone cannot read videos. Add yours once and mining runs on your own free quota.",
-    );
-  }
   const id = youtubeIdFromUrl(url);
   if (!id) throw new GeminiHttpError(400, "Invalid YouTube link.");
   return {

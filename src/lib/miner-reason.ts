@@ -6,7 +6,7 @@
  * emotion readings, voice segments. Stage 2 hands that material to the AI
  * the creator picked in step 3, which thinks over it and contributes extra
  * topics, beliefs, skills and knowledge. Text-only AIs like Groq therefore
- * never touch the footage — they reason over what the built-in engine saw.
+ * never touch the footage — they reason over what Gemini saw using the creator's key.
  *
  * Team mode (knowledge/sales): 2–3 thinking AIs each analyze the same
  * material independently, then their answers are merged — the union is kept

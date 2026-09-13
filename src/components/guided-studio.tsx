@@ -1,8 +1,10 @@
 /**
- * Zero-tech creator flow — three steps, no API keys anywhere:
- *   1. Sign in with Google (auto-links the creator's free-tier Gemini API)
- *   2. Paste a YouTube / Google Drive link (direct knowledge ingestion)
- *   3. Monetization control (Free mode or Paid subscription, switchable any time)
+ * Purpose-aware creator flow:
+ *   1. Choose what to create
+ *   2. Sign in or create an account
+ *   3. Add the required Gemini key and optional specialist AIs
+ *   4. Add and mine videos
+ *   5. Set access and pricing
  * Every limit is stated up front and every failure surfaces as a plain-language
  * banner with a Retry button — never a raw log line.
  */
@@ -25,6 +27,11 @@ import {
   Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
+  Bot,
+  Brain,
+  PhoneCall,
+  Megaphone,
+  Gamepad2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
@@ -40,11 +47,10 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
-import { getCreationCategory } from "@/lib/creation-category";
-import { hasGeminiOauth } from "@/lib/google-gemini-auth";
+import { CATEGORY_LABELS, getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
-import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
+import { loadApiKeys } from "@/lib/keystore";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -165,17 +171,45 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
     try {
       const wanted = window.localStorage.getItem("evermind.mine-step");
       window.localStorage.removeItem("evermind.mine-step");
-      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 3;
+      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 4;
     } catch {
       /* blocked storage just starts at step 1 */
     }
     return 1;
   });
+  const { isAuthenticated } = useAuth();
+  const [category, setCategory] = useState<CreationCategory>(() => getCreationCategory());
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
+
+  useEffect(() => {
+    void loadApiKeys().then((keys) => setHasGeminiKey(keys.some((key) => key.state === "ok")));
+  }, [step]);
+
+  const continueSetup = useCallback(async () => {
+    if (step === 2 && !isAuthenticated) {
+      void navigate({ to: "/auth", search: { next: "/creator" } });
+      return;
+    }
+    if (step === 3) {
+      const keys = await loadApiKeys();
+      if (!keys.some((key) => key.state === "ok")) {
+        toast.error(pickCopy({ en: "Add and test a Gemini key first.", mn: "Эхлээд Gemini түлхүүр нэмж шалгана уу.", ko: "먼저 Gemini 키를 추가하고 테스트하세요." }, lang));
+        return;
+      }
+      setHasGeminiKey(true);
+    }
+    if (step < 5) {
+      setStep((current) => current + 1);
+      return;
+    }
+    toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang));
+    void navigate({ to: "/vaults" });
+  }, [isAuthenticated, lang, navigate, step]);
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6">
       <ol className="flex items-center gap-2">
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4, 5].map((n) => (
           <li key={n} className="flex flex-1 items-center gap-2">
             <button
               type="button"
@@ -191,25 +225,43 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
             >
               {n}
             </button>
-            {n < 3 && <span className="h-px flex-1 bg-border" />}
+            {n < 5 && <span className="h-px flex-1 bg-border" />}
           </li>
         ))}
       </ol>
 
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
-        {t("step")} {step} {t("of")} 3
+        {t("step")} {step} {t("of")} 5
       </p>
 
       {step === 1 && (
-        <StepShell title={t("step1Title")} sub={t("step1Sub")} tip={t("tipGoogle")}>
-          <StepGoogle lang={lang} />
+        <StepShell title={t("step1Title")} sub={t("step1Sub")}>
+          <StepCategory lang={lang} value={category} onChange={setCategory} />
         </StepShell>
       )}
-      {step === 2 && <StepUpload lang={lang} mode="save" />}
+      {step === 2 && (
+        <StepShell title={t("step2Title")} sub={t("step2Sub")}>
+          <StepAccount lang={lang} />
+        </StepShell>
+      )}
       {step === 3 && (
+        <StepShell title={t("step3Title")} sub={t("step3Sub")}>
+          <div className="space-y-4">
+            <GeminiKeyCard />
+            <MinerPool lang={lang} category={category} />
+            <SetupTips lang={lang} />
+          </div>
+        </StepShell>
+      )}
+      {step === 4 && (
         <div className="space-y-8">
+          <StepUpload lang={lang} mode="save" />
           <StepUpload lang={lang} mode="mine" />
-          <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
+        </div>
+      )}
+      {step === 5 && (
+        <div className="space-y-8">
+          <StepShell title={t("step5Title")} sub={t("step5Sub")} tip={t("tipPrice")}>
             <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
           </StepShell>
         </div>
@@ -227,27 +279,10 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         </button>
         <button
           type="button"
-          onClick={() => {
-            if (step < 3) {
-              setStep((s) => s + 1);
-              return;
-            }
-            toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang), {
-              description: pickCopy(
-                {
-                  en: "Your AI mind is ready — opening your Mind Vaults.",
-                  mn: "Таны AI оюун санг Mind Vaults хэсгээс харна уу.",
-                  ko: "AI 마인드가 준비되었습니다 — Mind Vaults를 엽니다.",
-                },
-                lang,
-              ),
-            });
-            void navigate({ to: "/vaults" });
-          }}
+          onClick={() => void continueSetup()}
           className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
         >
-          {step === 3 ? pickCopy({ en: "Finish", mn: "Дуусгах", ko: "완료" }, lang) : t("next")}{" "}
-          <ChevronRight className="h-4 w-4" />
+          {step === 5 ? pickCopy({ en: "Finish", mn: "Дуусгах", ko: "완료" }, lang) : t("next")} <ChevronRight className="h-4 w-4" />
         </button>
 
       </div>
@@ -263,7 +298,7 @@ function StepShell({
 }: {
   title: string;
   sub: string;
-  tip: string;
+  tip?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -272,90 +307,79 @@ function StepShell({
         <h2 className="text-xl font-semibold tracking-tight text-foreground">{title}</h2>
         <p className="text-sm text-muted-foreground">{sub}</p>
       </header>
-      <p className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        {tip}
-      </p>
+      {tip && (
+        <p className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {tip}
+        </p>
+      )}
       {children}
     </div>
   );
 }
 
-/** Step 1 — Google sign-in unlocks the authenticated built-in mining service. */
-function StepGoogle({ lang }: { lang: Lang }) {
-  const t = pickCopy(googleCopy, lang);
+const CATEGORY_ICONS: Record<CreationCategory, typeof Brain> = {
+  knowledge: Brain,
+  robot: Bot,
+  voice: PhoneCall,
+  sales: Megaphone,
+  gaming: Gamepad2,
+};
+
+function StepCategory({ lang, value, onChange }: { lang: Lang; value: CreationCategory; onChange: (value: CreationCategory) => void }) {
+  const categories: CreationCategory[] = ["knowledge", "robot", "voice", "sales", "gaming"];
+  return (
+    <div className="grid gap-3">
+      {categories.map((category) => {
+        const Icon = CATEGORY_ICONS[category];
+        const copy = pickCopy(CATEGORY_LABELS[category], lang);
+        const selected = category === value;
+        return (
+          <button key={category} type="button" onClick={() => { setCreationCategory(category); onChange(category); }} className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"}`}>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-foreground">{copy.title}</span><span className="mt-1 block text-xs text-muted-foreground">{copy.sub}</span></span>
+            {selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepAccount({ lang }: { lang: Lang }) {
+  const navigate = useNavigate();
   const { isAuthenticated, profile } = useAuth();
-  // Signing in is enough: when the Google session carries no Gemini scope the app
-  // falls back to the backend/platform engine, so onboarding never loops here.
-  const [oauthLinked, setOauthLinked] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const linked = oauthLinked || isAuthenticated;
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    void (async () => {
-      setOauthLinked(await hasGeminiOauth());
-      setChecking(false);
-    })();
-  }, [isAuthenticated]);
-
-  const connect = useCallback(async () => {
-    setBusy(true);
-    try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
-      });
-      if (result.error) {
-        toast.error(t.failed, { description: result.error.message });
-        return;
-      }
-      if (result.redirected) return; // Browser is heading to Google.
-      setOauthLinked(await hasGeminiOauth());
-    } catch (err) {
-      toast.error(t.failed, { description: err instanceof Error ? err.message : String(err) });
-    } finally {
-      setBusy(false);
-    }
-  }, [t]);
-
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      {checking ? (
-        <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> {t.connecting}
-        </div>
-      ) : linked ? (
+      {isAuthenticated ? (
         <div className="space-y-3">
           <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {t.linked}
+            <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {pickCopy({ en: "Account ready", mn: "Бүртгэл бэлэн", ko: "계정 준비 완료" }, lang)}
           </p>
-          <p className="text-sm leading-relaxed text-muted-foreground">{t.linkedBody}</p>
           {profile && (
             <p className="text-xs text-muted-foreground">
               {profile.displayName} · {profile.email}
             </p>
           )}
-          <p className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-500">
-            <KeyRound className="h-3.5 w-3.5" /> {t.free}
-          </p>
-          <GeminiKeyCard />
         </div>
       ) : (
         <div className="space-y-4">
-          <button
-            type="button"
-            onClick={() => void connect()}
-            disabled={busy}
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-muted px-4 py-3.5 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-muted/70 disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleMark />}
-            {busy ? t.connecting : isAuthenticated ? t.relink : t.signIn}
+          <p className="text-sm text-muted-foreground">{pickCopy({ en: "Use Google, Apple, email, or create a new account. This protects your projects and keys.", mn: "Google, Apple, имэйлээр нэвтрэх эсвэл шинэ бүртгэл үүсгэнэ үү.", ko: "Google, Apple, 이메일로 로그인하거나 새 계정을 만드세요." }, lang)}</p>
+          <button type="button" onClick={() => void navigate({ to: "/auth", search: { next: "/creator" } })} className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">
+            {pickCopy({ en: "Sign in or sign up", mn: "Нэвтрэх эсвэл бүртгүүлэх", ko: "로그인 또는 가입" }, lang)}
           </button>
-          <p className="text-center text-xs text-muted-foreground">{t.free}</p>
         </div>
       )}
     </div>
   );
+}
+
+function SetupTips({ lang }: { lang: Lang }) {
+  const tips = pickCopy({
+    en: ["Start with Gemini only and one short public video.", "Extra AI providers improve specialist reasoning; they can also add time and cost.", "Extra Gemini keys from the same Google Cloud project do not add quota.", "Qwen and Llama analyze selected still frames, not continuous video.", "Voice mining learns from audio; live two-way calling needs a separate Live API setup."],
+    mn: ["Эхлээд зөвхөн Gemini болон нэг богино public видео ашиглаарай.", "Нэмэлт AI нь тусгай дүгнэлтийг сайжруулдаг ч хугацаа, зардал нэмнэ.", "Нэг Google Cloud төслийн нэмэлт Gemini түлхүүрүүд квот нэмэхгүй.", "Qwen, Llama нь тасралтгүй видео биш, сонгосон кадрыг шинжилнэ.", "Дууны олборлолт аудиогоос сурна; шууд хоёр талын дуудлагад тусдаа Live API хэрэгтэй."],
+    ko: ["Gemini 하나와 짧은 공개 영상 하나로 시작하세요.", "추가 AI는 전문 추론을 개선하지만 시간과 비용이 늘 수 있습니다.", "같은 Google Cloud 프로젝트의 Gemini 키를 늘려도 할당량은 늘지 않습니다.", "Qwen과 Llama는 연속 영상이 아닌 선택된 정지 프레임을 분석합니다.", "음성 마이닝은 오디오에서 학습하며 실시간 양방향 통화는 별도 Live API 설정이 필요합니다."],
+  }, lang);
+  return <div className="rounded-lg border border-border bg-muted/30 p-4"><p className="text-sm font-semibold text-foreground">{pickCopy({ en: "Tips for smooth, fast setup", mn: "Хурдан, тогтвортой ажиллуулах зөвлөмж", ko: "빠르고 안정적인 설정 팁" }, lang)}</p><ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">{tips.map((tip) => <li key={tip}>• {tip}</li>)}</ul></div>;
 }
 
 /**
@@ -611,7 +635,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
 
   useEffect(() => {
-    void hasGeminiOauth().then((ok) => setHasAuth(ok || signedIn));
+    void loadApiKeys().then((keys) => setHasAuth(signedIn && keys.some((key) => key.state === "ok")));
   }, [signedIn]);
 
   /**

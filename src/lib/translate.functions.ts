@@ -7,9 +7,8 @@ const schema = z.object({
   targetName: z.string().min(2).max(40),
   /** Optional hint so the model keeps product terminology consistent. */
   domain: z.string().max(200).optional(),
-  /** The viewer's own Gemini key (from their device vault) or Google token. */
+  /** The viewer's own Gemini key from their device vault. */
   apiKey: z.string().max(200).optional(),
-  googleToken: z.string().max(4096).optional(),
 });
 
 /**
@@ -17,14 +16,14 @@ const schema = z.object({
  * this only renders English source strings into the viewer's active language.
  *
  * Translation runs on the viewer's OWN free Gemini access — a key from their
- * device vault or their Google sign-in token. With neither, the original text
+ * device vault. Without one, the original text
  * comes back with `blocked: "no_key"` so the app can say why instead of
  * silently showing untranslated strings.
  */
 export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(
-    async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; via?: "key" | "google" }> => {
+    async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; via?: "key" }> => {
     // Abuse guard: anonymous callers share a per-IP sliding window.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
@@ -35,8 +34,7 @@ export const translateTexts = createServerFn({ method: "POST" })
     if (rateLimit("translate", ip, 120)) return { texts: data.texts };
 
     const apiKey = (data.apiKey ?? "").trim();
-    const googleToken = (data.googleToken ?? "").trim();
-    if (!apiKey && !googleToken) return { texts: data.texts, blocked: "no_key" as const };
+    if (!apiKey) return { texts: data.texts, blocked: "no_key" as const };
 
     const system = [
       `You are a UI and subtitle localisation engine for Evermind, a video-mining AI platform.`,
@@ -53,9 +51,7 @@ export const translateTexts = createServerFn({ method: "POST" })
 
     try {
       const { geminiGenerate, withMinuteRetry } = await import("@/lib/user-ai.server");
-      const credential = apiKey
-        ? ({ kind: "gemini_key", value: apiKey } as const)
-        : ({ kind: "google_token", value: googleToken } as const);
+      const credential = { kind: "gemini_key", value: apiKey } as const;
       const raw = await withMinuteRetry(() =>
         geminiGenerate({
           credential,
@@ -82,7 +78,7 @@ export const translateTexts = createServerFn({ method: "POST" })
         // scaring the viewer with a quota warning.
         if (err.code === "rate_minute") return { texts: data.texts };
         if (err.code === "quota")
-          return { texts: data.texts, blocked: "quota" as const, via: apiKey ? ("key" as const) : ("google" as const) };
+          return { texts: data.texts, blocked: "quota" as const, via: "key" as const };
         return { texts: data.texts, blocked: "no_key" as const };
       }
       return { texts: data.texts };

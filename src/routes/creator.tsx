@@ -21,7 +21,6 @@ import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
-import { hasGeminiOauth } from "@/lib/google-gemini-auth";
 import {
   loadApiKeys,
   saveApiKeys,
@@ -1273,9 +1272,6 @@ function Index() {
       for (;;) {
         const entry = keysRef.current.find((k) => k.state === "ok");
         if (!entry) {
-          // No pasted key left — the Google OAuth session authorizes Gemini
-          // directly (gemini.ts sends the bearer token), so keep going.
-          if (await hasGeminiOauth()) return await fn("");
           throw new QuotaPaused();
         }
         try {
@@ -1338,7 +1334,7 @@ function Index() {
   const startMining = useCallback(
     async (startIndex: number, initialRef: UploadedFile | null) => {
       if (chunks.length === 0 || status === "processing") return;
-      if (keysRef.current.filter((k) => k.state === "ok").length === 0 && !(await hasGeminiOauth())) {
+      if (keysRef.current.filter((k) => k.state === "ok").length === 0) {
         setStatus(keysRef.current.length > 0 ? "paused" : "error");
         setStatusNote(keysRef.current.length > 0 ? "notePausedQuota" : "noteNoKey");
         addLog("error", "No usable API key in the rotation pool");

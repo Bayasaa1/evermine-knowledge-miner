@@ -7,7 +7,7 @@
  * Sales minds also offer team mode: 2–3 thinking AIs analyze the same
  * material and their answers are merged.
  *
- * Gemini is preselected. Any other brain asks for its API key exactly once: if a
+ * Gemini is preselected and requires the creator's own key. Any other brain asks for its API key exactly once: if a
  * key for that provider is already stored on this device, the field is skipped.
  * Every option shows where to get a key, step-by-step guidance, and a Test
  * button that proves the key works before the creator saves it.
@@ -189,8 +189,7 @@ export function MinerPool({
   }, [choice.id]);
 
   const option = findMiner(choice.id);
-  // Gemini runs on the built-in engine, so a creator key is always optional.
-  const needsKey = !!option?.keyField && !hasKey && choice.id !== "gemini";
+  const needsKey = !!option?.keyField && !hasKey;
   const showKeyArea = !!option?.keyField || choice.id === "gemini";
 
   const persist = async (nextChoice?: MinerChoice) => {
@@ -220,12 +219,6 @@ export function MinerPool({
     try {
       const existing = await existingKeyFor(choice.id);
       const key = apiKey.trim() || existing;
-      if (choice.id === "gemini" && !key) {
-        // Built-in Gemini engine — nothing to validate.
-        refreshReady();
-        toast.success(t.testOk);
-        return;
-      }
       await testMinerKey(choice, key);
       refreshReady();
       toast.success(t.testOk);
