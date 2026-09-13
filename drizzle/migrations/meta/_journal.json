@@ -57,6 +57,13 @@
       "when": 1789280763572,
       "tag": "0007_user_ai_keys_multi_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789294667776,
+      "tag": "0008_projects_private_by_default",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@
  * name and avatar on the public feed.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
 
 export type Persona = {
   id: string;
@@ -67,6 +68,8 @@ export async function updatePersona(
   id: string,
   patch: { name?: string; handle?: string; avatarUrl?: string | null; bio?: string },
 ): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
   const { error } = await supabase
     .from("creator_personas")
     .update({
@@ -75,12 +78,19 @@ export async function updatePersona(
       ...(patch.avatarUrl !== undefined ? { avatar_url: patch.avatarUrl || null } : {}),
       ...(patch.bio !== undefined ? { bio: patch.bio } : {}),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", owner);
   return error?.message ?? null;
 }
 
 export async function deletePersona(id: string): Promise<string | null> {
-  const { error } = await supabase.from("creator_personas").delete().eq("id", id);
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { error } = await supabase
+    .from("creator_personas")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", owner);
   return error?.message ?? null;
 }
 

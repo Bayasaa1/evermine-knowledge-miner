@@ -35,7 +35,9 @@ export const DEFAULT_TARGET: ProjectTarget = {
   intent: "continuation",
   publishDate: new Date().toISOString().slice(0, 10),
   contentKind: "VISUAL_CONTENT",
-  publishToFeed: true,
+  // Private by default: a new video stays training-only until the creator
+  // deliberately turns on "show on feed".
+  publishToFeed: false,
 };
 
 /** Step 2 is strictly hierarchical: persona -> project -> link. */

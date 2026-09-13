@@ -242,7 +242,9 @@ async function testKey(
           .filter((m) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
           .map((m) => (m.name ?? "").replace(/^models\//, ""))
           .filter(Boolean);
-      } else if (list.status === 400 || list.status === 401 || list.status === 403) {
+      } else if (list.status === 400 || list.status === 401 || list.status === 403 || list.status === 429) {
+        // 429 here means Google is already rate-limiting this key. Sending more
+        // requests would only deepen the throttle, so stop immediately.
         return { ok: false, status: list.status, detail: (await list.text().catch(() => "")).slice(0, 200) };
       }
       const preferred = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
@@ -251,28 +253,26 @@ async function testKey(
         ...models.filter((m) => /flash|pro/.test(m) && !preferred.includes(m)),
         ...(models.length === 0 ? preferred : []),
       ];
-      let last: TestResult = { ok: false, status: list.status };
-      for (const model of ordered.slice(0, 4)) {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: "Say OK" }] }],
-              generationConfig: { maxOutputTokens: 4 },
-            }),
-          },
-        );
-        if (res.ok) return { ok: true, model };
-        last = { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
-        // A key rejected outright will not do better on another model.
-        if (res.status === 401 || res.status === 403 || res.status === 429) return last;
-      }
-      // The account can list models, so the key itself is fine — let it in and
-      // let the first real call surface anything else.
-      if (models.length > 0) return { ok: true, ...(ordered[0] ? { model: ordered[0] } : {}) };
-      return last;
+      // Listing models already proved the key. One click therefore costs at most
+      // one extra call: a single probe on the best available model.
+      const model = ordered[0];
+      if (!model) return { ok: false, status: list.status };
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: "Say OK" }] }],
+            generationConfig: { maxOutputTokens: 4 },
+          }),
+        },
+      );
+      if (res.ok) return { ok: true, model };
+      // The account could list its models, so the key itself is valid; only a
+      // hard rejection means the key is unusable.
+      if (models.length > 0 && res.status !== 401 && res.status !== 403) return { ok: true, model };
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
     }
 
     if (provider.id === "anthropic") {

@@ -77,11 +77,13 @@ export function scopedKey(key: string): string {
 
 /**
  * Clears every session-bound value on sign-out or account switch: the Supabase
- * session, cached identity, and any legacy brand keys. Mined vaults stay on disk
- * but are unreachable because they are namespaced by account id.
+ * session, cached identity, and any legacy brand keys. The leaving account's own
+ * device data is erased outright, and ownerless leftovers are erased too so the
+ * next person to sign in can never inherit them.
  */
 export function clearUserScopedLocalData(): void {
   if (typeof window === "undefined") return;
+  const leaving = getLocalScope();
   const drop: string[] = [];
   for (let i = 0; i < window.localStorage.length; i += 1) {
     const k = window.localStorage.key(i);
@@ -97,4 +99,22 @@ export function clearUserScopedLocalData(): void {
   }
   drop.forEach((k) => window.localStorage.removeItem(k));
   window.sessionStorage.clear();
+  void purgeDeviceData(leaving);
+}
+
+/**
+ * Deletes the browser-stored records owned by one account, plus every ownerless
+ * ("anon:") record. Nothing from a previous visitor is ever handed on.
+ */
+export async function purgeDeviceData(userId: string | null): Promise<void> {
+  if (typeof window === "undefined") return;
+  const { idbKeys, idbDelete, STORES } = await import("./store");
+  for (const store of [STORES.SETTINGS, STORES.SESSION]) {
+    const keys = await idbKeys(store);
+    for (const key of keys) {
+      if (key.startsWith("anon:") || (userId && key.startsWith(`${userId}:`))) {
+        await idbDelete(store, key);
+      }
+    }
+  }
 }

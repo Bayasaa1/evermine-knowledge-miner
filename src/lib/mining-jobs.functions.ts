@@ -30,7 +30,8 @@ const startSchema = z.object({
   contentKind: z.string().max(32).default("VISUAL_CONTENT"),
   /** Creation type picked in the "+" hub — kept with the video for good. */
   category: z.string().max(32).default("knowledge"),
-  publishToFeed: z.boolean().default(true),
+  // Private unless the creator explicitly asked to share this one.
+  publishToFeed: z.boolean().default(false),
   /** Only true when the creator deliberately asks to mine a finished video again. */
   force: z.boolean().default(false),
   /**

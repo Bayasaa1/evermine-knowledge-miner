@@ -6,6 +6,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import {
   Brain,
@@ -65,6 +66,8 @@ const ICONS = {
 export function MindVersioningHub({ lang, signedIn }: { lang: Lang; signedIn: boolean }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const load = useServerFn(listMindVersions);
   const rollbackFn = useServerFn(rollbackMindVersion);
   const deleteFn = useServerFn(deleteMindVersion);
@@ -72,9 +75,9 @@ export function MindVersioningHub({ lang, signedIn }: { lang: Lang; signedIn: bo
   const [editing, setEditing] = useState<MindVersion | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["mind-versions"],
+    queryKey: ["mind-versions", userId],
     queryFn: () => load(),
-    enabled: signedIn,
+    enabled: signedIn && Boolean(userId),
   });
 
   const groups = useMemo(() => {

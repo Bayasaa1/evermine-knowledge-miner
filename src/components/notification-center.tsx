@@ -115,7 +115,7 @@ function jobNote(job: MiningJob, t: (typeof COPY)["en"]): Note | null {
 
 export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
   const t = pickCopy(COPY, lang);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
   const [open, setOpen] = useState(false);
   const [hasKey, setHasKey] = useState(true);
 
@@ -125,23 +125,24 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
     return () => {
       alive = false;
     };
-  }, [isAuthenticated, open]);
+  }, [isAuthenticated, userId, open]);
 
   const fetchJobs = useServerFn(listMiningJobs);
+  // The owner id is part of the cache name: two accounts can never share one
+  // notification list, even for a moment while switching.
   const { data: jobs = [] } = useQuery({
-    queryKey: ["mining-jobs"],
+    queryKey: ["mining-jobs", userId],
     queryFn: () => fetchJobs(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
     refetchInterval: 15_000,
-    placeholderData: (prev) => prev,
     staleTime: 30_000,
   });
 
   const fetchUpdates = useServerFn(listUnreadUpdates);
   const { data: updates = [] } = useQuery({
-    queryKey: ["unread-creator-updates"],
+    queryKey: ["unread-creator-updates", userId],
     queryFn: () => fetchUpdates(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
     refetchInterval: 30_000,
     staleTime: 60_000,
   });

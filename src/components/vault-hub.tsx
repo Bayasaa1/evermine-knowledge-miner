@@ -503,15 +503,19 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
+  const { isAuthenticated, userId } = useAuth();
 
+  // Nothing loads — and no edit or delete control appears — until we know who
+  // is signed in.
   const { data: items = [], isLoading: loading } = useQuery<ProjectContent[]>({
-    queryKey: ["project-content", project.id],
+    queryKey: ["project-content", userId, project.id],
     queryFn: () => listProjectContent(project.id),
+    enabled: isAuthenticated && Boolean(userId),
   });
 
   // Any mutation refreshes content, the Core Brain and the public feed together.
   const load = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["project-content", project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["project-content", userId, project.id] });
     await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
     await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
     await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
@@ -520,12 +524,11 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   };
 
 
-  const { isAuthenticated } = useAuth();
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({
-    queryKey: ["mining-jobs"],
+    queryKey: ["mining-jobs", userId],
     queryFn: () => fetchJobs(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
   });
 
   const mindIds = useMemo(() => [...new Set(items.map((i) => i.mind_id).filter(Boolean))], [items]);

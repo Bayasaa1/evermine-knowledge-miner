@@ -86,7 +86,7 @@ function StatusIcon({ status }: { status: MiningJobStatus }) {
  */
 export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const t = pickCopy(COPY, lang);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const fetchJobs = useServerFn(listMiningJobs);
@@ -94,12 +94,12 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const qc = useQueryClient();
 
   const { data: jobs = [], isLoading } = useQuery({
-    queryKey: ["mining-jobs"],
+    queryKey: ["mining-jobs", userId],
     queryFn: () => fetchJobs(),
     // Poll while the tab is open; the worker keeps going when it is not.
     refetchInterval: 4_000,
     refetchOnWindowFocus: true,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
   });
 
   const clearHistory = useServerFn(clearMiningHistory);

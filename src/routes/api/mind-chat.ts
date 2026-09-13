@@ -158,12 +158,6 @@ async function loadBrainContext(
 }
 
 type ProviderId = "gemini" | "openai" | "anthropic" | "deepseek";
-const PROVIDER_SECRET: Record<ProviderId, string> = {
-  gemini: "GEMINI_API_KEY",
-  openai: "OPENAI_API_KEY",
-  anthropic: "ANTHROPIC_API_KEY",
-  deepseek: "DEEPSEEK_API_KEY",
-};
 const DEFAULT_MODEL: Record<ProviderId, string> = {
   gemini: "gemini-2.5-flash",
   openai: "gpt-4o-mini",
@@ -291,14 +285,12 @@ export const Route = createFileRoute("/api/mind-chat")({
         }
         const systemWithMemory = brain.context ? `${system}\n\n${brain.context}` : system;
 
-        // Flexible routing: a selected brain engine (BYO key from the client or a
-        // backend secret) wins; otherwise fall back to the platform default below.
+        // Routing uses the caller's OWN key only. There is no server-stored key
+        // and no shared platform credit anywhere in this path.
         if (isProvider(body.provider)) {
           const provider = body.provider;
           const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL[provider];
-          const key =
-            (typeof body.apiKey === "string" && body.apiKey.trim()) ||
-            (process.env[PROVIDER_SECRET[provider]] ?? "").trim();
+          const key = (typeof body.apiKey === "string" && body.apiKey.trim()) || "";
           if (key) {
             const routed = await callProvider(provider, model, key, system, history);
             if (routed) return routed;

@@ -1,6 +1,10 @@
 import { idbGet, idbSet, STORES } from "./store";
+import { scopedKey, whenScopeReady } from "./user-scope";
 
 export const CLOUD_KEY = "cloudStorageHub";
+// Linked drives and their file index name real accounts, so they are stored
+// under the signed-in Evermind account and never shared across sign-ins.
+const cloudKey = () => scopedKey(CLOUD_KEY);
 export const VAULT_FOLDER = "Evermind_Vaults";
 
 export type ProviderId = "google_drive" | "dropbox" | "onedrive" | "s3";
@@ -192,9 +196,11 @@ export function parseHub(raw: unknown): CloudHub {
 }
 
 export async function loadHub(): Promise<CloudHub> {
-  return parseHub(await idbGet<unknown>(STORES.SETTINGS, CLOUD_KEY));
+  await whenScopeReady();
+  return parseHub(await idbGet<unknown>(STORES.SETTINGS, cloudKey()));
 }
 
 export async function saveHub(hub: CloudHub): Promise<void> {
-  await idbSet(STORES.SETTINGS, CLOUD_KEY, hub);
+  await whenScopeReady();
+  await idbSet(STORES.SETTINGS, cloudKey(), hub);
 }

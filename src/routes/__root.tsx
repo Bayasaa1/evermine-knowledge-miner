@@ -173,17 +173,23 @@ function RootComponent() {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       const nextId = session?.user.id ?? null;
-      if (nextId !== getLocalScope()) resetKeyCaches(); // account switch → drop cached tokens
-      if (event === "SIGNED_OUT" || !nextId) {
-        // Invalid/ended session: purge cached data before anything can re-read it.
+      const accountChanged = nextId !== getLocalScope();
+      if (accountChanged) {
+        // A different person now owns this tab. Everything the previous account
+        // loaded is dropped BEFORE the new scope is set, so no screen can keep
+        // painting their personas, minds, jobs or notifications for even a beat.
         void queryClient.cancelQueries();
         queryClient.clear();
-        clearUserScopedLocalData();
+        resetKeyCaches();
+        clearTranslationCache();
       }
+      if (event === "SIGNED_OUT" || !nextId) clearUserScopedLocalData();
       setLocalScope(nextId);
       markScopeResolved();
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      // A cleared cache refetches on its own; invalidating is only for a
+      // same-account refresh (token renewal, profile update).
+      if (event !== "SIGNED_OUT" && !accountChanged) queryClient.invalidateQueries();
     });
     return () => sub.subscription.unsubscribe();
   }, [router, queryClient]);

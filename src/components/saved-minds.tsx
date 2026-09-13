@@ -156,21 +156,22 @@ export function SavedMinds({
   });
 
   const { data: vaults = [], isLoading } = useQuery<VaultRow[]>({
-    queryKey: ["cloud-vaults", locked ? `locked:${personaId ?? "master"}` : personaId],
+    // Owner id first: saved Minds of one account can never render under another.
+    queryKey: ["cloud-vaults", userId, locked ? `locked:${personaId ?? "master"}` : personaId],
     queryFn: () =>
       fetchVaults({
         data: locked || personaId ? { scoped: true, personaId } : {},
       }),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
     refetchOnMount: "always",
   });
 
   /** Live mining jobs, so a video that is already being mined never invites another run. */
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery<MiningJob[]>({
-    queryKey: ["mining-jobs", "saved-minds"],
+    queryKey: ["mining-jobs", userId, "saved-minds"],
     queryFn: () => fetchJobs({}),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
     refetchInterval: 8000,
     staleTime: 4000,
   });

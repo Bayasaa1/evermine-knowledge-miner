@@ -228,7 +228,8 @@ export async function finalizeMiningJob(
         mind_id: savedVault.id,
       });
     }
-    if (job.publish_to_feed !== false && kind === "VISUAL_CONTENT") {
+    // Only an explicit creator choice makes a project public.
+    if (job.publish_to_feed === true && kind === "VISUAL_CONTENT") {
       await admin.from("projects").update({ published: true }).eq("id", projectId).eq("user_id", job.user_id);
     }
   }

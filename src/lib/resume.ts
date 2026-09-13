@@ -1,8 +1,10 @@
 import { idbGet, idbSet, idbDelete, STORES } from "./store";
+import { scopedKey, whenScopeReady } from "./user-scope";
 import type { Chunk } from "./chunking";
 import type { UploadedFile } from "./gemini";
 
-const RESUME_KEY = "mining-resume";
+// An unfinished mining run belongs to the person who started it.
+const RESUME_KEY = () => scopedKey("mining-resume");
 
 /**
  * Progressive mining checkpoint — written after every 5-minute chunk so a
@@ -23,16 +25,19 @@ export type ResumeState = {
 };
 
 export async function saveResume(state: ResumeState): Promise<void> {
-  await idbSet(STORES.SESSION, RESUME_KEY, state);
+  await whenScopeReady();
+  await idbSet(STORES.SESSION, RESUME_KEY(), state);
 }
 
 export async function loadResume(): Promise<ResumeState | null> {
-  const raw = await idbGet<ResumeState>(STORES.SESSION, RESUME_KEY);
+  await whenScopeReady();
+  const raw = await idbGet<ResumeState>(STORES.SESSION, RESUME_KEY());
   if (!raw || !Array.isArray(raw.chunks) || typeof raw.nextIndex !== "number") return null;
   if (raw.nextIndex >= raw.chunks.length) return null;
   return raw;
 }
 
 export async function clearResume(): Promise<void> {
-  await idbDelete(STORES.SESSION, RESUME_KEY);
+  await whenScopeReady();
+  await idbDelete(STORES.SESSION, RESUME_KEY());
 }

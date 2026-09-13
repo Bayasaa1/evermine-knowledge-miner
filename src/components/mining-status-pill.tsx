@@ -19,17 +19,18 @@ import { useAuth } from "@/hooks/use-auth";
 const LIVE: MiningJobStatus[] = ["queued", "running", "paused_quota", "paused_user"];
 
 export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({
-    queryKey: ["mining-jobs"],
+    // Owner id in the cache name: one account's jobs can never show under another.
+    queryKey: ["mining-jobs", userId],
     queryFn: () => fetchJobs(),
     // The job list is owner-scoped and 401s without a session.
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
     refetchInterval: 8_000,
     refetchOnWindowFocus: true,
     // Keep the last known jobs on screen while a refetch is in flight, so the
-    // pill never blinks away between polls or when switching pages.
+    // pill never blinks away between polls of the SAME account's list.
     placeholderData: (prev) => prev,
     staleTime: 30_000,
     gcTime: 10 * 60_000,
