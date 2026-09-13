@@ -58,7 +58,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
   robot: {
     en: {
       first: "Gemini at #1 — only it sees motion, depth cues and grasps.",
-      helps: "Claude or DeepSeek at #2 turns those frames into cleaner trajectories.",
+      helps: "Free Cerebras or Groq at #2 turns those frames into cleaner trajectories. Claude only if you want to pay.",
       skip: "Text-only free AIs cannot see anything; keep them low in the order.",
       tips: [
         "Film steady, well-lit clips — shaky footage produces vague trajectories.",
@@ -68,7 +68,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
     },
     mn: {
       first: "Gemini #1 — зөвхөн тэр хөдөлгөөн, гүн, атгалтыг хардаг.",
-      helps: "Claude эсвэл DeepSeek #2 бол траекторыг илүү цэвэр болгоно.",
+      helps: "Үнэгүй Cerebras эсвэл Groq #2 бол траекторыг цэвэр болгоно. Claude бол зөвхөн төлбөртэй сонголт.",
       skip: "Зөвхөн текстийн үнэгүй AI юу ч харахгүй — доор байрлуул.",
       tips: [
         "Тогтвортой, гэрэлтэй бичлэг хий — сэгсрэлт нь бүдэг траектор өгнө.",
@@ -78,7 +78,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
     },
     ko: {
       first: "Gemini를 #1로 — 동작과 깊이, 잡기를 보는 유일한 엔진입니다.",
-      helps: "Claude 또는 DeepSeek을 #2로 두면 궤적이 더 깔끔해집니다.",
+      helps: "무료 Cerebras나 Groq을 #2로 두면 궤적이 깔끔해집니다. Claude는 유료 선택지입니다.",
       skip: "텍스트 전용 무료 AI는 아무것도 보지 못합니다 — 순서를 낮추세요.",
       tips: [
         "흔들림 없는 밝은 영상을 사용하세요.",
@@ -122,7 +122,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
   sales: {
     en: {
       first: "Gemini at #1 — it reads the product on screen, not just the words.",
-      helps: "Grok or ChatGPT at #2 writes sharper offers and objection handling.",
+      helps: "Free Groq or Together at #2 writes the offers and objection handling. Grok is the paid upgrade.",
       skip: "Very long-context models cost more than they help on short promo clips.",
       tips: [
         "Show the product clearly on camera; prices and specs get picked up.",
@@ -132,7 +132,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
     },
     mn: {
       first: "Gemini #1 — дэлгэц дээрх бүтээгдэхүүнийг хардаг.",
-      helps: "Grok эсвэл ChatGPT #2 бол илүү хурц санал, эсэргүүцлийн хариу бичнэ.",
+      helps: "Үнэгүй Groq эсвэл Together #2 бол санал, эсэргүүцлийн хариуг бичнэ. Grok бол төлбөртэй сайжруулалт.",
       skip: "Урт контекст загварууд богино сурталчилгаанд илүү зардалтай.",
       tips: [
         "Бүтээгдэхүүнээ тодорхой үзүүл — үнэ, үзүүлэлт таригдана.",
@@ -142,7 +142,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
     },
     ko: {
       first: "Gemini를 #1로 — 화면 속 제품을 실제로 봅니다.",
-      helps: "Grok 또는 ChatGPT를 #2로 두면 제안과 반론 대응이 예리해집니다.",
+      helps: "무료 Groq이나 Together를 #2로 두면 제안과 반론 대응이 작성됩니다. Grok은 유료 업그레이드입니다.",
       skip: "짧은 홍보 영상에 초장문 모델은 비용만 늘립니다.",
       tips: [
         "제품을 화면에 분명히 보여주세요.",
@@ -154,7 +154,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
   gaming: {
     en: {
       first: "Gemini at #1 — it follows the screen, the HUD and your inputs.",
-      helps: "DeepSeek or Claude at #2 turns plays into teachable tactics.",
+      helps: "Free Groq or Cerebras at #2 turns plays into teachable tactics. DeepSeek is the cheap paid upgrade.",
       skip: "Web-search AIs rarely add anything over your own gameplay.",
       tips: [
         "Record at a steady framerate; dropped frames lose the play.",
@@ -164,7 +164,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
     },
     mn: {
       first: "Gemini #1 — дэлгэц, HUD, таны товчлуурыг дагадаг.",
-      helps: "DeepSeek эсвэл Claude #2 бол тоглолтыг заах тактик болгоно.",
+      helps: "Үнэгүй Groq эсвэл Cerebras #2 бол тоглолтыг заах тактик болгоно. DeepSeek бол хямд төлбөртэй хувилбар.",
       skip: "Вэб хайлтын AI таны тоглолтоос илүү зүйл нэмэхгүй.",
       tips: [
         "Тогтвортой frame rate-ээр бичиж ав.",
@@ -174,7 +174,7 @@ const ADVICE: Record<CreationCategory, Trio> = {
     },
     ko: {
       first: "Gemini를 #1로 — 화면과 HUD, 입력을 따라갑니다.",
-      helps: "DeepSeek 또는 Claude를 #2로 두면 플레이가 전술로 정리됩니다.",
+      helps: "무료 Groq이나 Cerebras를 #2로 두면 플레이가 전술로 정리됩니다. DeepSeek은 저렴한 유료 옵션입니다.",
       skip: "웹 검색 AI는 본인 플레이에 거의 도움이 되지 않습니다.",
       tips: [
         "프레임 드롭 없이 녹화하세요.",
@@ -288,7 +288,7 @@ export function recommendationFor(category: string, providerId: string, lang: La
       ? "required"
       : providerId === "custom"
         ? "team"
-        : picks.recommended.includes(providerId)
+        : picks.recommended.includes(providerId) || picks.paidUpgrade === providerId
           ? "recommended"
           : picks.avoid.includes(providerId)
             ? "avoid"
