@@ -164,12 +164,18 @@ const COPY = {
   },
 } as const;
 
-/** One tiny call to prove the key works before it is saved. */
+export type TestResult = { ok: boolean; model?: string; status?: number; detail?: string };
+
+/**
+ * Proves a key works before it is saved. Model names on free services change
+ * often, so the check asks the service for its model list first and only falls
+ * back to a tiny chat call — trying each candidate model in turn.
+ */
 async function testKey(
   provider: ProviderInfo,
   key: string,
   custom?: { endpoint: string; model: string },
-): Promise<boolean> {
+): Promise<TestResult> {
   try {
     if (provider.id === "gemini") {
       const res = await fetch(
@@ -183,7 +189,8 @@ async function testKey(
           }),
         },
       );
-      return res.ok;
+      if (res.ok) return { ok: true };
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
     }
     if (provider.id === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -200,18 +207,39 @@ async function testKey(
           messages: [{ role: "user", content: "ok" }],
         }),
       });
-      return res.ok;
+      if (res.ok) return { ok: true };
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
     }
+
     const baseUrl = (custom?.endpoint || provider.baseUrl).replace(/\/+$/, "");
-    const model = custom?.model || provider.testModel;
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: "user", content: "ok" }] }),
-    });
-    return res.ok;
-  } catch {
-    return false;
+
+    // A key that can list models is a valid key, whatever the model names are.
+    if (!custom && provider.modelsPath) {
+      const list = await fetch(`${baseUrl}${provider.modelsPath}`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (list.ok) return { ok: true };
+      if (list.status === 401 || list.status === 403) {
+        return { ok: false, status: list.status, detail: (await list.text().catch(() => "")).slice(0, 200) };
+      }
+    }
+
+    const candidates = custom?.model ? [custom.model] : testModelsFor(provider);
+    let last: TestResult = { ok: false };
+    for (const model of candidates) {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: "user", content: "ok" }] }),
+      });
+      if (res.ok) return { ok: true, model };
+      last = { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      // A bad key fails the same way on every model — no point trying the rest.
+      if (res.status === 401 || res.status === 403) break;
+    }
+    return last;
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "" };
   }
 }
 
