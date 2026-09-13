@@ -88,6 +88,11 @@ const COPY = {
     errLimit: "Too many requests right now. Wait a moment and try again.",
     errNet: "Could not reach that service from your browser.",
     moveHint: "Recommended for what you picked — move it up to #2.",
+    teamTitle: "Suggested teammates",
+    teamSub: "Best partners for what you picked that you have not added yet.",
+    teamAdd: "Add",
+    teamAllSet: "You already have every AI we would suggest for this.",
+    tapHint: "Tap a label to see what it means.",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
@@ -134,6 +139,11 @@ const COPY = {
     errLimit: "Хэт олон хүсэлт. Түр хүлээгээд дахин оролдоно уу.",
     errNet: "Танай хөтчөөс энэ үйлчилгээ рүү холбогдож чадсангүй.",
     moveHint: "Таны сонгосонд тохирно — #2 болгож дээш зөөгөөрэй.",
+    teamTitle: "Санал болгох хамтрагчид",
+    teamSub: "Таны сонгосонд тохирох ч одоогоор нэмээгүй байгаа AI-нууд.",
+    teamAdd: "Нэмэх",
+    teamAllSet: "Энэ төрөлд санал болгох бүх AI танд аль хэдийн байна.",
+    tapHint: "Шошгон дээр дарж утгыг нь хараарай.",
   },
   ko: {
     title: "내 AI 키",
@@ -180,6 +190,11 @@ const COPY = {
     errLimit: "요청이 너무 많습니다. 잠시 후 다시 시도하세요.",
     errNet: "브라우저에서 해당 서비스에 연결하지 못했습니다.",
     moveHint: "선택한 유형에 추천됩니다 — #2로 올리세요.",
+    teamTitle: "추천 팀원",
+    teamSub: "선택한 유형에 좋은데 아직 추가하지 않은 AI입니다.",
+    teamAdd: "추가",
+    teamAllSet: "이 유형에 추천할 AI를 이미 모두 갖고 있습니다.",
+    tapHint: "라벨을 누르면 의미를 볼 수 있습니다.",
   },
 } as const;
 
@@ -271,16 +286,47 @@ const REC_CLASS: Record<RecLevel, string> = {
   avoid: "border-border/60 text-muted-foreground/70",
 };
 
-/** "Recommended" / "Not recommended" for the creation type picked in step 1. */
-function RecBadge({ category, providerId, lang }: { category: string; providerId: string; lang: string }) {
+/** "Best partner" / "Stand-in" … tap it to read what the label means. */
+function RecBadge({
+  category,
+  providerId,
+  lang,
+  open,
+  onToggle,
+}: {
+  category: string;
+  providerId: string;
+  lang: string;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const rec = recommendationFor(category, providerId, lang as never);
   return (
-    <span
-      title={rec.reason}
-      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${REC_CLASS[rec.level]}`}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle?.();
+      }}
+      aria-expanded={!!open}
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${REC_CLASS[rec.level]} ${
+        open ? "ring-1 ring-primary/40" : ""
+      }`}
     >
       {rec.label}
-    </span>
+    </button>
+  );
+}
+
+/** The tap-to-open guide under a badge. */
+function RecPanel({ category, providerId, lang }: { category: string; providerId: string; lang: string }) {
+  const rec = recommendationFor(category, providerId, lang as never);
+  return (
+    <div className="mt-1.5 rounded-lg border border-border/70 bg-muted/30 p-2.5 text-[11px] leading-relaxed">
+      <p className="font-semibold text-foreground">{rec.label}</p>
+      <p className="mt-0.5 text-muted-foreground">{rec.explain}</p>
+      <p className="mt-1 text-muted-foreground/80">{rec.fallbackNote}</p>
+    </div>
   );
 }
 
@@ -300,6 +346,8 @@ export function AiKeysCard({
   const [value, setValue] = useState("");
   const [custom, setCustom] = useState({ label: "", endpoint: "", model: "" });
   const [busy, setBusy] = useState(false);
+  const [openRec, setOpenRec] = useState<string | null>(null);
+  const [pendingTop, setPendingTop] = useState(false);
 
   const advice = useMemo(() => adviceFor(category, lang), [category, lang]);
 
@@ -366,7 +414,18 @@ export function AiKeysCard({
       setValue("");
       setCustom({ label: "", endpoint: "", model: "" });
       setMode(null);
-      await refresh();
+      let all = await refresh();
+      // A teammate added from the suggestion strip belongs right under Gemini,
+      // otherwise it sits at the bottom and never actually runs.
+      if (pendingTop) {
+        setPendingTop(false);
+        let target = all.find((r) => r.provider.id === provider);
+        for (let guard = 0; target && target.rank > 2 && guard < 20; guard += 1) {
+          await moveKey(target.id, "up");
+          all = await refresh();
+          target = all.find((r) => r.provider.id === provider);
+        }
+      }
       if (isAuthenticated) {
         try {
           await saveUserAiKey({ data: { provider, apiKey: key } });
