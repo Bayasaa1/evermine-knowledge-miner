@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
-import { adviceFor, recommendationFor, type RecLevel } from "@/lib/key-advice";
+import { adviceFor, recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
 import { saveUserAiKey, deleteUserAiKey } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
@@ -477,6 +477,14 @@ export function AiKeysCard({
         REC_ORDER[recommendationFor(category, b.id, lang).level],
     );
   const info = findProviderInfo(provider);
+
+  // Best partners for this creation type that are not in the list yet.
+  const suggestions: ProviderInfo[] = suggestedTeam(
+    category,
+    rows.map((r) => r.provider.id),
+  )
+    .map((id) => findProviderInfo(id as ProviderId))
+    .filter((p): p is ProviderInfo => !!p);
 
   return (
     <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
