@@ -43,11 +43,23 @@ export type ProviderInfo = {
   /** OpenAI-compatible base used for the key test ("" = provider-specific). */
   baseUrl: string;
   testModel: string;
+  /**
+   * Model names to try when testing a key. Free model names change often, so
+   * the first one that answers wins and is remembered for this key.
+   */
+  testModels?: string[];
+  /** Path that lists models, used to check a key without naming a model. "" = unsupported. */
+  modelsPath?: string;
   /** Rough USD cost per 1K tokens, used for the spending estimate. */
   costPer1k: number;
   /** One line on what this AI is good at, shown in the add list. */
   good: string;
 };
+
+/** Candidate models for the key test, newest-known first. */
+export function testModelsFor(p: ProviderInfo): string[] {
+  return p.testModels?.length ? p.testModels : p.testModel ? [p.testModel] : [];
+}
 
 export const PROVIDERS: ProviderInfo[] = [
   {
@@ -94,7 +106,9 @@ export const PROVIDERS: ProviderInfo[] = [
     placeholder: "csk-…",
     keyUrl: "https://cloud.cerebras.ai",
     baseUrl: "https://api.cerebras.ai/v1",
-    testModel: "llama-3.3-70b",
+    testModel: "llama3.1-8b",
+    testModels: ["llama3.1-8b", "llama-3.3-70b", "llama3.3-70b", "qwen-3-32b"],
+    modelsPath: "/models",
     costPer1k: 0,
     good: "Fastest free text engine. Good for long transcripts.",
   },
@@ -105,8 +119,14 @@ export const PROVIDERS: ProviderInfo[] = [
     keyField: "TOGETHER_API_KEY",
     placeholder: "…",
     keyUrl: "https://api.together.ai/settings/api-keys",
-    baseUrl: "https://api.together.xyz/v1",
+    baseUrl: "https://api.together.ai/v1",
     testModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+    testModels: [
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+      "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    ],
+    modelsPath: "/models",
     costPer1k: 0,
     good: "Free open models, useful as a third fallback.",
   },

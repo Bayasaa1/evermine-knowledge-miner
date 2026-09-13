@@ -43,7 +43,12 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
-import { getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
+import {
+  CATEGORY_LABELS,
+  getCreationCategory,
+  setCreationCategory,
+  type CreationCategory,
+} from "@/lib/creation-category";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { loadApiKeys } from "@/lib/keystore";
@@ -242,12 +247,14 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 3 && (
         <StepShell title={t("step3Title")} sub={t("step3Sub")}>
           <div className="space-y-4">
+            <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
             <AiKeysCard category={category} />
           </div>
         </StepShell>
       )}
       {step === 4 && (
         <div className="space-y-8">
+          <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
           <StepUpload lang={lang} mode="save" />
           <StepUpload lang={lang} mode="mine" />
         </div>
@@ -310,6 +317,35 @@ function StepShell({
   );
 }
 
+
+/** Shows what was picked in step 1 so later steps stay tied to that choice. */
+function ChosenCategory({
+  lang,
+  category,
+  onBack,
+}: {
+  lang: Lang;
+  category: CreationCategory;
+  onBack: () => void;
+}) {
+  const label = pickCopy(CATEGORY_LABELS[category], lang);
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-xs">
+      <span className="text-muted-foreground">
+        {pickCopy({ en: "You are creating", mn: "Та үүсгэж байна", ko: "만드는 것" }, lang)}:
+      </span>
+      <span className="font-semibold text-foreground">{label.title}</span>
+      <span className="text-muted-foreground">{label.sub}</span>
+      <button
+        type="button"
+        onClick={onBack}
+        className="ml-auto rounded-lg border border-border px-2 py-1 font-medium text-foreground transition-colors hover:bg-accent"
+      >
+        {pickCopy({ en: "Change", mn: "Солих", ko: "변경" }, lang)}
+      </button>
+    </div>
+  );
+}
 
 /**
  * Step 1 reuses the same CategoryList as the "+" hub modal (create-wizard.tsx)

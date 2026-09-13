@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
-import { adviceFor } from "@/lib/key-advice";
+import { adviceFor, recommendationFor, type RecLevel } from "@/lib/key-advice";
 import { saveUserAiKey, deleteUserAiKey } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
@@ -36,6 +36,7 @@ import {
   removeKey,
   setProviderCap,
   setProviderEnabled,
+  testModelsFor,
   type ProviderId,
   type ProviderInfo,
   type SavedKey,
@@ -81,6 +82,12 @@ const COPY = {
     adviceHelps: "Worth adding",
     adviceSkip: "Not worth it here",
     adviceTips: "Faster mining",
+    errKey: "That service says the key is wrong or not active yet.",
+    errCredit: "The key is valid but the account has no free allowance or credit left.",
+    errModel: "The key is valid but the models tried are not available on this account.",
+    errLimit: "Too many requests right now. Wait a moment and try again.",
+    errNet: "Could not reach that service from your browser.",
+    moveHint: "Recommended for what you picked — move it up to #2.",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
@@ -121,6 +128,12 @@ const COPY = {
     adviceHelps: "Нэмвэл тустай",
     adviceSkip: "Энд хэрэггүй",
     adviceTips: "Хурдан олборлолт",
+    errKey: "Тухайн үйлчилгээ түлхүүрийг буруу эсвэл идэвхгүй гэж байна.",
+    errCredit: "Түлхүүр зөв ч бүртгэлд үнэгүй эрх эсвэл кредит үлдээгүй байна.",
+    errModel: "Түлхүүр зөв ч туршсан загварууд энэ бүртгэлд байхгүй байна.",
+    errLimit: "Хэт олон хүсэлт. Түр хүлээгээд дахин оролдоно уу.",
+    errNet: "Танай хөтчөөс энэ үйлчилгээ рүү холбогдож чадсангүй.",
+    moveHint: "Таны сонгосонд тохирно — #2 болгож дээш зөөгөөрэй.",
   },
   ko: {
     title: "내 AI 키",
@@ -161,15 +174,27 @@ const COPY = {
     adviceHelps: "추가할 만한 것",
     adviceSkip: "여기서는 불필요",
     adviceTips: "빠른 마이닝",
+    errKey: "해당 서비스가 키가 잘못되었거나 아직 활성화되지 않았다고 합니다.",
+    errCredit: "키는 유효하지만 계정에 남은 무료 한도나 크레딧이 없습니다.",
+    errModel: "키는 유효하지만 시도한 모델을 이 계정에서 사용할 수 없습니다.",
+    errLimit: "요청이 너무 많습니다. 잠시 후 다시 시도하세요.",
+    errNet: "브라우저에서 해당 서비스에 연결하지 못했습니다.",
+    moveHint: "선택한 유형에 추천됩니다 — #2로 올리세요.",
   },
 } as const;
 
-/** One tiny call to prove the key works before it is saved. */
+export type TestResult = { ok: boolean; model?: string; status?: number; detail?: string };
+
+/**
+ * Proves a key works before it is saved. Model names on free services change
+ * often, so the check asks the service for its model list first and only falls
+ * back to a tiny chat call — trying each candidate model in turn.
+ */
 async function testKey(
   provider: ProviderInfo,
   key: string,
   custom?: { endpoint: string; model: string },
-): Promise<boolean> {
+): Promise<TestResult> {
   try {
     if (provider.id === "gemini") {
       const res = await fetch(
@@ -183,7 +208,8 @@ async function testKey(
           }),
         },
       );
-      return res.ok;
+      if (res.ok) return { ok: true };
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
     }
     if (provider.id === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -200,22 +226,63 @@ async function testKey(
           messages: [{ role: "user", content: "ok" }],
         }),
       });
-      return res.ok;
+      if (res.ok) return { ok: true };
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
     }
+
     const baseUrl = (custom?.endpoint || provider.baseUrl).replace(/\/+$/, "");
-    const model = custom?.model || provider.testModel;
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: "user", content: "ok" }] }),
-    });
-    return res.ok;
-  } catch {
-    return false;
+
+    // A key that can list models is a valid key, whatever the model names are.
+    if (!custom && provider.modelsPath) {
+      const list = await fetch(`${baseUrl}${provider.modelsPath}`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      if (list.ok) return { ok: true };
+      if (list.status === 401 || list.status === 403) {
+        return { ok: false, status: list.status, detail: (await list.text().catch(() => "")).slice(0, 200) };
+      }
+    }
+
+    const candidates = custom?.model ? [custom.model] : testModelsFor(provider);
+    let last: TestResult = { ok: false };
+    for (const model of candidates) {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, max_tokens: 8, messages: [{ role: "user", content: "ok" }] }),
+      });
+      if (res.ok) return { ok: true, model };
+      last = { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      // A bad key fails the same way on every model — no point trying the rest.
+      if (res.status === 401 || res.status === 403) break;
+    }
+    return last;
+  } catch (err) {
+    return { ok: false, detail: err instanceof Error ? err.message : "" };
   }
 }
 
 type AddMode = "free" | "paid" | "custom" | null;
+
+const REC_CLASS: Record<RecLevel, string> = {
+  required: "border-primary/50 bg-primary/10 text-primary",
+  recommended: "border-emerald-500/50 bg-emerald-500/10 text-emerald-500",
+  team: "border-border text-muted-foreground",
+  avoid: "border-border/60 text-muted-foreground/70",
+};
+
+/** "Recommended" / "Not recommended" for the creation type picked in step 1. */
+function RecBadge({ category, providerId, lang }: { category: string; providerId: string; lang: string }) {
+  const rec = recommendationFor(category, providerId, lang as never);
+  return (
+    <span
+      title={rec.reason}
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${REC_CLASS[rec.level]}`}
+    >
+      {rec.label}
+    </span>
+  );
+}
 
 export function AiKeysCard({
   onChange,
@@ -265,13 +332,26 @@ export function AiKeysCard({
     }
     setBusy(true);
     try {
-      const ok = await testKey(
+      const result = await testKey(
         info,
         key,
         provider === "custom" ? { endpoint: custom.endpoint.trim(), model: custom.model.trim() } : undefined,
       );
-      if (!ok) {
-        toast.error(t.invalid);
+      if (!result.ok) {
+        const s = result.status ?? 0;
+        const reason =
+          s === 401 || s === 403
+            ? t.errKey
+            : s === 402
+              ? t.errCredit
+              : s === 404 || s === 400
+                ? t.errModel
+                : s === 429
+                  ? t.errLimit
+                  : s === 0
+                    ? t.errNet
+                    : t.invalid;
+        toast.error(`${info.label}: ${reason}`);
         return;
       }
       await addKey(
@@ -279,7 +359,9 @@ export function AiKeysCard({
         key,
         provider === "custom"
           ? { label: custom.label.trim() || "My AI", endpoint: custom.endpoint.trim(), model: custom.model.trim() }
-          : undefined,
+          : result.model
+            ? { model: result.model }
+            : undefined,
       );
       setValue("");
       setCustom({ label: "", endpoint: "", model: "" });
@@ -324,8 +406,17 @@ export function AiKeysCard({
     [refresh],
   );
 
-  const choices: ProviderInfo[] =
-    mode === "free" ? providersByCost(false) : mode === "paid" ? providersByCost(true) : [];
+  // Recommended providers for the chosen creation type come first in the list.
+  const REC_ORDER: Record<RecLevel, number> = { required: 0, recommended: 1, team: 2, avoid: 3 };
+  const choices: ProviderInfo[] = (
+    mode === "free" ? providersByCost(false) : mode === "paid" ? providersByCost(true) : []
+  )
+    .slice()
+    .sort(
+      (a, b) =>
+        REC_ORDER[recommendationFor(category, a.id, lang).level] -
+        REC_ORDER[recommendationFor(category, b.id, lang).level],
+    );
   const info = findProviderInfo(provider);
 
   return (
@@ -367,6 +458,7 @@ export function AiKeysCard({
                 </span>
                 <span className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="font-medium text-foreground">{row.label}</span>
+                  <RecBadge category={category} providerId={row.provider.id} lang={lang} />
                   <span className="text-muted-foreground">••••{row.maskedTail}</span>
                   <span className={row.state === "ok" ? "text-emerald-500" : "text-amber-500"}>
                     {row.state === "ok" ? t.working : row.state === "exhausted" ? t.usedUp : t.rejected}
@@ -411,6 +503,10 @@ export function AiKeysCard({
                   </button>
                 </span>
               </div>
+              {row.rank > 2 &&
+                recommendationFor(category, row.provider.id, lang).level === "recommended" && (
+                  <p className="mt-1 pl-8 text-[11px] text-emerald-500">{t.moveHint}</p>
+                )}
               {row.cost === "paid" && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">
                   <button
@@ -473,8 +569,14 @@ export function AiKeysCard({
                     provider === p.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
                   }`}
                 >
-                  <span className="block text-xs font-medium text-foreground">{p.label}</span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">{p.label}</span>
+                    <RecBadge category={category} providerId={p.id} lang={lang} />
+                  </span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground">{p.good}</span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
+                    {recommendationFor(category, p.id, lang).reason}
+                  </span>
                 </button>
               ))}
             </div>
