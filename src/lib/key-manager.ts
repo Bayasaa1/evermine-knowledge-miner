@@ -43,11 +43,23 @@ export type ProviderInfo = {
   /** OpenAI-compatible base used for the key test ("" = provider-specific). */
   baseUrl: string;
   testModel: string;
+  /**
+   * Model names to try when testing a key. Free model names change often, so
+   * the first one that answers wins and is remembered for this key.
+   */
+  testModels?: string[];
+  /** Path that lists models, used to check a key without naming a model. "" = unsupported. */
+  modelsPath?: string;
   /** Rough USD cost per 1K tokens, used for the spending estimate. */
   costPer1k: number;
   /** One line on what this AI is good at, shown in the add list. */
   good: string;
 };
+
+/** Candidate models for the key test, newest-known first. */
+export function testModelsFor(p: ProviderInfo): string[] {
+  return p.testModels?.length ? p.testModels : p.testModel ? [p.testModel] : [];
+}
 
 export const PROVIDERS: ProviderInfo[] = [
   {
