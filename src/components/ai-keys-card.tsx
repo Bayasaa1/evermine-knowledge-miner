@@ -93,6 +93,11 @@ const COPY = {
     teamAdd: "Add",
     teamAllSet: "You already have every AI we would suggest for this.",
     tapHint: "Tap a label to see what it means.",
+    teamLine: "Your team",
+    standby: "standing by",
+    teamNone: "Only Gemini so far — add a free teammate below.",
+    freeTag: "free",
+    paidTag: "paid",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
@@ -144,6 +149,11 @@ const COPY = {
     teamAdd: "Нэмэх",
     teamAllSet: "Энэ төрөлд санал болгох бүх AI танд аль хэдийн байна.",
     tapHint: "Шошгон дээр дарж утгыг нь хараарай.",
+    teamLine: "Таны баг",
+    standby: "бэлэн хүлээж байна",
+    teamNone: "Одоохондоо зөвхөн Gemini — доороос үнэгүй хамтрагч нэмнэ үү.",
+    freeTag: "үнэгүй",
+    paidTag: "төлбөртэй",
   },
   ko: {
     title: "내 AI 키",
@@ -195,6 +205,11 @@ const COPY = {
     teamAdd: "추가",
     teamAllSet: "이 유형에 추천할 AI를 이미 모두 갖고 있습니다.",
     tapHint: "라벨을 누르면 의미를 볼 수 있습니다.",
+    teamLine: "내 팀",
+    standby: "대기 중",
+    teamNone: "아직 Gemini뿐입니다 — 아래에서 무료 팀원을 추가하세요.",
+    freeTag: "무료",
+    paidTag: "유료",
   },
 } as const;
 
