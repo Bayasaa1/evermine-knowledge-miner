@@ -1,10 +1,13 @@
 import { idbGet, idbSet, STORES } from "@/lib/store";
 import { MINDS, type Mind, type SourceClip } from "@/lib/minds";
+import { scopedKey, whenScopeReady } from "@/lib/user-scope";
 
-const FOLLOWS_KEY = "social_follows";
-const FAVORITES_KEY = "social_favorite_clips";
-const NOTIFS_KEY = "social_notifications";
-const SEEN_KEY = "social_seen_updates";
+// Follows, favourites and notifications are personal. They are filed under the
+// signed-in account so a second person on the same browser never inherits them.
+const FOLLOWS_KEY = () => scopedKey("social_follows");
+const FAVORITES_KEY = () => scopedKey("social_favorite_clips");
+const NOTIFS_KEY = () => scopedKey("social_notifications");
+const SEEN_KEY = () => scopedKey("social_seen_updates");
 
 export type FavoriteClip = {
   clipId: string;
@@ -27,11 +30,13 @@ export type CreatorNotification = {
 /* ---------------- follows ---------------- */
 
 export async function loadFollows(): Promise<string[]> {
-  return (await idbGet<string[]>(STORES.SETTINGS, FOLLOWS_KEY)) ?? [];
+  await whenScopeReady();
+  return (await idbGet<string[]>(STORES.SETTINGS, FOLLOWS_KEY())) ?? [];
 }
 
 export async function saveFollows(ids: string[]): Promise<void> {
-  await idbSet(STORES.SETTINGS, FOLLOWS_KEY, ids);
+  await whenScopeReady();
+  await idbSet(STORES.SETTINGS, FOLLOWS_KEY(), ids);
 }
 
 export function toggleFollow(ids: string[], mindId: string): string[] {
@@ -41,11 +46,13 @@ export function toggleFollow(ids: string[], mindId: string): string[] {
 /* ---------------- favorite clips ---------------- */
 
 export async function loadFavorites(): Promise<FavoriteClip[]> {
-  return (await idbGet<FavoriteClip[]>(STORES.SETTINGS, FAVORITES_KEY)) ?? [];
+  await whenScopeReady();
+  return (await idbGet<FavoriteClip[]>(STORES.SETTINGS, FAVORITES_KEY())) ?? [];
 }
 
 export async function saveFavorites(list: FavoriteClip[]): Promise<void> {
-  await idbSet(STORES.SETTINGS, FAVORITES_KEY, list);
+  await whenScopeReady();
+  await idbSet(STORES.SETTINGS, FAVORITES_KEY(), list);
 }
 
 export function isFavorite(list: FavoriteClip[], clipId: string): boolean {
@@ -67,11 +74,13 @@ export function resolveFavorite(fav: FavoriteClip): { mind: Mind; clip: SourceCl
 /* ---------------- notifications ---------------- */
 
 export async function loadNotifications(): Promise<CreatorNotification[]> {
-  return (await idbGet<CreatorNotification[]>(STORES.SETTINGS, NOTIFS_KEY)) ?? [];
+  await whenScopeReady();
+  return (await idbGet<CreatorNotification[]>(STORES.SETTINGS, NOTIFS_KEY())) ?? [];
 }
 
 export async function saveNotifications(list: CreatorNotification[]): Promise<void> {
-  await idbSet(STORES.SETTINGS, NOTIFS_KEY, list.slice(-40));
+  await whenScopeReady();
+  await idbSet(STORES.SETTINGS, NOTIFS_KEY(), list.slice(-40));
 }
 
 export function unreadCount(list: CreatorNotification[]): number {
@@ -169,7 +178,8 @@ const UPDATE_STREAM: CreatorUpdate[] = [
 ];
 
 async function loadSeen(): Promise<string[]> {
-  return (await idbGet<string[]>(STORES.SETTINGS, SEEN_KEY)) ?? [];
+  await whenScopeReady();
+  return (await idbGet<string[]>(STORES.SETTINGS, SEEN_KEY())) ?? [];
 }
 
 function toNotification(u: CreatorUpdate): CreatorNotification {
@@ -194,6 +204,6 @@ export async function nextCreatorUpdate(follows: string[]): Promise<CreatorNotif
   const seen = await loadSeen();
   const next = UPDATE_STREAM.find((u) => follows.includes(u.mindId) && !seen.includes(u.id));
   if (!next) return null;
-  await idbSet(STORES.SETTINGS, SEEN_KEY, [...seen, next.id]);
+  await idbSet(STORES.SETTINGS, SEEN_KEY(), [...seen, next.id]);
   return toNotification(next);
 }
