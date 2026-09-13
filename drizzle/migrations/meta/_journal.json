@@ -50,6 +50,13 @@
       "when": 1789190548803,
       "tag": "0006_validate_review_proof_url",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789280763572,
+      "tag": "0007_user_ai_keys_multi_provider",
+      "breakpoints": true
     }
   ]
 }
