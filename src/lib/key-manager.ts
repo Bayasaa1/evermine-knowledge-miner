@@ -139,6 +139,13 @@ export function providerForKeyField(keyField: string): ProviderInfo | undefined 
   return PROVIDERS.find((p) => p.keyField === keyField);
 }
 
+/**
+ * What this key costs *the way it is used here* — not what the company is
+ * known for. OpenRouter on a free model is free, and saying "paid" would be
+ * a lie that also switches the key off.
+ */
+export type KeyCost = "free-tier" | "free-model" | "paid";
+
 export type SavedKey = {
   /** Stable row id: keystore entry id for Gemini, key field for the rest. */
   id: string;
@@ -148,13 +155,22 @@ export type SavedKey = {
   addedAt: number;
   /** Calls made with this key today, counted by Evermind. */
   callsToday: number;
-  /** Paid providers only. */
+  /** What this key actually costs as configured. */
+  cost: KeyCost;
+  /** Model this key is routed to, when the provider routes models. */
+  model?: string;
+  /** Paid use only. */
   enabled: boolean;
   monthlyCapUsd: number;
   spendUsd: number;
   /** Epoch ms the free quota was hit, so the UI can show a reset countdown. */
   exhaustedAt?: number;
 };
+
+/** OpenRouter model ids that cost nothing. Everything else bills the creator. */
+export function isFreeRoutedModel(model: string | undefined): boolean {
+  return !model || model.endsWith(":free");
+}
 
 const GEMINI = PROVIDERS[0]!;
 
