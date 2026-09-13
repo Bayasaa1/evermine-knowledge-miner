@@ -505,7 +505,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
 
   const { data: items = [], isLoading: loading } = useQuery<ProjectContent[]>({
-    queryKey: ["project-content", project.id],
+    queryKey: ["project-content", userId, project.id],
     queryFn: () => listProjectContent(project.id),
   });
 

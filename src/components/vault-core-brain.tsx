@@ -55,13 +55,20 @@ const ICONS = {
 export function VaultCoreBrain({ lang, mindIds }: { lang: Lang; mindIds: string[] }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
+  const { isAuthenticated, user } = useAuth();
+  const userId = user?.id ?? null;
   const load = useServerFn(listMindVersions);
   const saveFn = useServerFn(saveMindVersion);
   const [editing, setEditing] = useState<MindVersion | null>(null);
   const [exploring, setExploring] = useState<MindVersion | null>(null);
   const [showRaw, setShowRaw] = useState(false);
 
-  const { data, isLoading } = useQuery({ queryKey: ["mind-versions"], queryFn: () => load() });
+  // Owner-scoped: never fetch or render another account's Mind versions.
+  const { data, isLoading } = useQuery({
+    queryKey: ["mind-versions", userId],
+    queryFn: () => load(),
+    enabled: isAuthenticated && Boolean(userId),
+  });
 
   const versions = useMemo(() => {
     const rows = data ?? [];
