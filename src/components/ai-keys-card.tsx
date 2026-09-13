@@ -228,20 +228,53 @@ async function testKey(
 ): Promise<TestResult> {
   try {
     if (provider.id === "gemini") {
-      const res = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: "Say OK" }] }],
-            generationConfig: { maxOutputTokens: 4 },
-          }),
-        },
-      );
-      if (res.ok) return { ok: true };
-      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      // Which Gemini models a key can call differs per Google account, so ask
+      // the account what it has instead of assuming one fixed model name.
+      const list = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+        headers: { "x-goog-api-key": key },
+      });
+      let models: string[] = [];
+      if (list.ok) {
+        const body = (await list.json().catch(() => ({}))) as {
+          models?: { name?: string; supportedGenerationMethods?: string[] }[];
+        };
+        models = (body.models ?? [])
+          .filter((m) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
+          .map((m) => (m.name ?? "").replace(/^models\//, ""))
+          .filter(Boolean);
+      } else if (list.status === 400 || list.status === 401 || list.status === 403) {
+        return { ok: false, status: list.status, detail: (await list.text().catch(() => "")).slice(0, 200) };
+      }
+      const preferred = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+      const ordered = [
+        ...preferred.filter((m) => models.includes(m)),
+        ...models.filter((m) => /flash|pro/.test(m) && !preferred.includes(m)),
+        ...(models.length === 0 ? preferred : []),
+      ];
+      let last: TestResult = { ok: false, status: list.status };
+      for (const model of ordered.slice(0, 4)) {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: "Say OK" }] }],
+              generationConfig: { maxOutputTokens: 4 },
+            }),
+          },
+        );
+        if (res.ok) return { ok: true, model };
+        last = { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+        // A key rejected outright will not do better on another model.
+        if (res.status === 401 || res.status === 403 || res.status === 429) return last;
+      }
+      // The account can list models, so the key itself is fine — let it in and
+      // let the first real call surface anything else.
+      if (models.length > 0) return { ok: true, ...(ordered[0] ? { model: ordered[0] } : {}) };
+      return last;
     }
+
     if (provider.id === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
