@@ -11,19 +11,19 @@ export const CATEGORY_LABELS: Record<
   { en: { title: string; sub: string }; mn: { title: string; sub: string }; ko: { title: string; sub: string } }
 > = {
   knowledge: {
-    en: { title: "AI Assistant / Knowledge Mind", sub: "Text & Q&A clone mined from your videos" },
-    mn: { title: "AI Туслах / Мэдлэгийн Оюун", sub: "Видеонээс мянган асуулт-хариултын клон" },
-    ko: { title: "AI 어시스턴트 / 지식 마인드", sub: "영상에서 추출한 Q&A 클론" },
+    en: { title: "Knowledge Mind", sub: "Answers questions using what you said in your videos" },
+    mn: { title: "Мэдлэгийн Оюун", sub: "Видеон дээрх яриандаа тулгуурлан асуултад хариулна" },
+    ko: { title: "지식 마인드", sub: "영상에서 말한 내용을 바탕으로 질문에 답합니다" },
   },
   robot: {
-    en: { title: "Robot Brain / Embodied VLA", sub: "Spatial trajectories, 3D grasp & ROS 2 OTA package" },
-    mn: { title: "Роботын Тархи / Биетэй VLA", sub: "Орон зайн траектор, 3D атгалт, ROS 2 багц" },
-    ko: { title: "로봇 브레인 / 임보디드 VLA", sub: "공간 궤적, 3D 그립, ROS 2 패키지" },
+    en: { title: "Robot Brain", sub: "Learns movement, grasping and space from your videos" },
+    mn: { title: "Роботын Тархи", sub: "Видеонээс хөдөлгөөн, барих, орон зайг сурна" },
+    ko: { title: "로봇 브레인", sub: "영상에서 움직임, 잡기, 공간을 배웁니다" },
   },
   voice: {
-    en: { title: "Voice Calling Agent", sub: "Real-time voice-to-voice interaction" },
-    mn: { title: "Дуут Дуудлагын Агент", sub: "Бодит цагийн дуу хоолойн харилцаа" },
-    ko: { title: "음성 통화 에이전트", sub: "실시간 음성 대 음성 상호작용" },
+    en: { title: "Voice Agent", sub: "Talks with people in your voice" },
+    mn: { title: "Дуут Агент", sub: "Таны дуу хоолойгоор хүмүүстэй ярина" },
+    ko: { title: "보이스 에이전트", sub: "당신의 목소리로 사람들과 대화합니다" },
   },
   sales: {
     en: {
