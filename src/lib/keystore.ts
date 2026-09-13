@@ -21,7 +21,14 @@ export type ApiKeyEntry = {
   state: "ok" | "invalid" | "exhausted";
   /** Epoch ms when the key hit its quota, so the UI can show a cooldown. */
   exhaustedAt?: number;
+  /** Evermind's own tally of calls made with this key today (not a Google figure). */
+  usage?: { day: string; calls: number };
 };
+
+/** Local calendar day stamp used for the per-key daily tally. */
+export function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function maskKey(value: string): string {
   if (value.length <= 8) return "••••";
