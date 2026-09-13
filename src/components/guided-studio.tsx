@@ -1215,17 +1215,20 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
 
   return (
     <StepShell
-      title={
-        saveMode
-          ? t("step2Title")
-          : pickCopy({ en: "Mine your saved videos", mn: "Хадгалсан видеогоо олборлох", ko: "저장한 영상 마이닝" }, lang)
-      }
-      sub={saveMode ? t("step2Sub") : lib.pickTitle}
-      tip={saveMode ? lib.saveHint : t("tipSource")}
+      title={pickCopy({ en: "Add your videos", mn: "Видеогоо нэмэх", ko: "영상 추가하기" }, lang)}
+      sub={pickCopy(
+        {
+          en: "Paste a link to save it, then tick a saved video and start mining.",
+          mn: "Холбоос оруулж хадгалаад, дараа нь хадгалсан видеогоо сонгож олборлоно уу.",
+          ko: "링크를 붙여넣어 저장한 뒤, 저장된 영상을 선택해 마이닝하세요.",
+        },
+        lang,
+      )}
+      tip={lib.saveHint}
     >
       {saveMode && <ProjectTargetPicker lang={lang} value={target} onChange={setTarget} />}
 
-      {!saveMode && (
+      {mineMode && (
         <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{lib.pickTitle}</p>
