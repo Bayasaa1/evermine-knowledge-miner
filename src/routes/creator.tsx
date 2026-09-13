@@ -21,7 +21,6 @@ import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { splitIntoChunks, formatDuration, type Chunk } from "@/lib/chunking";
-import { hasGeminiOauth } from "@/lib/google-gemini-auth";
 import {
   loadApiKeys,
   saveApiKeys,
@@ -1335,7 +1334,7 @@ function Index() {
   const startMining = useCallback(
     async (startIndex: number, initialRef: UploadedFile | null) => {
       if (chunks.length === 0 || status === "processing") return;
-      if (keysRef.current.filter((k) => k.state === "ok").length === 0 && !(await hasGeminiOauth())) {
+      if (keysRef.current.filter((k) => k.state === "ok").length === 0) {
         setStatus(keysRef.current.length > 0 ? "paused" : "error");
         setStatusNote(keysRef.current.length > 0 ? "notePausedQuota" : "noteNoKey");
         addLog("error", "No usable API key in the rotation pool");

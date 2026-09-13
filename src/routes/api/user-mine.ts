@@ -13,7 +13,7 @@ const SYSTEM = [
   "Only include items genuinely supported by the text. Output JSON only, no prose, no markdown fences.",
 ].join("\n");
 
-type Body = { utterances?: unknown; apiKey?: string; googleToken?: string };
+type Body = { utterances?: unknown; apiKey?: string };
 
 export const Route = createFileRoute("/api/user-mine")({
   server: {

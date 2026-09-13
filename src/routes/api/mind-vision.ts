@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/mind-vision")({
         const auth = await guardApi(request, "mind-vision", 20);
         if (auth instanceof Response) return auth;
 
-        let body: { image?: string; name?: string; lang?: string; apiKey?: string; googleToken?: string };
+        let body: { image?: string; name?: string; lang?: string; apiKey?: string };
         try {
           body = (await request.json()) as typeof body;
         } catch {

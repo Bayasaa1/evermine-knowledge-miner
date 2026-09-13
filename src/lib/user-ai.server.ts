@@ -51,7 +51,7 @@ const clean = (v: unknown, max = 200): string => (typeof v === "string" ? v.trim
  */
 export async function resolveGeminiCredential(
   userId: string,
-  body?: { apiKey?: unknown; googleToken?: unknown },
+  body?: { apiKey?: unknown },
 ): Promise<AiCredential> {
   const key = clean(body?.apiKey);
   if (key) return { kind: "gemini_key", value: key };

@@ -262,8 +262,6 @@ export const Route = createFileRoute("/api/mind-chat")({
           provider?: string;
           model?: string;
           apiKey?: string;
-          /** The caller's Google session token, when their sign-in covers Gemini. */
-          googleToken?: string;
           /** Live mode: stream the answer out word by word. */
           stream?: boolean;
           /** What the Mind currently sees on a video call. */

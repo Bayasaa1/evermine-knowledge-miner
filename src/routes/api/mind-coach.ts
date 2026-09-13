@@ -38,7 +38,6 @@ export const Route = createFileRoute("/api/mind-coach")({
             emotions?: { trigger?: string; reaction?: string; quote?: string }[];
           };
           apiKey?: string;
-          googleToken?: string;
         };
         try {
           body = (await request.json()) as typeof body;

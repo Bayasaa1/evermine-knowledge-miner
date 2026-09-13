@@ -1,8 +1,8 @@
 /**
  * Diagnostic Assistant backend.
  *
- * Runs on the caller's own AI access — their Gemini key, their saved account
- * key, or their Google sign-in token. There is no shared platform credit:
+ * Runs on the caller's own AI access — their Gemini key or their saved account
+ * key. There is no shared platform credit:
  * when the caller has no credential yet, the reply says exactly how to add a
  * free key instead of answering on someone else's budget.
  */
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
       POST: async ({ request }) => {
         const auth = await guardApi(request, "diagnose-chat", 20);
         if (auth instanceof Response) return auth;
-        let body: { system?: string; messages?: ChatMsg[]; apiKey?: string; googleToken?: string };
+        let body: { system?: string; messages?: ChatMsg[]; apiKey?: string };
         try {
           body = (await request.json()) as typeof body;
         } catch {
