@@ -37,6 +37,7 @@ import {
   setProviderCap,
   setProviderEnabled,
   testModelsFor,
+  providerUsable,
   type ProviderId,
   type ProviderInfo,
   type SavedKey,
@@ -93,6 +94,11 @@ const COPY = {
     teamAdd: "Add",
     teamAllSet: "You already have every AI we would suggest for this.",
     tapHint: "Tap a label to see what it means.",
+    teamLine: "Your team",
+    standby: "standing by",
+    teamNone: "Only Gemini so far — add a free teammate below.",
+    freeTag: "free",
+    paidTag: "paid",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
@@ -144,6 +150,11 @@ const COPY = {
     teamAdd: "Нэмэх",
     teamAllSet: "Энэ төрөлд санал болгох бүх AI танд аль хэдийн байна.",
     tapHint: "Шошгон дээр дарж утгыг нь хараарай.",
+    teamLine: "Таны баг",
+    standby: "бэлэн хүлээж байна",
+    teamNone: "Одоохондоо зөвхөн Gemini — доороос үнэгүй хамтрагч нэмнэ үү.",
+    freeTag: "үнэгүй",
+    paidTag: "төлбөртэй",
   },
   ko: {
     title: "내 AI 키",
@@ -195,6 +206,11 @@ const COPY = {
     teamAdd: "추가",
     teamAllSet: "이 유형에 추천할 AI를 이미 모두 갖고 있습니다.",
     tapHint: "라벨을 누르면 의미를 볼 수 있습니다.",
+    teamLine: "내 팀",
+    standby: "대기 중",
+    teamNone: "아직 Gemini뿐입니다 — 아래에서 무료 팀원을 추가하세요.",
+    freeTag: "무료",
+    paidTag: "유료",
   },
 } as const;
 
@@ -496,6 +512,32 @@ export function AiKeysCard({
         <p className="mt-0.5 text-[11px] text-muted-foreground/80">{t.tapHint}</p>
       </div>
 
+      {/* The whole team on one line: who runs, and how many wait behind them. */}
+      {rows.length > 0 &&
+        (() => {
+          const active = rows.filter(providerUsable);
+          const standby = rows.length - active.length;
+          return (
+            <p className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs">
+              <span className="font-semibold text-foreground">{t.teamLine}: </span>
+              {active.length > 0 ? (
+                <span className="font-medium text-primary">{active.map((r) => r.label).join(" + ")}</span>
+              ) : (
+                <span className="text-muted-foreground">{t.teamNone}</span>
+              )}
+              {standby > 0 && (
+                <span className="text-muted-foreground">
+                  {" · "}
+                  {standby} {t.standby}
+                </span>
+              )}
+              {active.length === 1 && active[0]?.provider.id === "gemini" && (
+                <span className="ml-1 text-muted-foreground">{t.teamNone}</span>
+              )}
+            </p>
+          );
+        })()}
+
       {/* Guidance that follows the creation type picked in step 1. */}
       <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-xs">
         <p className="flex items-center gap-1.5 font-semibold text-foreground">
@@ -738,6 +780,11 @@ export function AiKeysCard({
                     <li key={p.id} className="flex items-center gap-2">
                       <span className="flex-1">
                         <span className="text-xs font-medium text-foreground">{p.label}</span>
+                        <span
+                          className={`ml-1.5 rounded px-1 py-px text-[10px] font-semibold uppercase ${p.paid ? "bg-amber-500/15 text-amber-500" : "bg-emerald-500/15 text-emerald-500"}`}
+                        >
+                          {p.paid ? t.paidTag : t.freeTag}
+                        </span>
                         <span className="ml-1.5 text-[11px] text-muted-foreground">{p.good}</span>
                       </span>
                       <button
