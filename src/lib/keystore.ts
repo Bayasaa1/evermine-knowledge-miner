@@ -67,6 +67,8 @@ function normalize(raw: unknown): ApiKeyEntry[] {
         lastStatus: e['lastStatus'] === "invalid" || e['lastStatus'] === "limited" ? e['lastStatus'] : "working",
         state: state === "invalid" || state === "exhausted" ? state : "ok",
         ...(typeof e['exhaustedAt'] === "number" ? { exhaustedAt: e['exhaustedAt'] } : {}),
+        ...(typeof e['usage'] === "object" && e['usage'] !== null ? { usage: e['usage'] } : {}),
+        ...(typeof e['rank'] === "number" ? { rank: e['rank'] } : {}),
       } as ApiKeyEntry;
     })
     .filter((k): k is ApiKeyEntry => k !== null);
