@@ -2,8 +2,8 @@
  * Server side of the Auditor.
  *
  * - `auditWithBuiltIn` runs the Gemini audit on the creator's OWN access —
- *   their Google sign-in token, a key from their device vault, or the key
- *   saved on their account. There is no shared platform credit behind it.
+ *   a key from their device vault or the key saved on their account. There is
+ *   no shared platform credit behind it.
  * - `saveAudit` / `chooseAudit` store audits inside the saved mind itself,
  *   owner-scoped, so nothing an auditor said is ever hidden or lost.
  */
@@ -12,13 +12,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const auditWithBuiltIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { prompt: string; brief: string; apiKey?: string; googleToken?: string }) => {
+  .inputValidator((input: { prompt: string; brief: string; apiKey?: string }) => {
     if (!input?.brief?.trim()) throw new Error("Nothing to audit.");
     return {
       prompt: String(input.prompt).slice(0, 4000),
       brief: String(input.brief).slice(0, 20000),
       apiKey: typeof input.apiKey === "string" ? input.apiKey : undefined,
-      googleToken: typeof input.googleToken === "string" ? input.googleToken : undefined,
     };
   })
   .handler(async ({ data, context }): Promise<string> => {

@@ -1273,9 +1273,6 @@ function Index() {
       for (;;) {
         const entry = keysRef.current.find((k) => k.state === "ok");
         if (!entry) {
-          // No pasted key left — the Google OAuth session authorizes Gemini
-          // directly (gemini.ts sends the bearer token), so keep going.
-          if (await hasGeminiOauth()) return await fn("");
           throw new QuotaPaused();
         }
         try {

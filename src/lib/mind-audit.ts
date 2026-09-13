@@ -239,12 +239,7 @@ export async function runAudit(
   } else {
     const key = await existingKeyFor(auditorId);
     if (auditorId === "gemini" && !key) {
-      // Gemini audits on the creator's own access — their Google sign-in token
-      // or the key saved on their account — never on shared platform credit.
-      const { googleToken } = await import("@/lib/api-keys");
-      const token = await googleToken();
-      if (!token) throw new Error("Add your free Gemini key in Engines first — the auditor runs on your own free quota.");
-      text = await auditWithBuiltIn({ data: { prompt: AUDIT_PROMPT, brief, googleToken: token } });
+      throw new Error("Add your free Gemini key in Engines first — the auditor runs on your own quota.");
     } else if (!key) {
       throw new Error(`${label} needs its API key before it can audit.`);
     } else if (auditorId === "claude") {

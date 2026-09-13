@@ -5,7 +5,6 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
-import { GEMINI_SCOPE } from "@/lib/google-gemini-auth";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/auth")({
@@ -61,11 +60,6 @@ function AuthPage() {
     try {
       const result = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: returnUrl,
-        // Google sign-in also links the creator's free-tier Gemini API and a
-        // single-app Drive folder for Mind backups — zero API keys, zero setup.
-        ...(provider === "google"
-          ? { scopes: `openid email profile ${GEMINI_SCOPE}` }
-          : {}),
       });
       if (result.error) {
         toast.error(`Could not continue with ${provider === "google" ? "Google" : "Apple"}`, {
