@@ -244,7 +244,7 @@ export async function runAudit(
       throw new Error(`${label} needs its API key before it can audit.`);
     } else if (auditorId === "claude") {
       text = await chatClaude(key, brief);
-    } else if (auditorId === "gemini" || auditorId === "gemini-pro") {
+    } else if (auditorId === "gemini") {
       text = await chatGeminiKey(key, brief);
     } else {
       text = await chatOpenAICompatible(auditorId, opt.baseUrl, key, opt.testModel, brief);

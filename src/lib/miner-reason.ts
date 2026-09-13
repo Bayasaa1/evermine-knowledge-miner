@@ -185,7 +185,7 @@ async function thinkWith(
   const key = await existingKeyFor(id);
   if (!key) throw new Error("no key");
   if (id === "claude") return thinkClaude(key, brief, signal);
-  if (id === "gemini" || id === "gemini-pro") return thinkGemini(key, brief, signal);
+  if (id === "gemini") return thinkGemini(key, brief, signal);
   return thinkOpenAICompatible(id, opt.baseUrl, key, opt.testModel, brief, signal);
 }
 
