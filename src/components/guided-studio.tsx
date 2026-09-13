@@ -853,17 +853,14 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       // topics, beliefs and knowledge it missed. Never fatal: on any failure
       // the stage-1 result stands on its own.
       let mined = rawMined;
-      let minedByAi: MinerId = miner.id;
+      let minedByAi: MinerId = "gemini";
       try {
         const category = getCreationCategory();
-        // A video can carry its own AI: the row-level pick wins over the
-        // studio-wide one, so one batch can mix Groq, Gemini and the rest.
-        const srcUrl = source.kind === "file" ? "" : source.url;
-        const row = srcUrl ? pendingSources.find((p) => p.payload.source.url === srcUrl) : undefined;
-        const override = row ? perVideo[row.id] : undefined;
-        const choice: MinerChoice = override ? { ...miner, id: override, team: [] } : miner;
-        minedByAi = choice.id;
-        const pass = await runUnderstandingPass(rawMined, choice, category, abortRef.current?.signal ?? undefined);
+        // The thinkers are the creator's own saved keys, in their saved order:
+        // whoever is below Gemini and still has tokens does the thinking pass.
+        const pass = await runUnderstandingPass(rawMined, category, abortRef.current?.signal ?? undefined);
+        const first = pass.reports.find((r) => r.status === "ok");
+        if (first && findMiner(first.id)) minedByAi = findMiner(first.id)!.id;
         mined = pass.result;
         for (const report of pass.reports) {
           setLog((prev) => [...prev, `\n> ${report.label}: ${report.status} — ${report.detail}`]);
