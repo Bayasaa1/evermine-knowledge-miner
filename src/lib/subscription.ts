@@ -6,6 +6,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 import { idbGet, idbSet, STORES } from "./store";
+import { scopedKey, whenScopeReady } from "./user-scope";
 
 export const PLATFORM_COMMISSION = 0.2;
 
@@ -135,14 +136,17 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-const PLAN_KEY = "subscription-plan";
+// Pricing and payout wiring belong to one creator account only.
+const PLAN_KEY = () => scopedKey("subscription-plan");
 
 export async function loadPlan(): Promise<SubscriptionPlan> {
-  return normalizePlan(await idbGet<unknown>(STORES.SETTINGS, PLAN_KEY));
+  await whenScopeReady();
+  return normalizePlan(await idbGet<unknown>(STORES.SETTINGS, PLAN_KEY()));
 }
 
 export async function savePlan(plan: SubscriptionPlan): Promise<void> {
-  await idbSet(STORES.SETTINGS, PLAN_KEY, plan);
+  await whenScopeReady();
+  await idbSet(STORES.SETTINGS, PLAN_KEY(), plan);
   await publishPlanToProjects(plan);
 }
 

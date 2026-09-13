@@ -1,5 +1,5 @@
 import { idbGet, idbSet, STORES } from "@/lib/store";
-import { scopedKey } from "@/lib/user-scope";
+import { scopedKey, whenScopeReady } from "@/lib/user-scope";
 import { apiFetch } from "@/lib/api-fetch";
 
 export type UserVault = {
@@ -26,20 +26,24 @@ export function emptyVault(): UserVault {
 }
 
 export async function loadVault(): Promise<UserVault> {
+  await whenScopeReady();
   const v = await idbGet<UserVault>(STORES.SETTINGS, VAULT_KEY());
   return v ?? emptyVault();
 }
 
 export async function saveVault(vault: UserVault): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, VAULT_KEY(), vault);
 }
 
 export async function loadCaptureEnabled(): Promise<boolean> {
+  await whenScopeReady();
   const v = await idbGet<boolean>(STORES.SETTINGS, CAPTURE_KEY());
   return v ?? true;
 }
 
 export async function saveCaptureEnabled(on: boolean): Promise<void> {
+  await whenScopeReady();
   await idbSet(STORES.SETTINGS, CAPTURE_KEY(), on);
 }
 
