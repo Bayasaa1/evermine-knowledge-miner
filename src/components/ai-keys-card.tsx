@@ -406,8 +406,17 @@ export function AiKeysCard({
     [refresh],
   );
 
-  const choices: ProviderInfo[] =
-    mode === "free" ? providersByCost(false) : mode === "paid" ? providersByCost(true) : [];
+  // Recommended providers for the chosen creation type come first in the list.
+  const REC_ORDER: Record<RecLevel, number> = { required: 0, recommended: 1, team: 2, avoid: 3 };
+  const choices: ProviderInfo[] = (
+    mode === "free" ? providersByCost(false) : mode === "paid" ? providersByCost(true) : []
+  )
+    .slice()
+    .sort(
+      (a, b) =>
+        REC_ORDER[recommendationFor(category, a.id, lang).level] -
+        REC_ORDER[recommendationFor(category, b.id, lang).level],
+    );
   const info = findProviderInfo(provider);
 
   return (
