@@ -128,12 +128,16 @@ export async function findContentByVideo(
 }
 
 export async function updateProject(id: string, patch: Partial<Project>): Promise<string | null> {
-  const { error } = await supabase.from("projects").update(patch).eq("id", id);
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { error } = await supabase.from("projects").update(patch).eq("id", id).eq("user_id", owner);
   return error?.message ?? null;
 }
 
 export async function deleteProject(id: string): Promise<string | null> {
-  const { error } = await supabase.from("projects").delete().eq("id", id);
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", owner);
   return error?.message ?? null;
 }
 
@@ -196,6 +200,8 @@ export async function updateProjectContent(
   },
 ): Promise<string | null> {
   const { emotionTimeline, ...rest } = patch;
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
   const { error } = await supabase
     .from("project_content")
     .update({
@@ -203,18 +209,27 @@ export async function updateProjectContent(
       ...(patch.transcript ? { transcript: patch.transcript as unknown as Json } : {}),
       ...(emotionTimeline ? { emotion_timeline: emotionTimeline } : {}),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", owner);
   return error?.message ?? null;
 }
 
 /** Moves one mined video card into another project of the same owner. */
 export async function moveProjectContent(id: string, projectId: string): Promise<string | null> {
-  const { error } = await supabase.from("project_content").update({ project_id: projectId }).eq("id", id);
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { error } = await supabase
+    .from("project_content")
+    .update({ project_id: projectId })
+    .eq("id", id)
+    .eq("user_id", owner);
   return error?.message ?? null;
 }
 
 export async function deleteProjectContent(id: string): Promise<string | null> {
-  const { error } = await supabase.from("project_content").delete().eq("id", id);
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { error } = await supabase.from("project_content").delete().eq("id", id).eq("user_id", owner);
   return error?.message ?? null;
 }
 
