@@ -240,7 +240,25 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         </StepShell>
       )}
       {step === 2 && (
-        <StepShell title={t("step2Title")} sub={t("step2Sub")}>
+        <StepShell
+          title={
+            isAuthenticated
+              ? pickCopy({ en: "You're signed in", mn: "Та нэвтэрсэн байна", ko: "로그인되어 있습니다" }, lang)
+              : t("step2Title")
+          }
+          sub={
+            isAuthenticated
+              ? pickCopy(
+                  {
+                    en: "Your projects and keys are saved to this account.",
+                    mn: "Таны төсөл, түлхүүрүүд энэ бүртгэлд хадгалагдана.",
+                    ko: "프로젝트와 키가 이 계정에 저장됩니다.",
+                  },
+                  lang,
+                )
+              : t("step2Sub")
+          }
+        >
           <StepAccount lang={lang} />
         </StepShell>
       )}
