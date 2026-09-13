@@ -539,7 +539,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
         .filter((r) => r.kind === "source")
         .map((r) => ({ id: r.id, payload: r.payload as unknown as SourcePayload }));
     },
-    enabled: signedIn && !saveMode && isTargetReady(target),
+    enabled: signedIn && mineMode && isTargetReady(target),
     refetchOnMount: "always",
   });
 
