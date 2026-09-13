@@ -253,12 +253,28 @@ export function normalizeStack(raw: unknown): EngineStack {
       if (typeof val === "string" && val.trim()) keys[k] = val.trim();
     }
   }
+  const providers: Record<string, ProviderSetting> = {};
+  if (typeof v['providers'] === "object" && v['providers'] !== null) {
+    for (const [k, val] of Object.entries(v['providers'] as Record<string, unknown>)) {
+      const p = (val ?? {}) as Record<string, unknown>;
+      const month = typeof p['month'] === "string" ? p['month'] : monthStamp();
+      const sameMonth = month === monthStamp();
+      providers[k] = {
+        enabled: p['enabled'] === true,
+        monthlyCapUsd: typeof p['monthlyCapUsd'] === "number" ? p['monthlyCapUsd'] : 10,
+        spendUsd: sameMonth && typeof p['spendUsd'] === "number" ? p['spendUsd'] : 0,
+        month: sameMonth ? month : monthStamp(),
+        addedAt: typeof p['addedAt'] === "number" ? p['addedAt'] : Date.now(),
+      };
+    }
+  }
   return {
     llm: pick("llm", base.llm),
     tts: pick("tts", base.tts),
     avatar: pick("avatar", base.avatar),
     billing: v['billing'] === "passthrough" ? "passthrough" : "byo",
     keys,
+    providers,
   };
 }
 
