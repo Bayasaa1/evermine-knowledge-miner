@@ -171,6 +171,16 @@ export function MinerPool({
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
   const [ready, setReady] = useState<Partial<Record<MinerId, boolean>>>({});
+  // OpenRouter routes many models through one key, so the model — not the
+  // company — decides whether this pick is free or paid.
+  const [routedModel, setRoutedModel] = useState("");
+
+  useEffect(() => {
+    void import("@/lib/engines").then(async ({ loadStack }) => {
+      const stack = await loadStack();
+      setRoutedModel(stack.providers["OPENROUTER_API_KEY"]?.model ?? "");
+    });
+  }, []);
 
   // Only the 8 AIs whose senses can do this creation type, ordered free → paid → manual.
   const pool = useMemo(() => minersForCategory(category), [category]);
@@ -339,6 +349,46 @@ export function MinerPool({
           <p className="mt-1 text-foreground">{option.capability}</p>
           <p className="mt-2 font-medium uppercase tracking-widest text-muted-foreground">{t.tradeoff}</p>
           <p className="mt-1 text-muted-foreground">{option.downside}</p>
+        </div>
+      )}
+
+      {option?.models && (
+        <div className="mt-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+          <p className="text-xs font-semibold text-foreground">{t.modelTitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t.modelSub}</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {option.models.map((m) => {
+              const on = (routedModel || option.models?.[0]?.id) === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    setRoutedModel(m.id);
+                    void import("@/lib/key-manager").then(({ setProviderModel }) =>
+                      setProviderModel("OPENROUTER_API_KEY", m.id),
+                    );
+                  }}
+                  className={`rounded-xl border p-2.5 text-left transition-colors ${
+                    on ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 text-xs font-medium text-foreground">
+                    {m.label}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-widest ${
+                        m.free ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                      }`}
+                    >
+                      {m.free ? t.modelFree : t.modelPaid}
+                    </span>
+                    {on && <Check className="ml-auto h-3.5 w-3.5 text-primary" />}
+                  </span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">{m.what}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
