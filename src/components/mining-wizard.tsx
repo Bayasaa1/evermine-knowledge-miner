@@ -20,66 +20,67 @@ import {
 
 const copy = {
   en: {
-    title: "Before we mine — 3 quick questions",
-    sub: "Your answers steer the AI so it extracts what actually matters to you.",
-    context: "1. Video context",
-    focus: "2. Primary focus",
-    custom: "3. Custom analysis instructions",
-    customPlaceholder: "e.g. Focus on the defensive shape and the coach's tactical calls.",
-    speaker: "Speaker identity — who is the Mind Owner / Host?",
+    title: "Tell the AI what to look for",
+    sub: "Optional — we already picked answers that fit what you are building.",
+    context: "Video type",
+    focus: "What matters most",
+    custom: "Anything else the AI should know",
+    customPlaceholder: "e.g. Focus on how the arm picks up the cup.",
+    speaker: "Whose voice is the Mind?",
     speakerPlaceholder: "Host: Batbold, Guest: Elon Musk",
-    speakerHint: "Guest answers stay contextual knowledge; only the host shapes the Mind Vault identity.",
+    speakerHint: "Only the host shapes how your Mind talks. Guests stay as knowledge.",
     start: "Start mining",
-    autoTitle: "Auto-filled from YouTube",
-    autoSub: "We pulled this straight from the link — edit only if something is off.",
+    autoTitle: "Filled in from the link",
+    autoSub: "Edit only if something looks wrong.",
     fetching: "Reading video details…",
-    fTitle: "Video title",
-    fDesc: "Description (fed to the AI as context)",
+    fTitle: "Title",
+    fDesc: "Description (given to the AI)",
     fDate: "Published",
-    fDur: "Duration",
+    fDur: "Length",
   },
   mn: {
-    title: "Шинжилгээний өмнө — 3 богино асуулт",
-    sub: "Таны хариулт AI-д яг хэрэгтэй мэдээллийг задлан авахад чиглүүлнэ.",
-    context: "1. Видеоны төрөл",
-    focus: "2. Гол анхаарах зүйл",
-    custom: "3. Нэмэлт зааварчилгаа",
-    customPlaceholder: "жишээ нь: Хамгаалалтын бүтэц, дасгалжуулагчийн шийдвэрт анхаараарай.",
-    speaker: "Ярианы эзэн — Mind эзэмшигч / хөтлөгч хэн бэ?",
+    title: "AI юуг хайхыг хэлж өг",
+    sub: "Заавал биш — таны сонголтод тохирсон хариултыг аль хэдийн сонгосон.",
+    context: "Видеоны төрөл",
+    focus: "Хамгийн чухал нь",
+    custom: "AI-д мэдэх ёстой өөр зүйл",
+    customPlaceholder: "жишээ нь: Гар аягыг хэрхэн авч байгааг анхаараарай.",
+    speaker: "Оюуны дуу хоолой хэн бэ?",
     speakerPlaceholder: "Хөтлөгч: Батболд, Зочин: Elon Musk",
-    speakerHint: "Зочны яриа зөвхөн нөхцөл байдлын мэдлэг болно; зөвхөн хөтлөгч Mind-ийн зан чанарыг бүрдүүлнэ.",
+    speakerHint: "Зөвхөн хөтлөгч Оюуны ярианы хэв маягийг бүрдүүлнэ. Зочид зөвхөн мэдлэг болно.",
     start: "Шинжилгээ эхлүүлэх",
-    autoTitle: "YouTube-оос автоматаар бөглөгдсөн",
-    autoSub: "Холбоосоос шууд татсан — буруу зүйл байвал л засна уу.",
+    autoTitle: "Холбоосоос бөглөгдсөн",
+    autoSub: "Буруу зүйл байвал л засна уу.",
     fetching: "Видеоны мэдээллийг уншиж байна…",
-    fTitle: "Видеоны нэр",
-    fDesc: "Тайлбар (AI-д нөхцөл болгон өгнө)",
-    fDate: "Нийтэлсэн огноо",
-    fDur: "Үргэлжлэх хугацаа",
+    fTitle: "Нэр",
+    fDesc: "Тайлбар (AI-д өгнө)",
+    fDate: "Нийтэлсэн",
+    fDur: "Урт",
   },
   ko: {
-    title: "분석 전 — 3가지 빠른 질문",
-    sub: "답변에 맞춰 AI가 정말 중요한 내용만 골라 추출합니다.",
-    context: "1. 영상 맥락",
-    focus: "2. 주요 초점",
-    custom: "3. 추가 분석 지침",
-    customPlaceholder: "예: 수비 대형과 코치의 전술 지시에 집중해 주세요.",
-    speaker: "화자 식별 — 마인드 소유자 / 호스트는 누구인가요?",
+    title: "AI가 무엇을 찾을지 알려주세요",
+    sub: "선택 사항 — 만들려는 것에 맞는 답을 이미 골라 두었습니다.",
+    context: "영상 종류",
+    focus: "가장 중요한 것",
+    custom: "AI가 알아야 할 다른 내용",
+    customPlaceholder: "예: 팔이 컵을 잡는 방식에 집중해 주세요.",
+    speaker: "마인드의 목소리는 누구인가요?",
     speakerPlaceholder: "호스트: 바트볼드, 게스트: Elon Musk",
-    speakerHint: "게스트 발언은 맥락 지식으로만 저장되고, 호스트만 마인드 정체성을 형성합니다.",
+    speakerHint: "호스트만 마인드의 말투를 만듭니다. 게스트는 지식으로만 남습니다.",
     start: "분석 시작",
-    autoTitle: "YouTube에서 자동 입력됨",
-    autoSub: "링크에서 바로 가져왔습니다 — 잘못된 부분만 수정하세요.",
+    autoTitle: "링크에서 자동 입력됨",
+    autoSub: "잘못된 부분만 수정하세요.",
     fetching: "영상 정보를 불러오는 중…",
-    fTitle: "영상 제목",
-    fDesc: "설명 (AI 컨텍스트로 전달)",
+    fTitle: "제목",
+    fDesc: "설명 (AI에 전달)",
     fDate: "게시일",
-    fDur: "재생 시간",
+    fDur: "길이",
   },
 };
 
 export function MiningWizard({
   lang,
+  category = "knowledge",
   value,
   onChange,
   onStart,
@@ -89,6 +90,8 @@ export function MiningWizard({
   metaLoading,
 }: {
   lang: Lang;
+  /** What the creator is building — drives which choices are offered. */
+  category?: CreationCategory;
   value?: Assessment;
   onChange?: (a: Assessment) => void;
   onStart: (a: Assessment) => void;
@@ -99,8 +102,10 @@ export function MiningWizard({
   metaLoading?: boolean;
 }) {
   const t = pickCopy(copy, lang);
-  const [local, setLocal] = useState<Assessment>(value ?? DEFAULT_ASSESSMENT);
+  const [local, setLocal] = useState<Assessment>(value ?? defaultAssessmentFor(category));
   const state = value ?? local;
+  const contexts = contextsFor(category);
+  const focuses = focusesFor(category);
 
   const update = (patch: Partial<Assessment>) => {
     const next = { ...state, ...patch };
@@ -110,13 +115,8 @@ export function MiningWizard({
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <ClipboardList className="h-4 w-4 text-primary" /> {t.title}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
-
       {(metaLoading || meta) && (
-        <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary">
             {metaLoading ? t.fetching : t.autoTitle}
           </p>
@@ -161,83 +161,87 @@ export function MiningWizard({
                   </div>
                 </div>
               </div>
-              <label className="mt-2 block">
-                <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t.fDesc}</span>
-                <textarea
-                  value={state.sourceDescription}
-                  onChange={(e) => update({ sourceDescription: e.target.value.slice(0, 4000) })}
-                  rows={4}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:border-primary/60"
-                />
-              </label>
             </>
           )}
         </div>
       )}
 
-      <fieldset className="mt-4">
-        <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.context}</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {VIDEO_CONTEXTS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => update({ videoContext: c })}
-              className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                state.videoContext === c
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Localized text={c} />
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      {/* Everything below is optional fine-tuning, so it starts closed. */}
+      <details className="group mt-4 rounded-xl border border-border bg-background/40 p-3">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-foreground">
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          {t.title}
+          <span className="ml-auto text-xs font-normal text-muted-foreground">
+            <Localized text={state.videoContext} /> · <Localized text={state.primaryFocus} />
+          </span>
+        </summary>
 
-      <fieldset className="mt-4">
-        <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.focus}</legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {PRIMARY_FOCUSES.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => update({ primaryFocus: f })}
-              className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
-                state.primaryFocus === f
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Localized text={f} />
-            </button>
-          ))}
-        </div>
-      </fieldset>
+        <p className="mt-2 text-xs text-muted-foreground">{t.sub}</p>
 
-      {state.videoContext === "Podcast" && (
+        <fieldset className="mt-4">
+          <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.context}</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {contexts.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => update({ videoContext: c })}
+                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                  state.videoContext === c
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Localized text={c} />
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="mt-4">
+          <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.focus}</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {focuses.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => update({ primaryFocus: f })}
+                className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                  state.primaryFocus === f
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Localized text={f} />
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {wantsSpeakerNames(state.videoContext) && (
+          <label className="mt-4 block">
+            <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.speaker}</span>
+            <input
+              value={state.speakerIdentity}
+              onChange={(e) => update({ speakerIdentity: e.target.value.slice(0, 300) })}
+              placeholder={t.speakerPlaceholder}
+              className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            />
+            <span className="mt-1 block text-xs text-muted-foreground">{t.speakerHint}</span>
+          </label>
+        )}
+
         <label className="mt-4 block">
-          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.speaker}</span>
-          <input
-            value={state.speakerIdentity}
-            onChange={(e) => update({ speakerIdentity: e.target.value.slice(0, 300) })}
-            placeholder={t.speakerPlaceholder}
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.custom}</span>
+          <textarea
+            value={state.customInstructions}
+            onChange={(e) => update({ customInstructions: e.target.value.slice(0, 2000) })}
+            rows={3}
+            placeholder={t.customPlaceholder}
             className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
           />
-          <span className="mt-1 block text-xs text-muted-foreground">{t.speakerHint}</span>
         </label>
-      )}
-
-      <label className="mt-4 block">
-        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.custom}</span>
-        <textarea
-          value={state.customInstructions}
-          onChange={(e) => update({ customInstructions: e.target.value.slice(0, 2000) })}
-          rows={3}
-          placeholder={t.customPlaceholder}
-          className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-        />
-      </label>
+      </details>
 
       <button
         type="button"
