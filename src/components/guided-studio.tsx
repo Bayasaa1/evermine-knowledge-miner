@@ -337,15 +337,21 @@ function StepAccount({ lang }: { lang: Lang }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       {isAuthenticated ? (
-        <div className="space-y-3">
-          <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {pickCopy({ en: "Account ready", mn: "Бүртгэл бэлэн", ko: "계정 준비 완료" }, lang)}
-          </p>
-          {profile && (
-            <p className="text-xs text-muted-foreground">
-              {profile.displayName} · {profile.email}
-            </p>
-          )}
+        <div className="flex flex-wrap items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {profile?.displayName ?? pickCopy({ en: "Signed in", mn: "Нэвтэрсэн", ko: "로그인됨" }, lang)}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">{profile?.email ?? ""}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/auth", search: { next: "/creator" } })}
+            className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {pickCopy({ en: "Use another account", mn: "Өөр бүртгэл ашиглах", ko: "다른 계정 사용" }, lang)}
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
