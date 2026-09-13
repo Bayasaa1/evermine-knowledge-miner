@@ -10,7 +10,23 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const KEY_RE = /^[A-Za-z0-9_\-:.]{8,200}$/;
 
-const PROVIDER = z.enum(["gemini", "groq", "mistral", "openai", "anthropic", "moonshot", "openrouter", "deepseek"]);
+const PROVIDER = z.enum([
+  "gemini",
+  "groq",
+  "mistral",
+  "cerebras",
+  "together",
+  "github",
+  "openai",
+  "anthropic",
+  "moonshot",
+  "openrouter",
+  "deepseek",
+  "xai",
+  "perplexity",
+  "cohere",
+  "custom",
+]);
 
 async function verifyGeminiKey(apiKey: string): Promise<void> {
   const res = await fetch(
