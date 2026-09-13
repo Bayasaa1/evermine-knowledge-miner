@@ -27,6 +27,7 @@ import {
   loadMinerChoice,
   minerReadiness,
   minersForCategory,
+  recommendedFor,
   saveMinerChoice,
   storeKeyFor,
   testMinerKey,
@@ -190,7 +191,9 @@ export function MinerPool({
 
   const option = findMiner(choice.id);
   const needsKey = !!option?.keyField && !hasKey;
-  const showKeyArea = !!option?.keyField || choice.id === "gemini";
+  // Gemini's key is managed once in "My AI keys" above — never asked for twice.
+  const showKeyArea = !!option?.keyField && option.keyField !== "GEMINI_API_KEY";
+  const advice = useMemo(() => recommendedFor(category), [category]);
 
   const persist = async (nextChoice?: MinerChoice) => {
     const toSave = nextChoice ?? choice;
@@ -267,12 +270,17 @@ export function MinerPool({
               {members.map((m) => {
                 const on = choice.id === m.id;
                 const isReady = !!ready[m.id];
+                const tip = advice.find((a) => a.id === m.id)?.why;
                 return (
                   <button
                     key={m.id}
                     type="button"
                     title={isReady ? r.readyHint : r.setupHint}
-                    onClick={() => set({ id: m.id })}
+                    onClick={() => {
+                      // A ready AI is saved the moment it is picked — no extra button.
+                      if (isReady) void persist({ ...choice, id: m.id });
+                      else set({ id: m.id });
+                    }}
                     className={`rounded-xl border p-3 text-left transition-colors ${
                       on
                         ? "border-primary bg-primary/5"
@@ -296,6 +304,7 @@ export function MinerPool({
                       {on && <Check className="ml-auto h-4 w-4 text-primary" />}
                     </span>
                     <span className="mt-1 block text-xs text-muted-foreground">{m.note}</span>
+                    {tip && <span className="mt-1 block text-xs text-primary">{tip}</span>}
                     <span
                       className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-widest ${
                         isReady ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
