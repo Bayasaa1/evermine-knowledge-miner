@@ -196,7 +196,15 @@ export function adviceFor(category: string, lang: Lang): KeyAdvice {
 
 export type RecLevel = "required" | "recommended" | "team" | "avoid";
 
-export type Recommendation = { level: RecLevel; label: string; reason: string };
+export type Recommendation = {
+  level: RecLevel;
+  label: string;
+  reason: string;
+  /** The longer, tap-to-open explanation of what this label means. */
+  explain: string;
+  /** How the ordered list behaves when the key above runs out. */
+  fallbackNote: string;
+};
 
 /** Who is worth adding for each creation type. Everything unlisted is "team". */
 const PICKS: Record<CreationCategory, { recommended: string[]; avoid: string[] }> = {
@@ -209,9 +217,9 @@ const PICKS: Record<CreationCategory, { recommended: string[]; avoid: string[] }
 
 const LEVEL_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
   required: { en: "Required", mn: "Заавал", ko: "필수" },
-  recommended: { en: "Recommended", mn: "Санал болгосон", ko: "추천" },
-  team: { en: "Team backup", mn: "Нөөц баг", ko: "팀 백업" },
-  avoid: { en: "Not recommended", mn: "Санал болгохгүй", ko: "비추천" },
+  recommended: { en: "Best partner", mn: "Шилдэг хамтрагч", ko: "최고의 파트너" },
+  team: { en: "Stand-in", mn: "Орлон ажиллагч", ko: "대타" },
+  avoid: { en: "Not worth it here", mn: "Энд хэрэггүй", ko: "여기선 불필요" },
 };
 
 const REASON_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
@@ -226,15 +234,44 @@ const REASON_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
     ko: "선택한 유형에서 사고 파트너로 잘 작동합니다.",
   },
   team: {
-    en: "Useful as a backup when the key above runs out.",
-    mn: "Дээрх түлхүүр дуусахад нөөц болж ажиллана.",
-    ko: "위 키가 소진될 때 백업으로 쓸 만합니다.",
+    en: "Steps in when the key above runs out.",
+    mn: "Дээрх түлхүүр дуусахад орлон ажиллана.",
+    ko: "위 키가 소진되면 대신 나섭니다.",
   },
   avoid: {
     en: "Adds cost or time without improving this kind of mind.",
     mn: "Энэ төрөлд чанар нэмэлгүй зардал, цаг л нэмнэ.",
     ko: "이 유형에서는 품질 향상 없이 비용과 시간만 늘립니다.",
   },
+};
+
+const EXPLAIN_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
+  required: {
+    en: "Without this key nothing can be mined — it is the engine that opens the video, sees the picture and hears the sound. Keep it at #1.",
+    mn: "Энэ түлхүүргүйгээр юу ч олборлогдохгүй — видеог нээж, зургийг харж, дууг сонсдог хөдөлгүүр. #1-т байлга.",
+    ko: "이 키가 없으면 아무것도 마이닝할 수 없습니다 — 영상을 열고 화면을 보고 소리를 듣는 엔진입니다. #1로 두세요.",
+  },
+  recommended: {
+    en: "For the type you picked in step 1, this one clearly improves the result. Put it right after Gemini so it actually gets used.",
+    mn: "1-р алхамд сонгосон төрөлд чинь энэ нь үр дүнг тодорхой сайжруулна. Gemini-ийн яг дараа тавьбал ажиллана.",
+    ko: "1단계에서 고른 유형에서 결과를 확실히 개선합니다. Gemini 바로 뒤에 두어야 실제로 사용됩니다.",
+  },
+  team: {
+    en: "A spare pair of hands. It sits quietly and never runs while the keys above it still have tokens — the moment one runs out, this one takes the work so mining does not stop.",
+    mn: "Нөөц гар. Дээрх түлхүүрүүдэд токен байгаа цагт огт ажиллахгүй чимээгүй хүлээнэ — нэг нь дуусмагц ажлыг авч, олборлолт зогсохгүй.",
+    ko: "예비 인력입니다. 위 키에 토큰이 남아 있는 동안에는 전혀 실행되지 않다가, 하나가 소진되는 순간 일을 넘겨받아 마이닝이 멈추지 않게 합니다.",
+  },
+  avoid: {
+    en: "It works, but for this creation type it costs money or time without making the result better. Keep it low in the order or remove it.",
+    mn: "Ажиллана, гэхдээ энэ төрөлд үр дүнг сайжруулахгүйгээр мөнгө, цаг л иднэ. Доор нь байлгах эсвэл устга.",
+    ko: "작동은 하지만 이 유형에서는 결과 개선 없이 비용과 시간만 듭니다. 순서를 낮추거나 삭제하세요.",
+  },
+};
+
+const FALLBACK_NOTE: { en: string; mn: string; ko: string } = {
+  en: "The order runs itself: #1 first, and the next number only starts when the one above it is out of tokens or over its limit.",
+  mn: "Дараалал өөрөө ажиллана: эхлээд #1, дараагийнх нь зөвхөн дээрхийнх нь токен дуусах юм уу хязгаарт хүрэхэд эхэлнэ.",
+  ko: "순서는 자동입니다: #1이 먼저, 다음 번호는 위 키의 토큰이 떨어지거나 한도를 넘겼을 때만 시작합니다.",
 };
 
 export function recommendationFor(category: string, providerId: string, lang: Lang): Recommendation {
@@ -254,5 +291,16 @@ export function recommendationFor(category: string, providerId: string, lang: La
     level,
     label: pickCopy(LEVEL_COPY[level], lang),
     reason: pickCopy(REASON_COPY[level], lang),
+    explain: pickCopy(EXPLAIN_COPY[level], lang),
+    fallbackNote: pickCopy(FALLBACK_NOTE, lang),
   };
+}
+
+/**
+ * The best partners for this creation type that the creator has not saved yet,
+ * so the key list can offer them as one-click additions.
+ */
+export function suggestedTeam(category: string, installedIds: string[]): string[] {
+  const key = (category in PICKS ? category : "knowledge") as CreationCategory;
+  return PICKS[key].recommended.filter((id) => !installedIds.includes(id));
 }
