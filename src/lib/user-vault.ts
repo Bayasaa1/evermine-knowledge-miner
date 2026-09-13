@@ -1,4 +1,5 @@
 import { idbGet, idbSet, STORES } from "@/lib/store";
+import { scopedKey } from "@/lib/user-scope";
 import { apiFetch } from "@/lib/api-fetch";
 
 export type UserVault = {
@@ -10,8 +11,8 @@ export type UserVault = {
   toneNotes: string[];
 };
 
-const VAULT_KEY = "user_mind_vault";
-const CAPTURE_KEY = "user_mind_capture";
+const VAULT_KEY = () => scopedKey("user_mind_vault");
+const CAPTURE_KEY = () => scopedKey("user_mind_capture");
 
 export function emptyVault(): UserVault {
   return {
@@ -25,21 +26,21 @@ export function emptyVault(): UserVault {
 }
 
 export async function loadVault(): Promise<UserVault> {
-  const v = await idbGet<UserVault>(STORES.SETTINGS, VAULT_KEY);
+  const v = await idbGet<UserVault>(STORES.SETTINGS, VAULT_KEY());
   return v ?? emptyVault();
 }
 
 export async function saveVault(vault: UserVault): Promise<void> {
-  await idbSet(STORES.SETTINGS, VAULT_KEY, vault);
+  await idbSet(STORES.SETTINGS, VAULT_KEY(), vault);
 }
 
 export async function loadCaptureEnabled(): Promise<boolean> {
-  const v = await idbGet<boolean>(STORES.SETTINGS, CAPTURE_KEY);
+  const v = await idbGet<boolean>(STORES.SETTINGS, CAPTURE_KEY());
   return v ?? true;
 }
 
 export async function saveCaptureEnabled(on: boolean): Promise<void> {
-  await idbSet(STORES.SETTINGS, CAPTURE_KEY, on);
+  await idbSet(STORES.SETTINGS, CAPTURE_KEY(), on);
 }
 
 function mergeList(base: string[], next: string[], cap: number): string[] {

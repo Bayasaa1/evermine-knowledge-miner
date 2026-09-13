@@ -79,16 +79,8 @@ export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
   await whenScopeReady();
   const list = normalize(await idbGet<unknown>(STORES.SETTINGS, KEYS_ID()));
   if (list.length > 0) return list;
-  // Keys pasted before the session finished restoring landed in the signed-out
-  // vault. Adopt them once so a sign-in never looks like it erased the key.
-  if (KEYS_ID() !== "anon:gemini-api-keys") {
-    const pending = normalize(await idbGet<unknown>(STORES.SETTINGS, "anon:gemini-api-keys"));
-    if (pending.length > 0) {
-      await saveApiKeys(pending);
-      await idbDelete(STORES.SETTINGS, "anon:gemini-api-keys");
-      return pending;
-    }
-  }
+  // Never adopt keys left in the signed-out vault: on a shared browser that
+  // would hand one person's API key to the next account that signs in.
   const legacy = await idbGet<string>(STORES.SETTINGS, KEY_ID());
   if (legacy) {
     const migrated = [makeKeyEntry(legacy, "Key 1")];

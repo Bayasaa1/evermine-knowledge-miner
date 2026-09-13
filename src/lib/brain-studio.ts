@@ -1,4 +1,5 @@
 import type { CulturalExpression } from "./gemini";
+import { scopedKey } from "./user-scope";
 import type { MineResult } from "./mine-file";
 import { idbGet, idbSet, STORES } from "./store";
 
@@ -220,7 +221,7 @@ export function parseBrainDoc(raw: unknown): BrainDoc {
 
 /** Storage key for a mind's brain — each Mind Vault keeps a fully isolated Core Brain. */
 export function brainKeyFor(mindId?: string | null): string {
-  return mindId ? `${BRAIN_KEY}:${mindId}` : BRAIN_KEY;
+  return scopedKey(mindId ? `${BRAIN_KEY}:${mindId}` : BRAIN_KEY);
 }
 
 const STOPWORDS = new Set(["the", "a", "an", "and", "or", "of", "to", "in", "is", "are", "was", "were", "be", "never", "not", "you", "it", "that", "this", "with", "for", "on", "at", "by", "as", "if", "when", "your"]);
