@@ -1,65 +1,64 @@
-# Lock down account privacy and fix Gemini throttling
+# Every customer gets their own space
 
-## Confirmed findings
+Right now a second person signing in on the same browser can still see the first person's screen: personas, Saved Minds, mining history, notifications, even delete buttons. The records in the database do belong to the right owner, and the database refuses cross-account deletion — but the app keeps showing the old person's screen, and a lot of things saved inside the browser have no owner at all. That is the problem, and it is fixed here.
 
-- **The screenshots show a real privacy failure in the browser.** When the active account changes, Evermind refreshes private data but leaves the previous account’s results visible until refresh finishes. Several private lists also reuse the same cache name across users. This explains why an empty new account can display another account’s personas, saved Minds, mining history, notifications, and delete controls.
-- **The database itself is separating owners correctly.** The new account shown in the database has no projects, vaults, jobs, or personas. Every inspected delete rule limits deletion to the signed-in owner, and the permanent-video deletion function verifies ownership before using privileged cleanup. A second account can see stale delete buttons, but the current database rules reject deleting the first account’s records.
-- **Project content is public by default.** New projects currently default to public, and all 37 current projects are published. Public feed videos and their mined transcript/tags are intentionally readable by other users. This is too permissive for a social platform where creators expect drafts and training files to stay private.
-- **Gemini testing amplifies one click.** One “Test & save” action lists models and then may make four generation requests without delay. Three visible attempts can create about fifteen Gemini calls and trigger the free-tier burst limit.
-- **More device data is still shared across accounts.** Cloud-drive labels/file indexes, follows, favorites, local notifications, subscription settings, and mining resume state still use shared browser storage names.
-- **Chat can use a server key in one branch.** When a user selects a provider without sending a key, the chat endpoint can read a server environment key. That conflicts with the rule that every AI call must use the user’s own key.
+## What the big platforms do (and what we will copy)
 
-## Fixes
+1. **One identity owns everything.** Every row, file and setting is stamped with the account that created it, and the server re-checks the owner on every read and write — never trusting the browser.
+2. **Nothing private is shown by default.** New material starts private. Going public is a deliberate act.
+3. **The screen belongs to the session.** The moment the session changes, everything on screen and in memory from the previous person is thrown away before anything new is drawn.
+4. **The device is treated as shared.** Anything stored in the browser is filed under the account that owns it, and is removed on sign-out.
+5. **Least exposure.** Public pages show only the few fields the public needs — never private transcripts, drafts or training material.
+6. **Verified by trying to break it.** The fix is not finished until one account provably fails to read or delete another account's things.
 
-1. **Clear private screens before changing accounts**
-   - Cancel all in-flight private requests and fully clear the data cache whenever the user ID changes, including sign-in replacing another session.
-   - Do this before setting the new account and before rendering/refetching.
-   - Keep the public home feed separate from private account data.
+## What gets built
 
-2. **Partition every private cache by user**
-   - Include the signed-in user ID in vault, Mind version, mining, notification, project-content, and update cache names.
-   - Never preserve previous private results as placeholder data during an account change.
-   - Reset open persona/project/Mind selections when the owner changes.
+### 1. Instant blank slate on any account change
+- The moment the signed-in person changes — sign-in, sign-out, switch, expired session — cancel every request in flight and empty the whole private screen cache before the new person is set.
+- Nothing from the old account may be reused as "something to show while loading".
+- Any open persona, project or Mind resets to nothing.
+- The public home feed stays; only private material is dropped.
 
-3. **Partition all private device storage**
-   - Scope cloud-drive metadata, follows, favorites, local notifications, subscription settings, mining resume state, creator Minds, user memory, analytics, payouts, engine choices, and keys to the signed-in account.
-   - Remove old anonymous/shared records instead of assigning them to the next person who signs in.
-   - Wait until account identity is known before reading any owner-scoped browser data.
+### 2. Every private list filed under its owner
+- Vaults, Saved Minds, Mind versions, mining jobs, project content, notifications and creator updates are all stored under the owner's account in the app's memory, so two accounts can never land in the same slot.
+- Private screens show nothing at all until the owner is known.
 
-4. **Make drafts private by default**
-   - Change new projects to hidden by default.
-   - Save new videos as training/private unless the creator explicitly enables “Publish to feed.”
-   - Keep public profile/feed reads limited to explicitly published projects and public visual content.
-   - Do not expose private transcripts, mined results, training material, or vault payloads through public reads.
+### 3. Everything stored on the device gets an owner
+- Cloud-drive list, follows, favourites, local notifications, subscription settings, mining resume, creator Minds, personal memory vault, usage stats, payout details, engine choices and API keys all get filed under the signed-in account.
+- Anything left over from a signed-out or older session is deleted, never handed to the next person.
+- Sign-out wipes the current account's device data.
 
-5. **Harden destructive actions**
-   - Add explicit signed-in owner filters to client delete/update helpers, in addition to existing database protection.
-   - Keep permanent deletion owner-verification before privileged cleanup.
-   - Hide destructive controls while account identity is loading or changing.
-   - Run live negative tests: account B attempts to delete account A’s project, persona, content, vault, version, and mining job; every attempt must affect zero rows or return not found.
+### 4. Private by default
+- New projects start hidden. Publishing is a deliberate switch.
+- A newly saved video stays private until the creator chooses "show on feed".
+- Public reading stays limited to what a creator deliberately published, and returns only the fields the feed needs.
+- Private transcripts, mined results, training material and vault contents are never readable by anyone but the owner.
 
-6. **Stop Gemini request amplification**
-   - Treat a 429 from model listing as an immediate stop.
-   - Test only one available generation model per click, so one click makes at most two calls.
-   - Prevent repeat clicks while testing and show the provider’s retry guidance.
-   - Preserve the distinction between temporary per-minute throttling and daily quota exhaustion.
+### 5. Deletion that can only touch your own things
+- Every delete and edit sent from the app carries the signed-in owner, on top of the database rules already in place.
+- Delete buttons are hidden while the account is still loading or changing.
+- Permanent video deletion keeps verifying ownership before any cleanup.
 
-7. **Enforce user-owned AI usage**
-   - Remove every server-key fallback from chat and other user-triggered AI paths.
-   - If the signed-in user has no usable key, stop before making an AI call and show the key setup action.
-   - Verify no Lovable AI credit path or shared provider key remains.
+### 6. Gemini key test stops hammering Google
+- One "Test & save" click currently makes up to five requests to Google, which is why three attempts looked like "too many requests". It will make one check plus at most one test call, stop immediately when Google says slow down, and keep telling apart "busy for a minute" from "daily limit reached".
 
-## Verification
+### 7. No shared AI key anywhere
+- One chat path could still fall back to a key stored on the server. That is removed: if you have no key of your own, the app stops and offers the setup step instead of calling any AI.
 
-- Sign in as account A, open Vaults, Mining, Notifications, and a delete menu; then switch directly to account B. Account A’s data must disappear before account B renders, and account B must start empty.
-- Attempt cross-account reads and deletes using account A’s known record IDs while authenticated as account B.
-- Confirm public feed content remains visible only when deliberately published; hidden projects and training content remain invisible.
-- Add a fresh Gemini key and confirm one test click sends one model-list request and at most one generation request.
-- Chat without a personal key must stop with setup guidance and make no provider request.
-- Run focused tests, type checks, browser checks, and the security linter before reporting completion.
+## How I will prove it works
+
+- Sign in as person A, open Vaults, Live mining and Notifications, then switch straight to person B: A's content must vanish before B's screen appears, and B must start completely empty.
+- As person B, deliberately try to read and delete person A's project, persona, video, Mind, version and mining job — every attempt must fail.
+- Confirm a brand-new account sees no history, no notifications and no Saved Minds.
+- Confirm hidden projects and training-only videos never appear to anyone else.
+- Add a fresh Gemini key and confirm a single click makes at most two calls to Google.
+- Confirm chatting without a key never reaches an AI service.
+- Run the security check, type check and a real browser pass before reporting it done.
 
 ## Technical notes
 
-- The primary browser leak is in the global account-change listener and private React Query keys.
-- Existing row-level database rules remain; this work adds client isolation and defense in depth rather than weakening access rules.
-- Any database default/policy change will be applied through a migration, with existing public-feed behavior retained only for records explicitly marked public.
+- Root cause of the screenshots: the sign-in handler only fully clears the cache on sign-out, and several private query keys omit the user id, so a sign-in that replaces another session repaints account A's cached rows.
+- Fixes: clear + cancel on any user-id change in `src/routes/__root.tsx`; add the user id to private query keys; wrap remaining unscoped IndexedDB keys (`social_*`, `cloudStorageHub`, `subscription-plan`, `mining-resume`) in `scopedKey` behind `whenScopeReady`.
+- Default privacy: migration flipping `projects.published` default to false, plus wizard defaults; public SELECT policies stay limited to `published = true` and `VISUAL_CONTENT`.
+- Gemini: single-model probe and immediate 429 stop in `testKey`; drop `PROVIDER_SECRET` fallback in `src/routes/api/mind-chat.ts`.
+- Existing row-level rules stay as they are; this adds client isolation and defence in depth.
