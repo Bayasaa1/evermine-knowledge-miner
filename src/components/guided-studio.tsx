@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
+import { CategoryList } from "@/components/create-wizard";
 import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
   checkDrive,
