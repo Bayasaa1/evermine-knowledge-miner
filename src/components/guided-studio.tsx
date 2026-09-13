@@ -1427,7 +1427,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </p>
         )}
 
-        {saveMode ? (
+        {saveMode && (
           <div className="mt-4 space-y-3">
             {(metaLoading || meta) && (
               <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
@@ -1448,6 +1448,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
             )}
             <MiningWizard
               lang={lang}
+              category={category}
               value={assessment}
               onChange={setAssessment}
               busy={saving || !url.trim()}
@@ -1459,6 +1460,18 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
                 void saveLink(a);
               }}
             />
+            {!url.trim() && (
+              <p className="text-xs text-muted-foreground">
+                {pickCopy(
+                  {
+                    en: "Paste a video link above to turn on Save video.",
+                    mn: "Хадгалах товчийг идэвхжүүлэхийн тулд дээр видеоны холбоос оруулна уу.",
+                    ko: "저장 버튼을 켜려면 위에 영상 링크를 붙여넣으세요.",
+                  },
+                  lang,
+                )}
+              </p>
+            )}
             {saveNote && <p className="text-xs text-emerald-500">{saveNote}</p>}
             {justSaved.length > 0 && (
               <ul className="space-y-2">
@@ -1487,12 +1500,14 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
               </button>
             )}
           </div>
-        ) : (
+        )}
+
+        {mineMode && (
           <div className="mt-4 space-y-4">
             <button
               type="button"
               onClick={() => void run(assessment)}
-              disabled={busy}
+              disabled={busy || !url.trim()}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -1502,7 +1517,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
               <p className="text-xs text-amber-500">
                 {pickCopy(
                   {
-                    en: "Pick one of your saved videos above first.",
+                    en: "Tick one of your saved videos above first.",
                     mn: "Эхлээд дээрх хадгалсан видеонуудаас нэгийг сонгоно уу.",
                     ko: "먼저 위에서 저장된 영상을 선택하세요.",
                   },
