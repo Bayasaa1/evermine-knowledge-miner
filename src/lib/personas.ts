@@ -49,6 +49,8 @@ export async function createPersona(
   userId: string,
   input: { name: string; handle?: string; avatarUrl?: string | null; bio?: string },
 ): Promise<{ persona: Persona | null; error: string | null }> {
+  const owner = await currentOwnerId();
+  if (!owner || owner !== userId) return { persona: null, error: NOT_SIGNED_IN };
   const name = input.name.trim() || "New persona";
   const { data, error } = await supabase
     .from("creator_personas")
@@ -96,6 +98,8 @@ export async function deletePersona(id: string): Promise<string | null> {
 
 /** Makes one persona active (or clears all when id is null). */
 export async function switchPersona(userId: string, id: string | null): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner || owner !== userId) return NOT_SIGNED_IN;
   const clear = await supabase
     .from("creator_personas")
     .update({ is_active: false })
@@ -113,6 +117,13 @@ export async function switchPersona(userId: string, id: string | null): Promise<
 
 /** Loads a single persona by id (used when the wizard targets a specific identity). */
 export async function getPersona(id: string): Promise<Persona | null> {
-  const { data } = await supabase.from("creator_personas").select(COLS).eq("id", id).maybeSingle();
+  const owner = await currentOwnerId();
+  if (!owner) return null;
+  const { data } = await supabase
+    .from("creator_personas")
+    .select(COLS)
+    .eq("id", id)
+    .eq("user_id", owner)
+    .maybeSingle();
   return (data as Persona | null) ?? null;
 }

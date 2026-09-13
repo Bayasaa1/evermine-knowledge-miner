@@ -34,7 +34,7 @@ export function usePersonas() {
 
 /** Header dropdown for creating and switching managed creator identities. */
 export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
-  const { userId, isAuthenticated, profile } = useAuth();
+  const { userId, isAuthenticated, loading, profile } = useAuth();
   const queryClient = useQueryClient();
   const { data: personas = [] } = usePersonas();
   const [draft, setDraft] = useState("");
@@ -131,7 +131,7 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
     },
   });
 
-  if (!isAuthenticated) return null;
+  if (loading || !isAuthenticated || !userId) return null;
 
   const label = active?.name ?? profile?.displayName ?? "Master account";
 
