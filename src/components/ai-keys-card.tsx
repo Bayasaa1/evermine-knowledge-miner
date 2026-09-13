@@ -439,7 +439,7 @@ export function AiKeysCard({
     } finally {
       setBusy(false);
     }
-  }, [busy, custom, isAuthenticated, provider, refresh, t, value]);
+  }, [busy, custom, isAuthenticated, pendingTop, provider, refresh, t, value]);
 
   const drop = useCallback(
     async (row: SavedKey) => {
@@ -517,7 +517,13 @@ export function AiKeysCard({
                 </span>
                 <span className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="font-medium text-foreground">{row.label}</span>
-                  <RecBadge category={category} providerId={row.provider.id} lang={lang} />
+                  <RecBadge
+                    category={category}
+                    providerId={row.provider.id}
+                    lang={lang}
+                    open={openRec === `row:${row.id}`}
+                    onToggle={() => setOpenRec(openRec === `row:${row.id}` ? null : `row:${row.id}`)}
+                  />
                   <span className="text-muted-foreground">••••{row.maskedTail}</span>
                   <span className={row.state === "ok" ? "text-emerald-500" : "text-amber-500"}>
                     {row.state === "ok" ? t.working : row.state === "exhausted" ? t.usedUp : t.rejected}
@@ -562,6 +568,11 @@ export function AiKeysCard({
                   </button>
                 </span>
               </div>
+              {openRec === `row:${row.id}` && (
+                <div className="pl-8">
+                  <RecPanel category={category} providerId={row.provider.id} lang={lang} />
+                </div>
+              )}
               {row.rank > 2 &&
                 recommendationFor(category, row.provider.id, lang).level === "recommended" && (
                   <p className="mt-1 pl-8 text-[11px] text-emerald-500">{t.moveHint}</p>
@@ -620,23 +631,32 @@ export function AiKeysCard({
           {mode !== "custom" && (
             <div className="grid gap-1.5 sm:grid-cols-2">
               {choices.map((p) => (
-                <button
+                <div
                   key={p.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && setProvider(p.id)}
                   onClick={() => setProvider(p.id)}
-                  className={`rounded-lg border p-2 text-left transition-colors ${
+                  className={`cursor-pointer rounded-lg border p-2 text-left transition-colors ${
                     provider === p.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
                   }`}
                 >
                   <span className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-medium text-foreground">{p.label}</span>
-                    <RecBadge category={category} providerId={p.id} lang={lang} />
+                    <RecBadge
+                      category={category}
+                      providerId={p.id}
+                      lang={lang}
+                      open={openRec === `choice:${p.id}`}
+                      onToggle={() => setOpenRec(openRec === `choice:${p.id}` ? null : `choice:${p.id}`)}
+                    />
                   </span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground">{p.good}</span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
                     {recommendationFor(category, p.id, lang).reason}
                   </span>
-                </button>
+                  {openRec === `choice:${p.id}` && <RecPanel category={category} providerId={p.id} lang={lang} />}
+                </div>
               ))}
             </div>
           )}
