@@ -14,11 +14,10 @@ function isFresh(k: ApiKeyEntry): boolean {
   return k.state === "ok" || (k.state === "exhausted" && isNextDay(k.exhaustedAt));
 }
 
-/** First healthy Gemini key in the signed-in account's vault, if any. */
+/** The highest-ranked healthy Gemini key in the signed-in account's vault. */
 export async function bestGeminiKey(): Promise<string | null> {
   try {
-    const keys = await loadApiKeys();
-    return keys.filter(isFresh)[0]?.value ?? null;
+    return (await geminiKeyChain())[0]?.value ?? null;
   } catch {
     return null;
   }
