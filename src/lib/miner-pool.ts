@@ -13,6 +13,7 @@
  * merged. Keys stay on the device, inside the per-account engine stack.
  */
 import { idbGet, idbSet, STORES } from "./store";
+import { bestGeminiKey } from "./api-keys";
 import { scopedKey, whenScopeReady } from "./user-scope";
 import { loadStack, saveStack } from "./engines";
 
@@ -332,13 +333,13 @@ export const MINERS: MinerOption[] = [
  * appear for Robot Brain, so an impossible job cannot be started.
  */
 const CATEGORY_POOLS: Record<string, MinerId[]> = {
-  knowledge: ["gemini", "groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
-  sales: ["gemini", "groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
-  robot: ["gemini", "qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
-  voice: ["gemini", "whisper-groq", "mistral", "chatgpt", "qwen-audio", "gemini-pro", "openrouter", "custom"],
+  knowledge: ["groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
+  sales: ["groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
+  robot: ["qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
+  voice: ["whisper-groq", "mistral", "chatgpt", "qwen-audio", "gemini-pro", "openrouter", "custom"],
   // Gameplay must be SEEN: skills, tactics and movement come from the picture,
   // so only AIs with eyes appear — same shape as the Robot Brain pool.
-  gaming: ["gemini", "qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
+  gaming: ["qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
 };
 
 /** Which senses a creation type needs from its AIs. */
@@ -354,6 +355,22 @@ const CATEGORY_SENSES: Record<string, Sense[]> = {
 export function minersForCategory(category: string): MinerOption[] {
   const ids = CATEGORY_POOLS[category] ?? CATEGORY_POOLS["knowledge"]!;
   return ids.map((id) => MINERS.find((m) => m.id === id)!).filter(Boolean);
+}
+
+/**
+ * Which optional AI actually helps for each creation type, and why — in one
+ * line. Gemini is always the required video engine and is not listed here.
+ */
+export const RECOMMENDED: Record<string, { id: MinerId; why: string }[]> = {
+  knowledge: [{ id: "groq", why: "Free and fastest for reading transcripts" }],
+  sales: [{ id: "chatgpt", why: "Most reliable structure for offers and product shots" }],
+  gaming: [{ id: "claude", why: "Best at tactics and decisions from what Gemini sees" }],
+  voice: [{ id: "whisper-groq", why: "Free, accurate speech and timing" }],
+  robot: [{ id: "claude", why: "Strongest spatial reasoning over Gemini's frames" }],
+};
+
+export function recommendedFor(category: string): { id: MinerId; why: string }[] {
+  return RECOMMENDED[category] ?? RECOMMENDED["knowledge"]!;
 }
 
 /** Senses the active creation type needs (used for the panel and manual AIs). */
@@ -526,6 +543,9 @@ export async function saveMinerChoice(choice: MinerChoice): Promise<void> {
 export async function existingKeyFor(id: MinerId): Promise<string> {
   const field = findMiner(id)?.keyField;
   if (!field) return "";
+  // Gemini keys live in the device keystore (the one the key list writes), so
+  // a saved key can never look missing here.
+  if (field === "GEMINI_API_KEY") return (await bestGeminiKey()) ?? "";
   const stack = await loadStack();
   return stack.keys[field] ?? "";
 }
@@ -534,6 +554,11 @@ export async function existingKeyFor(id: MinerId): Promise<string> {
 export async function storeKeyFor(id: MinerId, value: string): Promise<void> {
   const field = findMiner(id)?.keyField;
   if (!field) return;
+  if (field === "GEMINI_API_KEY") {
+    const { addKey } = await import("./key-manager");
+    await addKey("gemini", value);
+    return;
+  }
   const stack = await loadStack();
   await saveStack({ ...stack, keys: { ...stack.keys, [field]: value.trim() } });
 }
@@ -545,9 +570,15 @@ export async function storeKeyFor(id: MinerId, value: string): Promise<void> {
  */
 export async function minerReadiness(choice?: MinerChoice): Promise<Record<MinerId, boolean>> {
   const stack = await loadStack();
+  const geminiKey = await bestGeminiKey();
   const ready = {} as Record<MinerId, boolean>;
   for (const m of MINERS) {
-    const key = m.keyField ? !!(stack.keys[m.keyField] ?? "").trim() : false;
+    const key =
+      m.keyField === "GEMINI_API_KEY"
+        ? !!geminiKey
+        : m.keyField
+          ? !!(stack.keys[m.keyField] ?? "").trim()
+          : false;
     if (m.id === "custom") ready[m.id] = key && !!choice?.custom.endpoint.trim() && !!choice?.custom.model.trim();
     else ready[m.id] = key;
   }
