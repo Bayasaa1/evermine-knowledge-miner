@@ -28,12 +28,17 @@ export type MinerId =
   | "groq"
   | "mistral"
   | "openrouter"
-  | "gemini-pro"
-  | "qwen-vl"
-  | "llama-vision"
   | "whisper-groq"
-  | "qwen-audio"
   | "custom";
+
+/** A model reachable through one provider key (OpenRouter routes many). */
+export type RoutedModel = {
+  id: string;
+  label: string;
+  free: boolean;
+  /** One line: what this model is good for. */
+  what: string;
+};
 
 export type MinerOption = {
   id: MinerId;
@@ -60,6 +65,8 @@ export type MinerOption = {
   baseUrl: string;
   /** Cheap model used for the key test. */
   testModel: string;
+  /** Models this one key can route to. Present only for OpenRouter. */
+  models?: RoutedModel[];
 };
 
 export const MINERS: MinerOption[] = [
@@ -186,84 +193,55 @@ export const MINERS: MinerOption[] = [
     testModel: "kimi-k2-0711-preview",
   },
   {
+    // One key, many models. Qwen-VL and Llama Vision are models inside this
+    // card — never separate tiles, because they use this exact same key.
     id: "openrouter",
     label: "OpenRouter",
-    note: "One key · many models",
+    note: "One key · pick the model inside",
     senses: ["text", "image", "audio"],
-    price: "paid",
+    price: "free",
     keyField: "OPENROUTER_API_KEY",
     keyPlaceholder: "sk-or-...",
     keyUrl: "https://openrouter.ai/keys",
-    guidance: "openrouter.ai → Keys → Create Key. Models marked “:free” cost nothing; paid models unlock vision and audio.",
-    capability: "One key unlocks dozens of models — text, vision and audio — easy to switch brains later.",
-    downside: "Free models can be busy and slightly slower at peak times; vision and audio models are usually paid.",
+    guidance:
+      "openrouter.ai → Keys → Create Key. One key covers every model below. Models marked free cost nothing; a paid model only charges your own OpenRouter balance, and only if you pick it here.",
+    capability:
+      "One key, several brains: free text models, free still-frame vision (Qwen-VL, Llama Vision) and paid audio understanding — switchable later without adding another key.",
+    downside:
+      "Free models can be busy at peak times. Vision here reads still frames extracted by Gemini, not continuous video.",
     limits: {
-      youtube: "YouTube: length depends on the model you route to, from the transcript.",
+      youtube: "YouTube: length depends on the model you route to, from the transcript and key frames.",
       files: "File upload: depends on the routed model — text, image or audio.",
       langs: "Languages: depends on the model; most handle global languages.",
     },
     baseUrl: "https://openrouter.ai/api/v1",
     testModel: "meta-llama/llama-3.3-70b-instruct:free",
-  },
-  {
-    id: "gemini-pro",
-    label: "Gemini Pro",
-    note: "Google paid tier · full senses",
-    senses: ["text", "image", "audio", "video"],
-    price: "paid",
-    keyField: "GEMINI_API_KEY",
-    keyPlaceholder: "AIza...",
-    keyUrl: "https://aistudio.google.com/apikey",
-    guidance: "aistudio.google.com → Get API key → enable the paid tier in Google AI Studio. Bills to your Google account.",
-    capability: "The same full sight and sound as the default engine, on your own paid quota — no daily limits, priority speed.",
-    downside: "Bills to your Google account per minute of video; the built-in free engine covers the same senses.",
-    limits: {
-      youtube: "YouTube: public links only. Paid tier has no video-length allowance limit.",
-      files: "Google Drive / file upload: MP4 or MOV, max 2GB — the video itself is read.",
-      langs: "Languages: native recognition for English, Mongolian and all global languages.",
-    },
-    baseUrl: "",
-    testModel: "gemini-2.5-flash",
-  },
-  {
-    id: "qwen-vl",
-    label: "Qwen-VL",
-    note: "Experimental still-frame analysis via OpenRouter",
-    senses: ["text", "image"],
-    price: "free",
-    keyField: "OPENROUTER_API_KEY",
-    keyPlaceholder: "sk-or-...",
-    keyUrl: "https://openrouter.ai/keys",
-    guidance: "openrouter.ai → Keys → Create Key. The “:free” vision models cost nothing.",
-    capability: "Analyzes still frames extracted by Gemini: object positions and scene structure for Robot and Gaming Minds.",
-    downside: "Experimental: it does not watch continuous video or hear audio, and free model availability can change.",
-    limits: {
-      youtube: "YouTube: frame-based analysis from extracted key frames.",
-      files: "File upload: key frames and images; no direct 2GB video reading.",
-      langs: "Languages: strong English and Chinese; good on other languages.",
-    },
-    baseUrl: "https://openrouter.ai/api/v1",
-    testModel: "openrouter/free",
-  },
-  {
-    id: "llama-vision",
-    label: "Llama Vision",
-    note: "Experimental still-frame analysis via OpenRouter",
-    senses: ["text", "image"],
-    price: "free",
-    keyField: "OPENROUTER_API_KEY",
-    keyPlaceholder: "sk-or-...",
-    keyUrl: "https://openrouter.ai/keys",
-    guidance: "openrouter.ai → Keys → Create Key. Llama 3.2 Vision models marked “:free” cost nothing.",
-    capability: "Analyzes still frames extracted by Gemini: objects, spatial layout and visible actions.",
-    downside: "Experimental: no continuous video or audio, and free model availability can change.",
-    limits: {
-      youtube: "YouTube: frame-based analysis from extracted key frames.",
-      files: "File upload: key frames and images; no direct 2GB video reading.",
-      langs: "Languages: good English; weaker on Mongolian.",
-    },
-    baseUrl: "https://openrouter.ai/api/v1",
-    testModel: "openrouter/free",
+    models: [
+      {
+        id: "meta-llama/llama-3.3-70b-instruct:free",
+        label: "Llama 3.3 (text)",
+        free: true,
+        what: "Free thinking over transcripts — the safe default.",
+      },
+      {
+        id: "qwen/qwen2.5-vl-72b-instruct:free",
+        label: "Qwen-VL (still frames)",
+        free: true,
+        what: "Free, experimental: objects and scene layout in frames Gemini extracts.",
+      },
+      {
+        id: "meta-llama/llama-3.2-11b-vision-instruct:free",
+        label: "Llama Vision (still frames)",
+        free: true,
+        what: "Free, experimental: objects and visible actions in extracted frames.",
+      },
+      {
+        id: "qwen/qwen2-audio-7b-instruct",
+        label: "Qwen Audio",
+        free: false,
+        what: "Paid: tone, pacing and speaker emotion in the voice itself.",
+      },
+    ],
   },
   {
     id: "whisper-groq",
@@ -284,26 +262,6 @@ export const MINERS: MinerOption[] = [
     },
     baseUrl: "https://api.groq.com/openai/v1",
     testModel: "llama-3.1-8b-instant",
-  },
-  {
-    id: "qwen-audio",
-    label: "Qwen Audio",
-    note: "Audio understanding via OpenRouter",
-    senses: ["text", "audio"],
-    price: "paid",
-    keyField: "OPENROUTER_API_KEY",
-    keyPlaceholder: "sk-or-...",
-    keyUrl: "https://openrouter.ai/keys",
-    guidance: "openrouter.ai → Keys → Create Key. Qwen audio models are billed per use through OpenRouter.",
-    capability: "Hears audio deeply: tone, pacing, speaker emotion in the voice itself — strong for Voice Calling Agents.",
-    downside: "Hearing only — no video or images. Paid per use.",
-    limits: {
-      youtube: "YouTube: audio-track analysis per minute billed via OpenRouter.",
-      files: "File upload: audio understanding; no video file reading.",
-      langs: "Languages: strong English and Chinese; good on other languages.",
-    },
-    baseUrl: "https://openrouter.ai/api/v1",
-    testModel: "qwen/qwen2-audio-7b-instruct",
   },
   {
     id: "custom",
@@ -335,11 +293,11 @@ export const MINERS: MinerOption[] = [
 const CATEGORY_POOLS: Record<string, MinerId[]> = {
   knowledge: ["groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
   sales: ["groq", "mistral", "chatgpt", "claude", "kimi", "openrouter", "custom"],
-  robot: ["qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
-  voice: ["whisper-groq", "mistral", "chatgpt", "qwen-audio", "gemini-pro", "openrouter", "custom"],
+  robot: ["openrouter", "chatgpt", "claude", "custom"],
+  voice: ["whisper-groq", "mistral", "openrouter", "chatgpt", "custom"],
   // Gameplay must be SEEN: skills, tactics and movement come from the picture,
   // so only AIs with eyes appear — same shape as the Robot Brain pool.
-  gaming: ["qwen-vl", "llama-vision", "chatgpt", "claude", "gemini-pro", "openrouter", "custom"],
+  gaming: ["openrouter", "chatgpt", "claude", "custom"],
 };
 
 /** Which senses a creation type needs from its AIs. */
@@ -422,7 +380,7 @@ export async function testMinerKey(choice: MinerChoice, apiKey: string): Promise
     return;
   }
 
-  if (choice.id === "gemini" || choice.id === "gemini-pro") {
+  if (choice.id === "gemini") {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,
       {
@@ -609,7 +567,7 @@ export function sensePlan(choice: MinerChoice, category = "knowledge"): SensePla
   const covers = needed.filter((s) => senses.includes(s));
   const gaps = needed.filter((s) => !senses.includes(s));
   // The built-in engine is Gemini: picking Gemini means one engine does it all.
-  const selfSufficient = gaps.length === 0 && (choice.id === "gemini" || choice.id === "gemini-pro");
+  const selfSufficient = gaps.length === 0 && choice.id === "gemini";
   return { covers, gaps, selfSufficient };
 }
 
