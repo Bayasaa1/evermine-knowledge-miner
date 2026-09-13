@@ -512,6 +512,32 @@ export function AiKeysCard({
         <p className="mt-0.5 text-[11px] text-muted-foreground/80">{t.tapHint}</p>
       </div>
 
+      {/* The whole team on one line: who runs, and how many wait behind them. */}
+      {rows.length > 0 &&
+        (() => {
+          const active = rows.filter(providerUsable);
+          const standby = rows.length - active.length;
+          return (
+            <p className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs">
+              <span className="font-semibold text-foreground">{t.teamLine}: </span>
+              {active.length > 0 ? (
+                <span className="font-medium text-primary">{active.map((r) => r.label).join(" + ")}</span>
+              ) : (
+                <span className="text-muted-foreground">{t.teamNone}</span>
+              )}
+              {standby > 0 && (
+                <span className="text-muted-foreground">
+                  {" · "}
+                  {standby} {t.standby}
+                </span>
+              )}
+              {active.length === 1 && standby === 0 && (
+                <span className="ml-1 text-muted-foreground">{t.teamNone}</span>
+              )}
+            </p>
+          );
+        })()}
+
       {/* Guidance that follows the creation type picked in step 1. */}
       <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-xs">
         <p className="flex items-center gap-1.5 font-semibold text-foreground">
