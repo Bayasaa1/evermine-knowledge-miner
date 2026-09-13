@@ -37,6 +37,7 @@ import {
   setProviderCap,
   setProviderEnabled,
   testModelsFor,
+  providerUsable,
   type ProviderId,
   type ProviderInfo,
   type SavedKey,
