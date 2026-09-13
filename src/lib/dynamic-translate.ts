@@ -65,11 +65,18 @@ export function getCachedTranslation(text: string, lang: LangCode): string | nul
   return loadCache(lang)[text] ?? null;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function flush() {
   timer = null;
   const jobs = [...pending.entries()];
   pending.clear();
+  let firstBatch = true;
   for (const [lang, set] of jobs) {
+    // Pace batches: firing them back-to-back bursts past the free tier's
+    // per-minute limit and produces scary false "quota used up" warnings.
+    if (!firstBatch) await sleep(1200);
+    firstBatch = false;
     const queued = [...set].filter((t) => !inflight.has(`${lang}:${t}`));
     const texts = queued.slice(0, 40);
     // Anything over one batch stays queued instead of being silently dropped —
@@ -134,7 +141,7 @@ async function flush() {
       for (const t of texts) inflight.delete(`${lang}:${t}`);
     }
   }
-  if (pending.size && !timer) timer = setTimeout(flush, 200);
+  if (pending.size && !timer) timer = setTimeout(flush, 1200);
 }
 
 /** Queues a string for translation into `lang`. Safe to call in render. */
