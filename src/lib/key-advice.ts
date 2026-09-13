@@ -7,7 +7,7 @@
  * Every other provider reasons over the material Gemini extracted.
  */
 import type { CreationCategory } from "./creation-category";
-import type { Lang } from "./i18n";
+import { pickCopy, type Lang } from "./i18n";
 
 export type KeyAdvice = {
   /** Who belongs at #1, and why. */
@@ -20,7 +20,7 @@ export type KeyAdvice = {
   tips: string[];
 };
 
-type Trio = Record<Lang, KeyAdvice>;
+type Trio = { en: KeyAdvice; mn: KeyAdvice; ko: KeyAdvice };
 
 const ADVICE: Record<CreationCategory, Trio> = {
   knowledge: {
@@ -187,5 +187,5 @@ const ADVICE: Record<CreationCategory, Trio> = {
 
 export function adviceFor(category: string, lang: Lang): KeyAdvice {
   const key = (category in ADVICE ? category : "knowledge") as CreationCategory;
-  return ADVICE[key][lang] ?? ADVICE[key].en;
+  return pickCopy(ADVICE[key], lang);
 }
