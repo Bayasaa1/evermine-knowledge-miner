@@ -397,7 +397,16 @@ function StepAccount({ lang }: { lang: Lang }) {
  * of its details, into Saved Minds. Nothing is analysed yet.
  * Step 3 (`mode="mine"`) — pick a saved video and run the mining pipeline on it.
  */
-function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
+function StepUpload({
+  lang,
+  mode,
+  category,
+}: {
+  lang: Lang;
+  /** "both" is the single combined step: save a link, then mine a saved video. */
+  mode: "save" | "mine" | "both";
+  category: CreationCategory;
+}) {
 
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
