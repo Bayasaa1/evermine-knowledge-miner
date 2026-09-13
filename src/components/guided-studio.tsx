@@ -58,7 +58,6 @@ import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import { MiningWizard } from "@/components/mining-wizard";
-import { MinerPool } from "@/components/miner-pool";
 import {
   DEFAULT_MINER,
   findMiner,
@@ -243,8 +242,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 3 && (
         <StepShell title={t("step3Title")} sub={t("step3Sub")}>
           <div className="space-y-4">
-            <AiKeysCard />
-            <MinerPool lang={lang} category={category} />
+            <AiKeysCard category={category} />
             <SetupTips lang={lang} />
           </div>
         </StepShell>
@@ -1468,7 +1466,6 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
           </div>
         ) : (
           <div className="mt-4 space-y-4">
-            <MinerPool lang={lang} onChange={setMiner} category={getCreationCategory()} />
             <button
               type="button"
               onClick={() => void run(assessment)}
