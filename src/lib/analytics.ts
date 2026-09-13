@@ -1,7 +1,8 @@
 import { idbGet, idbSet, STORES } from "@/lib/store";
+import { scopedKey } from "@/lib/user-scope";
 import { normalizeOwnership, type Ownership } from "@/lib/ownership";
 
-const KEY = "analytics";
+const KEY = () => scopedKey("analytics");
 
 export type SessionKind = "call" | "chat";
 
@@ -80,11 +81,11 @@ function normalize(raw: unknown): Analytics {
 }
 
 export async function loadAnalytics(): Promise<Analytics> {
-  return normalize(await idbGet<unknown>(STORES.SETTINGS, KEY));
+  return normalize(await idbGet<unknown>(STORES.SETTINGS, KEY()));
 }
 
 export async function saveAnalytics(a: Analytics): Promise<void> {
-  await idbSet(STORES.SETTINGS, KEY, a);
+  await idbSet(STORES.SETTINGS, KEY(), a);
 }
 
 async function mutate(fn: (a: Analytics) => Analytics): Promise<Analytics> {

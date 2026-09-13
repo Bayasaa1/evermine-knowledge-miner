@@ -10,8 +10,9 @@
  * it is not a billing statement.
  */
 import { idbGet, idbSet, STORES } from "@/lib/store";
+import { scopedKey } from "@/lib/user-scope";
 
-const KEY = "token-usage";
+const KEY = () => scopedKey("token-usage");
 
 export type UsageStage = "perception" | "thinking" | "chat" | "audit";
 
@@ -100,7 +101,7 @@ function normalize(raw: unknown): UsageLedger {
 }
 
 export async function loadUsage(): Promise<UsageLedger> {
-  return normalize(await idbGet<unknown>(STORES.SETTINGS, KEY));
+  return normalize(await idbGet<unknown>(STORES.SETTINGS, KEY()));
 }
 
 /** Appends one AI call to the ledger. Never throws — usage must not break mining. */
@@ -111,14 +112,14 @@ export async function recordUsage(entry: Omit<UsageEntry, "at">): Promise<void> 
 
     const ledger = await loadUsage();
     const next: UsageLedger = { entries: [...ledger.entries, { at: Date.now(), ...entry }].slice(-2000) };
-    await idbSet(STORES.SETTINGS, KEY, next);
+    await idbSet(STORES.SETTINGS, KEY(), next);
   } catch {
     /* usage tracking is best-effort */
   }
 }
 
 export async function clearUsage(): Promise<void> {
-  await idbSet(STORES.SETTINGS, KEY, { entries: [] });
+  await idbSet(STORES.SETTINGS, KEY(), { entries: [] });
 }
 
 /** Reads token counts out of any provider's response shape. */
