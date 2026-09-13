@@ -186,6 +186,11 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
   }, [step]);
 
   const continueSetup = useCallback(async () => {
+    // Already signed in? Never make the creator sit through the sign-in step.
+    if (step === 1 && isAuthenticated) {
+      setStep(3);
+      return;
+    }
     if (step === 2 && !isAuthenticated) {
       void navigate({ to: "/auth", search: { next: "/creator" } });
       return;
