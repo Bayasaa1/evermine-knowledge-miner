@@ -206,13 +206,19 @@ export type Recommendation = {
   fallbackNote: string;
 };
 
-/** Who is worth adding for each creation type. Everything unlisted is "team". */
-const PICKS: Record<CreationCategory, { recommended: string[]; avoid: string[] }> = {
-  knowledge: { recommended: ["groq", "cerebras", "openai"], avoid: ["perplexity", "cohere"] },
-  robot: { recommended: ["anthropic", "deepseek"], avoid: ["perplexity", "cohere", "github"] },
+/**
+ * Who is worth adding for each creation type. Everything unlisted is "team".
+ *
+ * `recommended` is deliberately free-only: a creator with no money should end
+ * up with a working team. `paidUpgrade` is the one paid AI worth adding later,
+ * offered separately so nobody is pushed into a bill.
+ */
+const PICKS: Record<CreationCategory, { recommended: string[]; paidUpgrade?: string; avoid: string[] }> = {
+  knowledge: { recommended: ["groq", "cerebras", "together"], paidUpgrade: "openai", avoid: ["perplexity", "cohere"] },
+  robot: { recommended: ["cerebras", "groq"], paidUpgrade: "anthropic", avoid: ["perplexity", "cohere", "github"] },
   voice: { recommended: ["groq", "cerebras"], avoid: ["perplexity", "moonshot"] },
-  sales: { recommended: ["xai", "openai"], avoid: ["moonshot", "github"] },
-  gaming: { recommended: ["deepseek", "anthropic"], avoid: ["perplexity", "cohere"] },
+  sales: { recommended: ["groq", "together"], paidUpgrade: "xai", avoid: ["moonshot", "github"] },
+  gaming: { recommended: ["groq", "cerebras"], paidUpgrade: "deepseek", avoid: ["perplexity", "cohere"] },
 };
 
 const LEVEL_COPY: Record<RecLevel, { en: string; mn: string; ko: string }> = {
