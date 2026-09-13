@@ -23,6 +23,8 @@ export type ApiKeyEntry = {
   exhaustedAt?: number;
   /** Evermind's own tally of calls made with this key today (not a Google figure). */
   usage?: { day: string; calls: number };
+  /** Position in the fallback order (#1 is tried first). */
+  rank?: number;
 };
 
 /** Local calendar day stamp used for the per-key daily tally. */
