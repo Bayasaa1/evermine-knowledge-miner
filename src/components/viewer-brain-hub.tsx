@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Brain, Share2, Lock, Trash2, MessageSquare, Trophy, Clock } from "lucide-react";
 import { listViewerBrains, setBrainSharing, eraseBrain } from "@/lib/viewer-brain.functions";
@@ -32,8 +32,14 @@ export function ViewerBrainHub() {
   const share = useServerFn(setBrainSharing);
   const erase = useServerFn(eraseBrain);
   const [brains, setBrains] = useState<Awaited<ReturnType<typeof load>>>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
 
   const refresh = async () => {
     // Signed-out visitors have no Core Brains — asking the server would only
