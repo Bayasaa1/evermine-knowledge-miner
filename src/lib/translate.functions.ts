@@ -23,7 +23,8 @@ const schema = z.object({
  */
 export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
-  .handler(async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota" }> => {
+  .handler(
+    async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; via?: "key" | "google" }> => {
     // Abuse guard: anonymous callers share a per-IP sliding window.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
@@ -80,7 +81,8 @@ export const translateTexts = createServerFn({ method: "POST" })
         // the client re-queue the strings for the next batch instead of
         // scaring the viewer with a quota warning.
         if (err.code === "rate_minute") return { texts: data.texts };
-        if (err.code === "quota") return { texts: data.texts, blocked: "quota" as const };
+        if (err.code === "quota")
+          return { texts: data.texts, blocked: "quota" as const, via: apiKey ? ("key" as const) : ("google" as const) };
         return { texts: data.texts, blocked: "no_key" as const };
       }
       return { texts: data.texts };
