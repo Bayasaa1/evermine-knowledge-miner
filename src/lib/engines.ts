@@ -189,6 +189,22 @@ export function findEngine(id: string): Engine | undefined {
 /** "byo" = the user's own provider key; "passthrough" = billed at raw provider cost. */
 export type BillingMode = "byo" | "passthrough";
 
+/**
+ * Per-provider controls for a saved key: paid providers stay OFF until the
+ * creator switches them on, and never spend past their own monthly cap.
+ */
+export type ProviderSetting = {
+  enabled: boolean;
+  /** Monthly spending cap in USD. 0 means "no spending allowed". */
+  monthlyCapUsd: number;
+  /** Estimated spend so far this month, in USD. */
+  spendUsd: number;
+  /** Month stamp (YYYY-MM) the spend belongs to. */
+  month: string;
+  /** When the key was saved on this device. */
+  addedAt: number;
+};
+
 export type EngineStack = {
   llm: string;
   tts: string;
@@ -196,7 +212,23 @@ export type EngineStack = {
   billing: BillingMode;
   /** Provider keys, stored on this device only and never uploaded. */
   keys: Record<string, string>;
+  /** Switch + spending cap per provider key field. */
+  providers: Record<string, ProviderSetting>;
 };
+
+export function monthStamp(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+export function defaultProviderSetting(paid: boolean): ProviderSetting {
+  return {
+    enabled: !paid,
+    monthlyCapUsd: paid ? 10 : 0,
+    spendUsd: 0,
+    month: monthStamp(),
+    addedAt: Date.now(),
+  };
+}
 
 /**
  * Default stack for newly onboarded creators: Gemini 2.5 Flash on the free tier.
@@ -204,7 +236,7 @@ export type EngineStack = {
  * GEMINI_API_KEY backend secret, so creators hit zero paywalls and zero key setup.
  */
 export function freeStack(): EngineStack {
-  return { llm: "gemini-flash", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {} };
+  return { llm: "gemini-flash", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {}, providers: {} };
 }
 
 export function normalizeStack(raw: unknown): EngineStack {
@@ -221,12 +253,28 @@ export function normalizeStack(raw: unknown): EngineStack {
       if (typeof val === "string" && val.trim()) keys[k] = val.trim();
     }
   }
+  const providers: Record<string, ProviderSetting> = {};
+  if (typeof v['providers'] === "object" && v['providers'] !== null) {
+    for (const [k, val] of Object.entries(v['providers'] as Record<string, unknown>)) {
+      const p = (val ?? {}) as Record<string, unknown>;
+      const month = typeof p['month'] === "string" ? p['month'] : monthStamp();
+      const sameMonth = month === monthStamp();
+      providers[k] = {
+        enabled: p['enabled'] === true,
+        monthlyCapUsd: typeof p['monthlyCapUsd'] === "number" ? p['monthlyCapUsd'] : 10,
+        spendUsd: sameMonth && typeof p['spendUsd'] === "number" ? p['spendUsd'] : 0,
+        month: sameMonth ? month : monthStamp(),
+        addedAt: typeof p['addedAt'] === "number" ? p['addedAt'] : Date.now(),
+      };
+    }
+  }
   return {
     llm: pick("llm", base.llm),
     tts: pick("tts", base.tts),
     avatar: pick("avatar", base.avatar),
     billing: v['billing'] === "passthrough" ? "passthrough" : "byo",
     keys,
+    providers,
   };
 }
 

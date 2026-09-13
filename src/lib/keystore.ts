@@ -21,7 +21,14 @@ export type ApiKeyEntry = {
   state: "ok" | "invalid" | "exhausted";
   /** Epoch ms when the key hit its quota, so the UI can show a cooldown. */
   exhaustedAt?: number;
+  /** Evermind's own tally of calls made with this key today (not a Google figure). */
+  usage?: { day: string; calls: number };
 };
+
+/** Local calendar day stamp used for the per-key daily tally. */
+export function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export function maskKey(value: string): string {
   if (value.length <= 8) return "••••";
@@ -68,6 +75,16 @@ export async function loadApiKeys(): Promise<ApiKeyEntry[]> {
   await whenScopeReady();
   const list = normalize(await idbGet<unknown>(STORES.SETTINGS, KEYS_ID()));
   if (list.length > 0) return list;
+  // Keys pasted before the session finished restoring landed in the signed-out
+  // vault. Adopt them once so a sign-in never looks like it erased the key.
+  if (KEYS_ID() !== "anon:gemini-api-keys") {
+    const pending = normalize(await idbGet<unknown>(STORES.SETTINGS, "anon:gemini-api-keys"));
+    if (pending.length > 0) {
+      await saveApiKeys(pending);
+      await idbDelete(STORES.SETTINGS, "anon:gemini-api-keys");
+      return pending;
+    }
+  }
   const legacy = await idbGet<string>(STORES.SETTINGS, KEY_ID());
   if (legacy) {
     const migrated = [makeKeyEntry(legacy, "Key 1")];

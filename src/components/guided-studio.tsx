@@ -94,7 +94,7 @@ import {
   startMiningJobs,
 } from "@/lib/mining-jobs.functions";
 import { withNetworkRetry } from "@/lib/retry";
-import { GeminiKeyCard } from "@/components/gemini-key-card";
+import { AiKeysCard } from "@/components/ai-keys-card";
 
 
 const MODEL = "gemini-2.5-flash";
@@ -243,7 +243,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 3 && (
         <StepShell title={t("step3Title")} sub={t("step3Sub")}>
           <div className="space-y-4">
-            <GeminiKeyCard />
+            <AiKeysCard />
             <MinerPool lang={lang} category={category} />
             <SetupTips lang={lang} />
           </div>

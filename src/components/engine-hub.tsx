@@ -18,7 +18,7 @@ import {
 import { providerForKeyField, testProviderKey } from "@/lib/ai-providers";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { GeminiKeyCard } from "@/components/gemini-key-card";
+import { AiKeysCard } from "@/components/ai-keys-card";
 
 const copy = {
   en: {
@@ -169,7 +169,7 @@ export function EngineHub({ lang }: { lang: Lang }) {
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
 
       <div className="mb-5">
-        <GeminiKeyCard />
+        <AiKeysCard />
       </div>
 
 
