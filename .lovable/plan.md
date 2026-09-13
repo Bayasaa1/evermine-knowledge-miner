@@ -1,49 +1,47 @@
-# Fix the setup step: honest wording, one working path
+# Rebuild setup: right order, honest wording, multiple keys
 
-## What I found
+## What's wrong today
 
-I audited the first setup screen and the code behind it. The screen makes promises the app cannot keep.
+The first setup screen makes promises the app cannot keep, and it asks things in the wrong order.
 
-1. **"One tap links your Google account's free Gemini API — no API keys, no copy-pasting, no setup."**
-   Not true. Signing in with Google does not give any app access to Gemini. Only a free key from Google AI Studio does. The screen then immediately asks for that key, contradicting itself.
+1. **"One tap links your Google account's free Gemini API — no API keys, no copy-pasting, no setup."** Not true. Signing in with Google does not give any app access to Gemini. Only a free key from Google AI Studio does — and the same screen then asks for one.
+2. **The tip box repeats the false claim** ("revoke it any time from your Google account") — nothing was granted, so nothing can be revoked.
+3. **"Google account linked" shows for anyone signed in**, even by email — the check is "signed in at all", not "signed in with Google".
+4. **The app really does try to call Google's AI with the sign-in token** when no key is saved. Google rejects that, and the user sees a quota error — this is the likely source of "quota used up but I never used my key today".
+5. **"Free tier · nothing to maintain"** sits directly above a card asking you to create and maintain a key.
+6. **Saved key shows only "Key 1"** — no masked preview, no date, no second key, no sign of which one is in use.
+7. **"What are you creating today?" appears on top of step 1**, as a pop-up over the sign-in screen, instead of being its own first step.
 
-2. **"Signing in with Google automatically gives Evermind access to your free-tier Gemini API."**
-   Same false claim, repeated in the tip box. Nothing is revoked "from your Google account" because nothing was granted.
+## The new setup flow
 
-3. **"Google account linked" appears for anyone signed in.**
-   The check is "OAuth linked OR signed in at all", so an email/password user sees a green Google-linked badge that means nothing.
+```text
+Step 1  What are you creating today?   (the five mind types, as a full step)
+Step 2  Sign in or create an account   (Google or email)
+Step 3  Add your free Gemini key(s)    (one required, more = faster)
+Step 4  Add your videos
+Step 5  Price & publish
+```
 
-4. **The app really does try to call Gemini with the Google sign-in token.**
-   When no key is saved, requests go to Google with the sign-in token as authorization. Google rejects those for ordinary accounts, and the user sees quota/permission errors that look like their key is broken. This is the likely source of the "quota used up but I never used it" reports.
+**Step 1 — What are you creating today?**
+The five choices (AI Assistant, Robot Brain, Voice Calling Agent, Sales Mind, Gaming Mind) become the first real step instead of a pop-up. The pick is remembered and drives the mining schema, as it already does. Picking is required to move on.
 
-5. **"Free tier · your own access · nothing to maintain"** sits above a card that asks you to create, paste and maintain a key.
+**Step 2 — Sign in or sign up**
+Honest title: "Sign in or create your account". Google and email both offered. Copy says what sign-in actually does: saves your minds, keeps mining running in the background. No Gemini claims. The "Google account linked" badge only appears after a real Google sign-in.
 
-6. **Saved key shows only "Key 1"** — no masked value, no date, no way to tell which key is active or to add a second one as a backup.
+**Step 3 — Your free Gemini keys**
+- Clear statement: one free key is required; the AI runs entirely on your own free Google quota.
+- **Yes — more keys means better performance.** The screen says so: each key has its own free per-minute and per-day allowance, so with several keys mining runs more videos at once and doesn't stall when one hits its limit.
+- Add as many keys as you like. Each row shows a masked preview (AIza…7cQ2), the date added, a live OK/limit status, and a remove button.
+- The app rotates: it spreads work across keys, and when one hits a limit it moves to the next automatically instead of stopping.
+- Cannot continue past this step with zero working keys — that is the one thing the app truly needs.
 
-## The fix
-
-**Rewrite step 1 as one honest flow**
-
-- New title and subtitle: signing in saves your work; your free Gemini key is what powers the AI.
-- Tip box rewritten: the key is free from Google AI Studio, takes one minute, and stays yours.
-- Remove the "no API keys, no setup" and "automatically gives access" claims in all three languages (English, Mongolian, Korean).
-- "Google account linked" only shows when Google sign-in actually happened; a plain signed-in user sees their account, not a Google badge.
-- The green "nothing to maintain" pill moves to describe the key (free, your own quota), not the sign-in.
-
-**Stop pretending the sign-in token works for AI**
-
-- Drop the Google-sign-in-token path for Gemini calls entirely. Without a saved key the app says clearly: "Add your free Gemini key to turn this on", with a button that jumps straight to the key card — instead of failing with a misleading quota error.
-
-**Improve the saved-key list**
-
-- Show a masked preview (AIza…7cQ2) and the date added.
-- Allow more than one key, mark which is in use, and fall back to the next key when one hits its daily limit.
-- Keep removal per key.
+**Remove the false fallback**
+Calling Google's AI with the sign-in token is dropped. With no key, the app says "Add your free Gemini key" with a button to step 3, instead of a misleading quota error.
 
 ## Technical notes
 
-- Copy: `src/lib/i18n.ts` (`step1Title`, `step1Sub`, `tipGoogle`), `googleCopy` in `src/components/guided-studio.tsx`, `COPY` in `src/components/gemini-key-card.tsx`.
-- `StepGoogle`: `linked` must be `oauthLinked` only; body copy split into sign-in state vs key state.
-- `src/lib/user-ai.server.ts`: remove `google_token` from `AiCredential` and `resolveGeminiCredential`/`geminiUrl`; unresolved credential throws the existing `no_credential` error, which already surfaces the "Add key" action.
-- Key vault (`src/lib/keystore.ts` + `gemini-key-card.tsx`): store label, masked tail, `createdAt`; rotate to the next key on a `quota` error.
-- No database or schema changes.
+- Wizard: `src/components/guided-studio.tsx` — step count 3 → 5, new `StepCategory` (reuse the existing category chooser instead of the modal), `StepGoogle` split into sign-in only, `GeminiKeyCard` becomes its own step; `linked` derives from `hasGeminiOauth()` only.
+- Copy in all three languages: `src/lib/i18n.ts` (`step1Title`, `step1Sub`, `tipGoogle` and new step keys), `googleCopy` in guided-studio, `COPY` in `src/components/gemini-key-card.tsx`.
+- `src/lib/user-ai.server.ts`: drop `google_token` from `AiCredential`, `resolveGeminiCredential` and `geminiUrl`; missing credential throws the existing `no_credential` error that already renders an "Add key" action.
+- Multi-key: `src/lib/keystore.ts` entries gain `maskedTail`, `createdAt`, `lastStatus`; `user_ai_keys` allows several rows per user (drop the single-row assumption in the save/read path); credential resolution picks the least-recently-limited key and retries the next key on a quota error.
+- No new tables; one small migration only if `user_ai_keys` has a unique constraint on (user, provider).
