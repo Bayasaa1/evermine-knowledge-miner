@@ -236,7 +236,7 @@ export function defaultProviderSetting(paid: boolean): ProviderSetting {
  * GEMINI_API_KEY backend secret, so creators hit zero paywalls and zero key setup.
  */
 export function freeStack(): EngineStack {
-  return { llm: "gemini-flash", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {} };
+  return { llm: "gemini-flash", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {}, providers: {} };
 }
 
 export function normalizeStack(raw: unknown): EngineStack {
