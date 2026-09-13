@@ -9,6 +9,7 @@
  * banner with a Retry button — never a raw log line.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { scopedKey } from "@/lib/user-scope";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
