@@ -35,6 +35,12 @@ export function ViewerBrainHub() {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+
   const refresh = async () => {
     // Signed-out visitors have no Core Brains — asking the server would only
     // return an "unauthorized" error at them.
