@@ -503,6 +503,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
+  const { isAuthenticated, userId } = useAuth();
 
   const { data: items = [], isLoading: loading } = useQuery<ProjectContent[]>({
     queryKey: ["project-content", userId, project.id],
