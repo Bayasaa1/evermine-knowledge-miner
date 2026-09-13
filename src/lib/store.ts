@@ -62,4 +62,21 @@ export async function idbDelete(store: string, key: string): Promise<void> {
   }
 }
 
+/** Every key held in one store — used to purge a leaving account's device data. */
+export async function idbKeys(store: string): Promise<string[]> {
+  try {
+    const db = await openDb();
+    const keys = await new Promise<string[]>((resolve) => {
+      const tx = db.transaction(store, "readonly");
+      const req = tx.objectStore(store).getAllKeys();
+      req.onsuccess = () => resolve((req.result as IDBValidKey[]).map(String));
+      req.onerror = () => resolve([]);
+    });
+    db.close();
+    return keys;
+  } catch {
+    return [];
+  }
+}
+
 export const STORES = { SETTINGS, SESSION };
