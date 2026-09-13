@@ -16,15 +16,18 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type AiCredential = { kind: "gemini_key" | "google_token"; value: string };
 
-export type AiErrorCode = "no_credential" | "quota" | "unsupported_task";
+export type AiErrorCode = "no_credential" | "quota" | "rate_minute" | "unsupported_task";
 
 export class UserAiError extends Error {
   code: AiErrorCode;
   httpStatus: number;
-  constructor(code: AiErrorCode, message: string, httpStatus = 400) {
+  /** Seconds Gemini suggests waiting before a retry (per-minute 429s only). */
+  retryAfterSec: number;
+  constructor(code: AiErrorCode, message: string, httpStatus = 400, retryAfterSec = 0) {
     super(message);
     this.code = code;
     this.httpStatus = httpStatus;
+    this.retryAfterSec = retryAfterSec;
   }
 }
 
@@ -93,6 +96,35 @@ export class GeminiHttpError extends Error {
   }
 }
 
+function parseRetryDelaySec(raw: string): number {
+  const match = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s?"/.exec(raw);
+  if (!match) return 0;
+  return Math.min(60, Math.max(1, Math.ceil(Number(match[1]))));
+}
+
+/**
+ * A Gemini 429 can be the per-MINUTE burst limit or the per-DAY quota — the
+ * quota id in the error body says which. Reporting a minute burst as "daily
+ * quota used up" used to scare users into thinking their key was dead.
+ */
+function classifyGemini429(raw: string): UserAiError {
+  const retryAfter = parseRetryDelaySec(raw);
+  const isDaily = /PerDay|per_day|daily/i.test(raw);
+  if (isDaily) {
+    return new UserAiError(
+      "quota",
+      "Your free Gemini daily quota is used up. It resets in a few hours (Pacific midnight) — or add another free key in Engines.",
+      429,
+    );
+  }
+  return new UserAiError(
+    "rate_minute",
+    "Too many requests in one minute for the free Gemini tier. Wait a moment and it will work again — this is not your daily quota.",
+    429,
+    retryAfter || 20,
+  );
+}
+
 async function raiseForGemini(res: Response): Promise<never> {
   const raw = await res.text().catch(() => "");
   let detail = raw.slice(0, 400);
@@ -102,13 +134,7 @@ async function raiseForGemini(res: Response): Promise<never> {
   } catch {
     /* keep the bounded raw text */
   }
-  if (res.status === 429) {
-    throw new UserAiError(
-      "quota",
-      "Your free Gemini quota is used up for now. Wait for it to reset (usually within a day) or add another key in Engines.",
-      429,
-    );
-  }
+  if (res.status === 429) throw classifyGemini429(raw);
   if (res.status === 400 && /api key|key not valid|permission/i.test(detail)) {
     throw new UserAiError("no_credential", "That Gemini key was rejected. Add a valid free key in Engines.", 401);
   }
@@ -116,6 +142,24 @@ async function raiseForGemini(res: Response): Promise<never> {
     throw new UserAiError("no_credential", "Gemini rejected this sign-in or key. Re-link Google or add a free key in Engines.", 401);
   }
   throw new GeminiHttpError(res.status, detail || `Gemini request failed (${res.status}).`);
+}
+
+/**
+ * Runs a Gemini call once, and when the answer is a per-MINUTE 429, waits the
+ * delay Gemini asked for (capped) and retries exactly once. Daily-quota and
+ * credential errors are never retried.
+ */
+export async function withMinuteRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof UserAiError && err.code === "rate_minute") {
+      const wait = Math.min(30_000, Math.max(3_000, err.retryAfterSec * 1000));
+      await new Promise((r) => setTimeout(r, wait));
+      return await fn();
+    }
+    throw err;
+  }
 }
 
 export type GeminiPart =

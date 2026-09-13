@@ -23,7 +23,8 @@ const schema = z.object({
  */
 export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
-  .handler(async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota" }> => {
+  .handler(
+    async ({ data }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; via?: "key" | "google" }> => {
     // Abuse guard: anonymous callers share a per-IP sliding window.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
@@ -51,17 +52,19 @@ export const translateTexts = createServerFn({ method: "POST" })
       .join(" ");
 
     try {
-      const { geminiGenerate, UserAiError } = await import("@/lib/user-ai.server");
+      const { geminiGenerate, withMinuteRetry } = await import("@/lib/user-ai.server");
       const credential = apiKey
         ? ({ kind: "gemini_key", value: apiKey } as const)
         : ({ kind: "google_token", value: googleToken } as const);
-      const raw = await geminiGenerate({
-        credential,
-        model: "gemini-2.5-flash",
-        system,
-        maxTokens: 8192,
-        turns: [{ role: "user", parts: [{ text: JSON.stringify(data.texts) }] }],
-      });
+      const raw = await withMinuteRetry(() =>
+        geminiGenerate({
+          credential,
+          model: "gemini-2.5-flash",
+          system,
+          maxTokens: 8192,
+          turns: [{ role: "user", parts: [{ text: JSON.stringify(data.texts) }] }],
+        }),
+      );
       const match = raw.match(/\[[\s\S]*\]/);
       if (!match) {
         console.error("translate unparsable reply", raw.slice(0, 300));
@@ -74,9 +77,15 @@ export const translateTexts = createServerFn({ method: "POST" })
     } catch (err) {
       const { UserAiError } = await import("@/lib/user-ai.server");
       if (err instanceof UserAiError) {
-        if (err.code === "quota") return { texts: data.texts, blocked: "quota" as const };
+        // A per-minute burst is transient: return the originals quietly and let
+        // the client re-queue the strings for the next batch instead of
+        // scaring the viewer with a quota warning.
+        if (err.code === "rate_minute") return { texts: data.texts };
+        if (err.code === "quota")
+          return { texts: data.texts, blocked: "quota" as const, via: apiKey ? ("key" as const) : ("google" as const) };
         return { texts: data.texts, blocked: "no_key" as const };
       }
       return { texts: data.texts };
     }
-  });
+  },
+  );

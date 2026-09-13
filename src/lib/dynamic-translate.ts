@@ -65,11 +65,18 @@ export function getCachedTranslation(text: string, lang: LangCode): string | nul
   return loadCache(lang)[text] ?? null;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function flush() {
   timer = null;
   const jobs = [...pending.entries()];
   pending.clear();
+  let firstBatch = true;
   for (const [lang, set] of jobs) {
+    // Pace batches: firing them back-to-back bursts past the free tier's
+    // per-minute limit and produces scary false "quota used up" warnings.
+    if (!firstBatch) await sleep(1200);
+    firstBatch = false;
     const queued = [...set].filter((t) => !inflight.has(`${lang}:${t}`));
     const texts = queued.slice(0, 40);
     // Anything over one batch stays queued instead of being silently dropped —
@@ -94,6 +101,7 @@ async function flush() {
         },
       });
       const state = (res as { blocked?: string }).blocked;
+      const via = (res as { via?: string }).via;
       if (state === "no_key" || state === "quota") {
         // The viewer has no working AI access of their own: stop queueing work
         // and say so once, instead of quietly showing the original language.
@@ -105,11 +113,12 @@ async function flush() {
           const goToEngines = () => {
             window.location.href = "/creator#engines";
           };
+          const quotaMsg =
+            via === "google"
+              ? "Translation is paused — your Google sign-in's free Gemini allowance is used up for today. Add a free Gemini key in Engines for a much bigger daily limit."
+              : "Translation is paused — your Gemini key's free daily quota is used up. It resets in a few hours, or add another free key in Engines.";
           void import("sonner").then(({ toast }) =>
-            toast.error(
-              state === "quota"
-                ? "Translation is paused — your free Gemini quota is used up for now. It resets daily, or add another key in Engines."
-                : "Translation needs your own free Gemini key — add it once in Engines.",
+            toast.error(state === "quota" ? quotaMsg : "Translation needs your own free Gemini key — add it once in Engines.",
               {
                 duration: 12_000,
                 // Tapping the action takes the viewer straight to the key setup
@@ -134,7 +143,7 @@ async function flush() {
       for (const t of texts) inflight.delete(`${lang}:${t}`);
     }
   }
-  if (pending.size && !timer) timer = setTimeout(flush, 200);
+  if (pending.size && !timer) timer = setTimeout(flush, 1200);
 }
 
 /** Queues a string for translation into `lang`. Safe to call in render. */
