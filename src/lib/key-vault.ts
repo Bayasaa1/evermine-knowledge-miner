@@ -21,5 +21,15 @@ export function resetKeyCaches(): void {
 
 /** Removes the old shared (un-scoped) vaults left by earlier versions of the app. */
 export async function purgeLegacyKeyVaults(): Promise<void> {
-  await Promise.all([purgeLegacyApiKeys(), purgeLegacyStack()]);
+  const { idbDelete, STORES } = await import("./store");
+  await Promise.all([
+    purgeLegacyApiKeys(),
+    purgeLegacyStack(),
+    // Anything typed while signed out stays with nobody: it must never be
+    // adopted by the next account that signs in on this browser.
+    idbDelete(STORES.SETTINGS, "anon:gemini-api-key"),
+    idbDelete(STORES.SETTINGS, "anon:gemini-api-keys"),
+    idbDelete(STORES.SETTINGS, "anon:engine-stack"),
+  ]);
 }
+
