@@ -82,6 +82,12 @@ const COPY = {
     adviceHelps: "Worth adding",
     adviceSkip: "Not worth it here",
     adviceTips: "Faster mining",
+    errKey: "That service says the key is wrong or not active yet.",
+    errCredit: "The key is valid but the account has no free allowance or credit left.",
+    errModel: "The key is valid but the models tried are not available on this account.",
+    errLimit: "Too many requests right now. Wait a moment and try again.",
+    errNet: "Could not reach that service from your browser.",
+    moveHint: "Recommended for what you picked — move it up to #2.",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
