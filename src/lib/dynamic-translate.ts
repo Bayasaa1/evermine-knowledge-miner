@@ -101,6 +101,7 @@ async function flush() {
         },
       });
       const state = (res as { blocked?: string }).blocked;
+      const via = (res as { via?: string }).via;
       if (state === "no_key" || state === "quota") {
         // The viewer has no working AI access of their own: stop queueing work
         // and say so once, instead of quietly showing the original language.
@@ -112,11 +113,12 @@ async function flush() {
           const goToEngines = () => {
             window.location.href = "/creator#engines";
           };
+          const quotaMsg =
+            via === "google"
+              ? "Translation is paused — your Google sign-in's free Gemini allowance is used up for today. Add a free Gemini key in Engines for a much bigger daily limit."
+              : "Translation is paused — your Gemini key's free daily quota is used up. It resets in a few hours, or add another free key in Engines.";
           void import("sonner").then(({ toast }) =>
-            toast.error(
-              state === "quota"
-                ? "Translation is paused — your free Gemini quota is used up for now. It resets daily, or add another key in Engines."
-                : "Translation needs your own free Gemini key — add it once in Engines.",
+            toast.error(state === "quota" ? quotaMsg : "Translation needs your own free Gemini key — add it once in Engines.",
               {
                 duration: 12_000,
                 // Tapping the action takes the viewer straight to the key setup
