@@ -312,13 +312,26 @@ export function AiKeysCard({
     }
     setBusy(true);
     try {
-      const ok = await testKey(
+      const result = await testKey(
         info,
         key,
         provider === "custom" ? { endpoint: custom.endpoint.trim(), model: custom.model.trim() } : undefined,
       );
-      if (!ok) {
-        toast.error(t.invalid);
+      if (!result.ok) {
+        const s = result.status ?? 0;
+        const reason =
+          s === 401 || s === 403
+            ? t.errKey
+            : s === 402
+              ? t.errCredit
+              : s === 404 || s === 400
+                ? t.errModel
+                : s === 429
+                  ? t.errLimit
+                  : s === 0
+                    ? t.errNet
+                    : t.invalid;
+        toast.error(`${info.label}: ${reason}`);
         return;
       }
       await addKey(
@@ -326,7 +339,9 @@ export function AiKeysCard({
         key,
         provider === "custom"
           ? { label: custom.label.trim() || "My AI", endpoint: custom.endpoint.trim(), model: custom.model.trim() }
-          : undefined,
+          : result.model
+            ? { model: result.model }
+            : undefined,
       );
       setValue("");
       setCustom({ label: "", endpoint: "", model: "" });
