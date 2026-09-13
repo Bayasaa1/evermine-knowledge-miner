@@ -449,6 +449,7 @@ export function AiKeysCard({
                 </span>
                 <span className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="font-medium text-foreground">{row.label}</span>
+                  <RecBadge category={category} providerId={row.provider.id} lang={lang} />
                   <span className="text-muted-foreground">••••{row.maskedTail}</span>
                   <span className={row.state === "ok" ? "text-emerald-500" : "text-amber-500"}>
                     {row.state === "ok" ? t.working : row.state === "exhausted" ? t.usedUp : t.rejected}
