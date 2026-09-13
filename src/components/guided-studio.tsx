@@ -437,7 +437,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
-  const [assessment, setAssessment] = useState<Assessment>(DEFAULT_ASSESSMENT);
+  const [assessment, setAssessment] = useState<Assessment>(() => defaultAssessmentFor(category));
   const [meta, setMeta] = useState<VideoMetadata | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
