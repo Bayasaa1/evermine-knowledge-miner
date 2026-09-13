@@ -164,7 +164,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
             <button
               type="button"
               onClick={() => setStep(n)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-medium transition-colors ${
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium transition-colors sm:h-8 sm:w-8 sm:text-sm ${
                 step === n
                   ? "border-primary bg-primary text-primary-foreground"
                   : step > n
