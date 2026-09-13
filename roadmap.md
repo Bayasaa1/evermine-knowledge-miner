@@ -28,3 +28,6 @@
 - [x] Owner filter on every edit/delete sent from the app
 - [x] Gemini key test limited to two calls, stops on rate limit
 - [x] No server-stored or shared AI key in any chat path
+- [x] Require the active owner on every remaining project, persona, and graph mutation
+- [x] Make “Move to feed” publish the selected video’s project
+- [x] Refresh Groq key testing so retired models do not reject valid keys

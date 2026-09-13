@@ -585,6 +585,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
             <VideoCard
               key={item.id}
               lang={lang}
+              projectId={project.id}
               item={item}
               progress={progressFor(item, jobs)}
               onChanged={() => { void load(); onChanged(); }}
@@ -614,11 +615,13 @@ function progressFor(item: ProjectContent, jobs: { sourceUrl: string; nextIndex:
 
 function VideoCard({
   lang,
+  projectId,
   item,
   progress,
   onChanged,
 }: {
   lang: Lang;
+  projectId: string;
   item: ProjectContent;
   progress: Progress;
   onChanged: () => void;
@@ -643,9 +646,12 @@ function VideoCard({
     const next: ContentKind = item.kind === "VISUAL_CONTENT" ? "TRAINING_ONLY" : "VISUAL_CONTENT";
     setWorking(true);
     const error = await updateProjectContent(item.id, { kind: next });
+    const publishError = !error && next === "VISUAL_CONTENT"
+      ? await updateProject(projectId, { published: true })
+      : null;
     setWorking(false);
-    if (error) {
-      toast.error(error);
+    if (error || publishError) {
+      toast.error(error || publishError || "Unable to update this video");
       return;
     }
     toast.success(next === "VISUAL_CONTENT" ? t("visual") : t("training"));

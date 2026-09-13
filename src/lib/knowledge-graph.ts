@@ -9,6 +9,7 @@
  * `src/components/knowledge-graph.tsx`.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
 import type { Project, ProjectContent } from "@/lib/projects";
 import type { VaultRow } from "@/lib/cloud-vault.functions";
 import type { MindPayload } from "@/lib/mind-json";
@@ -213,6 +214,8 @@ export async function createCustomLink(
 }
 
 export async function deleteCustomLink(id: string): Promise<string | null> {
-  const { error } = await supabase.from("graph_links").delete().eq("id", id);
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { error } = await supabase.from("graph_links").delete().eq("id", id).eq("user_id", owner);
   return error?.message ?? null;
 }

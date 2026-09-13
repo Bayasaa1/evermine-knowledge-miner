@@ -89,6 +89,8 @@ export async function createProject(
     personaId?: string | null;
   },
 ): Promise<{ project: Project | null; error: string | null }> {
+  const owner = await currentOwnerId();
+  if (!owner || owner !== userId) return { project: null, error: NOT_SIGNED_IN };
   const { data, error } = await supabase
     .from("projects")
     .insert({
@@ -166,6 +168,8 @@ export async function addProjectContent(
     transcript?: SubtitleCue[];
   },
 ): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner || owner !== userId) return NOT_SIGNED_IN;
   const { error } = await supabase.from("project_content").insert({
     project_id: input.projectId,
     user_id: userId,
@@ -358,6 +362,8 @@ export async function assignProjectToPersona(
   personaId: string | null,
   branding?: { creatorName?: string; creatorAvatarUrl?: string | null },
 ): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
   const { error } = await supabase
     .from("projects")
     .update({
@@ -365,9 +371,15 @@ export async function assignProjectToPersona(
       ...(branding?.creatorName ? { creator_name: branding.creatorName } : {}),
       ...(branding?.creatorAvatarUrl !== undefined ? { creator_avatar_url: branding.creatorAvatarUrl } : {}),
     })
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .eq("user_id", owner);
   if (error) return error.message;
-  await supabase.from("mind_vaults").update({ persona_id: personaId }).eq("project_id", projectId);
+  const { error: vaultError } = await supabase
+    .from("mind_vaults")
+    .update({ persona_id: personaId })
+    .eq("project_id", projectId)
+    .eq("user_id", owner);
+  if (vaultError) return vaultError.message;
   return null;
 }
 

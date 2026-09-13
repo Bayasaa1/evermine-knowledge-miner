@@ -94,7 +94,7 @@ const copy = {
 /** Creator-side hub for unlimited Projects and their two content types. */
 export function ProjectManager({ lang = "en" }: { lang?: Lang }) {
   const t = pickCopy(copy, lang);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -110,6 +110,8 @@ export function ProjectManager({ lang = "en" }: { lang?: Lang }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loading) return null;
 
   if (!user) {
     return (
@@ -177,7 +179,7 @@ function ProjectCard({
   onChanged: () => void;
 }) {
   const removeVideo = useServerFn(permanentlyDeleteVideo);
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [items, setItems] = useState<ProjectContent[]>([]);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -225,7 +227,7 @@ function ProjectCard({
     <article className="rounded-[12px] border border-border bg-card p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{project.title}</h3>
-        <button
+        {!loading && user?.id === project.user_id && <button
           type="button"
           onClick={async () => {
             await updateProject(project.id, { published: !project.published });
@@ -235,8 +237,8 @@ function ProjectCard({
         >
           {project.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
           {project.published ? t.published : t.hidden}
-        </button>
-        <button
+        </button>}
+        {!loading && user?.id === project.user_id && <button
           type="button"
           aria-label="Delete project"
           onClick={async () => {
@@ -247,7 +249,7 @@ function ProjectCard({
           className="text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="h-4 w-4" />
-        </button>
+        </button>}
       </div>
 
       <div className="mb-3 space-y-2 rounded-xl border border-border bg-muted/40 p-3">
@@ -300,7 +302,7 @@ function ProjectCard({
               <span className="text-[10px] text-muted-foreground">
                 {item.kind === "VISUAL_CONTENT" ? t.visual : t.training}
               </span>
-              <button
+              {!loading && user?.id === item.user_id && <button
                 type="button"
                 aria-label="Remove content"
                 onClick={async () => {
@@ -311,7 +313,7 @@ function ProjectCard({
                 className="text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              </button>}
             </li>
           ))}
         </ul>
