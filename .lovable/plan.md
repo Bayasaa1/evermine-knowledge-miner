@@ -33,20 +33,34 @@ This is the part that answers "every video is different". Every mind type gets i
 **Required (free, everyone needs it): your Gemini key.**
 Gemini is the only engine that actually watches the video — subtitles with timestamps, faces, emotions, voice, scenes. Every mind type depends on it, so one free Gemini key is required and the flow will not continue without it.
 
-**Better with more keys (free): add several Gemini keys.**
-Yes — more keys means better performance. Each key carries its own free per-minute and per-day allowance, so several keys let mining run more videos at once and keep going when one hits its limit. The app spreads work across them and rotates automatically instead of stopping.
+**More AI can improve the result, but more keys do not automatically mean more quota.**
+Gemini limits are applied per Google Cloud project, not per API key. Two Gemini keys from the same project share the same limit, so the setup will never promise that another key makes mining faster. A key from a genuinely separate Google Cloud project can provide a separate allowance; the app labels this clearly instead of encouraging duplicate keys. Adding a different thinking AI can improve reasoning or provide a fallback, but may make a job slower and may cost money.
 
 **Optional thinking AI (free or paid), chosen per purpose:**
 
 | Mind type | What the video needs | Free options | Paid options (better quality) |
 |---|---|---|---|
-| AI Assistant / Knowledge | Words and meaning | Gemini, Groq, Mistral | ChatGPT, Claude, Kimi, OpenRouter |
-| Product & Sales Mind | Words, plus product shots | Gemini, Groq, Mistral | ChatGPT, Claude, Kimi, OpenRouter |
-| Gaming Mind / Player Clone | Watching gameplay + tactics | Gemini, Qwen-VL, Llama Vision | ChatGPT vision, Claude vision, paid Gemini |
-| Voice Calling Agent | Hearing the voice | Gemini, Groq Whisper, Qwen Audio | ChatGPT audio, paid Gemini, voice services |
-| Robot Brain / Embodied VLA | Seeing space and movement | Gemini, Qwen-VL, Llama Vision | ChatGPT vision, Claude vision, paid Gemini |
+| AI Assistant / Knowledge | Words and meaning | Gemini; optional Groq or Mistral reasoning | ChatGPT, Claude, Kimi or OpenRouter reasoning |
+| Product & Sales Mind | Words, offers and product shots | Gemini; optional Groq or Mistral reasoning | ChatGPT or Claude reasoning over extracted text and still frames |
+| Gaming Mind / Player Clone | Gameplay, movement and tactics | Gemini native video | Experimental Qwen-VL/Llama Vision still-frame analysis; paid vision reasoning |
+| Voice Calling Agent | Speech, timing, tone and emotion | Gemini; optional Groq Whisper transcription | Paid transcription/audio reasoning; live calling is configured separately |
+| Robot Brain / Embodied VLA | Space, objects and movement | Gemini native video | Experimental Qwen-VL/Llama Vision still-frame analysis; paid vision reasoning |
 
-An AI that cannot do the job never appears in that list — a text-only AI is never offered for a Robot Brain.
+An AI that cannot do the job never appears in that list. Qwen-VL and Llama Vision are labeled **experimental, still frames only**; they do not independently watch continuous video. For Robot and Gaming Minds, Gemini remains the required video engine. The Voice list is explicitly for mining voice material; it does not claim that a transcription key enables live two-way calling.
+
+### Built-in tips for smooth, fast operation
+
+Step 3 includes a compact guide that changes with the chosen mind type, plus a details panel for users who want the limits:
+
+- **Start simple:** use Gemini alone for the first video. Add one optional thinking AI only when deeper comparison is useful; extra AIs add work and can slow completion.
+- **Use the right source:** direct Gemini processing supports public YouTube videos only—not private or unlisted links. The current free limit is shown honestly as up to 8 total YouTube hours per day, not “two hours per video.”
+- **Keep long jobs reliable:** recommend one active video at a time on the free tier. Short clips use the fast path; long videos use reusable uploads/background processing where supported.
+- **Handle limits correctly:** a per-minute pause is retried automatically and shown as temporary. A daily limit tells the user when to try again. Adding a duplicate key from the same Google project is never suggested as a fix.
+- **Choose by purpose:** Knowledge and Sales favor transcript reasoning; Robot and Gaming favor native video; Voice favors accurate speech and timing. Each optional provider says exactly whether it reads text, still frames, audio or native video.
+- **Know the trade-off before connecting:** every provider shows “What it adds,” “What it cannot do,” “Free limits or paid,” and a Test button. Experimental free vision options warn that availability can change.
+- **Protect the key:** explain that keys are private credentials, display only a masked ending and saved date, and provide clear Replace/Delete controls.
+
+The guide uses short checklists rather than a long tutorial, with a “Why this setup?” expander for the technical detail.
 
 Each row states plainly what it adds, what it costs (free tier / your own paid account), and what it cannot do. Each has a Test button that verifies the key against the provider before it is saved. Paid keys are never required; the screen says so, and says what you gain: no daily limits, longer videos, better reasoning on hard footage.
 
@@ -56,8 +70,10 @@ Calling Google's AI with the sign-in token is dropped. With no key, the app says
 ## Technical notes
 
 - Wizard `src/components/guided-studio.tsx`: 3 → 5 steps; new `StepCategory` (reuse the existing chooser instead of the modal); `StepGoogle` becomes sign-in only with `linked` derived from `hasGeminiOauth()` alone; new `StepKeys` combining `GeminiKeyCard` (required, multi-key) and `MinerPool` filtered by the chosen category.
-- Pool wiring already exists: `minersForCategory`, `sensesForCategory`, `testMinerKey` in `src/lib/miner-pool.ts`. The step renders the pool grouped required / free / paid with the per-AI `capability`, `downside` and `limits` text already present.
+- Pool wiring already exists: `minersForCategory`, `sensesForCategory`, `testMinerKey` in `src/lib/miner-pool.ts`. Correct its outdated claims before rendering: Gemini has no built-in/shared mode; YouTube is public-only with an 8-hour daily free allowance; Qwen/Llama are still-frame analyzers; and optional engines reason over Gemini's extracted material rather than mining raw video themselves.
 - Copy in en / mn / ko: `src/lib/i18n.ts` (`step1Title`, `step1Sub`, `tipGoogle`, new step keys), `googleCopy` in guided-studio, `COPY` in `src/components/gemini-key-card.tsx`.
 - `src/lib/user-ai.server.ts`: drop `google_token` from `AiCredential`, `resolveGeminiCredential` and `geminiUrl`; missing credential throws the existing `no_credential` error, which already renders an "Add key" action.
-- Multi-key: `src/lib/keystore.ts` entries gain `maskedTail`, `createdAt`, `lastStatus`; allow several `user_ai_keys` rows per user; credential resolution picks the least-recently-limited key and retries the next on a quota error. One small migration only if a unique (user, provider) constraint exists.
+- Key management: `src/lib/keystore.ts` entries gain `maskedTail`, `createdAt`, `lastStatus` and an optional user-entered label. Multiple Gemini keys can be saved, but the screen states that same-project keys share quota. Credential resolution can fail over after a rejected/limited key without calling that “more performance.” One small migration removes the current one-key-per-provider constraint only if multi-key account syncing is retained.
+- Provider tests should run through authenticated server functions rather than directly exposing provider keys from the browser. OpenRouter free vision choices use a maintained fallback/router rather than one hard-coded model that may disappear.
+- Add a purpose-aware `SetupGuide` inside Step 3 with concise speed, source, quota and capability tips in English, Mongolian and Korean.
 - No new tables.
