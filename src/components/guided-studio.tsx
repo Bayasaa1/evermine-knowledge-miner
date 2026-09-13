@@ -325,23 +325,20 @@ const CATEGORY_ICONS: Record<CreationCategory, typeof Brain> = {
   gaming: Gamepad2,
 };
 
+/**
+ * Step 1 reuses the same CategoryList as the "+" hub modal (create-wizard.tsx)
+ * so the five creation choices exist in exactly one place.
+ */
 function StepCategory({ lang, value, onChange }: { lang: Lang; value: CreationCategory; onChange: (value: CreationCategory) => void }) {
-  const categories: CreationCategory[] = ["knowledge", "robot", "voice", "sales", "gaming"];
   return (
-    <div className="grid gap-3">
-      {categories.map((category) => {
-        const Icon = CATEGORY_ICONS[category];
-        const copy = pickCopy(CATEGORY_LABELS[category], lang);
-        const selected = category === value;
-        return (
-          <button key={category} type="button" onClick={() => { setCreationCategory(category); onChange(category); }} className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"}`}>
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-foreground">{copy.title}</span><span className="mt-1 block text-xs text-muted-foreground">{copy.sub}</span></span>
-            {selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
-          </button>
-        );
-      })}
-    </div>
+    <CategoryList
+      lang={lang}
+      selected={value}
+      onPick={(category) => {
+        setCreationCategory(category);
+        onChange(category);
+      }}
+    />
   );
 }
 
