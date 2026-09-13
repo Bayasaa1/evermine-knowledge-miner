@@ -27,11 +27,6 @@ import {
   Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
-  Bot,
-  Brain,
-  PhoneCall,
-  Megaphone,
-  Gamepad2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
@@ -318,13 +313,6 @@ function StepShell({
   );
 }
 
-const CATEGORY_ICONS: Record<CreationCategory, typeof Brain> = {
-  knowledge: Brain,
-  robot: Bot,
-  voice: PhoneCall,
-  sales: Megaphone,
-  gaming: Gamepad2,
-};
 
 /**
  * Step 1 reuses the same CategoryList as the "+" hub modal (create-wizard.tsx)
