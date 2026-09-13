@@ -1,8 +1,10 @@
 /**
- * Zero-tech creator flow — three steps, no API keys anywhere:
- *   1. Sign in with Google (auto-links the creator's free-tier Gemini API)
- *   2. Paste a YouTube / Google Drive link (direct knowledge ingestion)
- *   3. Monetization control (Free mode or Paid subscription, switchable any time)
+ * Purpose-aware creator flow:
+ *   1. Choose what to create
+ *   2. Sign in or create an account
+ *   3. Add the required Gemini key and optional specialist AIs
+ *   4. Add and mine videos
+ *   5. Set access and pricing
  * Every limit is stated up front and every failure surfaces as a plain-language
  * banner with a Retry button — never a raw log line.
  */
@@ -25,6 +27,11 @@ import {
   Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
+  Bot,
+  Brain,
+  PhoneCall,
+  Megaphone,
+  Gamepad2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
@@ -40,11 +47,10 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
-import { getCreationCategory } from "@/lib/creation-category";
-import { hasGeminiOauth } from "@/lib/google-gemini-auth";
+import { CATEGORY_LABELS, getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
-import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
+import { loadApiKeys } from "@/lib/keystore";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -165,17 +171,45 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
     try {
       const wanted = window.localStorage.getItem("evermind.mine-step");
       window.localStorage.removeItem("evermind.mine-step");
-      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 3;
+      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 4;
     } catch {
       /* blocked storage just starts at step 1 */
     }
     return 1;
   });
+  const { isAuthenticated } = useAuth();
+  const [category, setCategory] = useState<CreationCategory>(() => getCreationCategory());
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
+
+  useEffect(() => {
+    void loadApiKeys().then((keys) => setHasGeminiKey(keys.some((key) => key.state === "ok")));
+  }, [step]);
+
+  const continueSetup = useCallback(async () => {
+    if (step === 2 && !isAuthenticated) {
+      void navigate({ to: "/auth", search: { next: "/creator" } });
+      return;
+    }
+    if (step === 3) {
+      const keys = await loadApiKeys();
+      if (!keys.some((key) => key.state === "ok")) {
+        toast.error(pickCopy({ en: "Add and test a Gemini key first.", mn: "Эхлээд Gemini түлхүүр нэмж шалгана уу.", ko: "먼저 Gemini 키를 추가하고 테스트하세요." }, lang));
+        return;
+      }
+      setHasGeminiKey(true);
+    }
+    if (step < 5) {
+      setStep((current) => current + 1);
+      return;
+    }
+    toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang));
+    void navigate({ to: "/vaults" });
+  }, [isAuthenticated, lang, navigate, step]);
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6">
       <ol className="flex items-center gap-2">
-        {[1, 2, 3].map((n) => (
+        {[1, 2, 3, 4, 5].map((n) => (
           <li key={n} className="flex flex-1 items-center gap-2">
             <button
               type="button"
@@ -191,25 +225,38 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
             >
               {n}
             </button>
-            {n < 3 && <span className="h-px flex-1 bg-border" />}
+            {n < 5 && <span className="h-px flex-1 bg-border" />}
           </li>
         ))}
       </ol>
 
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
-        {t("step")} {step} {t("of")} 3
+        {t("step")} {step} {t("of")} 5
       </p>
 
       {step === 1 && (
-        <StepShell title={t("step1Title")} sub={t("step1Sub")} tip={t("tipGoogle")}>
-          <StepGoogle lang={lang} />
+        <StepShell title={t("step1Title")} sub={t("step1Sub")}>
+          <StepCategory lang={lang} value={category} onChange={setCategory} />
         </StepShell>
       )}
-      {step === 2 && <StepUpload lang={lang} mode="save" />}
+      {step === 2 && (
+        <StepShell title={t("step2Title")} sub={t("step2Sub")}>
+          <StepAccount lang={lang} />
+        </StepShell>
+      )}
       {step === 3 && (
+        <StepShell title={t("step3Title")} sub={t("step3Sub")}>
+          <div className="space-y-4">
+            <GeminiKeyCard />
+            <MinerPool lang={lang} category={category} />
+            <SetupTips lang={lang} />
+          </div>
+        </StepShell>
+      )}
+      {step === 4 && <StepUpload lang={lang} mode="mine" />}
+      {step === 5 && (
         <div className="space-y-8">
-          <StepUpload lang={lang} mode="mine" />
-          <StepShell title={t("step3Title")} sub={t("step3Sub")} tip={t("tipPrice")}>
+          <StepShell title={t("step5Title")} sub={t("step5Sub")} tip={t("tipPrice")}>
             <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
           </StepShell>
         </div>
@@ -227,26 +274,9 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         </button>
         <button
           type="button"
-          onClick={() => {
-            if (step < 3) {
-              setStep((s) => s + 1);
-              return;
-            }
-            toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang), {
-              description: pickCopy(
-                {
-                  en: "Your AI mind is ready — opening your Mind Vaults.",
-                  mn: "Таны AI оюун санг Mind Vaults хэсгээс харна уу.",
-                  ko: "AI 마인드가 준비되었습니다 — Mind Vaults를 엽니다.",
-                },
-                lang,
-              ),
-            });
-            void navigate({ to: "/vaults" });
-          }}
+          onClick={() => void continueSetup()}
           className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
         >
-          {step === 3 ? pickCopy({ en: "Finish", mn: "Дуусгах", ko: "완료" }, lang) : t("next")}{" "}
           <ChevronRight className="h-4 w-4" />
         </button>
 
