@@ -189,6 +189,22 @@ export function findEngine(id: string): Engine | undefined {
 /** "byo" = the user's own provider key; "passthrough" = billed at raw provider cost. */
 export type BillingMode = "byo" | "passthrough";
 
+/**
+ * Per-provider controls for a saved key: paid providers stay OFF until the
+ * creator switches them on, and never spend past their own monthly cap.
+ */
+export type ProviderSetting = {
+  enabled: boolean;
+  /** Monthly spending cap in USD. 0 means "no spending allowed". */
+  monthlyCapUsd: number;
+  /** Estimated spend so far this month, in USD. */
+  spendUsd: number;
+  /** Month stamp (YYYY-MM) the spend belongs to. */
+  month: string;
+  /** When the key was saved on this device. */
+  addedAt: number;
+};
+
 export type EngineStack = {
   llm: string;
   tts: string;
@@ -196,7 +212,23 @@ export type EngineStack = {
   billing: BillingMode;
   /** Provider keys, stored on this device only and never uploaded. */
   keys: Record<string, string>;
+  /** Switch + spending cap per provider key field. */
+  providers: Record<string, ProviderSetting>;
 };
+
+export function monthStamp(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+export function defaultProviderSetting(paid: boolean): ProviderSetting {
+  return {
+    enabled: !paid,
+    monthlyCapUsd: paid ? 10 : 0,
+    spendUsd: 0,
+    month: monthStamp(),
+    addedAt: Date.now(),
+  };
+}
 
 /**
  * Default stack for newly onboarded creators: Gemini 2.5 Flash on the free tier.
