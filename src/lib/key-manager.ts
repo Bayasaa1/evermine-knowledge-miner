@@ -183,6 +183,7 @@ function fromGeminiEntry(k: ApiKeyEntry): SavedKey {
     state: k.state,
     addedAt: k.createdAt,
     callsToday: k.usage?.day === today ? k.usage.calls : 0,
+    cost: "free-tier",
     enabled: true,
     monthlyCapUsd: 0,
     spendUsd: 0,
@@ -199,6 +200,14 @@ export async function listAllKeys(): Promise<SavedKey[]> {
     const value = (stack.keys[p.keyField] ?? "").trim();
     if (!value) continue;
     const setting = stack.providers[p.keyField] ?? defaultProviderSetting(p.paid);
+    // OpenRouter routes models, so its cost depends on the model picked here.
+    const cost: KeyCost = !p.paid
+      ? "free-tier"
+      : p.id === "openrouter"
+        ? isFreeRoutedModel(setting.model)
+          ? "free-model"
+          : "paid"
+        : "paid";
     rows.push({
       id: p.keyField,
       provider: p,
@@ -206,7 +215,9 @@ export async function listAllKeys(): Promise<SavedKey[]> {
       state: "ok",
       addedAt: setting.addedAt,
       callsToday: 0,
-      enabled: p.paid ? setting.enabled : true,
+      cost,
+      ...(setting.model ? { model: setting.model } : {}),
+      enabled: cost === "paid" ? setting.enabled : true,
       monthlyCapUsd: setting.monthlyCapUsd,
       spendUsd: setting.spendUsd,
     });
