@@ -247,7 +247,7 @@ export function AiKeysCard({ onChange }: { onChange?: (keys: SavedKey[]) => void
         <p className="text-xs text-muted-foreground">{t.empty}</p>
       ) : (
         <ul className="space-y-1.5">
-          {rows.map((row) => (
+          {rows.map((row, i) => (
             <li key={row.id} className="rounded-lg border border-border bg-background px-3 py-2 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -274,7 +274,7 @@ export function AiKeysCard({ onChange }: { onChange?: (keys: SavedKey[]) => void
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {row.provider.id === "gemini" && (
+              {row.provider.id === "gemini" && i === rows.findIndex((r) => r.provider.id === "gemini") && (
                 <p className="mt-1 text-[11px] text-muted-foreground">{t.geminiNote}</p>
               )}
               {row.cost === "paid" && (
