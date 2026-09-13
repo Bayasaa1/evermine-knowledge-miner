@@ -453,7 +453,8 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   const fileInput = useRef<HTMLInputElement>(null);
 
   // ---- Library step (step 2): saving links, no analysis -------------------
-  const saveMode = mode === "save";
+  const saveMode = mode !== "mine";
+  const mineMode = mode !== "save";
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState<SavedSource[]>([]);
   const [saveNote, setSaveNote] = useState<string | null>(null);
