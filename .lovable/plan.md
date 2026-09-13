@@ -1,70 +1,77 @@
-# Fix the "Add AI key" step: simpler, honest, and actually useful
+# Fix the AI key step: one key list, simpler screen, real control
 
 ## What's wrong today
 
-1. **Too much text.** The step is a wall of paragraphs: a key card, a nine-tile grid, a "what this AI can mine" panel, a hint box, a team box, tips. Most of it is read once and never again.
-2. **Only one key shows.** After the first key is saved, the paste box disappears — there is no way to add a second or third, and saving the same key twice replaces it. That's why three added keys look like one.
-3. **Gemini says "NEEDS KEY" right under "Key tested and saved."** The key card and the AI list use two different storage places, so a working key looks missing.
-4. **No status per key.** No AI name, no remaining free usage, no "this one is used up today".
-5. **No recommendation.** Nothing tells you which AI suits Gaming, Robot, Voice, etc.
-6. **No control over paid keys.** A paid key, once added, is simply live. No on/off, no spending cap.
-7. **No fallback.** When the free Gemini quota runs out, mining just stops instead of moving to another key.
+1. **You can only ever see one key.** After the first Gemini key is saved, the paste box disappears, so a second or third key cannot be added, and re-pasting the same key silently replaces it instead of saying "already added".
+2. **Groq and Mistral keys are invisible.** They are written into a different place (the engine stack) than the Gemini card uses, and they are only ever shown as a small "ready" badge on a tile. There is no list of saved keys anywhere.
+3. **Keys can disappear after sign-in.** Keys are saved per account in the browser only. A key pasted before signing in lands in the signed-out vault; after signing in the app looks in the account vault and the key looks gone. Keys are also not carried to another device or browser — only Gemini is copied to the account today.
+4. **Gemini shows "NEEDS KEY" right under "Key tested and saved"** — same split-storage cause.
+5. **Too much text.** A nine-tile grid plus three explanation panels plus tips, all expanded.
+6. **No status per key**: no name, no "used up today", no usage.
+7. **No recommendation per creation type**, so people pick an AI that cannot do their job.
+8. **No control over paid keys**: no on/off, no spending limit, no fallback when the free Gemini quota runs out.
 
-## The new step 3
+## The new step
 
 One short intro line, then two cards:
 
 ```text
-┌ Your Gemini keys (required, free) ───────────────┐
-│ Key 1  ••••aAog   working   today: 14 of 50 used │
-│ Key 2  ••••7f21   used up · resets in 6h         │
-│ Key 3  ••••be03   working                        │
-│ [+ Add another key]                              │
+┌ My AI keys ──────────────────────────────────────┐
+│ Gemini   Key 1 ••••aAog  working   today: 14 used│
+│ Gemini   Key 2 ••••7f21  used up · resets in 6h  │
+│ Groq     ••••c40a        working          free   │
+│ Mistral  ••••9b12        working          free   │
+│ Claude   ••••1d77        paid   [off] cap $10/mo │
+│ [+ Add a key]                                    │
 └──────────────────────────────────────────────────┘
 
-┌ Extra AI (optional) ─────────────────────────────┐
-│ Recommended for Gaming Mind:  Gemini + Claude    │
-│ [Groq free] [Mistral free] [Claude paid ⏻] ...   │
-│ paid ones: on/off switch + monthly spend cap     │
+┌ Which AI for this creation type ─────────────────┐
+│ Recommended: Gemini + Claude    [Show all]       │
 └──────────────────────────────────────────────────┘
 ```
 
-### 1. Less text
-Every tile keeps one line. The long "what this AI can mine", trade-off and tips blocks collapse into a "Details" link that opens only when tapped. The step intro becomes one sentence.
+### 1. One list of every key
+Every saved key from every provider appears in a single list, with provider name, masked ending, free/paid, state and the date added. Adding a key that is already saved shows "You already added this key" and nothing is overwritten. Delete is per row.
 
-### 2. Multiple keys, visible
-The Add-another-key box stays available after the first key. Each key is listed separately with its own row. A duplicate paste is rejected with "you already added this key" instead of silently replacing.
+### 2. Keys stop vanishing
+- Keys pasted while signed out are carried over to the account vault on the next sign-in instead of being orphaned.
+- All providers (not just Gemini) are saved to the account, so keys follow the creator to another device and background mining can use them.
+- The list reads from one shared source, so what the list shows and what mining uses can never disagree.
 
 ### 3. Short status per key
-Each row shows: name/label, masked ending, state (working / used up / rejected), when it was added, and today's usage counted by the app (requests used today, and time until reset when it's used up). Google does not publish a live quota balance, so the count is Evermind's own tally of calls made with that key — labelled as such, not presented as an official Google number.
+Provider name, masked ending, working / used up / rejected, added date, and today's request count as counted by Evermind (Google does not expose a live balance — it is labelled as our own tally, not an official Google number). When a key is used up, it shows when it resets.
 
 ### 4. Recommendations per purpose
-The chosen creation type puts a "Recommended" badge and a one-line reason on the AIs that fit, and pushes the rest below a "Show all" link:
+The chosen creation type marks the AIs that fit with a one-line reason; everything else hides behind "Show all".
 
 | Creation type | Recommended |
 |---|---|
 | AI Assistant / Knowledge | Gemini alone; Groq for faster free reasoning |
 | Product & Sales | Gemini + ChatGPT (reliable structure over offers and product shots) |
-| Gaming / Player Clone | Gemini (only one that watches continuous gameplay) + Claude for tactics |
+| Gaming / Player Clone | Gemini (only engine that watches continuous gameplay) + Claude for tactics |
 | Voice Calling Agent | Gemini + Groq Whisper for accurate speech and timing |
 | Robot Brain | Gemini (native video) + Claude for spatial reasoning |
 
-Honest note where it matters: for Gaming and Robot, Gemini stays required because it is the only engine that watches the video itself; the recommended partner reasons over what Gemini extracts.
+Gemini stays required for Gaming and Robot because it is the only engine that watches the footage; the partner reasons over what Gemini extracts.
 
-### 5. Paid keys: switch + spend cap
-Every paid provider gets an on/off switch (off by default, even after the key is saved) and a monthly spending cap the creator sets in dollars. Evermind tracks estimated spend per provider from token counts and stops using that key when the cap is reached, showing "Monthly cap reached — raise it or wait". Free providers have no cap field.
+### 5. Paid keys: switch and spending cap
+Each paid provider gets an on/off switch, off by default even after the key is saved, plus a monthly spending cap in dollars. Estimated spend is tracked per provider and that key stops being used at the cap, showing "Monthly cap reached — raise it or wait".
 
 ### 6. Automatic switching
-A fallback order the creator can see and reorder. When a Gemini key hits its daily quota, mining moves to the next Gemini key automatically. If all free keys are used up, it only moves to a paid key when that key's switch is on and its cap allows — otherwise the job pauses with "All free keys are used up; mining resumes after reset" plus a one-tap "use my paid key this time" button. Paid money is never spent silently.
+When a Gemini key hits its daily quota, mining moves to the next Gemini key automatically. If all free keys are used up, it uses a paid key only when that key is switched on and under its cap; otherwise the job pauses with "All free keys are used up; mining resumes after reset" and a one-tap "use my paid key this time". Money is never spent silently.
+
+### 7. Less text
+Each tile keeps one line. Capability, trade-off, limits and tips collapse into a "Details" link. The intro is one sentence.
 
 ## Technical notes
 
-- **Single key store.** `minerReadiness()` in `src/lib/miner-pool.ts` reads `loadStack().keys[keyField]`; for `gemini` it must read the keystore (`bestGeminiKey()` / `loadApiKeys()`), which is where `GeminiKeyCard` writes. `existingKeyFor`/`storeKeyFor` for `gemini` route to `keystore.ts`.
-- **Gemini leaves the pickable grid**: filtered out of `minersForCategory()` for the picker, kept for `findMiner`/`sensePlan`/`DEFAULT_MINER`. Removes the duplicate tile and the "NEEDS KEY" contradiction.
-- **`gemini-key-card.tsx`**: always render the add box (not only when `keys.length === 0`); reject duplicates by `value`; per-key rows show `label`, `maskedTail`, `createdAt`, `state`, `exhaustedAt` countdown and today's usage.
-- **Usage counters**: extend `ApiKeyEntry` in `src/lib/keystore.ts` with `usage: { day: string; calls: number; estCostUsd: number }`, incremented where calls are made (`api-keys.ts` credential picker returns the entry id so callers can report back, or a small `recordKeyUse(id, cost)` helper called from the mining/chat paths).
-- **Paid controls**: engine stack entries gain `enabled: boolean` (default false) and `monthlyCapUsd: number`; `src/lib/engines.ts` `loadStack`/`saveStack` carry them, and credential resolution skips a provider that is off or over cap.
-- **Fallback chain**: a `nextCredential()` helper in `api-keys.ts` walks Gemini keys by state, then enabled paid providers within cap; server side, `src/lib/user-ai.server.ts` already classifies `quota` vs `rate_minute` — on `quota` the caller retries with the next credential instead of failing.
-- **Recommendations**: add `recommendedFor: CreationCategory[]` plus a one-line `why` to each `MinerOption`; the picker sorts recommended first, collapses the rest behind "Show all".
-- **Collapse copy**: move `capability`, `downside`, `limits` and the tips list into a `<details>`-style disclosure; en/mn/ko copy trimmed to one line per tile.
-- No database or schema changes; account-synced keys keep using the existing `user_ai_keys` table (extended to store more than one Gemini row if multi-key account sync is kept).
+- **Single source of truth.** `minerReadiness()`, `existingKeyFor()` and `storeKeyFor()` in `src/lib/miner-pool.ts` use `loadStack()` (engine stack); `GeminiKeyCard` uses `keystore.ts`. Route Gemini through `keystore.ts` in all three, and expose one `listAllKeys()` that merges keystore Gemini entries with engine-stack provider keys for the new list.
+- **Scope carry-over.** `src/lib/user-scope.ts` namespaces IndexedDB per account; on sign-in, migrate `anon:`-scoped `engine-stack` and `gemini-api-keys` records into the new account scope (one-time, only when the account scope is empty).
+- **Account sync for all providers.** `user_ai_keys` currently only accepts `provider: "gemini"` in `src/lib/user-ai-keys.functions.ts`; widen the enum to the supported provider ids and drop the one-row-per-user assumption so multiple Gemini keys sync. Keys are never returned to the client — only provider, masked tail, state and updated_at.
+- **`gemini-key-card.tsx`** becomes the generic key list: always render the add box, provider select, reject duplicates by value, per-row `label`/`maskedTail`/`createdAt`/`state`/reset countdown.
+- **Usage counters**: `ApiKeyEntry` in `src/lib/keystore.ts` gains `usage: { day, calls, estCostUsd }`, incremented by a `recordKeyUse(id, cost)` helper called from the mining and chat paths.
+- **Paid controls**: engine stack entries gain `enabled` (default false) and `monthlyCapUsd`; credential resolution skips a provider that is off or over cap.
+- **Fallback chain**: `nextCredential()` in `src/lib/api-keys.ts` walks Gemini keys by state, then enabled paid providers within cap. `src/lib/user-ai.server.ts` already separates `quota` from `rate_minute`; on `quota` the caller retries with the next credential.
+- **Gemini leaves the pickable grid** (kept for `findMiner`/`sensePlan`/`DEFAULT_MINER`), removing the duplicate tile and the "NEEDS KEY" contradiction.
+- **Recommendations**: `MinerOption` gains `recommendedFor: CreationCategory[]` and a one-line `why`; the picker sorts recommended first and collapses the rest.
+- One small migration to widen the `user_ai_keys` provider constraint and allow multiple rows per provider; existing RLS and grants stay owner-only.
