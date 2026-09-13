@@ -531,7 +531,7 @@ export function AiKeysCard({
                   {standby} {t.standby}
                 </span>
               )}
-              {active.length === 1 && standby === 0 && (
+              {active.length === 1 && active[0]?.provider.id === "gemini" && (
                 <span className="ml-1 text-muted-foreground">{t.teamNone}</span>
               )}
             </p>
