@@ -14,20 +14,21 @@ function isFresh(k: ApiKeyEntry): boolean {
   return k.state === "ok" || (k.state === "exhausted" && isNextDay(k.exhaustedAt));
 }
 
-/** First healthy Gemini key in the signed-in account's vault, if any. */
+/** The highest-ranked healthy Gemini key in the signed-in account's vault. */
 export async function bestGeminiKey(): Promise<string | null> {
   try {
-    const keys = await loadApiKeys();
-    return keys.filter(isFresh)[0]?.value ?? null;
+    return (await geminiKeyChain())[0]?.value ?? null;
   } catch {
     return null;
   }
 }
 
-/** Every healthy Gemini key, in fallback order. */
+/** Every healthy Gemini key, in the creator's chosen fallback order. */
 export async function geminiKeyChain(): Promise<ApiKeyEntry[]> {
   try {
-    return (await loadApiKeys()).filter(isFresh);
+    return (await loadApiKeys())
+      .filter(isFresh)
+      .sort((a, b) => (a.rank ?? 9000) - (b.rank ?? 9000) || a.createdAt - b.createdAt);
   } catch {
     return [];
   }
@@ -83,26 +84,23 @@ export async function hasAnyCredential(): Promise<boolean> {
 }
 
 /**
- * The ordered list of credentials to try for one job: healthy Gemini keys
- * first, then paid providers the creator switched on and that are under their
- * monthly cap.
+ * The credentials to try for one job, in the creator's own order: #1 first,
+ * then #2 and so on. A Gemini key that is out of quota, or a paid key that is
+ * switched off or over its cap, is skipped and the next one takes over.
  */
 export async function credentialChain(): Promise<{ provider: string; keyField: string; apiKey: string }[]> {
-  const chain: { provider: string; keyField: string; apiKey: string }[] = [];
-  for (const k of await geminiKeyChain()) {
-    chain.push({ provider: "gemini", keyField: "GEMINI_API_KEY", apiKey: k.value });
-  }
   try {
-    const { listAllKeys, providerUsable } = await import("@/lib/key-manager");
-    const { loadStack } = await import("@/lib/engines");
-    const stack = await loadStack();
-    for (const row of await listAllKeys()) {
-      if (row.provider.id === "gemini" || !providerUsable(row)) continue;
-      const value = stack.keys[row.provider.keyField];
-      if (value) chain.push({ provider: row.provider.id, keyField: row.provider.keyField, apiKey: value });
-    }
+    const { rankedCredentials } = await import("@/lib/key-manager");
+    const fresh = new Set((await geminiKeyChain()).map((k) => k.value));
+    const chain = await rankedCredentials();
+    const usable = chain.filter((c) => c.provider !== "gemini" || fresh.has(c.apiKey));
+    if (usable.length) return usable.map(({ provider, keyField, apiKey }) => ({ provider, keyField, apiKey }));
   } catch {
-    /* provider stack unavailable — Gemini chain still applies */
+    /* provider stack unavailable — fall back to the Gemini chain below */
   }
-  return chain;
+  return (await geminiKeyChain()).map((k) => ({
+    provider: "gemini",
+    keyField: "GEMINI_API_KEY",
+    apiKey: k.value,
+  }));
 }

@@ -205,6 +205,11 @@ export type ProviderSetting = {
   addedAt: number;
   /** Routed model, for providers where the model decides free vs paid. */
   model?: string;
+  /** Position in the fallback order (#1 is tried first). */
+  rank?: number;
+  /** Custom provider only: OpenAI-compatible endpoint and display name. */
+  endpoint?: string;
+  label?: string;
 };
 
 export type EngineStack = {
@@ -268,6 +273,9 @@ export function normalizeStack(raw: unknown): EngineStack {
         month: sameMonth ? month : monthStamp(),
         addedAt: typeof p['addedAt'] === "number" ? p['addedAt'] : Date.now(),
         ...(typeof p['model'] === "string" && p['model'] ? { model: p['model'] } : {}),
+        ...(typeof p['rank'] === "number" ? { rank: p['rank'] } : {}),
+        ...(typeof p['endpoint'] === "string" && p['endpoint'] ? { endpoint: p['endpoint'] } : {}),
+        ...(typeof p['label'] === "string" && p['label'] ? { label: p['label'] } : {}),
       };
     }
   }

@@ -23,6 +23,8 @@ export type ApiKeyEntry = {
   exhaustedAt?: number;
   /** Evermind's own tally of calls made with this key today (not a Google figure). */
   usage?: { day: string; calls: number };
+  /** Position in the fallback order (#1 is tried first). */
+  rank?: number;
 };
 
 /** Local calendar day stamp used for the per-key daily tally. */
@@ -65,6 +67,8 @@ function normalize(raw: unknown): ApiKeyEntry[] {
         lastStatus: e['lastStatus'] === "invalid" || e['lastStatus'] === "limited" ? e['lastStatus'] : "working",
         state: state === "invalid" || state === "exhausted" ? state : "ok",
         ...(typeof e['exhaustedAt'] === "number" ? { exhaustedAt: e['exhaustedAt'] } : {}),
+        ...(typeof e['usage'] === "object" && e['usage'] !== null ? { usage: e['usage'] } : {}),
+        ...(typeof e['rank'] === "number" ? { rank: e['rank'] } : {}),
       } as ApiKeyEntry;
     })
     .filter((k): k is ApiKeyEntry => k !== null);
