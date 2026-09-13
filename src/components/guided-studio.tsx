@@ -81,7 +81,7 @@ import {
 import { activePersona, getPersona } from "@/lib/personas";
 import { youtubeId } from "@/lib/import-sources";
 import {
-  DEFAULT_ASSESSMENT,
+  defaultAssessmentFor,
   formatDuration,
   formatPublishedDate,
   type Assessment,
