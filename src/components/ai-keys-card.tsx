@@ -780,6 +780,11 @@ export function AiKeysCard({
                     <li key={p.id} className="flex items-center gap-2">
                       <span className="flex-1">
                         <span className="text-xs font-medium text-foreground">{p.label}</span>
+                        <span
+                          className={`ml-1.5 rounded px-1 py-px text-[10px] font-semibold uppercase ${p.paid ? "bg-amber-500/15 text-amber-500" : "bg-emerald-500/15 text-emerald-500"}`}
+                        >
+                          {p.paid ? t.paidTag : t.freeTag}
+                        </span>
                         <span className="ml-1.5 text-[11px] text-muted-foreground">{p.good}</span>
                       </span>
                       <button
