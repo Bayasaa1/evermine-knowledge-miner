@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
-import { adviceFor } from "@/lib/key-advice";
+import { adviceFor, recommendationFor, type RecLevel } from "@/lib/key-advice";
 import { saveUserAiKey, deleteUserAiKey } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
@@ -36,6 +36,7 @@ import {
   removeKey,
   setProviderCap,
   setProviderEnabled,
+  testModelsFor,
   type ProviderId,
   type ProviderInfo,
   type SavedKey,
