@@ -144,6 +144,24 @@ async function raiseForGemini(res: Response): Promise<never> {
   throw new GeminiHttpError(res.status, detail || `Gemini request failed (${res.status}).`);
 }
 
+/**
+ * Runs a Gemini call once, and when the answer is a per-MINUTE 429, waits the
+ * delay Gemini asked for (capped) and retries exactly once. Daily-quota and
+ * credential errors are never retried.
+ */
+export async function withMinuteRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof UserAiError && err.code === "rate_minute") {
+      const wait = Math.min(30_000, Math.max(3_000, err.retryAfterSec * 1000));
+      await new Promise((r) => setTimeout(r, wait));
+      return await fn();
+    }
+    throw err;
+  }
+}
+
 export type GeminiPart =
   | { text: string }
   | { inline_data: { mime_type: string; data: string } }
