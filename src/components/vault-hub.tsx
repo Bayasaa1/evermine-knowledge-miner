@@ -520,12 +520,12 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   };
 
 
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({
-    queryKey: ["mining-jobs"],
+    queryKey: ["mining-jobs", userId],
     queryFn: () => fetchJobs(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && Boolean(userId),
   });
 
   const mindIds = useMemo(() => [...new Set(items.map((i) => i.mind_id).filter(Boolean))], [items]);
