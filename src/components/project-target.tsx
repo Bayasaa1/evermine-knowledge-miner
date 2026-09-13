@@ -254,15 +254,35 @@ export function ProjectTargetPicker({
 
   const personaChosen = Boolean(value.personaId);
 
+  // Once a destination is picked the whole picker folds into one quiet line,
+  // so the video step is not three stacked forms.
+  if (isTargetReady(value) && !expanded) {
+    const personaName = personas.find((p) => p.id === value.personaId)?.name ?? "";
+    const projectName = allProjects.find((p) => p.id === value.projectId)?.title ?? "";
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+        <span className="text-muted-foreground">{t.filed}:</span>
+        <span className="font-medium text-foreground">
+          {personaName} › {projectName}
+        </span>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t.change}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="text-sm font-semibold text-foreground">{t.title}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{t.sub}</p>
 
-      {/* ---- Step 2A: persona ---- */}
+      {/* ---- Who is posting ---- */}
       <p className="mt-5 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepA}</p>
-      <p className="mt-1 text-sm font-medium text-foreground">{t.personaQ}</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{t.personaSub}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{t.personaQ}</p>
 
       {personasLoading ? (
         <Loader2 className="mt-3 h-4 w-4 animate-spin text-muted-foreground" />
