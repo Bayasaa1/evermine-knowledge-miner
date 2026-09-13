@@ -243,7 +243,6 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
         <StepShell title={t("step3Title")} sub={t("step3Sub")}>
           <div className="space-y-4">
             <AiKeysCard category={category} />
-            <SetupTips lang={lang} />
           </div>
         </StepShell>
       )}
@@ -355,15 +354,6 @@ function StepAccount({ lang }: { lang: Lang }) {
       )}
     </div>
   );
-}
-
-function SetupTips({ lang }: { lang: Lang }) {
-  const tips = pickCopy({
-    en: ["Start with Gemini only and one short public video.", "Extra AI providers improve specialist reasoning; they can also add time and cost.", "Extra Gemini keys from the same Google Cloud project do not add quota.", "Qwen and Llama analyze selected still frames, not continuous video.", "Voice mining learns from audio; live two-way calling needs a separate Live API setup."],
-    mn: ["Эхлээд зөвхөн Gemini болон нэг богино public видео ашиглаарай.", "Нэмэлт AI нь тусгай дүгнэлтийг сайжруулдаг ч хугацаа, зардал нэмнэ.", "Нэг Google Cloud төслийн нэмэлт Gemini түлхүүрүүд квот нэмэхгүй.", "Qwen, Llama нь тасралтгүй видео биш, сонгосон кадрыг шинжилнэ.", "Дууны олборлолт аудиогоос сурна; шууд хоёр талын дуудлагад тусдаа Live API хэрэгтэй."],
-    ko: ["Gemini 하나와 짧은 공개 영상 하나로 시작하세요.", "추가 AI는 전문 추론을 개선하지만 시간과 비용이 늘 수 있습니다.", "같은 Google Cloud 프로젝트의 Gemini 키를 늘려도 할당량은 늘지 않습니다.", "Qwen과 Llama는 연속 영상이 아닌 선택된 정지 프레임을 분석합니다.", "음성 마이닝은 오디오에서 학습하며 실시간 양방향 통화는 별도 Live API 설정이 필요합니다."],
-  }, lang);
-  return <div className="rounded-lg border border-border bg-muted/30 p-4"><p className="text-sm font-semibold text-foreground">{pickCopy({ en: "Tips for smooth, fast setup", mn: "Хурдан, тогтвортой ажиллуулах зөвлөмж", ko: "빠르고 안정적인 설정 팁" }, lang)}</p><ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">{tips.map((tip) => <li key={tip}>• {tip}</li>)}</ul></div>;
 }
 
 /**
