@@ -560,8 +560,14 @@ export function AiKeysCard({
                     provider === p.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
                   }`}
                 >
-                  <span className="block text-xs font-medium text-foreground">{p.label}</span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-medium text-foreground">{p.label}</span>
+                    <RecBadge category={category} providerId={p.id} lang={lang} />
+                  </span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground">{p.good}</span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
+                    {recommendationFor(category, p.id, lang).reason}
+                  </span>
                 </button>
               ))}
             </div>
