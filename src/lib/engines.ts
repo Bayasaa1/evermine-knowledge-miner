@@ -203,6 +203,8 @@ export type ProviderSetting = {
   month: string;
   /** When the key was saved on this device. */
   addedAt: number;
+  /** Routed model, for providers where the model decides free vs paid. */
+  model?: string;
 };
 
 export type EngineStack = {
@@ -265,6 +267,7 @@ export function normalizeStack(raw: unknown): EngineStack {
         spendUsd: sameMonth && typeof p['spendUsd'] === "number" ? p['spendUsd'] : 0,
         month: sameMonth ? month : monthStamp(),
         addedAt: typeof p['addedAt'] === "number" ? p['addedAt'] : Date.now(),
+        ...(typeof p['model'] === "string" && p['model'] ? { model: p['model'] } : {}),
       };
     }
   }

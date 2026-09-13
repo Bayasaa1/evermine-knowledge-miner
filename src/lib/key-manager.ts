@@ -139,6 +139,13 @@ export function providerForKeyField(keyField: string): ProviderInfo | undefined 
   return PROVIDERS.find((p) => p.keyField === keyField);
 }
 
+/**
+ * What this key costs *the way it is used here* — not what the company is
+ * known for. OpenRouter on a free model is free, and saying "paid" would be
+ * a lie that also switches the key off.
+ */
+export type KeyCost = "free-tier" | "free-model" | "paid";
+
 export type SavedKey = {
   /** Stable row id: keystore entry id for Gemini, key field for the rest. */
   id: string;
@@ -148,13 +155,22 @@ export type SavedKey = {
   addedAt: number;
   /** Calls made with this key today, counted by Evermind. */
   callsToday: number;
-  /** Paid providers only. */
+  /** What this key actually costs as configured. */
+  cost: KeyCost;
+  /** Model this key is routed to, when the provider routes models. */
+  model?: string;
+  /** Paid use only. */
   enabled: boolean;
   monthlyCapUsd: number;
   spendUsd: number;
   /** Epoch ms the free quota was hit, so the UI can show a reset countdown. */
   exhaustedAt?: number;
 };
+
+/** OpenRouter model ids that cost nothing. Everything else bills the creator. */
+export function isFreeRoutedModel(model: string | undefined): boolean {
+  return !model || model.endsWith(":free");
+}
 
 const GEMINI = PROVIDERS[0]!;
 
@@ -167,6 +183,7 @@ function fromGeminiEntry(k: ApiKeyEntry): SavedKey {
     state: k.state,
     addedAt: k.createdAt,
     callsToday: k.usage?.day === today ? k.usage.calls : 0,
+    cost: "free-tier",
     enabled: true,
     monthlyCapUsd: 0,
     spendUsd: 0,
@@ -183,6 +200,14 @@ export async function listAllKeys(): Promise<SavedKey[]> {
     const value = (stack.keys[p.keyField] ?? "").trim();
     if (!value) continue;
     const setting = stack.providers[p.keyField] ?? defaultProviderSetting(p.paid);
+    // OpenRouter routes models, so its cost depends on the model picked here.
+    const cost: KeyCost = !p.paid
+      ? "free-tier"
+      : p.id === "openrouter"
+        ? isFreeRoutedModel(setting.model)
+          ? "free-model"
+          : "paid"
+        : "paid";
     rows.push({
       id: p.keyField,
       provider: p,
@@ -190,7 +215,9 @@ export async function listAllKeys(): Promise<SavedKey[]> {
       state: "ok",
       addedAt: setting.addedAt,
       callsToday: 0,
-      enabled: p.paid ? setting.enabled : true,
+      cost,
+      ...(setting.model ? { model: setting.model } : {}),
+      enabled: cost === "paid" ? setting.enabled : true,
       monthlyCapUsd: setting.monthlyCapUsd,
       spendUsd: setting.spendUsd,
     });
@@ -260,6 +287,11 @@ export async function setProviderCap(keyField: string, monthlyCapUsd: number): P
   await patchProvider(keyField, { monthlyCapUsd: Math.max(0, Math.min(10_000, monthlyCapUsd)) });
 }
 
+/** Remembers which model this key routes to, so free stays free. */
+export async function setProviderModel(keyField: string, model: string): Promise<void> {
+  await patchProvider(keyField, { model });
+}
+
 /** Adds estimated spend for a paid provider and keeps it inside the month it belongs to. */
 export async function recordProviderSpend(keyField: string, usd: number): Promise<void> {
   const stack = await loadStack();
@@ -272,8 +304,12 @@ export async function recordProviderSpend(keyField: string, usd: number): Promis
   });
 }
 
-/** True when this paid provider may be used right now (switched on, under cap). */
+/**
+ * True when this key may be used right now. A free tier or a free routed
+ * model is always usable — only genuinely paid use waits for the switch and
+ * the monthly cap.
+ */
 export function providerUsable(row: SavedKey): boolean {
-  if (!row.provider.paid) return true;
+  if (row.cost !== "paid") return true;
   return row.enabled && row.spendUsd < row.monthlyCapUsd;
 }
