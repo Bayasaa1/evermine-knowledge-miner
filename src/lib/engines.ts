@@ -273,6 +273,9 @@ export function normalizeStack(raw: unknown): EngineStack {
         month: sameMonth ? month : monthStamp(),
         addedAt: typeof p['addedAt'] === "number" ? p['addedAt'] : Date.now(),
         ...(typeof p['model'] === "string" && p['model'] ? { model: p['model'] } : {}),
+        ...(typeof p['rank'] === "number" ? { rank: p['rank'] } : {}),
+        ...(typeof p['endpoint'] === "string" && p['endpoint'] ? { endpoint: p['endpoint'] } : {}),
+        ...(typeof p['label'] === "string" && p['label'] ? { label: p['label'] } : {}),
       };
     }
   }
