@@ -494,6 +494,10 @@ export function AiKeysCard({
                   </button>
                 </span>
               </div>
+              {row.rank > 2 &&
+                recommendationFor(category, row.provider.id, lang).level === "recommended" && (
+                  <p className="mt-1 pl-8 text-[11px] text-emerald-500">{t.moveHint}</p>
+                )}
               {row.cost === "paid" && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">
                   <button
