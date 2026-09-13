@@ -15,18 +15,13 @@
  */
 import type { ChunkResult } from "./gemini";
 import { recordUsage, readTokens } from "./token-usage";
-import {
-  existingKeyFor,
-  findMiner,
-  isTeamEligible,
-  sensePlan,
-  type MinerChoice,
-  type MinerId,
-  type MinerOption,
-} from "./miner-pool";
+import { findProviderInfo, rankedCredentials, type Credential } from "./key-manager";
+
+/** How many saved keys think over one chunk — keeps mining fast and cheap. */
+const MAX_THINKERS = 2;
 
 export type ThinkerReport = {
-  id: MinerId;
+  id: string;
   label: string;
   status: "ok" | "skipped" | "failed";
   detail: string;
