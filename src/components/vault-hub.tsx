@@ -521,7 +521,6 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   };
 
 
-  const { isAuthenticated, userId } = useAuth();
   const fetchJobs = useServerFn(listMiningJobs);
   const { data: jobs = [] } = useQuery({
     queryKey: ["mining-jobs", userId],

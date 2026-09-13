@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useAuth } from "@/hooks/use-auth";
 import { AudioLines, Brain, Code2, FileJson, Loader2, Move3d, Smile, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
