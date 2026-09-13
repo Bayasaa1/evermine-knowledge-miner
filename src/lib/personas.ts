@@ -5,6 +5,7 @@
  * name and avatar on the public feed.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
 
 export type Persona = {
   id: string;

@@ -6,6 +6,7 @@
  *                    appears in the public feed.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
 import type { Json } from "@/integrations/supabase/types";
 import type { CreationCategory } from "@/lib/creation-category";
 
