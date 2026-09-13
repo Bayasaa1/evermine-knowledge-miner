@@ -43,7 +43,7 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
-import { CATEGORY_LABELS, getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
+import { getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { loadApiKeys } from "@/lib/keystore";
