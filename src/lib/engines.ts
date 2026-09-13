@@ -205,6 +205,11 @@ export type ProviderSetting = {
   addedAt: number;
   /** Routed model, for providers where the model decides free vs paid. */
   model?: string;
+  /** Position in the fallback order (#1 is tried first). */
+  rank?: number;
+  /** Custom provider only: OpenAI-compatible endpoint and display name. */
+  endpoint?: string;
+  label?: string;
 };
 
 export type EngineStack = {
