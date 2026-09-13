@@ -87,4 +87,5 @@ export const translateTexts = createServerFn({ method: "POST" })
       }
       return { texts: data.texts };
     }
-  });
+  },
+  );
