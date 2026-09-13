@@ -468,9 +468,10 @@ const VALID_SENSES = new Set<Sense>(["text", "image", "audio", "video"]);
 
 export async function loadMinerChoice(): Promise<MinerChoice> {
   await whenScopeReady();
-  const raw =
-    (await idbGet<unknown>(STORES.SETTINGS, MINER_KEY())) ??
-    (MINER_KEY() === "anon:miner-choice" ? null : await idbGet<unknown>(STORES.SETTINGS, "anon:miner-choice"));
+  // Read this account's choice only — never the signed-out one, which would
+  // leak a previous person's setup to the next account on the same browser.
+  const raw = await idbGet<unknown>(STORES.SETTINGS, MINER_KEY());
+
   if (typeof raw !== "object" || raw === null) return DEFAULT_MINER;
   const v = raw as Record<string, unknown>;
   const c = (v['custom'] ?? {}) as Record<string, unknown>;

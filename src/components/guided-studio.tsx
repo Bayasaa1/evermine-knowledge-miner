@@ -9,6 +9,7 @@
  * banner with a Retry button — never a raw log line.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { scopedKey } from "@/lib/user-scope";
 import { useNavigate } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -851,7 +852,7 @@ function StepUpload({
       } catch {
         /* stage-1 result stands on its own */
       }
-      await idbSet(STORES.SESSION, "guided-last-mine", {
+      await idbSet(STORES.SESSION, scopedKey("guided-last-mine"), {
         source: source.label,
         minedAt: Date.now(),
         result: mined,

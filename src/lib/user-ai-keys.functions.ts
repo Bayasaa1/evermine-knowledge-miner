@@ -29,24 +29,27 @@ const PROVIDER = z.enum([
 ]);
 
 async function verifyGeminiKey(apiKey: string): Promise<void> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: "Say OK." }] }],
-        generationConfig: { maxOutputTokens: 4 },
-      }),
-    },
-  );
-  if (res.status === 429) {
+  // Which models a Google account can call varies, so confirm the key by asking
+  // the account for its own model list before trying one of them.
+  const list = await fetch("https://generativelanguage.googleapis.com/v1beta/models", {
+    headers: { "x-goog-api-key": apiKey },
+  });
+  if (list.status === 429) {
     throw new Error("That key works, but its free quota is used up for today. Try it again after the daily reset.");
   }
-  if (!res.ok) {
-    throw new Error("Gemini rejected that key. Copy it again from Google AI Studio — it is free and takes a minute.");
+  if (list.ok) {
+    const body = (await list.json().catch(() => ({}))) as {
+      models?: { name?: string; supportedGenerationMethods?: string[] }[];
+    };
+    const usable = (body.models ?? []).some((m) => (m.supportedGenerationMethods ?? []).includes("generateContent"));
+    if (usable) return;
+    throw new Error(
+      "That key is valid, but this Google account has no text models enabled yet. Create the key in Google AI Studio and try again.",
+    );
   }
+  throw new Error("Gemini rejected that key. Copy it again from Google AI Studio — it is free and takes a minute.");
 }
+
 
 export const saveUserAiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

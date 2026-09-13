@@ -4,6 +4,7 @@
  * channel at the moment they withdraw.
  */
 import { idbGet, idbSet, STORES } from "./store";
+import { scopedKey } from "./user-scope";
 
 export type PayoutChannel = "stripe" | "paypal" | "crypto" | "bank";
 
@@ -72,14 +73,14 @@ export function maskDestination(destination: string): string {
   return `${v.slice(0, 4)}••••${v.slice(-4)}`;
 }
 
-const KEY = "payout-settings";
+const KEY = () => scopedKey("payout-settings");
 
 export async function loadPayoutSettings(): Promise<PayoutSettings> {
-  return normalizePayoutSettings(await idbGet<unknown>(STORES.SETTINGS, KEY));
+  return normalizePayoutSettings(await idbGet<unknown>(STORES.SETTINGS, KEY()));
 }
 
 export async function savePayoutSettings(s: PayoutSettings): Promise<void> {
-  await idbSet(STORES.SETTINGS, KEY, s);
+  await idbSet(STORES.SETTINGS, KEY(), s);
 }
 
 export async function connectPayoutMethod(

@@ -3,6 +3,7 @@
  * derived from mined video, plus the simulated ROS 2 / Robot Mind export toggle.
  */
 import { idbGet, idbSet, STORES } from "./store";
+import { scopedKey } from "./user-scope";
 import type { ChunkResult, FaceFrame } from "./gemini";
 
 export type Vec3 = { x: number; y: number; z: number };
@@ -54,14 +55,14 @@ export function normalizeEmbodiedSettings(raw: unknown): EmbodiedSettings {
   };
 }
 
-const KEY = "embodied-settings";
+const KEY = () => scopedKey("embodied-settings");
 
 export async function loadEmbodiedSettings(): Promise<EmbodiedSettings> {
-  return normalizeEmbodiedSettings(await idbGet<unknown>(STORES.SETTINGS, KEY));
+  return normalizeEmbodiedSettings(await idbGet<unknown>(STORES.SETTINGS, KEY()));
 }
 
 export async function saveEmbodiedSettings(s: EmbodiedSettings): Promise<void> {
-  await idbSet(STORES.SETTINGS, KEY, s);
+  await idbSet(STORES.SETTINGS, KEY(), s);
 }
 
 /** "1:05" / "65" / "1:02:03" → seconds. */
