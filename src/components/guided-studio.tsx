@@ -242,12 +242,14 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 3 && (
         <StepShell title={t("step3Title")} sub={t("step3Sub")}>
           <div className="space-y-4">
+            <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
             <AiKeysCard category={category} />
           </div>
         </StepShell>
       )}
       {step === 4 && (
         <div className="space-y-8">
+          <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
           <StepUpload lang={lang} mode="save" />
           <StepUpload lang={lang} mode="mine" />
         </div>
