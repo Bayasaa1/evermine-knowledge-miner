@@ -563,7 +563,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
   // Mine mode: preselect the newest saved video so Start mining is usable at once.
   // A batch ticked in Saved Minds (or an Auditor fix) wins — those arrive selected.
   useEffect(() => {
-    if (saveMode || pickedSourceId || pendingSources.length === 0) return;
+    if (!mineMode || mode === "both" || pickedSourceId || pendingSources.length === 0) return;
     const handed = handoff.ids.filter((id) => pendingSources.some((p) => p.id === id));
     const ai: Record<string, MinerId> = {};
     for (const [id, m] of Object.entries(handoff.ai)) {
