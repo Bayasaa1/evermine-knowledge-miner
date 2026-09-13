@@ -169,24 +169,12 @@ function parseThinkerJson(text: string): ThinkerOutput {
   };
 }
 
-/** Runs one thinking AI over the stage-1 material. */
-async function thinkWith(
-  id: MinerId,
-  opt: MinerOption,
-  choice: MinerChoice,
-  brief: string,
-  signal?: AbortSignal,
-): Promise<ThinkerOutput> {
-  if (id === "custom") {
-    const key = await existingKeyFor("custom");
-    if (!key || !choice.custom.endpoint.trim()) throw new Error("no key or endpoint");
-    return thinkOpenAICompatible("custom", choice.custom.endpoint, key, choice.custom.model || "gpt-4o-mini", brief, signal);
-  }
-  const key = await existingKeyFor(id);
-  if (!key) throw new Error("no key");
-  if (id === "claude") return thinkClaude(key, brief, signal);
-  if (id === "gemini") return thinkGemini(key, brief, signal);
-  return thinkOpenAICompatible(id, opt.baseUrl, key, opt.testModel, brief, signal);
+/** Runs one thinking AI over the stage-1 material, using a saved key. */
+async function thinkWith(cred: Credential, brief: string, signal?: AbortSignal): Promise<ThinkerOutput> {
+  if (cred.provider === "anthropic") return thinkClaude(cred.apiKey, brief, signal);
+  if (cred.provider === "gemini") return thinkGemini(cred.apiKey, brief, signal);
+  if (!cred.baseUrl) throw new Error("no endpoint set for this AI");
+  return thinkOpenAICompatible(cred.provider, cred.baseUrl, cred.apiKey, cred.model, brief, signal);
 }
 
 function dedupe(list: string[]): string[] {
