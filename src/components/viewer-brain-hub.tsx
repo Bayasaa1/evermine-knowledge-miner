@@ -32,7 +32,7 @@ export function ViewerBrainHub() {
   const share = useServerFn(setBrainSharing);
   const erase = useServerFn(eraseBrain);
   const [brains, setBrains] = useState<Awaited<ReturnType<typeof load>>>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
