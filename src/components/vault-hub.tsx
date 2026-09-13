@@ -505,14 +505,17 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   const [tab, setTab] = useState<Tab>("VISUAL_CONTENT");
   const { isAuthenticated, userId } = useAuth();
 
+  // Nothing loads — and no edit or delete control appears — until we know who
+  // is signed in.
   const { data: items = [], isLoading: loading } = useQuery<ProjectContent[]>({
     queryKey: ["project-content", userId, project.id],
     queryFn: () => listProjectContent(project.id),
+    enabled: isAuthenticated && Boolean(userId),
   });
 
   // Any mutation refreshes content, the Core Brain and the public feed together.
   const load = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["project-content", project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["project-content", userId, project.id] });
     await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
     await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
     await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
