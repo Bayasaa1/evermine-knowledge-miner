@@ -880,7 +880,7 @@ function StepUpload({ lang, mode }: { lang: Lang; mode: "save" | "mine" }) {
       });
       return await persist(mined, source, minedByAi);
     },
-    [persist, miner, perVideo, pendingSources],
+    [persist],
   );
 
 
