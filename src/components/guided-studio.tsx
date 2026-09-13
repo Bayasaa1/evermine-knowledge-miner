@@ -255,8 +255,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 4 && (
         <div className="space-y-8">
           <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
-          <StepUpload lang={lang} mode="save" />
-          <StepUpload lang={lang} mode="mine" />
+          <StepUpload lang={lang} mode="both" category={category} />
         </div>
       )}
       {step === 5 && (
