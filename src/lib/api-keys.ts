@@ -1,11 +1,9 @@
 /**
  * Client-side credential picker. Every API call the app makes carries the
- * user's own AI access: first a healthy Gemini key from their device vault,
- * otherwise their Google sign-in token. Nothing ever rides on shared platform
- * credit.
+ * user's own AI access from their device vault. Google sign-in authenticates
+ * the Evermind account; it does not grant Gemini API access.
  */
 import { loadApiKeys } from "@/lib/keystore";
-import { getGeminiAccessToken } from "@/lib/google-gemini-auth";
 
 /** First healthy Gemini key in the signed-in account's vault, if any. */
 export async function bestGeminiKey(): Promise<string | null> {
@@ -25,26 +23,13 @@ function isNextDay(exhaustedAt?: number): boolean {
   return Date.now() > reset.getTime();
 }
 
-/** The Google session token, when the user signed in with the Gemini scope. */
-export async function googleToken(): Promise<string | null> {
-  try {
-    return await getGeminiAccessToken();
-  } catch {
-    return null;
-  }
-}
-
 /** Credentials to merge into an API request body. */
-export async function credentialPayload(): Promise<{ apiKey?: string; googleToken?: string }> {
-  const [key, token] = await Promise.all([bestGeminiKey(), googleToken()]);
-  return {
-    ...(key ? { apiKey: key } : {}),
-    ...(token ? { googleToken: token } : {}),
-  };
+export async function credentialPayload(): Promise<{ apiKey?: string }> {
+  const key = await bestGeminiKey();
+  return key ? { apiKey: key } : {};
 }
 
 /** True when this browser has any working AI access of its own. */
 export async function hasAnyCredential(): Promise<boolean> {
-  const [key, token] = await Promise.all([bestGeminiKey(), googleToken()]);
-  return !!(key || token);
+  return !!(await bestGeminiKey());
 }

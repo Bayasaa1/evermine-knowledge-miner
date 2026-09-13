@@ -13,6 +13,10 @@ export type ApiKeyEntry = {
   /** The raw Gemini API key — never leaves this device. */
   value: string;
   label: string;
+  /** Safe metadata used by the key list; the raw value is never rendered. */
+  maskedTail: string;
+  createdAt: number;
+  lastStatus: "working" | "invalid" | "limited";
   /** "ok" | "invalid" | "exhausted" (429 / quota) */
   state: "ok" | "invalid" | "exhausted";
   /** Epoch ms when the key hit its quota, so the UI can show a cooldown. */
@@ -25,10 +29,14 @@ export function maskKey(value: string): string {
 }
 
 export function makeKeyEntry(value: string, label?: string): ApiKeyEntry {
+  const clean = value.trim();
   return {
     id: `k_${Math.random().toString(36).slice(2, 10)}`,
-    value: value.trim(),
-    label: label?.trim() || maskKey(value.trim()),
+    value: clean,
+    label: label?.trim() || "Gemini key",
+    maskedTail: clean.slice(-4),
+    createdAt: Date.now(),
+    lastStatus: "working",
     state: "ok",
   };
 }
@@ -45,6 +53,9 @@ function normalize(raw: unknown): ApiKeyEntry[] {
         id: typeof e['id'] === "string" ? e['id'] : `k_${Math.random().toString(36).slice(2, 10)}`,
         value,
         label: typeof e['label'] === "string" && e['label'] ? e['label'] : maskKey(value),
+        maskedTail: typeof e['maskedTail'] === "string" ? e['maskedTail'] : value.slice(-4),
+        createdAt: typeof e['createdAt'] === "number" ? e['createdAt'] : Date.now(),
+        lastStatus: e['lastStatus'] === "invalid" || e['lastStatus'] === "limited" ? e['lastStatus'] : "working",
         state: state === "invalid" || state === "exhausted" ? state : "ok",
         ...(typeof e['exhaustedAt'] === "number" ? { exhaustedAt: e['exhaustedAt'] } : {}),
       } as ApiKeyEntry;
