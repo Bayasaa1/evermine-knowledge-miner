@@ -715,7 +715,40 @@ export function AiKeysCard({
           )}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-2">
+          {/* Best partners for this creation type that are not saved yet. */}
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <p className="text-xs font-semibold text-foreground">{t.teamTitle}</p>
+            {suggestions.length === 0 ? (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{t.teamAllSet}</p>
+            ) : (
+              <>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{t.teamSub}</p>
+                <ul className="mt-2 space-y-1.5">
+                  {suggestions.map((p) => (
+                    <li key={p.id} className="flex items-center gap-2">
+                      <span className="flex-1">
+                        <span className="text-xs font-medium text-foreground">{p.label}</span>
+                        <span className="ml-1.5 text-[11px] text-muted-foreground">{p.good}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingTop(true);
+                          openMode(p.paid ? "paid" : "free");
+                          setProvider(p.id);
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20"
+                      >
+                        <Plus className="h-3 w-3" /> {t.teamAdd}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => openMode("free")}
