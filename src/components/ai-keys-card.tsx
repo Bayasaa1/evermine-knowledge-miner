@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
-import { adviceFor, recommendationFor, type RecLevel } from "@/lib/key-advice";
+import { adviceFor, recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
 import { saveUserAiKey, deleteUserAiKey } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
@@ -88,6 +88,11 @@ const COPY = {
     errLimit: "Too many requests right now. Wait a moment and try again.",
     errNet: "Could not reach that service from your browser.",
     moveHint: "Recommended for what you picked — move it up to #2.",
+    teamTitle: "Suggested teammates",
+    teamSub: "Best partners for what you picked that you have not added yet.",
+    teamAdd: "Add",
+    teamAllSet: "You already have every AI we would suggest for this.",
+    tapHint: "Tap a label to see what it means.",
   },
   mn: {
     title: "Миний AI түлхүүрүүд",
@@ -134,6 +139,11 @@ const COPY = {
     errLimit: "Хэт олон хүсэлт. Түр хүлээгээд дахин оролдоно уу.",
     errNet: "Танай хөтчөөс энэ үйлчилгээ рүү холбогдож чадсангүй.",
     moveHint: "Таны сонгосонд тохирно — #2 болгож дээш зөөгөөрэй.",
+    teamTitle: "Санал болгох хамтрагчид",
+    teamSub: "Таны сонгосонд тохирох ч одоогоор нэмээгүй байгаа AI-нууд.",
+    teamAdd: "Нэмэх",
+    teamAllSet: "Энэ төрөлд санал болгох бүх AI танд аль хэдийн байна.",
+    tapHint: "Шошгон дээр дарж утгыг нь хараарай.",
   },
   ko: {
     title: "내 AI 키",
@@ -180,6 +190,11 @@ const COPY = {
     errLimit: "요청이 너무 많습니다. 잠시 후 다시 시도하세요.",
     errNet: "브라우저에서 해당 서비스에 연결하지 못했습니다.",
     moveHint: "선택한 유형에 추천됩니다 — #2로 올리세요.",
+    teamTitle: "추천 팀원",
+    teamSub: "선택한 유형에 좋은데 아직 추가하지 않은 AI입니다.",
+    teamAdd: "추가",
+    teamAllSet: "이 유형에 추천할 AI를 이미 모두 갖고 있습니다.",
+    tapHint: "라벨을 누르면 의미를 볼 수 있습니다.",
   },
 } as const;
 
@@ -271,16 +286,47 @@ const REC_CLASS: Record<RecLevel, string> = {
   avoid: "border-border/60 text-muted-foreground/70",
 };
 
-/** "Recommended" / "Not recommended" for the creation type picked in step 1. */
-function RecBadge({ category, providerId, lang }: { category: string; providerId: string; lang: string }) {
+/** "Best partner" / "Stand-in" … tap it to read what the label means. */
+function RecBadge({
+  category,
+  providerId,
+  lang,
+  open,
+  onToggle,
+}: {
+  category: string;
+  providerId: string;
+  lang: string;
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const rec = recommendationFor(category, providerId, lang as never);
   return (
-    <span
-      title={rec.reason}
-      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${REC_CLASS[rec.level]}`}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle?.();
+      }}
+      aria-expanded={!!open}
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${REC_CLASS[rec.level]} ${
+        open ? "ring-1 ring-primary/40" : ""
+      }`}
     >
       {rec.label}
-    </span>
+    </button>
+  );
+}
+
+/** The tap-to-open guide under a badge. */
+function RecPanel({ category, providerId, lang }: { category: string; providerId: string; lang: string }) {
+  const rec = recommendationFor(category, providerId, lang as never);
+  return (
+    <div className="mt-1.5 rounded-lg border border-border/70 bg-muted/30 p-2.5 text-[11px] leading-relaxed">
+      <p className="font-semibold text-foreground">{rec.label}</p>
+      <p className="mt-0.5 text-muted-foreground">{rec.explain}</p>
+      <p className="mt-1 text-muted-foreground/80">{rec.fallbackNote}</p>
+    </div>
   );
 }
 
@@ -300,6 +346,8 @@ export function AiKeysCard({
   const [value, setValue] = useState("");
   const [custom, setCustom] = useState({ label: "", endpoint: "", model: "" });
   const [busy, setBusy] = useState(false);
+  const [openRec, setOpenRec] = useState<string | null>(null);
+  const [pendingTop, setPendingTop] = useState(false);
 
   const advice = useMemo(() => adviceFor(category, lang), [category, lang]);
 
@@ -366,7 +414,18 @@ export function AiKeysCard({
       setValue("");
       setCustom({ label: "", endpoint: "", model: "" });
       setMode(null);
-      await refresh();
+      let all = await refresh();
+      // A teammate added from the suggestion strip belongs right under Gemini,
+      // otherwise it sits at the bottom and never actually runs.
+      if (pendingTop) {
+        setPendingTop(false);
+        let target = all.find((r) => r.provider.id === provider);
+        for (let guard = 0; target && target.rank > 2 && guard < 20; guard += 1) {
+          await moveKey(target.id, "up");
+          all = await refresh();
+          target = all.find((r) => r.provider.id === provider);
+        }
+      }
       if (isAuthenticated) {
         try {
           await saveUserAiKey({ data: { provider, apiKey: key } });
@@ -380,7 +439,7 @@ export function AiKeysCard({
     } finally {
       setBusy(false);
     }
-  }, [busy, custom, isAuthenticated, provider, refresh, t, value]);
+  }, [busy, custom, isAuthenticated, pendingTop, provider, refresh, t, value]);
 
   const drop = useCallback(
     async (row: SavedKey) => {
@@ -419,6 +478,14 @@ export function AiKeysCard({
     );
   const info = findProviderInfo(provider);
 
+  // Best partners for this creation type that are not in the list yet.
+  const suggestions: ProviderInfo[] = suggestedTeam(
+    category,
+    rows.map((r) => r.provider.id),
+  )
+    .map((id) => findProviderInfo(id as ProviderId))
+    .filter((p): p is ProviderInfo => !!p);
+
   return (
     <div className="space-y-3 rounded-xl border border-primary/25 bg-primary/5 p-4">
       <div>
@@ -426,6 +493,7 @@ export function AiKeysCard({
           <KeyRound className="h-4 w-4 text-primary" /> {t.title}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">{t.sub}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground/80">{t.tapHint}</p>
       </div>
 
       {/* Guidance that follows the creation type picked in step 1. */}
@@ -458,7 +526,13 @@ export function AiKeysCard({
                 </span>
                 <span className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="font-medium text-foreground">{row.label}</span>
-                  <RecBadge category={category} providerId={row.provider.id} lang={lang} />
+                  <RecBadge
+                    category={category}
+                    providerId={row.provider.id}
+                    lang={lang}
+                    open={openRec === `row:${row.id}`}
+                    onToggle={() => setOpenRec(openRec === `row:${row.id}` ? null : `row:${row.id}`)}
+                  />
                   <span className="text-muted-foreground">••••{row.maskedTail}</span>
                   <span className={row.state === "ok" ? "text-emerald-500" : "text-amber-500"}>
                     {row.state === "ok" ? t.working : row.state === "exhausted" ? t.usedUp : t.rejected}
@@ -503,6 +577,11 @@ export function AiKeysCard({
                   </button>
                 </span>
               </div>
+              {openRec === `row:${row.id}` && (
+                <div className="pl-8">
+                  <RecPanel category={category} providerId={row.provider.id} lang={lang} />
+                </div>
+              )}
               {row.rank > 2 &&
                 recommendationFor(category, row.provider.id, lang).level === "recommended" && (
                   <p className="mt-1 pl-8 text-[11px] text-emerald-500">{t.moveHint}</p>
@@ -561,23 +640,32 @@ export function AiKeysCard({
           {mode !== "custom" && (
             <div className="grid gap-1.5 sm:grid-cols-2">
               {choices.map((p) => (
-                <button
+                <div
                   key={p.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && setProvider(p.id)}
                   onClick={() => setProvider(p.id)}
-                  className={`rounded-lg border p-2 text-left transition-colors ${
+                  className={`cursor-pointer rounded-lg border p-2 text-left transition-colors ${
                     provider === p.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
                   }`}
                 >
                   <span className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-medium text-foreground">{p.label}</span>
-                    <RecBadge category={category} providerId={p.id} lang={lang} />
+                    <RecBadge
+                      category={category}
+                      providerId={p.id}
+                      lang={lang}
+                      open={openRec === `choice:${p.id}`}
+                      onToggle={() => setOpenRec(openRec === `choice:${p.id}` ? null : `choice:${p.id}`)}
+                    />
                   </span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground">{p.good}</span>
                   <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
                     {recommendationFor(category, p.id, lang).reason}
                   </span>
-                </button>
+                  {openRec === `choice:${p.id}` && <RecPanel category={category} providerId={p.id} lang={lang} />}
+                </div>
               ))}
             </div>
           )}
@@ -636,7 +724,40 @@ export function AiKeysCard({
           )}
         </div>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-2">
+          {/* Best partners for this creation type that are not saved yet. */}
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <p className="text-xs font-semibold text-foreground">{t.teamTitle}</p>
+            {suggestions.length === 0 ? (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">{t.teamAllSet}</p>
+            ) : (
+              <>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{t.teamSub}</p>
+                <ul className="mt-2 space-y-1.5">
+                  {suggestions.map((p) => (
+                    <li key={p.id} className="flex items-center gap-2">
+                      <span className="flex-1">
+                        <span className="text-xs font-medium text-foreground">{p.label}</span>
+                        <span className="ml-1.5 text-[11px] text-muted-foreground">{p.good}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingTop(true);
+                          openMode(p.paid ? "paid" : "free");
+                          setProvider(p.id);
+                        }}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-500 transition-colors hover:bg-emerald-500/20"
+                      >
+                        <Plus className="h-3 w-3" /> {t.teamAdd}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => openMode("free")}
@@ -658,6 +779,7 @@ export function AiKeysCard({
           >
             <Wrench className="h-3.5 w-3.5" /> {t.addCustom}
           </button>
+          </div>
         </div>
       )}
 
