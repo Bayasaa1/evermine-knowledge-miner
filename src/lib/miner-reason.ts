@@ -188,60 +188,42 @@ function dedupe(list: string[]): string[] {
  * Runs the understanding pass over a mined chunk. Returns the enriched result
  * plus a per-thinker report so the terminal can show who contributed.
  *
- * No-op when the single pick is the built-in Gemini engine (it already did
- * the thinking in stage 1) or when no picked AI has a key — the built-in
- * result stands on its own.
+ * The thinkers come straight from the creator's own numbered key list: Gemini
+ * already did the seeing and hearing in stage 1, so the next keys in the order
+ * do the thinking. A key that is out of tokens, switched off or over its cap is
+ * never handed back by `rankedCredentials`, so the one below it takes the work.
+ * No-op when Gemini is the only saved key.
  */
 export async function runUnderstandingPass(
   mined: ChunkResult,
-  choice: MinerChoice,
   category: string,
   signal?: AbortSignal,
 ): Promise<{ result: ChunkResult; reports: ThinkerReport[] }> {
-  // Team mode: main pick + up to 2 more thinkers (knowledge/sales only).
-  const teamMode = isTeamEligible(category) && choice.team.length > 0;
-  const thinkers: MinerId[] = teamMode
-    ? dedupe([choice.id, ...choice.team] as string[]).slice(0, 3).map((id) => id as MinerId)
-    : [choice.id];
-
-  // Token discipline: when the picked AI already perceives everything this
-  // creation type needs, no other AI is called at all — one engine, one bill.
-  if (!teamMode && sensePlan(choice, category).selfSufficient) {
-    return {
-      result: mined,
-      reports: [
-        {
-          id: choice.id,
-          label: findMiner(choice.id)?.label ?? choice.id,
-          status: "skipped",
-          detail: "already did the thinking in stage 1 — no second AI called",
-        },
-      ],
-    };
-  }
-
-  // The default Gemini pick already reasoned in stage 1 — nothing to add
-  // unless team mode brings other brains in.
-  const effective = thinkers.filter((id) => id !== "gemini");
-  if (effective.length === 0) return { result: mined, reports: [] };
+  const chain = await rankedCredentials();
+  const thinkers: Credential[] = chain.filter((c) => c.provider !== "gemini").slice(0, MAX_THINKERS);
+  if (thinkers.length === 0) return { result: mined, reports: [] };
 
   const brief = buildBrief(mined, category);
   const outputs: ThinkerOutput[] = [];
   const reports: ThinkerReport[] = [];
 
-  for (const id of effective) {
-    const opt = findMiner(id);
-    const label = id === "custom" ? choice.custom.label || "Custom AI" : opt?.label ?? id;
-    if (!opt) continue;
+  for (const cred of thinkers) {
+    const label = findProviderInfo(cred.provider)?.label ?? cred.provider;
     try {
-      const out = await thinkWith(id, opt, choice, brief, signal);
+      const out = await thinkWith(cred, brief, signal);
       outputs.push(out);
-      reports.push({ id, label, status: "ok", detail: `${out.knowledge.length + out.topics.length + out.beliefs.length + out.skills.length} findings` });
+      reports.push({
+        id: cred.provider,
+        label,
+        status: "ok",
+        detail: `${out.knowledge.length + out.topics.length + out.beliefs.length + out.skills.length} findings`,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      reports.push({ id, label, status: msg === "no key" || msg === "no key or endpoint" ? "skipped" : "failed", detail: msg });
+      reports.push({ id: cred.provider, label, status: "failed", detail: msg });
     }
   }
+
 
   if (outputs.length === 0) return { result: mined, reports };
 
