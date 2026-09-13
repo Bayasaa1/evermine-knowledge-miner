@@ -27,14 +27,10 @@ import {
   Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
-  Bot,
-  Brain,
-  PhoneCall,
-  Megaphone,
-  Gamepad2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SubscriptionPanel } from "@/components/subscription-panel";
+import { CategoryList } from "@/components/create-wizard";
 import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
   checkDrive,
@@ -47,7 +43,7 @@ import {
 } from "@/lib/import-sources";
 import { reportFailure } from "@/lib/error-capture";
 import { mineUrlSegment, mineChunk, uploadVideo, type ChunkResult } from "@/lib/gemini";
-import { CATEGORY_LABELS, getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
+import { getCreationCategory, setCreationCategory, type CreationCategory } from "@/lib/creation-category";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { loadApiKeys } from "@/lib/keystore";
@@ -317,31 +313,21 @@ function StepShell({
   );
 }
 
-const CATEGORY_ICONS: Record<CreationCategory, typeof Brain> = {
-  knowledge: Brain,
-  robot: Bot,
-  voice: PhoneCall,
-  sales: Megaphone,
-  gaming: Gamepad2,
-};
 
+/**
+ * Step 1 reuses the same CategoryList as the "+" hub modal (create-wizard.tsx)
+ * so the five creation choices exist in exactly one place.
+ */
 function StepCategory({ lang, value, onChange }: { lang: Lang; value: CreationCategory; onChange: (value: CreationCategory) => void }) {
-  const categories: CreationCategory[] = ["knowledge", "robot", "voice", "sales", "gaming"];
   return (
-    <div className="grid gap-3">
-      {categories.map((category) => {
-        const Icon = CATEGORY_ICONS[category];
-        const copy = pickCopy(CATEGORY_LABELS[category], lang);
-        const selected = category === value;
-        return (
-          <button key={category} type="button" onClick={() => { setCreationCategory(category); onChange(category); }} className={`flex items-center gap-4 rounded-lg border p-4 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"}`}>
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-foreground">{copy.title}</span><span className="mt-1 block text-xs text-muted-foreground">{copy.sub}</span></span>
-            {selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
-          </button>
-        );
-      })}
-    </div>
+    <CategoryList
+      lang={lang}
+      selected={value}
+      onPick={(category) => {
+        setCreationCategory(category);
+        onChange(category);
+      }}
+    />
   );
 }
 
