@@ -308,5 +308,7 @@ export function recommendationFor(category: string, providerId: string, lang: La
  */
 export function suggestedTeam(category: string, installedIds: string[]): string[] {
   const key = (category in PICKS ? category : "knowledge") as CreationCategory;
-  return PICKS[key].recommended.filter((id) => !installedIds.includes(id));
+  const pick = PICKS[key];
+  const ids = [...pick.recommended, ...(pick.paidUpgrade ? [pick.paidUpgrade] : [])];
+  return ids.filter((id) => !installedIds.includes(id));
 }
