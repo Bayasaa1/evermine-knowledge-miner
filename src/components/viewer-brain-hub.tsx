@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Brain, Share2, Lock, Trash2, MessageSquare, Trophy, Clock } from "lucide-react";
 import { listViewerBrains, setBrainSharing, eraseBrain } from "@/lib/viewer-brain.functions";
