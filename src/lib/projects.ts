@@ -98,6 +98,8 @@ export async function createProject(
       creator_avatar_url: input.creatorAvatarUrl ?? null,
       price: input.price ?? 0,
       persona_id: input.personaId ?? null,
+      // Private until the creator deliberately shares it.
+      published: false,
     })
     .select(PROJECT_COLS)
     .single();
