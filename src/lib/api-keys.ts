@@ -24,10 +24,12 @@ export async function bestGeminiKey(): Promise<string | null> {
   }
 }
 
-/** Every healthy Gemini key, in fallback order. */
+/** Every healthy Gemini key, in the creator's chosen fallback order. */
 export async function geminiKeyChain(): Promise<ApiKeyEntry[]> {
   try {
-    return (await loadApiKeys()).filter(isFresh);
+    return (await loadApiKeys())
+      .filter(isFresh)
+      .sort((a, b) => (a.rank ?? 9000) - (b.rank ?? 9000) || a.createdAt - b.createdAt);
   } catch {
     return [];
   }
