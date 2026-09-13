@@ -105,61 +105,6 @@ const MODEL = "gemini-2.5-flash";
 
 type Tab = "youtube" | "drive" | "file";
 
-const googleCopy = {
-  en: {
-    linked: "Google account linked",
-    linkedBody:
-      "Chat, calls and vision now run on your own free Google access. To mine YouTube videos — especially in the background — add your free Gemini API key once below.",
-    signedNoScope: "You're signed in, but Gemini access isn't linked yet.",
-    relink: "Link Gemini API access",
-    signIn: "Sign in with Google",
-    connecting: "Connecting…",
-    free: "Free tier · your own access · nothing to maintain",
-    failed: "Google sign-in failed",
-  },
-  mn: {
-    linked: "Google бүртгэл холбогдлоо",
-    linkedBody:
-      "Чат, дуудлага, харах функцууд таны өөрийн үнэгүй Google хандалтаар ажиллана. YouTube видео шинжлэхийн тулд — ялангуяа ард ажиллуулахдаа — доор үнэгүй Gemini API түлхүүрээ нэг удаа нэмнэ үү.",
-    signedNoScope: "Та нэвтэрсэн боловч Gemini хандалт хараахан холбогдоогүй байна.",
-    relink: "Gemini API хандалт холбох",
-    signIn: "Google-ээр нэвтрэх",
-    connecting: "Холбож байна…",
-    free: "Үнэгүй түвшин · өөрийн хандалт · засвар үйлчилгээгүй",
-    failed: "Google нэвтрэлт амжилтгүй боллоо",
-  },
-  ko: {
-    linked: "Google 계정 연결됨",
-    linkedBody:
-      "이제 채팅, 통화, 비전 기능이 본인의 무료 Google 접근 권한으로 실행됩니다. YouTube 영상을 분석하려면 — 특히 백그라운드에서 — 아래에 무료 Gemini API 키를 한 번만 추가하세요.",
-    signedNoScope: "로그인은 되어 있지만 아직 Gemini 접근이 연결되지 않았습니다.",
-    relink: "Gemini API 접근 연결",
-    signIn: "Google로 로그인",
-    connecting: "연결하는 중…",
-    free: "무료 등급 · 본인 접근 권한 · 유지보수 불필요",
-    failed: "Google 로그인에 실패했습니다",
-  },
-};
-
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      <path
-        fill="#4285F4"
-        d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.7v3h3.9c2.3-2.1 3.5-5.2 3.5-8.9z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"
-      />
-      <path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.4a12 12 0 0 0 0 10.8l4-3.1z" />
-      <path
-        fill="#EA4335"
-        d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"
-      />
-    </svg>
-  );
-}
 
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
