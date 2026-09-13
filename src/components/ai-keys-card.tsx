@@ -493,6 +493,7 @@ export function AiKeysCard({
           <KeyRound className="h-4 w-4 text-primary" /> {t.title}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">{t.sub}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground/80">{t.tapHint}</p>
       </div>
 
       {/* Guidance that follows the creation type picked in step 1. */}
