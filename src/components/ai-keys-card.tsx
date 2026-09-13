@@ -264,6 +264,26 @@ async function testKey(
 
 type AddMode = "free" | "paid" | "custom" | null;
 
+const REC_CLASS: Record<RecLevel, string> = {
+  required: "border-primary/50 bg-primary/10 text-primary",
+  recommended: "border-emerald-500/50 bg-emerald-500/10 text-emerald-500",
+  team: "border-border text-muted-foreground",
+  avoid: "border-border/60 text-muted-foreground/70",
+};
+
+/** "Recommended" / "Not recommended" for the creation type picked in step 1. */
+function RecBadge({ category, providerId, lang }: { category: string; providerId: string; lang: string }) {
+  const rec = recommendationFor(category, providerId, lang as never);
+  return (
+    <span
+      title={rec.reason}
+      className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${REC_CLASS[rec.level]}`}
+    >
+      {rec.label}
+    </span>
+  );
+}
+
 export function AiKeysCard({
   onChange,
   category = "knowledge",
