@@ -66,6 +66,10 @@ const copy = {
     teamOn: "Team mode on",
     teamOff: "Single AI",
     teamMax: "Team is full (3 AIs).",
+    modelTitle: "Which model should this key use?",
+    modelSub: "One OpenRouter key covers all of these. Free models cost nothing; a paid one charges your own OpenRouter balance.",
+    modelFree: "free",
+    modelPaid: "paid",
   },
   mn: {
     title: "Видеог олборлох AI-гаа сонгоно уу",
@@ -96,6 +100,10 @@ const copy = {
     teamOn: "Багийн горим",
     teamOff: "Ганц AI",
     teamMax: "Баг дүүрсэн (3 AI).",
+    modelTitle: "Энэ түлхүүр ямар загвар ашиглах вэ?",
+    modelSub: "Нэг OpenRouter түлхүүр бүгдийг нь хамарна. Үнэгүй загвар төлбөргүй; төлбөртэй загвар таны OpenRouter үлдэгдлээс хасагдана.",
+    modelFree: "үнэгүй",
+    modelPaid: "төлбөртэй",
   },
   ko: {
     title: "영상을 마이닝할 AI 선택",
@@ -126,6 +134,10 @@ const copy = {
     teamOn: "팀 모드",
     teamOff: "단일 AI",
     teamMax: "팀이 가득 찼습니다 (3 AI).",
+    modelTitle: "이 키로 어떤 모델을 사용할까요?",
+    modelSub: "OpenRouter 키 하나로 모두 사용할 수 있습니다. 무료 모델은 비용이 없고, 유료 모델은 본인 OpenRouter 잔액에서 청구됩니다.",
+    modelFree: "무료",
+    modelPaid: "유료",
   },
 };
 
