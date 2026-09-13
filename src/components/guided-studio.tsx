@@ -851,7 +851,7 @@ function StepUpload({
       } catch {
         /* stage-1 result stands on its own */
       }
-      await idbSet(STORES.SESSION, "guided-last-mine", {
+      await idbSet(STORES.SESSION, scopedKey("guided-last-mine"), {
         source: source.label,
         minedAt: Date.now(),
         result: mined,

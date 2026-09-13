@@ -1030,7 +1030,7 @@ function Index() {
   }, [results]);
 
   useEffect(() => {
-    void idbGet<string>(STORES.SETTINGS, "cloud_vault_id").then((id) => {
+    void idbGet<string>(STORES.SETTINGS, scopedKey("cloud_vault_id")).then((id) => {
       if (id) cloudVaultIdRef.current = id;
     });
   }, []);
@@ -1082,9 +1082,9 @@ function Index() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, "last");
-      const prefs = await idbGet<{ lang?: Lang; provider?: string; model?: string }>(STORES.SETTINGS, "prefs");
-      const savedOwnership = await idbGet<unknown>(STORES.SETTINGS, "ownership");
+      const saved = await idbGet<Record<string, unknown>>(STORES.SESSION, scopedKey("last"));
+      const prefs = await idbGet<{ lang?: Lang; provider?: string; model?: string }>(STORES.SETTINGS, scopedKey("prefs"));
+      const savedOwnership = await idbGet<unknown>(STORES.SETTINGS, scopedKey("ownership"));
       if (cancelled) return;
       if (savedOwnership) setOwnership(normalizeOwnership(savedOwnership));
       if (prefs) {
@@ -1121,13 +1121,13 @@ function Index() {
 
   useEffect(() => {
     if (!hydrated) return;
-    void idbSet(STORES.SETTINGS, "prefs", { lang, provider, model });
+    void idbSet(STORES.SETTINGS, scopedKey("prefs"), { lang, provider, model });
   }, [hydrated, lang, provider, model]);
 
   // Monetization / ownership metadata lives in IndexedDB next to the mind data.
   useEffect(() => {
     if (!hydrated) return;
-    const id = setTimeout(() => void idbSet(STORES.SETTINGS, "ownership", ownership), 400);
+    const id = setTimeout(() => void idbSet(STORES.SETTINGS, scopedKey("ownership"), ownership), 400);
     return () => clearTimeout(id);
   }, [hydrated, ownership]);
 
@@ -1136,7 +1136,7 @@ function Index() {
     const id = setTimeout(() => {
       void idbSet(
         STORES.SESSION,
-        "last",
+        scopedKey("last"),
         buildMineFile({
           source: { name: source?.name ?? "", size: source?.size ?? 0, duration },
           model,
@@ -1323,7 +1323,7 @@ function Index() {
         },
       });
       cloudVaultIdRef.current = id;
-      await idbSet(STORES.SETTINGS, "cloud_vault_id", id);
+      await idbSet(STORES.SETTINGS, scopedKey("cloud_vault_id"), id);
       addLog("info", "Mind synced to your private cloud vault.");
     } catch (err) {
       addLog("warn", `Cloud sync skipped: ${err instanceof Error ? err.message : String(err)}`);
