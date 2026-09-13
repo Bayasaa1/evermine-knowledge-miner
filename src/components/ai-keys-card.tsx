@@ -256,7 +256,9 @@ export function AiKeysCard({ onChange }: { onChange?: (keys: SavedKey[]) => void
                   <span className={row.state === "ok" ? "text-emerald-500" : "text-amber-500"}>
                     {row.state === "ok" ? t.working : row.state === "exhausted" ? t.usedUp : t.rejected}
                   </span>
-                  <span className="text-muted-foreground">{row.provider.paid ? t.paid : t.free}</span>
+                  <span className={row.cost === "paid" ? "text-amber-500" : "text-muted-foreground"}>
+                    {row.cost === "free-tier" ? t.freeTier : row.cost === "free-model" ? t.freeModel : t.paidModel}
+                  </span>
                   {row.callsToday > 0 && (
                     <span className="text-muted-foreground">
                       {t.today}: {row.callsToday} {t.calls}
@@ -272,7 +274,10 @@ export function AiKeysCard({ onChange }: { onChange?: (keys: SavedKey[]) => void
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-              {row.provider.paid && (
+              {row.provider.id === "gemini" && (
+                <p className="mt-1 text-[11px] text-muted-foreground">{t.geminiNote}</p>
+              )}
+              {row.cost === "paid" && (
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -363,6 +368,8 @@ export function AiKeysCard({ onChange }: { onChange?: (keys: SavedKey[]) => void
           <Plus className="h-3.5 w-3.5" /> {t.add}
         </button>
       )}
+
+      <p className="text-[11px] text-muted-foreground">{t.ownKeys}</p>
 
       {rows.some((r) => r.provider.id === "gemini") && (
         <p className="flex items-center gap-1.5 text-[11px] text-emerald-500">
