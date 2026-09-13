@@ -1,15 +1,19 @@
 /**
- * Pre-mining assessment. Three quick answers that are injected straight into
- * the Gemini system prompt so extraction is tailored to the video.
+ * Pre-mining assessment. A few quick answers injected straight into the Gemini
+ * system prompt so extraction is tailored to the video. The choices shown
+ * depend on what the creator is building (robot, gaming, voice, sales,
+ * knowledge) and stay collapsed because the defaults are already sensible.
  */
 import { useState } from "react";
-import { ClipboardList, Sparkles } from "lucide-react";
+import { ChevronDown, Sparkles } from "lucide-react";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { Localized } from "@/components/localized";
+import type { CreationCategory } from "@/lib/creation-category";
 import {
-  DEFAULT_ASSESSMENT,
-  PRIMARY_FOCUSES,
-  VIDEO_CONTEXTS,
+  contextsFor,
+  defaultAssessmentFor,
+  focusesFor,
+  wantsSpeakerNames,
   type Assessment,
   type VideoMetadata,
 } from "@/lib/mining-jobs";
