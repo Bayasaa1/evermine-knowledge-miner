@@ -770,6 +770,7 @@ export function AiKeysCard({
           >
             <Wrench className="h-3.5 w-3.5" /> {t.addCustom}
           </button>
+          </div>
         </div>
       )}
 
