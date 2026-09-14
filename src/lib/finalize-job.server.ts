@@ -11,6 +11,7 @@
 import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
 import { unpackInstructions } from "@/lib/mining-jobs";
+import { extractConcepts } from "@/lib/knowledge-graph";
 
 type JobRow = {
   id: string;
@@ -256,4 +257,52 @@ export async function finalizeMiningJob(
     .eq("id", job.id);
 
   return savedVault.id as string;
+}
+
+/**
+ * Adds one video's concepts to its project's knowledge map.
+ *
+ * The map is a cache over data that already exists, so this only has to stay
+ * roughly current: a full `rebuildProjectConcepts` can always restore it.
+ */
+async function indexVideoConcepts(
+  admin: any,
+  userId: string,
+  projectId: string,
+  contentId: string,
+  row: { tags: unknown; emotion_timeline: unknown },
+) {
+  const concepts = extractConcepts(row);
+  for (const c of concepts.slice(0, 60)) {
+    const { data: existing } = await admin
+      .from("project_concepts")
+      .select("id,count,content_ids")
+      .eq("user_id", userId)
+      .eq("project_id", projectId)
+      .eq("kind", c.kind)
+      .eq("concept", c.concept)
+      .maybeSingle();
+
+    if (!existing) {
+      await admin.from("project_concepts").insert({
+        project_id: projectId,
+        user_id: userId,
+        concept: c.concept,
+        label: c.label,
+        kind: c.kind,
+        count: 1,
+        content_ids: [contentId],
+      });
+      continue;
+    }
+
+    const ids: string[] = Array.isArray(existing.content_ids) ? existing.content_ids : [];
+    if (ids.includes(contentId)) continue;
+    const next = [...ids, contentId].slice(0, 1000);
+    await admin
+      .from("project_concepts")
+      .update({ count: next.length, content_ids: next })
+      .eq("id", existing.id)
+      .eq("user_id", userId);
+  }
 }
