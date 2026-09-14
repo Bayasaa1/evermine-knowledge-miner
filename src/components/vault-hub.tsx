@@ -541,6 +541,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   const tabs: { key: Tab; label: string; icon: typeof Video }[] = [
     { key: "VISUAL_CONTENT", label: t("visual"), icon: Video },
     { key: "TRAINING_ONLY", label: t("training"), icon: GraduationCap },
+    { key: "map", label: t("mapTab"), icon: Network },
     { key: "brain", label: t("coreBrain"), icon: Brain },
     { key: "analytics", label: t("analytics"), icon: BarChart3 },
   ];
