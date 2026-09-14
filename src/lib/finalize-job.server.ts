@@ -240,7 +240,6 @@ export async function finalizeMiningJob(
     if (contentId) {
       await indexVideoConcepts(admin, job.user_id, projectId, contentId, {
         tags,
-        timeline: mined.timeline ?? [],
         emotion_timeline: mined.emotionTimeline ?? [],
       });
     }
