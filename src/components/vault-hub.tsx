@@ -563,7 +563,13 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
         ))}
       </div>
 
-      {tab === "brain" ? (
+      {tab === "map" ? (
+        <div className="space-y-4">
+          {/* Map and table are two views of the same project — never mixed with another. */}
+          <ProjectKnowledgeGraph lang={lang} userId={userId ?? ""} project={{ id: project.id, title: project.title }} />
+          <ProjectContentTable lang={lang} userId={userId ?? ""} project={project} onChanged={() => { void load(); onChanged(); }} />
+        </div>
+      ) : tab === "brain" ? (
         <div className="space-y-4">
           {project.persona_id && (
             <CloneStudio
