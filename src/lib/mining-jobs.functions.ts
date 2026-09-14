@@ -119,8 +119,9 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         .select("api_key")
         .eq("user_id", context.userId)
         .eq("provider", "gemini")
-        .maybeSingle();
-      ownerKey = (savedKey?.api_key ?? "").trim();
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      ownerKey = (savedKey?.[0]?.api_key ?? "").trim();
     }
     if (!ownerKey) {
       throw new Error(
@@ -276,8 +277,9 @@ export const runNextChunk = createServerFn({ method: "POST" })
         .select("api_key")
         .eq("user_id", context.userId)
         .eq("provider", "gemini")
-        .maybeSingle();
-      accountKey = (savedKey?.api_key ?? "").trim();
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      accountKey = (savedKey?.[0]?.api_key ?? "").trim();
     }
     const activeKey = sentKey || jobKey || accountKey;
     if (!activeKey) {
