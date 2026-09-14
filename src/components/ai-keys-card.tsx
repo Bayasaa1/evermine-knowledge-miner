@@ -496,7 +496,7 @@ export function AiKeysCard({
       await refresh();
       if (isAuthenticated) {
         try {
-          await deleteUserAiKey({ data: { provider: row.provider.id } });
+          await deleteUserAiKey({ data: { provider: row.provider.id, tail: row.maskedTail } });
         } catch {
           /* fine */
         }
