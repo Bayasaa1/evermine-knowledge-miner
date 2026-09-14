@@ -65,7 +65,9 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
-import { KnowledgeGraph } from "@/components/knowledge-graph";
+import { ProjectKnowledgeGraph } from "@/components/knowledge-graph";
+import { ProjectGraphOverview } from "@/components/project-graph-overview";
+import { ProjectContentTable } from "@/components/project-content-table";
 import { MindReviews } from "@/components/mind-reviews";
 import { CloneStudio } from "@/components/clone-studio";
 
