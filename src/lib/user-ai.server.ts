@@ -58,13 +58,16 @@ export async function resolveGeminiCredential(
 
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // A creator may keep several Gemini keys (spares for when one hits its
+    // daily quota), so never assume a single row here.
     const { data } = await supabaseAdmin
       .from("user_ai_keys")
       .select("api_key")
       .eq("user_id", userId)
       .eq("provider", "gemini")
-      .maybeSingle();
-    const saved = clean(data?.api_key);
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const saved = clean(data?.[0]?.api_key);
     if (saved) return { kind: "gemini_key", value: saved };
   } catch {
     /* fall through to the clear missing-key error */
