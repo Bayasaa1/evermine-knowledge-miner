@@ -1,524 +1,285 @@
 /**
- * Obsidian-style Core Brain Knowledge Graph.
+ * Core Brain Knowledge Map — one project, three zoom levels.
  *
- * A dependency-free force-directed canvas: the persona sits at the centre, its
- * projects orbit around it, mined videos hang off the projects and extracted
- * concepts (topics, lessons, emotions) form the outer constellation.
+ * The old graph drew every video and every concept of every project at once,
+ * which turned a large library into an unreadable wall of text. This one works
+ * like a map: you start at the project, open a topic cluster, then open a
+ * single video. Each level replaces the previous one, so the canvas holds a few
+ * hundred nodes whether the project has ten videos or a thousand.
  *
- * Interactions: pan, wheel zoom, pinch-to-zoom, node drag, search, topic
- * filter, camera reset, an inspector drawer per node and a link mode that lets
- * the creator drag their own connection between two nodes.
+ * Two projects never share a canvas: a project is its own knowledge space.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Link2, Loader2, Maximize, Search, Trash2, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
 import {
-  deleteProject,
-  listProjectContent,
-  listProjectsByPersona,
-  moveProjectContent,
-  updateProject,
-  updateProjectContent,
-  type Project,
-  type ProjectContent,
-} from "@/lib/projects";
-import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
+  listProjectVideos,
+  projectGraphSummary,
+  rebuildProjectConcepts,
+  videoConcepts,
+} from "@/lib/knowledge-graph.functions";
 import {
-  buildGraph,
-  createCustomLink,
-  deleteCustomLink,
-  listCustomLinks,
+  buildProjectGraph,
+  MAX_NODES,
   NODE_RADIUS,
+  type ConceptRow,
+  type GraphLevel,
   type GraphNode,
+  type VideoRow,
 } from "@/lib/knowledge-graph";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 const C = {
-  title: { en: "Core Brain Knowledge Graph", mn: "Гол Тархины Мэдлэгийн Граф", ko: "코어 브레인 지식 그래프" },
+  title: { en: "Knowledge map", mn: "Мэдлэгийн зураглал", ko: "지식 지도" },
   desc: {
-    en: "Every mined video expands this constellation. Drag nodes, pinch to zoom, tap a node to inspect it.",
-    mn: "Олборлосон видео бүр энэ оддын бүлгийг тэлнэ. Зангилааг чирч, томруулж, дарж шалгана уу.",
-    ko: "마이닝된 모든 영상이 이 성좌를 확장합니다. 노드를 끌고, 확대하고, 눌러 검사하세요.",
+    en: "Start at the project, open a topic, then open a video. Only what you open is loaded.",
+    mn: "Төслөөс эхэлж, сэдэв нээгээд, дараа нь видео нээнэ. Зөвхөн нээсэн зүйл ачаална.",
+    ko: "프로젝트에서 시작해 주제를 열고 영상을 엽니다. 연 것만 불러옵니다.",
   },
-  search: { en: "Search nodes", mn: "Зангилаа хайх", ko: "노드 검색" },
-  allTopics: { en: "All topics", mn: "Бүх сэдэв", ko: "모든 주제" },
-  reset: { en: "Reset view", mn: "Харагдацыг сэргээх", ko: "보기 초기화" },
-  linkMode: { en: "Link mode", mn: "Холбох горим", ko: "링크 모드" },
-  linked: { en: "Nodes linked", mn: "Зангилаа холбогдлоо", ko: "노드가 연결되었습니다" },
+  search: { en: "Search videos", mn: "Видео хайх", ko: "영상 검색" },
+  back: { en: "Back", mn: "Буцах", ko: "뒤로" },
+  rebuild: { en: "Rebuild map", mn: "Зураглал шинэчлэх", ko: "지도 다시 만들기" },
+  rebuilt: { en: "Map rebuilt", mn: "Зураглал шинэчлэгдлээ", ko: "지도가 다시 만들어졌습니다" },
+  needsRebuild: {
+    en: "This project was mined before the map existed. Rebuild it once to see its topics.",
+    mn: "Энэ төсөл зураглал гарахаас өмнө олборлогдсон. Нэг удаа шинэчилнэ үү.",
+    ko: "이 프로젝트는 지도가 생기기 전에 마이닝되었습니다. 한 번 다시 만드세요.",
+  },
   empty: {
-    en: "No knowledge yet — mine a video for this persona to grow the graph.",
-    mn: "Мэдлэг алга — энэ персонд видео олборлоно уу.",
-    ko: "아직 지식이 없습니다 — 이 페르소나로 영상을 마이닝하세요.",
+    en: "No videos in this project yet — mine one to grow the map.",
+    mn: "Энэ төсөлд видео алга — нэгийг олборлож зураглалаа ургуулна уу.",
+    ko: "이 프로젝트에 영상이 없습니다 — 하나를 마이닝하세요.",
   },
-  inspector: { en: "Node inspector", mn: "Зангилааны шинжүүр", ko: "노드 인스펙터" },
-  connect: { en: "Connect to project", mn: "Төсөлд холбох", ko: "프로젝트에 연결" },
-  noProject: { en: "Not in a project", mn: "Төсөлгүй", ko: "프로젝트 없음" },
-  connected: { en: "Connected to project", mn: "Төсөлд холбогдлоо", ko: "프로젝트에 연결됨" },
-  rename: { en: "Rename", mn: "Нэр солих", ko: "이름 변경" },
-  remove: { en: "Delete", mn: "Устгах", ko: "삭제" },
-  saved: { en: "Saved", mn: "Хадгаллаа", ko: "저장됨" },
-  removed: { en: "Deleted", mn: "Устгалаа", ko: "삭제됨" },
-  payload: { en: "Raw .json.md payload", mn: "Түүхий .json.md", ko: "원본 .json.md" },
-  source: { en: "Source video", mn: "Эх видео", ko: "원본 영상" },
-  customLinks: { en: "Your links", mn: "Таны холбоос", ko: "내 링크" },
+  capped: {
+    en: "Showing the biggest {n} of this view — search to find the rest.",
+    mn: "Энэ харагдацын хамгийн том {n}-г харуулж байна — үлдсэнийг хайна уу.",
+    ko: "이 보기에서 가장 큰 {n}개를 표시합니다 — 나머지는 검색하세요.",
+  },
+  inspector: { en: "Details", mn: "Дэлгэрэнгүй", ko: "세부 정보" },
+  openVideo: { en: "Open video", mn: "Видео нээх", ko: "영상 열기" },
+  videos: { en: "videos", mn: "видео", ko: "영상" },
+  concepts: { en: "concepts", mn: "ойлголт", ko: "개념" },
+  levelProject: { en: "Project", mn: "Төсөл", ko: "프로젝트" },
+  more: { en: "more", mn: "бусад", ko: "더" },
 } as const;
 
 type Sim = GraphNode & { x: number; y: number; vx: number; vy: number };
 
 const COLORS: Record<GraphNode["kind"], string> = {
-  persona: "#ff7a45",
-  project: "#ffb35c",
+  project: "#ff7a45",
+  cluster: "#ffb35c",
   content: "#38e1ff",
   concept: "#8be9c8",
 };
 
-export function KnowledgeGraph({
+export function ProjectKnowledgeGraph({
   lang = "en",
   userId,
-  personaId,
-  personaName,
+  project,
 }: {
   lang?: Lang;
   userId: string;
-  personaId: string | null;
-  personaName: string;
+  project: { id: string; title: string };
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
-  const fetchVaults = useServerFn(listVaults);
 
-  const { data: projects = [] } = useQuery({
-    queryKey: ["projects", userId, personaId],
-    queryFn: () => listProjectsByPersona(userId, personaId),
+  const fetchSummary = useServerFn(projectGraphSummary);
+  const fetchVideos = useServerFn(listProjectVideos);
+  const fetchConcepts = useServerFn(videoConcepts);
+  const rebuild = useServerFn(rebuildProjectConcepts);
+
+  const [level, setLevel] = useState<GraphLevel>("project");
+  const [cluster, setCluster] = useState<ConceptRow | null>(null);
+  const [video, setVideo] = useState<VideoRow | null>(null);
+  const [search, setSearch] = useState("");
+  const [inspect, setInspect] = useState<GraphNode | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ["graph-summary", userId, project.id],
+    queryFn: () => fetchSummary({ data: { projectId: project.id } }),
+    enabled: Boolean(userId),
   });
 
-  const projectIds = projects.map((p) => p.id).join(",");
-  const { data: content = [], isLoading } = useQuery<ProjectContent[]>({
-    queryKey: ["graph-content", projectIds],
-    queryFn: async () => {
-      const all = await Promise.all(projects.map((p) => listProjectContent(p.id)));
-      return all.flat();
-    },
-    enabled: projects.length >= 0,
+  // Videos load only for the level that needs them, newest first, one page.
+  const wantVideos = level === "cluster" || Boolean(search.trim());
+  const { data: videoPage } = useQuery({
+    queryKey: ["graph-videos", userId, project.id, cluster?.concept ?? "", cluster?.kind ?? "", search.trim()],
+    queryFn: () =>
+      fetchVideos({
+        data: {
+          projectId: project.id,
+          ...(cluster && !search.trim() ? { concept: cluster.concept, conceptKind: cluster.kind } : {}),
+          ...(search.trim() ? { search: search.trim() } : {}),
+          offset: 0,
+          limit: 120,
+        },
+      }),
+    enabled: Boolean(userId) && wantVideos,
   });
 
-  const { data: vaults = [] } = useQuery<VaultRow[]>({
-    queryKey: ["graph-vaults", personaId],
-    queryFn: () => fetchVaults({ data: { scoped: true, personaId } }),
-  });
-
-  const { data: customLinks = [] } = useQuery({
-    queryKey: ["graph-links", userId, personaId],
-    queryFn: () => listCustomLinks(userId, personaId),
+  const { data: openConcepts = [] } = useQuery({
+    queryKey: ["graph-video-concepts", userId, video?.id ?? ""],
+    queryFn: () => fetchConcepts({ data: { contentId: video!.id } }),
+    enabled: Boolean(userId && video),
   });
 
   const graph = useMemo(
-    () => buildGraph({ personaKey: personaId ?? "master", personaName, projects, content, vaults, customLinks }),
-    [personaId, personaName, projects, content, vaults, customLinks],
+    () =>
+      buildProjectGraph({
+        project,
+        level: search.trim() && level === "project" ? "cluster" : level,
+        clusters: summary?.clusters ?? [],
+        videos: (videoPage?.rows ?? []) as VideoRow[],
+        concepts: openConcepts as ConceptRow[],
+        openCluster: search.trim() ? null : cluster,
+        openVideo: video,
+        totals: { videos: summary?.videos ?? 0, concepts: summary?.concepts ?? 0 },
+      }),
+    [project, level, summary, videoPage, openConcepts, cluster, video, search],
   );
 
-  const [query, setQuery] = useState("");
-  const [topic, setTopic] = useState("");
-  const [linkMode, setLinkMode] = useState(false);
-  const [inspect, setInspect] = useState<GraphNode | null>(null);
-  const [hidden, setHidden] = useState<string[]>([]);
+  const goBack = () => {
+    if (level === "video") {
+      setVideo(null);
+      setLevel(cluster ? "cluster" : "project");
+      return;
+    }
+    setCluster(null);
+    setLevel("project");
+  };
 
-  const visible = useMemo(() => {
-    const nodes = graph.nodes.filter((n) => !hidden.includes(n.key) && (!topic || n.kind !== "concept" || n.topic === topic));
-    const keys = new Set(nodes.map((n) => n.key));
-    return { nodes, links: graph.links.filter((l) => keys.has(l.source) && keys.has(l.target)) };
-  }, [graph, topic, hidden]);
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const simRef = useRef<Map<string, Sim>>(new Map());
-  const viewRef = useRef({ scale: 1, x: 0, y: 0 });
-  const dragRef = useRef<{ key: string | null; pointer: { x: number; y: number } | null; pan: boolean }>({
-    key: null,
-    pointer: null,
-    pan: false,
-  });
-  const linkDragRef = useRef<{ from: string; x: number; y: number } | null>(null);
-  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
-  const pinchRef = useRef<number | null>(null);
-  const highlightRef = useRef("");
-  highlightRef.current = query.trim().toLowerCase();
-
-  // Seed / prune simulation bodies whenever the visible node set changes.
-  useEffect(() => {
-    const sim = simRef.current;
-    const keys = new Set(visible.nodes.map((n) => n.key));
-    for (const key of [...sim.keys()]) if (!keys.has(key)) sim.delete(key);
-    visible.nodes.forEach((node, i) => {
-      const existing = sim.get(node.key);
-      if (existing) {
-        Object.assign(existing, node);
+  const openNode = (node: GraphNode) => {
+    if (node.kind === "cluster" && node.meta.concept) {
+      setCluster({
+        concept: node.meta.concept,
+        label: node.label.replace(/\s*\(\d+\)$/, ""),
+        kind: node.meta.conceptKind ?? "topic",
+        count: node.meta.count ?? 0,
+      });
+      setVideo(null);
+      setLevel("cluster");
+      return;
+    }
+    if (node.kind === "content" && node.meta.contentId) {
+      const row = (videoPage?.rows ?? []).find((r) => r.id === node.meta.contentId);
+      if (row) {
+        setVideo(row as VideoRow);
+        setLevel("video");
         return;
       }
-      const angle = (i / Math.max(1, visible.nodes.length)) * Math.PI * 2;
-      const ring = node.kind === "persona" ? 0 : node.kind === "project" ? 120 : node.kind === "content" ? 220 : 320;
-      sim.set(node.key, { ...node, x: Math.cos(angle) * ring, y: Math.sin(angle) * ring, vx: 0, vy: 0 });
-    });
-  }, [visible.nodes]);
-
-  const toWorld = useCallback((clientX: number, clientY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    const v = viewRef.current;
-    return {
-      x: (clientX - rect.left - rect.width / 2 - v.x) / v.scale,
-      y: (clientY - rect.top - rect.height / 2 - v.y) / v.scale,
-    };
-  }, []);
-
-  const nodeAt = useCallback((wx: number, wy: number): Sim | null => {
-    let hit: Sim | null = null;
-    for (const node of simRef.current.values()) {
-      const r = NODE_RADIUS[node.kind] + 6;
-      if ((node.x - wx) ** 2 + (node.y - wy) ** 2 <= r * r) hit = node;
     }
-    return hit;
-  }, []);
-
-  // Physics + rendering loop.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    let raf = 0;
-    let alpha = 1;
-
-    const tick = () => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)) {
-        canvas.width = Math.floor(w * dpr);
-        canvas.height = Math.floor(h * dpr);
-      }
-
-      const bodies = [...simRef.current.values()];
-      // Repulsion (capped so very large brains stay smooth).
-      const limit = Math.min(bodies.length, 420);
-      for (let i = 0; i < limit; i++) {
-        const a = bodies[i]!;
-        for (let j = i + 1; j < limit; j++) {
-          const b = bodies[j]!;
-          let dx = a.x - b.x;
-          let dy = a.y - b.y;
-          let d2 = dx * dx + dy * dy;
-          if (d2 < 1) {
-            dx = Math.random() - 0.5;
-            dy = Math.random() - 0.5;
-            d2 = 1;
-          }
-          const force = (1600 * alpha) / d2;
-          const d = Math.sqrt(d2);
-          a.vx += (dx / d) * force;
-          a.vy += (dy / d) * force;
-          b.vx -= (dx / d) * force;
-          b.vy -= (dy / d) * force;
-        }
-      }
-      // Springs.
-      for (const l of visible.links) {
-        const a = simRef.current.get(l.source);
-        const b = simRef.current.get(l.target);
-        if (!a || !b) continue;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const d = Math.max(1, Math.hypot(dx, dy));
-        const rest = a.kind === "persona" || b.kind === "persona" ? 150 : 90;
-        const k = 0.008 * alpha * (d - rest);
-        a.vx += (dx / d) * k;
-        a.vy += (dy / d) * k;
-        b.vx -= (dx / d) * k;
-        b.vy -= (dy / d) * k;
-      }
-      for (const node of bodies) {
-        if (node.kind === "persona") {
-          node.x += (0 - node.x) * 0.2;
-          node.y += (0 - node.y) * 0.2;
-          node.vx = 0;
-          node.vy = 0;
-          continue;
-        }
-        if (dragRef.current.key === node.key) continue;
-        node.vx = (node.vx - node.x * 0.0015) * 0.82;
-        node.vy = (node.vy - node.y * 0.0015) * 0.82;
-        node.x += node.vx;
-        node.y += node.vy;
-      }
-      alpha = Math.max(0.05, alpha * 0.995);
-
-      // Draw.
-      const v = viewRef.current;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#0b0f19";
-      ctx.fillRect(0, 0, w, h);
-      ctx.save();
-      ctx.translate(w / 2 + v.x, h / 2 + v.y);
-      ctx.scale(v.scale, v.scale);
-
-      for (const l of visible.links) {
-        const a = simRef.current.get(l.source);
-        const b = simRef.current.get(l.target);
-        if (!a || !b) continue;
-        ctx.strokeStyle = l.custom ? "rgba(56,225,255,0.75)" : "rgba(255,122,69,0.28)";
-        ctx.lineWidth = l.custom ? 1.6 : 0.9;
-        ctx.shadowBlur = l.custom ? 10 : 6;
-        ctx.shadowColor = l.custom ? "#38e1ff" : "#ff7a45";
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-      }
-
-      const pending = linkDragRef.current;
-      if (pending) {
-        const a = simRef.current.get(pending.from);
-        if (a) {
-          ctx.strokeStyle = "rgba(56,225,255,0.9)";
-          ctx.setLineDash([6, 6]);
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(pending.x, pending.y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-      }
-
-      const needle = highlightRef.current;
-      for (const node of bodies) {
-        const r = NODE_RADIUS[node.kind];
-        const match = !needle || node.label.toLowerCase().includes(needle);
-        const color = COLORS[node.kind];
-        ctx.globalAlpha = match ? 1 : 0.18;
-        ctx.shadowBlur = match ? 18 : 0;
-        ctx.shadowColor = color;
-        ctx.fillStyle = `${color}33`;
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-
-        if (v.scale > 0.55 && (node.kind !== "concept" || v.scale > 1 || !!needle)) {
-          ctx.fillStyle = "rgba(233,238,250,0.85)";
-          ctx.font = `${node.kind === "persona" ? 13 : 10}px ui-sans-serif, system-ui`;
-          ctx.textAlign = "center";
-          ctx.fillText(node.label.slice(0, 26), node.x, node.y + r + 12);
-        }
-        ctx.globalAlpha = 1;
-      }
-      ctx.restore();
-      raf = requestAnimationFrame(tick);
-    };
-
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [visible]);
-
-  const zoomBy = (factor: number) => {
-    const v = viewRef.current;
-    v.scale = Math.min(4, Math.max(0.25, v.scale * factor));
+    setInspect(node);
   };
 
-  const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointersRef.current.size === 2) {
-      const [a, b] = [...pointersRef.current.values()];
-      pinchRef.current = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      return;
+  const doRebuild = async () => {
+    setBusy(true);
+    try {
+      await rebuild({ data: { projectId: project.id } });
+      await queryClient.invalidateQueries({ queryKey: ["graph-summary", userId, project.id] });
+      toast.success(t("rebuilt"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
     }
-    const w = toWorld(e.clientX, e.clientY);
-    const node = nodeAt(w.x, w.y);
-    if (node && linkMode) {
-      linkDragRef.current = { from: node.key, x: w.x, y: w.y };
-      return;
-    }
-    dragRef.current = { key: node?.key ?? null, pointer: { x: e.clientX, y: e.clientY }, pan: !node };
-  };
-
-  const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!pointersRef.current.has(e.pointerId)) return;
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointersRef.current.size === 2 && pinchRef.current) {
-      const [a, b] = [...pointersRef.current.values()];
-      const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
-      zoomBy(dist / pinchRef.current);
-      pinchRef.current = dist;
-      return;
-    }
-    if (linkDragRef.current) {
-      const w = toWorld(e.clientX, e.clientY);
-      linkDragRef.current = { ...linkDragRef.current, x: w.x, y: w.y };
-      return;
-    }
-    const drag = dragRef.current;
-    if (!drag.pointer) return;
-    const dx = e.clientX - drag.pointer.x;
-    const dy = e.clientY - drag.pointer.y;
-    drag.pointer = { x: e.clientX, y: e.clientY };
-    if (drag.pan) {
-      viewRef.current.x += dx;
-      viewRef.current.y += dy;
-    } else if (drag.key) {
-      const node = simRef.current.get(drag.key);
-      if (node) {
-        node.x += dx / viewRef.current.scale;
-        node.y += dy / viewRef.current.scale;
-        node.vx = 0;
-        node.vy = 0;
-      }
-    }
-  };
-
-  const onPointerUp = async (e: React.PointerEvent<HTMLCanvasElement>) => {
-    pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size < 2) pinchRef.current = null;
-
-    const pending = linkDragRef.current;
-    if (pending) {
-      linkDragRef.current = null;
-      const w = toWorld(e.clientX, e.clientY);
-      const target = nodeAt(w.x, w.y);
-      if (target && target.key !== pending.from) {
-        const error = await createCustomLink(userId, personaId, pending.from, target.key);
-        if (error) toast.error(error);
-        else {
-          toast.success(t("linked"));
-          await queryClient.invalidateQueries({ queryKey: ["graph-links", userId, personaId] });
-        }
-      }
-      return;
-    }
-
-    const drag = dragRef.current;
-    const moved = drag.pointer ? Math.abs(drag.pointer.x - e.clientX) + Math.abs(drag.pointer.y - e.clientY) : 0;
-    dragRef.current = { key: null, pointer: null, pan: false };
-    if (!drag.pan && drag.key && moved < 6) {
-      const node = graph.nodes.find((n) => n.key === drag.key);
-      if (node) setInspect(node);
-    }
-  };
-
-  const refreshAll = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["graph-content"] }),
-      queryClient.invalidateQueries({ queryKey: ["graph-vaults", personaId] }),
-      queryClient.invalidateQueries({ queryKey: ["projects", userId, personaId] }),
-      queryClient.invalidateQueries({ queryKey: ["project-content"] }),
-      queryClient.invalidateQueries({ queryKey: ["home-feed"] }),
-    ]);
   };
 
   return (
-    <section className="min-w-0 space-y-3">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">{t("title")}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{t("desc")}</p>
+    <section className="space-y-3">
+      <header className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-foreground">{t("title")}</h3>
+          <p className="text-xs text-muted-foreground">{t("desc")}</p>
         </div>
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : null}
-      </header>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="relative min-w-[10rem] flex-1">
+        <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder={t("search")}
-            className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-3 text-xs text-foreground outline-none focus:border-primary"
+            className="w-44 rounded-lg border border-border bg-background py-1.5 pl-8 pr-2 text-xs text-foreground outline-none focus:border-primary"
           />
-        </label>
-        <select
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          className="rounded-lg border border-border bg-background px-2 py-2 text-xs text-foreground outline-none focus:border-primary"
-        >
-          <option value="">{t("allTopics")}</option>
-          {graph.topics.map((tp) => (
-            <option key={tp} value={tp}>
-              {tp}
-            </option>
-          ))}
-        </select>
-        <button type="button" aria-label="Zoom in" onClick={() => zoomBy(1.25)} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-foreground">
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <button type="button" aria-label="Zoom out" onClick={() => zoomBy(0.8)} className="rounded-lg border border-border p-2 text-muted-foreground hover:text-foreground">
-          <ZoomOut className="h-4 w-4" />
-        </button>
+        </div>
         <button
           type="button"
-          onClick={() => { viewRef.current = { scale: 1, x: 0, y: 0 }; }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          onClick={() => void doRebuild()}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground disabled:opacity-50"
         >
-          <Maximize className="h-3.5 w-3.5" /> {t("reset")}
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {t("rebuild")}
         </button>
-        <button
-          type="button"
-          onClick={() => setLinkMode((s) => !s)}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-semibold ${
-            linkMode ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
-          }`}
-        >
-          <Link2 className="h-3.5 w-3.5" /> {t("linkMode")}
-        </button>
-      </div>
+      </header>
 
-      <div className="relative overflow-hidden rounded-2xl border border-border" style={{ background: "#0b0f19" }}>
-        <canvas
-          ref={canvasRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={(e) => void onPointerUp(e)}
-          onPointerCancel={(e) => void onPointerUp(e)}
-          onWheel={(e) => zoomBy(e.deltaY < 0 ? 1.1 : 0.9)}
-          className="h-[320px] w-full touch-none sm:h-[420px] lg:h-[520px]"
-        />
-        {visible.nodes.length <= 1 && !isLoading ? (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center p-6 text-center text-xs text-muted-foreground">
-            {t("empty")}
-          </p>
+      <nav className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        {level !== "project" || search.trim() ? (
+          <button
+            type="button"
+            onClick={() => { setSearch(""); goBack(); }}
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1"
+          >
+            <ArrowLeft className="h-3 w-3" /> {t("back")}
+          </button>
         ) : null}
-      </div>
+        <span className="truncate font-semibold text-foreground">{project.title}</span>
+        {cluster && !search.trim() ? <span>/ {cluster.label}</span> : null}
+        {video ? <span className="truncate">/ {video.title}</span> : null}
+        <span className="ml-auto">
+          {summary?.videos ?? 0} {t("videos")} · {summary?.concepts ?? 0} {t("concepts")}
+        </span>
+      </nav>
 
-      <Sheet open={!!inspect} onOpenChange={(o) => { if (!o) setInspect(null); }}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+      {summary?.needsRebuild ? (
+        <p className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">{t("needsRebuild")}</p>
+      ) : null}
+
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : (summary?.videos ?? 0) === 0 ? (
+        <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{t("empty")}</p>
+      ) : (
+        <GraphCanvas nodes={graph.nodes} links={graph.links} onOpen={openNode} />
+      )}
+
+      {graph.nodes.length >= MAX_NODES ? (
+        <p className="text-xs text-muted-foreground">{t("capped").replace("{n}", String(MAX_NODES))}</p>
+      ) : null}
+
+      <Sheet open={Boolean(inspect)} onOpenChange={(o) => !o && setInspect(null)}>
+        <SheetContent side="right" className="w-full max-w-sm overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="truncate">{inspect?.label ?? t("inspector")}</SheetTitle>
+            <SheetTitle>{t("inspector")}</SheetTitle>
           </SheetHeader>
           {inspect ? (
-            <NodeInspector
-              lang={lang}
-              node={inspect}
-              projects={projects}
-              personaId={personaId}
-              customLinkIds={graph.links
-                .filter((l) => l.custom && (l.source === inspect.key || l.target === inspect.key))
-                .map((l) => l.id!)
-                .filter(Boolean)}
-              onClose={() => setInspect(null)}
-              onHide={(key) => setHidden((h) => [...h, key])}
-              onChanged={refreshAll}
-              onLinksChanged={async () => {
-                await queryClient.invalidateQueries({ queryKey: ["graph-links", userId, personaId] });
-              }}
-            />
+            <div className="mt-4 space-y-3 text-sm">
+              <p className="font-semibold text-foreground">{inspect.label}</p>
+              {inspect.meta.detail ? <p className="text-xs text-muted-foreground">{inspect.meta.detail}</p> : null}
+              {inspect.meta.overflow ? (
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {inspect.meta.overflow.slice(0, 200).map((o) => (
+                    <li key={o.key} className="truncate">• {o.label}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {inspect.meta.sourceUrl ? (
+                <a
+                  href={inspect.meta.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-primary"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> {t("openVideo")}
+                </a>
+              ) : null}
+            </div>
           ) : null}
         </SheetContent>
       </Sheet>
@@ -526,183 +287,241 @@ export function KnowledgeGraph({
   );
 }
 
-function NodeInspector({
-  lang,
-  node,
-  projects,
-  personaId,
-  customLinkIds,
-  onClose,
-  onHide,
-  onChanged,
-  onLinksChanged,
+/** Dependency-free force-directed canvas: pan, zoom, drag, click to open. */
+function GraphCanvas({
+  nodes,
+  links,
+  onOpen,
 }: {
-  lang: Lang;
-  node: GraphNode;
-  projects: Project[];
-  personaId: string | null;
-  customLinkIds: string[];
-  onClose: () => void;
-  onHide: (key: string) => void;
-  onChanged: () => Promise<void>;
-  onLinksChanged: () => Promise<void>;
+  nodes: GraphNode[];
+  links: { source: string; target: string }[];
+  onOpen: (node: GraphNode) => void;
 }) {
-  const removeVideo = useServerFn(permanentlyDeleteVideo);
-  const moveVault = useServerFn(updateVault);
-  const t = (k: keyof typeof C) => pickCopy(C[k], lang);
-  const [label, setLabel] = useState(node.label);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => setLabel(node.label), [node.key, node.label]);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const simRef = useRef<Map<string, Sim>>(new Map());
+  const viewRef = useRef({ scale: 1, x: 0, y: 0 });
+  const dragRef = useRef<{ key: string | null; from: { x: number; y: number } | null; moved: boolean }>({
+    key: null,
+    from: null,
+    moved: false,
+  });
+  const [hover, setHover] = useState<string | null>(null);
 
-  const thumb = node.meta.youtubeId ? `https://i.ytimg.com/vi/${node.meta.youtubeId}/hqdefault.jpg` : null;
-  const editable = node.kind === "content" ? !!node.meta.contentId : node.kind === "project";
+  // Rebuild the simulation whenever the level changes; keep known positions.
+  useEffect(() => {
+    const next = new Map<string, Sim>();
+    nodes.forEach((node, i) => {
+      const prev = simRef.current.get(node.key);
+      const angle = (i / Math.max(1, nodes.length)) * Math.PI * 2;
+      const radius = node.kind === "project" ? 0 : 120 + (i % 7) * 26;
+      next.set(node.key, {
+        ...node,
+        x: prev?.x ?? Math.cos(angle) * radius,
+        y: prev?.y ?? Math.sin(angle) * radius,
+        vx: 0,
+        vy: 0,
+      });
+    });
+    simRef.current = next;
+  }, [nodes]);
 
-  /** Attaches a mined video / core brain to a project so it stops floating alone. */
-  const connectToProject = async (projectId: string) => {
-    setBusy(true);
-    let error: string | null = null;
-    try {
-      if (node.meta.vaultId) {
-        await moveVault({ data: { id: node.meta.vaultId, projectId: projectId || null, personaId } });
-      } else if (node.meta.contentId) {
-        if (!projectId) { setBusy(false); return; }
-        error = await moveProjectContent(node.meta.contentId, projectId);
+  const toWorld = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const view = viewRef.current;
+    return {
+      x: (clientX - rect.left - rect.width / 2 - view.x) / view.scale,
+      y: (clientY - rect.top - rect.height / 2 - view.y) / view.scale,
+    };
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    let frame = 0;
+
+    const tick = () => {
+      const sims = [...simRef.current.values()];
+      // Repulsion between nodes, springs along links, gravity to the centre.
+      for (let i = 0; i < sims.length; i += 1) {
+        for (let j = i + 1; j < sims.length; j += 1) {
+          const a = sims[i]!;
+          const b = sims[j]!;
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          let dist = Math.hypot(dx, dy) || 0.01;
+          if (dist > 420) continue;
+          const force = Math.min(2200 / (dist * dist), 4);
+          dx /= dist;
+          dy /= dist;
+          a.vx -= dx * force;
+          a.vy -= dy * force;
+          b.vx += dx * force;
+          b.vy += dy * force;
+        }
       }
-    } catch (e) {
-      error = e instanceof Error ? e.message : String(e);
-    }
-    setBusy(false);
-    if (error) { toast.error(error); return; }
-    toast.success(t("connected"));
-    await onChanged();
-  };
-
-  const save = async () => {
-    setBusy(true);
-    const error = node.kind === "project"
-      ? await updateProject(node.meta.projectId!, { title: label })
-      : await updateProjectContent(node.meta.contentId!, { title: label });
-    setBusy(false);
-    if (error) { toast.error(error); return; }
-    toast.success(t("saved"));
-    await onChanged();
-    onClose();
-  };
-
-  const remove = async () => {
-    setBusy(true);
-    let error: string | null = null;
-    if (node.kind === "project" && node.meta.projectId) error = await deleteProject(node.meta.projectId);
-    else if (node.meta.contentId) {
-      try {
-        await removeVideo({
-          data: {
-            contentId: node.meta.contentId,
-            ...(node.meta.youtubeId ? { youtubeId: node.meta.youtubeId } : {}),
-            ...(node.meta.sourceUrl ? { sourceUrl: node.meta.sourceUrl } : {}),
-          },
-        });
-      } catch (e) {
-        error = e instanceof Error ? e.message : String(e);
+      for (const link of links) {
+        const a = simRef.current.get(link.source);
+        const b = simRef.current.get(link.target);
+        if (!a || !b) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 0.01;
+        const target = 130;
+        const force = (dist - target) * 0.012;
+        const ux = dx / dist;
+        const uy = dy / dist;
+        a.vx += ux * force;
+        a.vy += uy * force;
+        b.vx -= ux * force;
+        b.vy -= uy * force;
       }
+      for (const node of sims) {
+        if (node.kind === "project") {
+          node.x = 0;
+          node.y = 0;
+          node.vx = 0;
+          node.vy = 0;
+          continue;
+        }
+        node.vx -= node.x * 0.0016;
+        node.vy -= node.y * 0.0016;
+        node.vx *= 0.86;
+        node.vy *= 0.86;
+        if (dragRef.current.key !== node.key) {
+          node.x += node.vx;
+          node.y += node.vy;
+        }
+      }
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+      const view = viewRef.current;
+      ctx.save();
+      ctx.translate(width / 2 + view.x, height / 2 + view.y);
+      ctx.scale(view.scale, view.scale);
+
+      ctx.lineWidth = 1 / view.scale;
+      ctx.strokeStyle = "rgba(148,163,184,0.28)";
+      for (const link of links) {
+        const a = simRef.current.get(link.source);
+        const b = simRef.current.get(link.target);
+        if (!a || !b) continue;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+
+      for (const node of sims) {
+        const radius = NODE_RADIUS[node.kind] * (0.7 + node.weight * 0.5);
+        ctx.beginPath();
+        ctx.fillStyle = COLORS[node.kind];
+        ctx.globalAlpha = hover && hover !== node.key ? 0.55 : 1;
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        // Labels only where they can be read: hubs always, the rest on zoom or hover.
+        const readable = node.kind === "project" || node.kind === "cluster" || view.scale > 0.9 || hover === node.key;
+        if (!readable) continue;
+        ctx.fillStyle = "rgba(226,232,240,0.92)";
+        ctx.font = `${node.kind === "project" ? 14 : 11}px system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        const label = node.label.length > 30 ? `${node.label.slice(0, 29)}…` : node.label;
+        ctx.fillText(label, node.x, node.y + radius + 12);
+      }
+      ctx.restore();
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [links, hover]);
+
+  const nodeAt = (clientX: number, clientY: number): Sim | null => {
+    const point = toWorld(clientX, clientY);
+    let found: Sim | null = null;
+    for (const node of simRef.current.values()) {
+      const radius = NODE_RADIUS[node.kind] * (0.7 + node.weight * 0.5) + 6;
+      if (Math.hypot(node.x - point.x, node.y - point.y) <= radius) found = node;
     }
-    else onHide(node.key);
-    for (const id of customLinkIds) await deleteCustomLink(id);
-    setBusy(false);
-    if (error) { toast.error(error); return; }
-    toast.success(t("removed"));
-    await onChanged();
-    await onLinksChanged();
-    onClose();
+    return found;
   };
 
   return (
-    <div className="space-y-4 px-4 pb-8">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {node.kind} {node.meta.detail ? `· ${node.meta.detail}` : ""}
-      </p>
-
-      {thumb ? (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-foreground">{t("source")}</p>
-          <img src={thumb} alt="" className="w-full rounded-lg border border-border object-cover" referrerPolicy="no-referrer" />
-          {node.meta.timestamp !== undefined ? (
-            <a
-              href={`${node.meta.sourceUrl ?? `https://youtu.be/${node.meta.youtubeId}`}${node.meta.sourceUrl?.includes("?") ? "&" : "?"}t=${Math.round(node.meta.timestamp)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-primary underline"
-            >
-              {Math.floor(node.meta.timestamp / 60)}:{String(Math.round(node.meta.timestamp) % 60).padStart(2, "0")}
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-
-      {node.meta.payload ? (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-foreground">{t("payload")}</p>
-          <pre className="max-h-64 overflow-auto rounded-lg border border-border bg-muted/40 p-3 text-[10px] leading-relaxed text-muted-foreground">
-            {JSON.stringify(node.meta.payload, null, 2).slice(0, 6000)}
-          </pre>
-        </div>
-      ) : null}
-
-      {customLinkIds.length > 0 ? (
-        <p className="text-xs text-muted-foreground">
-          {t("customLinks")}: {customLinkIds.length}
-        </p>
-      ) : null}
-
-      {node.kind === "content" && projects.length > 0 ? (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-foreground">{t("connect")}</p>
-          <select
-            disabled={busy}
-            value={node.meta.projectId ?? ""}
-            onChange={(e) => void connectToProject(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-          >
-            <option value="">{t("noProject")}</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-
-
-      {editable ? (
-        <input
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-        />
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {editable ? (
+    <div className="relative h-[26rem] overflow-hidden rounded-xl border border-border bg-card">
+      <canvas
+        ref={canvasRef}
+        className="h-full w-full touch-none"
+        onPointerDown={(e) => {
+          (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
+          const node = nodeAt(e.clientX, e.clientY);
+          dragRef.current = { key: node?.key ?? null, from: { x: e.clientX, y: e.clientY }, moved: false };
+        }}
+        onPointerMove={(e) => {
+          const drag = dragRef.current;
+          if (!drag.from) {
+            const node = nodeAt(e.clientX, e.clientY);
+            setHover(node?.key ?? null);
+            return;
+          }
+          const dx = e.clientX - drag.from.x;
+          const dy = e.clientY - drag.from.y;
+          if (Math.hypot(dx, dy) > 4) drag.moved = true;
+          if (drag.key) {
+            const node = simRef.current.get(drag.key);
+            const point = toWorld(e.clientX, e.clientY);
+            if (node && node.kind !== "project") {
+              node.x = point.x;
+              node.y = point.y;
+            }
+          } else {
+            viewRef.current.x += dx;
+            viewRef.current.y += dy;
+          }
+          drag.from = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={(e) => {
+          const drag = dragRef.current;
+          if (drag.key && !drag.moved) {
+            const node = simRef.current.get(drag.key);
+            if (node) onOpen(node);
+          }
+          dragRef.current = { key: null, from: null, moved: false };
+          (e.target as HTMLCanvasElement).releasePointerCapture(e.pointerId);
+        }}
+        onWheel={(e) => {
+          const next = Math.min(3, Math.max(0.35, viewRef.current.scale * (e.deltaY > 0 ? 0.92 : 1.08)));
+          viewRef.current.scale = next;
+        }}
+      />
+      <div className="absolute bottom-3 right-3 flex gap-1.5">
+        {[
+          { icon: ZoomOut, factor: 0.85 },
+          { icon: ZoomIn, factor: 1.18 },
+        ].map(({ icon: Icon, factor }) => (
           <button
+            key={factor}
             type="button"
-            disabled={busy || !label.trim()}
-            onClick={() => void save()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+            onClick={() => {
+              viewRef.current.scale = Math.min(3, Math.max(0.35, viewRef.current.scale * factor));
+            }}
+            className="rounded-lg border border-border bg-background/80 p-1.5 text-muted-foreground"
           >
-            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} {t("rename")}
+            <Icon className="h-3.5 w-3.5" />
           </button>
-        ) : null}
-        {node.kind !== "persona" ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void remove()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> {t("remove")}
-          </button>
-        ) : null}
+        ))}
       </div>
     </div>
   );
