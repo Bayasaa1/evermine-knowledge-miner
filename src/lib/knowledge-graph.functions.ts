@@ -13,7 +13,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { extractConcepts, extractVaultConcepts, type ConceptKind } from "@/lib/knowledge-graph";
+import { extractConcepts, extractVaultConcepts, type ConceptKind } from "@/lib/concepts";
 
 const projectInput = z.object({ projectId: z.string().uuid() });
 

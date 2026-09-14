@@ -11,7 +11,7 @@
 import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
 import { unpackInstructions } from "@/lib/mining-jobs";
-import { extractConcepts } from "@/lib/knowledge-graph";
+import { extractConcepts } from "@/lib/concepts";
 
 type JobRow = {
   id: string;
