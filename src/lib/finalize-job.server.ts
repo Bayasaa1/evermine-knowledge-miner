@@ -214,21 +214,37 @@ export async function finalizeMiningJob(
         .eq("id", existingContent.id)
         .eq("user_id", job.user_id);
     } else {
-      await admin.from("project_content").insert({
-        project_id: projectId,
-        user_id: job.user_id,
-        kind,
-        category,
-        youtube_id: videoId,
-        source_url: job.source_url,
-        title,
-        description,
+      const { data: created } = await admin
+        .from("project_content")
+        .insert({
+          project_id: projectId,
+          user_id: job.user_id,
+          kind,
+          category,
+          youtube_id: videoId,
+          source_url: job.source_url,
+          title,
+          description,
+          tags,
+          transcript: mined.transcript as never,
+          emotion_timeline: mined.emotionTimeline as never,
+          mind_id: savedVault.id,
+        })
+        .select("id")
+        .maybeSingle();
+      contentId = (created?.id as string | undefined) ?? null;
+    }
+
+    // Keep the project's knowledge map current without rebuilding the whole
+    // index: only this video's concepts are touched.
+    if (contentId) {
+      await indexVideoConcepts(admin, job.user_id, projectId, contentId, {
         tags,
-        transcript: mined.transcript as never,
-        emotion_timeline: mined.emotionTimeline as never,
-        mind_id: savedVault.id,
+        timeline: mined.timeline ?? [],
+        emotion_timeline: mined.emotionTimeline ?? [],
       });
     }
+
     // Only an explicit creator choice makes a project public.
     if (job.publish_to_feed === true && kind === "VISUAL_CONTENT") {
       await admin.from("projects").update({ published: true }).eq("id", projectId).eq("user_id", job.user_id);
