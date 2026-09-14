@@ -84,8 +84,27 @@ export const getUserAiKeyStatus = createServerFn({ method: "GET" })
 
 export const deleteUserAiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ provider: PROVIDER }).parse(input))
+  .inputValidator((input) =>
+    z.object({ provider: PROVIDER, tail: z.string().min(2).max(8).optional() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
+    // A creator can keep several keys for one provider. Removing one must not
+    // wipe the spares, so when the caller names the key's last characters only
+    // that row goes.
+    if (data.tail) {
+      const { data: rows } = await context.supabase
+        .from("user_ai_keys")
+        .select("id, api_key")
+        .eq("user_id", context.userId)
+        .eq("provider", data.provider);
+      const match = (rows ?? []).find((r) => (r.api_key ?? "").endsWith(data.tail!));
+      if (match) {
+        const { error } = await context.supabase.from("user_ai_keys").delete().eq("id", match.id);
+        if (error) throw new Error(error.message);
+        return { ok: true as const };
+      }
+      return { ok: true as const };
+    }
     const { error } = await context.supabase
       .from("user_ai_keys")
       .delete()
