@@ -197,6 +197,7 @@ export async function finalizeMiningJob(
   const description = (meta.sourceDescription || mined.story?.summary || "").slice(0, 500);
   const tags = (mined.subconsciousness?.skills ?? []).slice(0, 6);
   if (projectId) {
+    let contentId: string | null = existingContent?.id ?? null;
     if (existingContent) {
       await admin
         .from("project_content")
