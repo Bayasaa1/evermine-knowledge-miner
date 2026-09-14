@@ -33,6 +33,7 @@ import {
   UserSquare2,
   Video,
   Captions,
+  Network,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -105,6 +106,7 @@ const C = {
   training: { en: "Training only", mn: "Зөвхөн сургалт", ko: "학습 전용" },
   coreBrain: { en: "Core Brain", mn: "Гол Тархи", ko: "코어 브레인" },
   analytics: { en: "Analytics & Reviews", mn: "Аналитик ба Сэтгэгдэл", ko: "분석 및 리뷰" },
+  mapTab: { en: "Knowledge map", mn: "Мэдлэгийн зураглал", ko: "지식 지도" },
   noContent: { en: "No videos in this list yet.", mn: "Энэ жагсаалтад видео алга.", ko: "이 목록에 영상이 없습니다." },
   mined: { en: "Mined", mn: "Олборлосон", ko: "마이닝됨" },
   chunksLabel: { en: "5-min chunks", mn: "5 мин хэсэг", ko: "5분 청크" },
@@ -155,7 +157,7 @@ const C = {
   signIn: { en: "Sign in to open your vaults.", mn: "Сангаа нээхийн тулд нэвтэрнэ үү.", ko: "볼트를 열려면 로그인하세요." },
 } as const;
 
-type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
+type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "map" | "brain" | "analytics";
 
 export type VaultPersonaSelection = { id: string | null; name: string } | null;
 
