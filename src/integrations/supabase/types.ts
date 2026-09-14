@@ -673,6 +673,53 @@ export type Database = {
         }
         Relationships: []
       }
+      project_concepts: {
+        Row: {
+          concept: string
+          content_ids: string[]
+          count: number
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          concept: string
+          content_ids?: string[]
+          count?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          concept?: string
+          content_ids?: string[]
+          count?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_concepts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_content: {
         Row: {
           category: string

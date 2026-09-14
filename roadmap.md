@@ -31,3 +31,10 @@
 - [x] Require the active owner on every remaining project, persona, and graph mutation
 - [x] Make “Move to feed” publish the selected video’s project
 - [x] Refresh Groq key testing so retired models do not reject valid keys
+
+## Knowledge map built for 1000 videos
+- [x] Project is the unit — one project, one knowledge space, never mixed
+- [x] Three zoom levels (project topics → videos → one video's concepts) with a hard node cap
+- [x] Concept index table written as mining finishes, rebuildable for old Core Brains
+- [x] Table view with search, paging and bulk move / feed-or-training / delete
+- [x] Persona level shows project cards with counts instead of one huge canvas

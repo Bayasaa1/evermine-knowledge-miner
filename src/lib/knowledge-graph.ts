@@ -1,26 +1,40 @@
 /**
- * Obsidian-style knowledge graph model for one Persona.
+ * Knowledge graph model — scoped to ONE project.
  *
- * The graph is derived (never duplicated) from data that already exists:
- *   Persona  → Projects/Vaults → Mined content (.json.md) → Concepts
- * plus user-defined links stored in `graph_links`.
+ * A project is the unit of knowledge. Two projects never share a canvas and
+ * never merge concepts, because a creator's cooking project and robot project
+ * are different brains that happen to have the same owner.
  *
- * Everything here is pure data shaping; rendering lives in
- * `src/components/knowledge-graph.tsx`.
+ * At 1000 videos you cannot draw everything, so the graph works like a map
+ * with three zoom levels:
+ *
+ *   project  → topic clusters ("street vlogging (312)")
+ *   cluster  → the videos inside one cluster
+ *   video    → the concepts, lessons and emotions mined from one video
+ *
+ * Each level replaces the previous one, so the canvas never exceeds a few
+ * hundred nodes no matter how large the library is. Heavy grouping happens
+ * server-side (`knowledge-graph.functions.ts`); this file is pure shaping.
  */
 import { supabase } from "@/integrations/supabase/client";
 import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
-import type { Project, ProjectContent } from "@/lib/projects";
-import type { VaultRow } from "@/lib/cloud-vault.functions";
-import type { MindPayload } from "@/lib/mind-json";
+import type { ProjectContent } from "@/lib/projects";
+import { extractConcepts, type ConceptKind } from "@/lib/concepts";
 
-export type GraphNodeKind = "persona" | "project" | "content" | "concept";
+export { extractConcepts, extractVaultConcepts, normalizeConcept } from "@/lib/concepts";
+export type { ConceptKind } from "@/lib/concepts";
+
+export type GraphNodeKind = "project" | "cluster" | "content" | "concept";
+
+/** How many nodes may ever be drawn at once, regardless of library size. */
+export const MAX_NODES = 300;
 
 export type GraphNode = {
   key: string;
   kind: GraphNodeKind;
   label: string;
-  /** Topic bucket used by the "Filter by topic" control. */
+  /** Relative weight: drives node size so hubs stand out. */
+  weight: number;
   topic: string;
   meta: {
     projectId?: string;
@@ -29,155 +43,210 @@ export type GraphNode = {
     youtubeId?: string;
     sourceUrl?: string;
     timestamp?: number;
+    concept?: string;
+    conceptKind?: ConceptKind;
+    count?: number;
     payload?: unknown;
     detail?: string;
+    /** Overflow node: the items that did not fit on the canvas. */
+    overflow?: Array<{ key: string; label: string }>;
   };
 };
 
 export type GraphLink = { source: string; target: string; custom?: boolean; id?: string };
 
-export type GraphModel = { nodes: GraphNode[]; links: GraphLink[]; topics: string[] };
+export type GraphModel = { nodes: GraphNode[]; links: GraphLink[] };
 
 export const NODE_RADIUS: Record<GraphNodeKind, number> = {
-  persona: 22,
-  project: 14,
+  project: 22,
+  cluster: 13,
   content: 9,
-  concept: 5.5,
+  concept: 6,
 };
 
-const clean = (s: unknown): string => (typeof s === "string" ? s.trim() : "");
+export type ConceptRow = {
+  concept: string;
+  label: string;
+  kind: ConceptKind;
+  count: number;
+};
 
-const conceptKey = (name: string) => `concept:${name.toLowerCase().slice(0, 60)}`;
+export type GraphLevel = "project" | "cluster" | "video";
 
-/** Builds the full node/link graph for the active persona scope. */
-export function buildGraph(input: {
-  personaKey: string;
-  personaName: string;
-  projects: Project[];
-  content: ProjectContent[];
-  vaults: VaultRow[];
-  customLinks: CustomLink[];
+export type VideoRow = {
+  id: string;
+  title: string;
+  youtubeId: string;
+  sourceUrl: string;
+  kind: string;
+  createdAt: string;
+};
+
+const conceptNodeKey = (kind: ConceptKind, concept: string) => `concept:${kind}:${concept}`;
+const clusterKey = (kind: ConceptKind, concept: string) => `cluster:${kind}:${concept}`;
+
+/**
+ * Builds the node/link set for the level currently being viewed. Whatever the
+ * project's size, the result is bounded by `MAX_NODES`.
+ */
+export function buildProjectGraph(input: {
+  project: { id: string; title: string };
+  level: GraphLevel;
+  /** Topic clusters of the project (level "project"). */
+  clusters: ConceptRow[];
+  /** Videos of the open cluster, or the project's newest (level "cluster"). */
+  videos: VideoRow[];
+  /** Concepts of the open video (level "video"). */
+  concepts: ConceptRow[];
+  openCluster: ConceptRow | null;
+  openVideo: VideoRow | null;
+  totals: { videos: number; concepts: number };
 }): GraphModel {
-  const nodes = new Map<string, GraphNode>();
+  const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
-  const topics = new Set<string>();
 
-  const push = (node: GraphNode) => {
-    if (!nodes.has(node.key)) nodes.set(node.key, node);
-    return node.key;
+  const root: GraphNode = {
+    key: `project:${input.project.id}`,
+    kind: "project",
+    label: input.project.title,
+    weight: 1,
+    topic: "project",
+    meta: {
+      projectId: input.project.id,
+      detail: `${input.totals.videos} videos · ${input.totals.concepts} concepts`,
+    },
   };
-  const link = (source: string, target: string) => {
-    if (source !== target && nodes.has(source) && nodes.has(target)) links.push({ source, target });
-  };
+  nodes.push(root);
 
-  const root = push({
-    key: "persona",
-    kind: "persona",
-    label: input.personaName,
-    topic: "persona",
-    meta: { detail: `${input.projects.length} projects · ${input.content.length} mined items` },
+  const budget = MAX_NODES - 1;
+
+  const overflowNode = (items: Array<{ key: string; label: string }>, label: string): GraphNode => ({
+    key: `overflow:${label}`,
+    kind: "concept",
+    label: `+${items.length} more`,
+    weight: 1,
+    topic: "overflow",
+    meta: { detail: "overflow", overflow: items },
   });
 
-  for (const p of input.projects) {
-    const key = `project:${p.id}`;
-    push({
-      key,
-      kind: "project",
-      label: p.title,
-      topic: "project",
-      meta: { projectId: p.id, detail: p.description || "" },
-    });
-    link(root, key);
+  if (input.level === "project") {
+    const shown = input.clusters.slice(0, budget);
+    const rest = input.clusters.slice(budget);
+    const max = Math.max(1, ...shown.map((c) => c.count));
+    for (const c of shown) {
+      const key = clusterKey(c.kind, c.concept);
+      nodes.push({
+        key,
+        kind: "cluster",
+        label: `${c.label} (${c.count})`,
+        weight: 0.5 + c.count / max,
+        topic: c.kind,
+        meta: { concept: c.concept, conceptKind: c.kind, count: c.count, detail: c.kind },
+      });
+      links.push({ source: root.key, target: key });
+    }
+    if (rest.length > 0) {
+      const node = overflowNode(
+        rest.map((c) => ({ key: clusterKey(c.kind, c.concept), label: `${c.label} (${c.count})` })),
+        "clusters",
+      );
+      nodes.push(node);
+      links.push({ source: root.key, target: node.key });
+    }
+    return { nodes, links };
   }
 
-  for (const item of input.content) {
-    const key = `content:${item.id}`;
-    push({
-      key,
+  if (input.level === "cluster" && input.openCluster) {
+    const c = input.openCluster;
+    const hub: GraphNode = {
+      key: clusterKey(c.kind, c.concept),
+      kind: "cluster",
+      label: `${c.label} (${c.count})`,
+      weight: 1.5,
+      topic: c.kind,
+      meta: { concept: c.concept, conceptKind: c.kind, count: c.count, detail: c.kind },
+    };
+    nodes.push(hub);
+    links.push({ source: root.key, target: hub.key });
+    pushVideos(input.videos, hub.key, budget - 1);
+    return { nodes, links };
+  }
+
+  if (input.level === "video" && input.openVideo) {
+    const v = input.openVideo;
+    const hub: GraphNode = {
+      key: `content:${v.id}`,
       kind: "content",
-      label: item.title || item.youtube_id || "Untitled",
-      topic: item.kind === "TRAINING_ONLY" ? "training" : "visual",
+      label: v.title,
+      weight: 1.5,
+      topic: v.kind,
       meta: {
-        contentId: item.id,
-        projectId: item.project_id,
-        youtubeId: item.youtube_id,
-        sourceUrl: item.source_url,
-        detail: item.description || "",
+        contentId: v.id,
+        projectId: input.project.id,
+        youtubeId: v.youtubeId,
+        sourceUrl: v.sourceUrl,
+        detail: v.kind === "TRAINING_ONLY" ? "training only" : "feed video",
       },
-    });
-    link(`project:${item.project_id}`, key);
+    };
+    nodes.push(hub);
+    links.push({ source: root.key, target: hub.key });
 
-    for (const tag of item.tags ?? []) {
-      const name = clean(tag);
-      if (!name) continue;
-      topics.add(name);
-      const ck = push({ key: conceptKey(name), kind: "concept", label: name, topic: name, meta: { detail: "tag" } });
-      link(key, ck);
-    }
-
-    for (const mark of (item.timeline ?? []).slice(0, 12)) {
-      const name = clean(mark.label);
-      if (!name) continue;
-      const ck = push({
-        key: `${conceptKey(name)}:${item.id}`,
+    const shown = input.concepts.slice(0, budget - 1);
+    const rest = input.concepts.slice(budget - 1);
+    for (const c of shown) {
+      const key = conceptNodeKey(c.kind, `${c.concept}:${v.id}`);
+      nodes.push({
+        key,
         kind: "concept",
-        label: name,
-        topic: "lesson",
-        meta: { youtubeId: item.youtube_id, sourceUrl: item.source_url, timestamp: mark.t, detail: "lesson" },
+        label: c.label,
+        weight: 0.8,
+        topic: c.kind,
+        meta: { concept: c.concept, conceptKind: c.kind, detail: c.kind, contentId: v.id, youtubeId: v.youtubeId, sourceUrl: v.sourceUrl },
       });
-      link(key, ck);
+      links.push({ source: hub.key, target: key });
     }
-
-    for (const mark of (item.emotion_timeline ?? []).slice(0, 10)) {
-      const name = clean(mark.emotion ?? mark.label);
-      if (!name) continue;
-      const ck = push({
-        key: `emotion:${name.toLowerCase()}`,
-        kind: "concept",
-        label: name,
-        topic: "emotion",
-        meta: { detail: "emotion" },
-      });
-      link(key, ck);
+    if (rest.length > 0) {
+      const node = overflowNode(
+        rest.map((c) => ({ key: conceptNodeKey(c.kind, c.concept), label: c.label })),
+        "concepts",
+      );
+      nodes.push(node);
+      links.push({ source: hub.key, target: node.key });
     }
+    return { nodes, links };
   }
 
-  for (const vault of input.vaults) {
-    const key = `vault:${vault.id}`;
-    const payload = (vault.payload ?? {}) as MindPayload;
-    push({
-      key,
-      kind: "content",
-      label: vault.title,
-      topic: "json",
-      meta: { vaultId: vault.id, ...(vault.projectId ? { projectId: vault.projectId } : {}), payload, detail: ".json.md core brain" },
-    });
-    link(vault.projectId ? `project:${vault.projectId}` : root, key);
+  // Fallback: the project with its newest videos.
+  pushVideos(input.videos, root.key, budget);
+  return { nodes, links };
 
-    const result = (payload.result ?? {}) as Record<string, unknown>;
-    const knowledge = Array.isArray(result['knowledgeNodes']) ? (result['knowledgeNodes'] as Record<string, unknown>[]) : [];
-    for (const node of knowledge.slice(0, 40)) {
-      const name = clean(node['concept_title'] ?? node['title'] ?? node['concept']);
-      if (!name) continue;
-      topics.add(name);
-      const ck = push({
-        key: conceptKey(name),
-        kind: "concept",
-        label: name,
-        topic: name,
-        meta: { payload: node, detail: clean(node['summary'] ?? node['description']) },
+  function pushVideos(videos: VideoRow[], parent: string, room: number) {
+    const shown = videos.slice(0, room);
+    const rest = videos.slice(room);
+    for (const v of shown) {
+      const key = `content:${v.id}`;
+      nodes.push({
+        key,
+        kind: "content",
+        label: v.title,
+        weight: 1,
+        topic: v.kind,
+        meta: {
+          contentId: v.id,
+          projectId: input.project.id,
+          youtubeId: v.youtubeId,
+          sourceUrl: v.sourceUrl,
+          detail: v.kind === "TRAINING_ONLY" ? "training only" : "feed video",
+        },
       });
-      link(key, ck);
+      links.push({ source: parent, target: key });
+    }
+    if (rest.length > 0) {
+      const node = overflowNode(rest.map((v) => ({ key: `content:${v.id}`, label: v.title })), "videos");
+      nodes.push(node);
+      links.push({ source: parent, target: node.key });
     }
   }
-
-  for (const cl of input.customLinks) {
-    if (nodes.has(cl.sourceKey) && nodes.has(cl.targetKey)) {
-      links.push({ source: cl.sourceKey, target: cl.targetKey, custom: true, id: cl.id });
-    }
-  }
-
-  return { nodes: [...nodes.values()], links, topics: [...topics].sort().slice(0, 60) };
 }
 
 export type CustomLink = {
@@ -218,4 +287,9 @@ export async function deleteCustomLink(id: string): Promise<string | null> {
   if (!owner) return NOT_SIGNED_IN;
   const { error } = await supabase.from("graph_links").delete().eq("id", id).eq("user_id", owner);
   return error?.message ?? null;
+}
+
+/** Concepts of one already-loaded content row, for instant local expansion. */
+export function conceptsOf(row: ProjectContent): ConceptRow[] {
+  return extractConcepts(row).map((c) => ({ ...c, count: 1 }));
 }

@@ -33,6 +33,7 @@ import {
   UserSquare2,
   Video,
   Captions,
+  Network,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -65,7 +66,9 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
-import { KnowledgeGraph } from "@/components/knowledge-graph";
+import { ProjectKnowledgeGraph } from "@/components/knowledge-graph";
+import { ProjectGraphOverview } from "@/components/project-graph-overview";
+import { ProjectContentTable } from "@/components/project-content-table";
 import { MindReviews } from "@/components/mind-reviews";
 import { CloneStudio } from "@/components/clone-studio";
 
@@ -103,6 +106,7 @@ const C = {
   training: { en: "Training only", mn: "Зөвхөн сургалт", ko: "학습 전용" },
   coreBrain: { en: "Core Brain", mn: "Гол Тархи", ko: "코어 브레인" },
   analytics: { en: "Analytics & Reviews", mn: "Аналитик ба Сэтгэгдэл", ko: "분석 및 리뷰" },
+  mapTab: { en: "Knowledge map", mn: "Мэдлэгийн зураглал", ko: "지식 지도" },
   noContent: { en: "No videos in this list yet.", mn: "Энэ жагсаалтад видео алга.", ko: "이 목록에 영상이 없습니다." },
   mined: { en: "Mined", mn: "Олборлосон", ko: "마이닝됨" },
   chunksLabel: { en: "5-min chunks", mn: "5 мин хэсэг", ko: "5분 청크" },
@@ -153,7 +157,7 @@ const C = {
   signIn: { en: "Sign in to open your vaults.", mn: "Сангаа нээхийн тулд нэвтэрнэ үү.", ko: "볼트를 열려면 로그인하세요." },
 } as const;
 
-type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "brain" | "analytics";
+type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "map" | "brain" | "analytics";
 
 export type VaultPersonaSelection = { id: string | null; name: string } | null;
 
@@ -431,8 +435,8 @@ function PersonaWorkspace({
         <ProjectWorkspace lang={lang} project={open} onChanged={() => void load()} />
       ) : (
         <>
-          {/* Obsidian-style Core Brain graph, scoped strictly to this persona. */}
-          <KnowledgeGraph lang={lang} userId={userId} personaId={personaId} personaName={personaName} />
+          {/* One card per project — the map itself lives inside a project. */}
+          <ProjectGraphOverview lang={lang} userId={userId} personaId={personaId} onOpen={(id) => setOpenId(id)} />
 
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
             <FolderPlus className="h-4 w-4 text-primary" />
@@ -537,6 +541,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   const tabs: { key: Tab; label: string; icon: typeof Video }[] = [
     { key: "VISUAL_CONTENT", label: t("visual"), icon: Video },
     { key: "TRAINING_ONLY", label: t("training"), icon: GraduationCap },
+    { key: "map", label: t("mapTab"), icon: Network },
     { key: "brain", label: t("coreBrain"), icon: Brain },
     { key: "analytics", label: t("analytics"), icon: BarChart3 },
   ];
@@ -558,7 +563,13 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
         ))}
       </div>
 
-      {tab === "brain" ? (
+      {tab === "map" ? (
+        <div className="space-y-4">
+          {/* Map and table are two views of the same project — never mixed with another. */}
+          <ProjectKnowledgeGraph lang={lang} userId={userId ?? ""} project={{ id: project.id, title: project.title }} />
+          <ProjectContentTable lang={lang} userId={userId ?? ""} project={project} onChanged={() => { void load(); onChanged(); }} />
+        </div>
+      ) : tab === "brain" ? (
         <div className="space-y-4">
           {project.persona_id && (
             <CloneStudio
