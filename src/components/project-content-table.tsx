@@ -11,7 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Loader2, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listProjectVideos } from "@/lib/knowledge-graph.functions";
+import { listProjectVideos, rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listProjectsByPersona, moveProjectContent, updateProjectContent, type Project } from "@/lib/projects";
 import { pickCopy, type Lang } from "@/lib/i18n";
