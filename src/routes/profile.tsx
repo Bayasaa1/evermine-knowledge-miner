@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Hammer, ShieldCheck, Wallet } from "lucide-react";
+import { KeyRound, ShieldCheck, Wallet } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -43,11 +43,11 @@ function ProfilePage() {
 
         <div className="mt-4 grid gap-3">
           <Link
-            to="/creator"
+            to="/keys"
             className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/60"
           >
-            <Hammer className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Creator Studio — mine videos, pricing & payouts</span>
+            <KeyRound className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium">API Manager — keys, limits and usage</span>
           </Link>
           <Link
             to="/creator"

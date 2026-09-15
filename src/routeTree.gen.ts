@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as KeysRouteImport } from './routes/keys'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as MiningRouteImport } from './routes/mining'
 import { Route as ProfileRouteImport } from './routes/profile'
@@ -52,6 +53,11 @@ const CreatorRoute = CreatorRouteImport.update({
 const ExploreRoute = ExploreRouteImport.update({
   id: '/explore',
   path: '/explore',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KeysRoute = KeysRouteImport.update({
+  id: '/keys',
+  path: '/keys',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/keys': typeof KeysRoute
   '/mcp': typeof McpRoute
   '/mining': typeof MiningRoute
   '/profile': typeof ProfileRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/keys': typeof KeysRoute
   '/mcp': typeof McpRoute
   '/mining': typeof MiningRoute
   '/profile': typeof ProfileRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
+  '/keys': typeof KeysRoute
   '/mcp': typeof McpRoute
   '/mining': typeof MiningRoute
   '/profile': typeof ProfileRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/keys'
     | '/mcp'
     | '/mining'
     | '/profile'
@@ -270,6 +280,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/keys'
     | '/mcp'
     | '/mining'
     | '/profile'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/creator'
     | '/explore'
+    | '/keys'
     | '/mcp'
     | '/mining'
     | '/profile'
@@ -323,6 +335,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
+  KeysRoute: typeof KeysRoute
   McpRoute: typeof McpRoute
   MiningRoute: typeof MiningRoute
   ProfileRoute: typeof ProfileRoute
@@ -373,6 +386,13 @@ declare module '@tanstack/react-router' {
       path: '/explore'
       fullPath: '/explore'
       preLoaderRoute: typeof ExploreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/keys': {
+      id: '/keys'
+      path: '/keys'
+      fullPath: '/keys'
+      preLoaderRoute: typeof KeysRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -523,6 +543,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
+  KeysRoute: KeysRoute,
   McpRoute: McpRoute,
   MiningRoute: MiningRoute,
   ProfileRoute: ProfileRoute,
