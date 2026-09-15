@@ -204,8 +204,33 @@ export function CloneStudio({
               ? "Live — every call uses your cloned voice."
               : voice?.status === "error"
                 ? voice.error ?? "Last build failed."
-                : "Not built yet — calls use a stand-in voice until you build it."}
+                : "Not built yet — calls use the free device voice until you build it."}
           </p>
+          {!hasVoiceKey && (
+            <div className="space-y-1.5 rounded-lg border border-dashed border-border p-2.5">
+              <p className="text-[11px] text-muted-foreground">
+                Your real voice needs your own ElevenLabs key (their voice cloning is a paid plan). Without it, your
+                mind still talks — with the free device voice.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={voiceKey}
+                  onChange={(e) => setVoiceKey(e.target.value)}
+                  type="password"
+                  placeholder="Paste your ElevenLabs key"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveVoiceKey()}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
           <input
             ref={fileRef}
             type="file"
