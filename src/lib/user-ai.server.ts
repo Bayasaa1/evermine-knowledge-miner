@@ -76,6 +76,27 @@ export async function resolveGeminiCredential(
   throw new UserAiError("no_credential", NO_CREDENTIAL);
 }
 
+/**
+ * The caller's own voice-cloning key, or null when they have not added one.
+ * Never falls back to a platform key: with no key the mind simply speaks with
+ * the free device voice.
+ */
+export async function resolveVoiceKey(userId: string): Promise<string | null> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("user_ai_keys")
+      .select("api_key")
+      .eq("user_id", userId)
+      .eq("provider", "elevenlabs")
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    return clean(data?.[0]?.api_key) || null;
+  } catch {
+    return null;
+  }
+}
+
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 function geminiUrl(model: string, method: string, cred: AiCredential): { url: string; headers: HeadersInit } {
