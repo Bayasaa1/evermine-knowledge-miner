@@ -56,6 +56,7 @@ export function ProjectContentTable({
   const queryClient = useQueryClient();
   const fetchVideos = useServerFn(listProjectVideos);
   const removeVideo = useServerFn(permanentlyDeleteVideo);
+  const rebuildConcepts = useServerFn(rebuildProjectConcepts);
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -95,7 +96,11 @@ export function ProjectContentTable({
     onChanged?.();
   };
 
-  const runBulk = async (action: (id: string) => Promise<string | null | void>) => {
+  const runBulk = async (
+    action: (id: string) => Promise<string | null | void>,
+    /** Videos that left this project land here; both maps must be refreshed. */
+    targetProjectId?: string,
+  ) => {
     setBusy(true);
     let failed = 0;
     for (const id of picked) {
@@ -104,6 +109,15 @@ export function ProjectContentTable({
         if (typeof error === "string" && error) failed += 1;
       } catch {
         failed += 1;
+      }
+    }
+    // The knowledge map counts videos, so it must be re-indexed after a bulk
+    // move or delete — otherwise topics keep counting videos that are gone.
+    for (const projectId of [project.id, ...(targetProjectId ? [targetProjectId] : [])]) {
+      try {
+        await rebuildConcepts({ data: { projectId } });
+      } catch {
+        /* the map can still be rebuilt by hand */
       }
     }
     setBusy(false);
