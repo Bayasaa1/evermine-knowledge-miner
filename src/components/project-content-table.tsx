@@ -11,7 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, Loader2, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { listProjectVideos } from "@/lib/knowledge-graph.functions";
+import { listProjectVideos, rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listProjectsByPersona, moveProjectContent, updateProjectContent, type Project } from "@/lib/projects";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -56,6 +56,7 @@ export function ProjectContentTable({
   const queryClient = useQueryClient();
   const fetchVideos = useServerFn(listProjectVideos);
   const removeVideo = useServerFn(permanentlyDeleteVideo);
+  const rebuildConcepts = useServerFn(rebuildProjectConcepts);
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -90,12 +91,17 @@ export function ProjectContentTable({
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["project-table", userId, project.id] });
     await queryClient.invalidateQueries({ queryKey: ["project-content", userId, project.id] });
-    await queryClient.invalidateQueries({ queryKey: ["graph-summary", userId, project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-summary"] });
+    await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
     setPicked([]);
     onChanged?.();
   };
 
-  const runBulk = async (action: (id: string) => Promise<string | null | void>) => {
+  const runBulk = async (
+    action: (id: string) => Promise<string | null | void>,
+    /** Videos that left this project land here; both maps must be refreshed. */
+    targetProjectId?: string,
+  ) => {
     setBusy(true);
     let failed = 0;
     for (const id of picked) {
@@ -104,6 +110,15 @@ export function ProjectContentTable({
         if (typeof error === "string" && error) failed += 1;
       } catch {
         failed += 1;
+      }
+    }
+    // The knowledge map counts videos, so it must be re-indexed after a bulk
+    // move or delete — otherwise topics keep counting videos that are gone.
+    for (const projectId of [project.id, ...(targetProjectId ? [targetProjectId] : [])]) {
+      try {
+        await rebuildConcepts({ data: { projectId } });
+      } catch {
+        /* the map can still be rebuilt by hand */
       }
     }
     setBusy(false);
@@ -138,7 +153,7 @@ export function ProjectContentTable({
             onChange={(e) => {
               const target = e.target.value;
               e.target.value = "";
-              if (target) void runBulk((id) => moveProjectContent(id, target));
+              if (target) void runBulk((id) => moveProjectContent(id, target), target);
             }}
             className="rounded-lg border border-border bg-background px-2 py-1 text-foreground"
           >

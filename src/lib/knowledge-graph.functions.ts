@@ -232,6 +232,9 @@ export const rebuildProjectConcepts = createServerFn({ method: "POST" })
       .eq("project_id", data.projectId);
 
     const payload = [...buckets.values()]
+      // A topic with no video behind it opens to an empty screen, so never
+      // store one: vault-only concepts exist purely to enrich real videos.
+      .filter((b) => b.ids.size > 0)
       .map((b) => ({
         project_id: data.projectId,
         user_id: context.userId,
