@@ -1,8 +1,15 @@
 /**
  * Creation categories used by the unified "+" Create hub. The chosen category
  * drives which extraction schema the mining engine enforces.
+ *
+ * "voice" is legacy: it is no longer offered as a choice. Minds already made
+ * that way keep working and are read as Knowledge Minds (voice is a feature of
+ * the other types, not a type of its own).
  */
 export type CreationCategory = "knowledge" | "robot" | "voice" | "sales" | "gaming";
+
+/** The choices a creator can actually pick today. */
+export const ACTIVE_CATEGORIES: CreationCategory[] = ["knowledge", "robot", "sales", "gaming"];
 
 export const CREATION_KEY = "evermind.creationCategory";
 
@@ -66,7 +73,8 @@ export function setCreationCategory(category: CreationCategory): void {
 export function getCreationCategory(): CreationCategory {
   try {
     const v = localStorage.getItem(CREATION_KEY);
-    return v === "knowledge" || v === "robot" || v === "voice" || v === "sales" || v === "gaming" ? v : "knowledge";
+    // Legacy "voice" picks become Knowledge Minds — voice still works on them.
+    return v === "knowledge" || v === "robot" || v === "sales" || v === "gaming" ? v : "knowledge";
   } catch {
     return "knowledge";
   }

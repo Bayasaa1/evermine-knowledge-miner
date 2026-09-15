@@ -1,6 +1,7 @@
 import { Bot, Brain, PhoneCall, Megaphone, Gamepad2, ChevronRight } from "lucide-react";
 
 import {
+  ACTIVE_CATEGORIES,
   CATEGORY_LABELS,
   type CreationCategory,
 } from "@/lib/creation-category";
@@ -14,7 +15,7 @@ const ICONS: Record<CreationCategory, typeof Brain> = {
   gaming: Gamepad2,
 };
 
-const ORDER: CreationCategory[] = ["knowledge", "robot", "voice", "sales", "gaming"];
+const ORDER: CreationCategory[] = ACTIVE_CATEGORIES;
 
 /**
  * The category list used in step 1 of the creator setup wizard.
