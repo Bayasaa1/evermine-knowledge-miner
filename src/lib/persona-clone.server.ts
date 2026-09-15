@@ -5,7 +5,7 @@
  * call endpoints resolve the clone here instead, and only ever return the
  * engine id needed to speak — never keys, samples or settings.
  */
-export type LiveClone = { engine: string; remoteId: string };
+export type LiveClone = { engine: string; remoteId: string; ownerId: string };
 
 export async function getLiveClone(mindId: string, kind: "voice" | "face"): Promise<LiveClone | null> {
   if (!mindId.startsWith("project:")) return null;
@@ -23,12 +23,13 @@ export async function getLiveClone(mindId: string, kind: "voice" | "face"): Prom
 
     const { data: clone } = await supabaseAdmin
       .from("persona_clones")
-      .select("engine,remote_id,status,consent")
+      .select("engine,remote_id,status,consent,user_id")
       .eq("persona_id", project.persona_id)
       .eq("kind", kind)
       .maybeSingle();
     if (!clone || clone.status !== "ready" || !clone.consent || !clone.remote_id) return null;
-    return { engine: clone.engine, remoteId: clone.remote_id };
+    // The clone's owner pays with their own voice key, never the platform.
+    return { engine: clone.engine, remoteId: clone.remote_id, ownerId: clone.user_id };
   } catch {
     return null;
   }
