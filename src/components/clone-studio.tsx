@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, Smile, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-fetch";
+import { getUserAiKeyStatus, saveUserAiKey } from "@/lib/user-ai-keys.functions";
 import { extractVoiceSample } from "@/lib/voice-sample";
 import {
   deleteClone,
@@ -34,6 +35,9 @@ export function CloneStudio({
   const [busy, setBusy] = useState(false);
   const [faceUrl, setFaceUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  // Your own voice key. Without it, minds speak with the free device voice.
+  const [voiceKey, setVoiceKey] = useState("");
+  const [hasVoiceKey, setHasVoiceKey] = useState(false);
 
   const voice = findClone(clones, "voice");
   const face = findClone(clones, "face");
@@ -49,6 +53,36 @@ export function CloneStudio({
   useEffect(() => {
     void reload();
   }, [personaId]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const rows = await getUserAiKeyStatus();
+        setHasVoiceKey(rows.some((r) => r.provider === "elevenlabs"));
+      } catch {
+        /* not signed in yet */
+      }
+    })();
+  }, []);
+
+  const saveVoiceKey = async () => {
+    const key = voiceKey.trim();
+    if (key.length < 8) {
+      setStatus("Paste your voice key first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveUserAiKey({ data: { provider: "elevenlabs", apiKey: key } });
+      setHasVoiceKey(true);
+      setVoiceKey("");
+      setStatus("Voice key saved. You can build your real voice now.");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "That key was not saved.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const buildVoice = async (file: File) => {
     if (!consent) {
