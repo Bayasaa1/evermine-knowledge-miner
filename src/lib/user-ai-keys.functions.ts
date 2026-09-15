@@ -25,6 +25,9 @@ const PROVIDER = z.enum([
   "xai",
   "perplexity",
   "cohere",
+  // Voice cloning engine. Optional: without it minds speak with the free
+  // device voice instead.
+  "elevenlabs",
   "custom",
 ]);
 

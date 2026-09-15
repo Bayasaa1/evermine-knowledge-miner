@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Mic, Smile, Trash2 } from "lucide-react";
 import { apiFetch } from "@/lib/api-fetch";
+import { getUserAiKeyStatus, saveUserAiKey } from "@/lib/user-ai-keys.functions";
 import { extractVoiceSample } from "@/lib/voice-sample";
 import {
   deleteClone,
@@ -34,6 +35,9 @@ export function CloneStudio({
   const [busy, setBusy] = useState(false);
   const [faceUrl, setFaceUrl] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  // Your own voice key. Without it, minds speak with the free device voice.
+  const [voiceKey, setVoiceKey] = useState("");
+  const [hasVoiceKey, setHasVoiceKey] = useState(false);
 
   const voice = findClone(clones, "voice");
   const face = findClone(clones, "face");
@@ -49,6 +53,36 @@ export function CloneStudio({
   useEffect(() => {
     void reload();
   }, [personaId]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const rows = await getUserAiKeyStatus();
+        setHasVoiceKey(rows.some((r) => r.provider === "elevenlabs"));
+      } catch {
+        /* not signed in yet */
+      }
+    })();
+  }, []);
+
+  const saveVoiceKey = async () => {
+    const key = voiceKey.trim();
+    if (key.length < 8) {
+      setStatus("Paste your voice key first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveUserAiKey({ data: { provider: "elevenlabs", apiKey: key } });
+      setHasVoiceKey(true);
+      setVoiceKey("");
+      setStatus("Voice key saved. You can build your real voice now.");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "That key was not saved.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const buildVoice = async (file: File) => {
     if (!consent) {
@@ -170,8 +204,33 @@ export function CloneStudio({
               ? "Live — every call uses your cloned voice."
               : voice?.status === "error"
                 ? voice.error ?? "Last build failed."
-                : "Not built yet — calls use a stand-in voice until you build it."}
+                : "Not built yet — calls use the free device voice until you build it."}
           </p>
+          {!hasVoiceKey && (
+            <div className="space-y-1.5 rounded-lg border border-dashed border-border p-2.5">
+              <p className="text-[11px] text-muted-foreground">
+                Your real voice needs your own ElevenLabs key (their voice cloning is a paid plan). Without it, your
+                mind still talks — with the free device voice.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={voiceKey}
+                  onChange={(e) => setVoiceKey(e.target.value)}
+                  type="password"
+                  placeholder="Paste your ElevenLabs key"
+                  className="min-w-0 flex-1 rounded-lg border border-border bg-muted px-3 py-1.5 text-xs outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void saveVoiceKey()}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
           <input
             ref={fileRef}
             type="file"
