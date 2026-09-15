@@ -91,7 +91,8 @@ export function ProjectContentTable({
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["project-table", userId, project.id] });
     await queryClient.invalidateQueries({ queryKey: ["project-content", userId, project.id] });
-    await queryClient.invalidateQueries({ queryKey: ["graph-summary", userId, project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-summary"] });
+    await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
     setPicked([]);
     onChanged?.();
   };
@@ -152,7 +153,7 @@ export function ProjectContentTable({
             onChange={(e) => {
               const target = e.target.value;
               e.target.value = "";
-              if (target) void runBulk((id) => moveProjectContent(id, target));
+              if (target) void runBulk((id) => moveProjectContent(id, target), target);
             }}
             className="rounded-lg border border-border bg-background px-2 py-1 text-foreground"
           >
