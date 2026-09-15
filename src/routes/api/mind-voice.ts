@@ -93,7 +93,9 @@ export const Route = createFileRoute("/api/mind-voice")({
         // When the persona owner has built a clone from their own mined speech,
         // the reply is spoken in THEIR voice — same timbre in every language.
         // Streams as PCM so playback and lip-sync start on the first chunk.
-        const cloneKey = process.env["ELEVENLABS_API_KEY"];
+        // The listener's own voice key, when they added one. No platform key.
+        const { resolveVoiceKey } = await import("@/lib/user-ai.server");
+        const cloneKey = await resolveVoiceKey(auth.userId);
         // Resolved server-side from the persona: listeners never see clone ids.
         const liveVoice = body.mindId ? await getLiveClone(body.mindId, "voice") : null;
         const voiceId = liveVoice?.remoteId ?? "";

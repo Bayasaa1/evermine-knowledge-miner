@@ -19,11 +19,14 @@ export const Route = createFileRoute("/api/voice-clone")({
         const auth = await guardApi(request, "voice-clone", 6);
         if (auth instanceof Response) return auth;
 
-        const key = process.env["ELEVENLABS_API_KEY"];
+        // The creator's own voice key only — never a platform key.
+        const { resolveVoiceKey } = await import("@/lib/user-ai.server");
+        const key = await resolveVoiceKey(auth.userId);
         if (!key) {
           return new Response(
             JSON.stringify({
-              error: "No voice-cloning engine is connected yet. Add a free ElevenLabs key to enable real cloning.",
+              error:
+                "Add your own ElevenLabs voice key in Engines to build a real voice clone. Without it, minds speak with the free device voice.",
               needsKey: true,
             }),
             { status: 400, headers: { "Content-Type": "application/json" } },
