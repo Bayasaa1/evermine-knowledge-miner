@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
+import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
+import { DEFAULT_AI_LEVEL, loadAiLevel } from "@/lib/ai-level";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { useLang } from "@/lib/i18n";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
@@ -152,6 +154,9 @@ function greeting(mind: Mind): Msg {
 function Explore() {
   const [index, setIndex] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  // How much the AI may add on top of what this mind learned (per mind).
+  const [aiLevel, setAiLevel] = useState(DEFAULT_AI_LEVEL);
+  const [showLevel, setShowLevel] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
 
@@ -918,6 +923,7 @@ function Explore() {
               {LANGUAGES[lang].native} voice · {capture ? "Mind Miner on" : "Mind Miner off"}
             </p>
           </div>
+          <AiLevelButton level={aiLevel} open={showLevel} onToggle={() => setShowLevel((v) => !v)} />
           <button
             onClick={() => setCallOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground"
@@ -939,6 +945,10 @@ function Explore() {
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
+
+        {showLevel && (
+          <AiLevelSlider mindId={selected.id} level={aiLevel} lang={lang} onChange={setAiLevel} />
+        )}
 
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 pb-2">
           {messages.map((m) => (
