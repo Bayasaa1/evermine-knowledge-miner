@@ -487,6 +487,10 @@ export async function geminiGenerate(opts: {
   json?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /** Reports the tokens Gemini billed, so the caller can log them. */
+  onTokens?: (tokens: { inputTokens: number; outputTokens: number }) => void;
+  /** When given, the call is written to the account usage history itself. */
+  usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
   const model = opts.model ?? "gemini-2.5-flash";
   const { url, headers } = geminiUrl(model, "generateContent", opts.credential);
@@ -508,10 +512,20 @@ export async function geminiGenerate(opts: {
   } catch {
     throw new GeminiHttpError(502, "Could not reach Gemini.");
   }
-  if (!res.ok) await raiseForGemini(res);
+  if (!res.ok) {
+    if (opts.usage) {
+      const { recordAiUsage } = await import("@/lib/ai-usage.server");
+      await recordAiUsage({ provider: "gemini", model, ...opts.usage }, { status: res.status === 429 ? "quota" : "error", errorCode: String(res.status) });
+    }
+    await raiseForGemini(res);
+  }
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
   };
+  const { readUsageTokens, recordAiUsage } = await import("@/lib/ai-usage.server");
+  const tokens = readUsageTokens(data);
+  opts.onTokens?.(tokens);
+  if (opts.usage) await recordAiUsage({ provider: "gemini", model, ...opts.usage }, tokens);
   const candidate = data.candidates?.[0];
   if (candidate?.finishReason && /safety/i.test(candidate.finishReason)) {
     throw new GeminiHttpError(422, "SAFETY_BLOCKED");
