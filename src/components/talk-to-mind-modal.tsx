@@ -222,6 +222,14 @@ export function TalkToMindModal({
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
             {heading} — {mindName}
           </h2>
+          <button
+            type="button"
+            onClick={() => setShowLevel((v) => !v)}
+            aria-label="AI usage"
+            className="rounded-full border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            AI {aiLevel}%
+          </button>
           <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "voice" ? "chat" : "voice"); }} aria-label="Voice call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Mic className="h-4 w-4" />
           </button>
@@ -232,6 +240,34 @@ export function TalkToMindModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {showLevel && (
+          <div className="border-b border-border bg-muted/30 p-4">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={10}
+              value={aiLevel}
+              aria-label="How much AI"
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setAiLevel(v);
+                localStorage.setItem("evermind.aiLevel", String(v));
+              }}
+              className="w-full accent-[hsl(var(--primary))]"
+            />
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              {aiLevel === 0
+                ? "0% — only what this mind learned from the videos. Nothing is made up."
+                : aiLevel <= 30
+                  ? `${aiLevel}% — only what the mind learned, said in clearer words.`
+                  : aiLevel <= 70
+                    ? `${aiLevel}% — mostly the mind's own knowledge; small gaps are filled and marked.`
+                    : `${aiLevel}% — the mind first, and the AI fills anything missing.`}
+            </p>
+          </div>
+        )}
 
         {callMode !== "chat" && (
           <div className="flex flex-col items-center gap-3 border-b border-border bg-muted/30 p-5">
