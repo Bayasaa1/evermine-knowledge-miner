@@ -143,6 +143,51 @@ function isLimitError(error: unknown): boolean {
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
 
+type ProviderModelList = { data?: { id?: string }[]; models?: { id?: string; name?: string }[] };
+
+const MODEL_PREFERENCES: Record<string, RegExp[]> = {
+  groq: [/gpt-oss-120b/i, /llama-3\.3-70b/i, /llama.*instant/i],
+  mistral: [/mistral-small/i, /ministral/i, /mistral-medium/i],
+  cerebras: [/gpt-oss-120b/i, /llama-3\.3-70b/i, /llama.*8b/i],
+  together: [/llama-3\.3-70b.*free/i, /llama-3\.3-70b/i, /qwen.*instruct/i, /instruct/i],
+  github: [/gpt-4o-mini/i, /gpt-4\.1-mini/i, /phi-4/i],
+  openrouter: [/:free$/i, /llama.*instruct/i, /qwen.*instruct/i],
+  openai: [/gpt-4o-mini/i, /gpt-4\.1-mini/i],
+  moonshot: [/kimi.*preview/i, /kimi/i],
+  deepseek: [/deepseek-chat/i],
+  xai: [/grok.*mini/i, /grok/i],
+  perplexity: [/sonar/i],
+  cohere: [/command.*r/i],
+};
+
+function chooseAvailableModel(provider: string, configured: string | null, ids: string[]): string | null {
+  const usable = ids.filter((id) => id && !/embed|rerank|whisper|speech|audio|image|moderation/i.test(id));
+  if (configured && usable.includes(configured)) return configured;
+  for (const preference of MODEL_PREFERENCES[provider] ?? []) {
+    const match = usable.find((id) => preference.test(id));
+    if (match) return match;
+  }
+  return usable[0] ?? null;
+}
+
+/** Uses the provider's live model list, so retired model names cannot break a valid saved key. */
+async function liveProviderModel(resolved: ResolvedUserKey, base: string, fallback: string): Promise<string> {
+  try {
+    const response = await fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${resolved.apiKey}` },
+    });
+    if (!response.ok) return resolved.model || fallback;
+    const body = await response.json() as ProviderModelList;
+    const ids = [
+      ...(body.data ?? []).map((row) => row.id ?? ""),
+      ...(body.models ?? []).map((row) => row.id ?? row.name ?? ""),
+    ].filter(Boolean);
+    return chooseAvailableModel(resolved.provider, resolved.model, ids) ?? resolved.model ?? fallback;
+  } catch {
+    return resolved.model || fallback;
+  }
+}
+
 /** Turns a provider failure into a short sentence a person can act on. */
 async function errorDetail(res: Response): Promise<string> {
   const raw = (await res.text().catch(() => "")).slice(0, 400);
@@ -191,13 +236,15 @@ async function generateRoleTextOnce(opts: {
   const config = OPENAI_COMPATIBLE[resolved.provider];
   const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
   if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
+  const model = await liveProviderModel(resolved, base, config?.model ?? "");
+  if (!model) throw new UserAiError("unsupported_task", "This AI account did not return a usable text model.");
   // Free community models usually cap well below the Gemini-sized budgets the
   // callers ask for, and an oversized cap is rejected outright.
   const cap = Math.min(opts.maxTokens ?? 2048, 4096);
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
-    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
   });
   if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
   const body = await res.json() as { choices?: { message?: { content?: string } }[] };
@@ -233,7 +280,6 @@ export async function generateRoleText(opts: {
   subjectLabel?: string;
 }): Promise<{ text: string; provider: string; tail: string }> {
   const { recordAiUsage } = await import("@/lib/ai-usage.server");
-  const resolved = await resolveUserAiKey(opts.userId, opts.role);
   const log = async (key: ResolvedUserKey, run: RoleTextRun) => {
     await recordAiUsage(
       {
@@ -252,28 +298,33 @@ export async function generateRoleText(opts: {
   };
   const call = (key: ResolvedUserKey) =>
     generateRoleTextOnce({ resolved: key, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) });
-  try {
-    const run = await call(resolved);
-    await log(resolved, run);
-    return { text: run.text, provider: resolved.provider, tail: resolved.tail };
-  } catch (error) {
-    const limit = isLimitError(error);
-    // Auto-switch covers a key that ran out AND a key the provider simply
-    // refuses (wrong model, dead endpoint) — otherwise one bad engine silently
-    // stops translation for the whole app.
-    if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
-    await recordAiUsage(
-      { userId: opts.userId, role: opts.role, provider: resolved.provider, keyId: resolved.id, keyTail: resolved.tail, subjectKind: opts.subjectKind ?? "other", ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}) },
-      { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error as Error).message.slice(0, 120) },
-    );
-    if (limit) {
-      const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+  const skipped: string[] = [];
+  let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
+  for (;;) {
+    let resolved: ResolvedUserKey;
+    try {
+      resolved = await resolveUserAiKey(opts.userId, opts.role, skipped);
+    } catch {
+      throw lastError;
     }
-    const fallback = await resolveUserAiKey(opts.userId, opts.role, limit ? [] : [resolved.id]);
-    const run = await call(fallback);
-    await log(fallback, run);
-    return { text: run.text, provider: fallback.provider, tail: fallback.tail };
+    try {
+      const run = await call(resolved);
+      await log(resolved, run);
+      return { text: run.text, provider: resolved.provider, tail: resolved.tail };
+    } catch (error) {
+      lastError = error;
+      const limit = isLimitError(error);
+      await recordAiUsage(
+        { userId: opts.userId, role: opts.role, provider: resolved.provider, keyId: resolved.id, keyTail: resolved.tail, subjectKind: opts.subjectKind ?? "other", ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}) },
+        { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error instanceof Error ? error.message : "provider error").slice(0, 120) },
+      );
+      if (limit) {
+        const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+      }
+      skipped.push(resolved.id);
+      if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
+    }
   }
 }
 
@@ -406,7 +457,9 @@ export async function testRoleKey(
         prompt: "Connection test.",
         maxTokens: 8,
       });
-      return tested.text ? { ok: true, message: "Working.", tail: report.effectiveTail } : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
+      return tested.text
+        ? { ok: true, message: `Working through ${tested.provider} ···${tested.tail}.`, tail: tested.tail }
+        : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
     }
     return { ok: true, message: "Working.", tail: report.effectiveTail };
   } catch (error) {
