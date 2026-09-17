@@ -11,6 +11,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import type { AiRole } from "@/lib/ai-roles";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
