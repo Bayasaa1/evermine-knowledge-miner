@@ -60,3 +60,4 @@
 - [x] Make mining resolve its assigned account key and remove the obsolete Engines alert
 - [x] Stop English pages translating themselves and wasting the user's quota
 - [x] Treat Gemini per-minute throttling as a short cooldown, not daily exhaustion
+- [x] Use Gemini Flash-Lite without hidden thinking tokens for translation

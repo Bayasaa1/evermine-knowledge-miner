@@ -233,6 +233,8 @@ async function generateRoleTextOnce(opts: {
   prompt: string;
   json?: boolean;
   maxTokens?: number;
+  model?: string;
+  disableThinking?: boolean;
 }): Promise<RoleTextRun> {
   const { readUsageTokens } = await import("@/lib/ai-usage.server");
   const resolved = opts.resolved;
@@ -240,11 +242,13 @@ async function generateRoleTextOnce(opts: {
     let tokens = { inputTokens: 0, outputTokens: 0 };
     const text = await geminiGenerate({
       credential: { kind: "gemini_key", value: resolved.apiKey },
+      ...(opts.model ? { model: opts.model } : {}),
       system: opts.system,
       turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
       onTokens: (t) => { tokens = t; },
       ...(opts.json != null ? { json: opts.json } : {}),
       ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
+      ...(opts.disableThinking ? { disableThinking: true } : {}),
     });
     return { text, ...tokens };
   }
@@ -328,7 +332,17 @@ export async function generateRoleText(opts: {
     );
   };
   const call = (key: ResolvedUserKey) =>
-    generateRoleTextOnce({ resolved: key, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) });
+    generateRoleTextOnce({
+      resolved: key,
+      system: opts.system,
+      prompt: opts.prompt,
+      ...(opts.json != null ? { json: opts.json } : {}),
+      ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
+      // Translation does not need long internal reasoning. Flash-Lite plus a
+      // zero thinking budget is faster and avoids burning thousands of hidden
+      // tokens on a short subtitle batch.
+      ...(opts.role === "translate" ? { model: "gemini-2.5-flash-lite", disableThinking: true } : {}),
+    });
   const skipped: string[] = [];
   let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
   for (;;) {
@@ -490,6 +504,7 @@ export async function testRoleKey(
         system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
         prompt: role === "translate" ? "Good morning" : "Connection test.",
         maxTokens: 64,
+        ...(role === "translate" ? { model: "gemini-2.5-flash-lite", disableThinking: true } : {}),
       });
       if (!tested.text) return { ok: false, message: "Connected but returned no text.", tail: resolved.tail };
       await markKeyUnavailable(resolved.id, "ok", null);
@@ -621,6 +636,8 @@ export async function geminiGenerate(opts: {
   json?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /** Translation and classification do not need Gemini's hidden reasoning. */
+  disableThinking?: boolean;
   /** Reports the tokens Gemini billed, so the caller can log them. */
   onTokens?: (tokens: { inputTokens: number; outputTokens: number }) => void;
   /** When given, the call is written to the account usage history itself. */
@@ -640,6 +657,7 @@ export async function geminiGenerate(opts: {
           maxOutputTokens: opts.maxTokens ?? 2048,
           ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
           ...(opts.json ? { responseMimeType: "application/json" } : {}),
+          ...(opts.disableThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       }),
     });
