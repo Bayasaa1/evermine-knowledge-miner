@@ -92,6 +92,13 @@ export function SavedMinds({
     name: pickCopy({ en: "Name", mn: "Нэр", ko: "이름" }, lang),
     persona: pickCopy({ en: "Persona", mn: "Дүр", ko: "페르소나" }, lang),
     project: pickCopy({ en: "Project", mn: "Төсөл", ko: "프로젝트" }, lang),
+    minedSection: pickCopy({ en: "Mined videos", mn: "Олборлосон видео", ko: "마이닝된 영상" }, lang),
+    pendingSection: pickCopy(
+      { en: "Saved, not mined yet", mn: "Хадгалсан, хараахан олборлоогүй", ko: "저장됨, 아직 마이닝 안 함" },
+      lang,
+    ),
+    notFiled: pickCopy({ en: "Not filed", mn: "Бүртгэгдээгүй", ko: "미분류" }, lang),
+    setupMine: pickCopy({ en: "Set up & mine", mn: "Тохируулж олборлох", ko: "설정 후 마이닝" }, lang),
     none: pickCopy({ en: "Unassigned", mn: "Хуваарилаагүй", ko: "미지정" }, lang),
     save: pickCopy({ en: "Save", mn: "Хадгалах", ko: "저장" }, lang),
     close: pickCopy({ en: "Close", mn: "Хаах", ko: "닫기" }, lang),
