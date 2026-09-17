@@ -59,3 +59,4 @@
 - [x] Route game-camera coaching through the video-call vision assignment, not the text-chat assignment
 - [x] Make mining resolve its assigned account key and remove the obsolete Engines alert
 - [x] Stop English pages translating themselves and wasting the user's quota
+- [x] Treat Gemini per-minute throttling as a short cooldown, not daily exhaustion

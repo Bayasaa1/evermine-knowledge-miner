@@ -350,8 +350,14 @@ export async function generateRoleText(opts: {
         { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error instanceof Error ? error.message : "provider error").slice(0, 120) },
       );
       if (limit) {
-        const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-        await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+        // A minute burst is not an exhausted key. Briefly cool it down, then
+        // let it rejoin the fallback pool automatically. Only daily/provider
+        // credit exhaustion receives the persistent exhausted status.
+        const minute = error instanceof UserAiError && error.code === "rate_minute";
+        const cooldown = minute
+          ? new Date(Date.now() + Math.max(20, error.retryAfterSec) * 1000).toISOString()
+          : new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        await markKeyUnavailable(resolved.id, minute ? "ok" : "exhausted", cooldown);
       }
       skipped.push(resolved.id);
       if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
@@ -543,7 +549,10 @@ function parseRetryDelaySec(raw: string): number {
  */
 function classifyGemini429(raw: string): UserAiError {
   const retryAfter = parseRetryDelaySec(raw);
-  const isDaily = /PerDay|per_day|daily/i.test(raw);
+  // RetryInfo means Google expects this request to work shortly. Some payloads
+  // list several quota names, including daily ones, so "PerDay" alone used to
+  // incorrectly disable a key that successfully answered moments later.
+  const isDaily = retryAfter === 0 && /PerDay|per_day|daily/i.test(raw);
   if (isDaily) {
     return new UserAiError(
       "quota",
