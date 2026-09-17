@@ -53,6 +53,8 @@ export const translateTexts = createServerFn({ method: "POST" })
           system,
           maxTokens: 8192,
           prompt: JSON.stringify(data.texts),
+          subjectKind: "other",
+          subjectLabel: `Translating into ${data.targetName}`,
       });
       const raw = result.text;
       const match = raw.match(/\[[\s\S]*\]/);

@@ -390,6 +390,9 @@ export const Route = createFileRoute("/api/mind-chat")({
               system: systemWithMemory,
               prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
               maxTokens: 1024,
+              subjectKind: "mind",
+              subjectId: String(body.mindId ?? ""),
+              subjectLabel: String(body.mindId ?? "Chat"),
             });
             if (body.stream === true) {
               return new Response(`data: ${JSON.stringify({ delta: generated.text })}\n\ndata: [DONE]\n\n`, {
@@ -432,6 +435,13 @@ export const Route = createFileRoute("/api/mind-chat")({
                   credential,
                   system: systemText,
                   turns,
+                  usage: {
+                    userId: auth.userId,
+                    role: "chat",
+                    subjectKind: "mind",
+                    subjectId: String(body.mindId ?? ""),
+                    subjectLabel: String(body.mindId ?? "Chat"),
+                  },
                   onDelta: (delta) =>
                     controller.enqueue(enc.encode(`data: ${JSON.stringify({ delta })}\n\n`)),
                 });
@@ -450,7 +460,19 @@ export const Route = createFileRoute("/api/mind-chat")({
         }
 
         try {
-          const text = await geminiGenerate({ credential, system: systemText, turns, maxTokens: 1024 });
+          const text = await geminiGenerate({
+            credential,
+            system: systemText,
+            turns,
+            maxTokens: 1024,
+            usage: {
+              userId: auth.userId,
+              role: "chat",
+              subjectKind: "mind",
+              subjectId: String(body.mindId ?? ""),
+              subjectLabel: String(body.mindId ?? "Chat"),
+            },
+          });
           return jsonReply(text);
         } catch (err) {
           return aiErrorResponse(err);

@@ -125,6 +125,12 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
                 endSec: chunk.end,
                 assessment,
                 credential,
+                usage: {
+                  userId: job.user_id,
+                  videoLabel: job.source_label ?? job.source_url,
+                  videoId: job.source_url,
+                  jobId: job.id,
+                },
               });
               results = [...results, mined];
               index += 1;

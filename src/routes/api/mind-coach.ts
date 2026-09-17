@@ -120,6 +120,7 @@ export const Route = createFileRoute("/api/mind-coach")({
             model: "gemini-2.5-flash",
             system,
             maxTokens: 512,
+            usage: { userId: auth.userId, role: "chat", subjectKind: "other", subjectLabel: "Game coaching" },
             turns: [
               {
                 role: "user",

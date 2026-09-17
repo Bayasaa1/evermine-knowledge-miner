@@ -44,6 +44,7 @@ export const Route = createFileRoute("/api/mind-vision")({
             credential,
             model: "gemini-2.5-flash",
             maxTokens: 256,
+            usage: { userId: auth.userId, role: "face_clone", subjectKind: "mind", subjectLabel: "Seeing on video calls" },
             system: [
               `You are the eyes of ${name} during a live video call.`,
               `Describe ONLY what is worth reacting to: the caller's mood, energy, gestures, what they are holding or showing, and the room around them.`,

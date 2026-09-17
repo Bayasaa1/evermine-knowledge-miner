@@ -123,6 +123,21 @@ export const Route = createFileRoute("/api/mind-voice")({
               },
             );
             if (cloned.ok && cloned.body) {
+              // Voice engines bill characters, not tokens — log them so the
+              // owner sees what speaking costs.
+              const { recordAiUsage } = await import("@/lib/ai-usage.server");
+              await recordAiUsage(
+                {
+                  userId: liveVoice.ownerId,
+                  role: "voice_clone",
+                  provider: "elevenlabs",
+                  model: "eleven_turbo_v2_5",
+                  subjectKind: "mind",
+                  subjectId: String(body.mindId ?? ""),
+                  subjectLabel: "Voice clone speaking",
+                },
+                { chars: text.slice(0, 4000).length },
+              );
               // Re-emit as the same SSE shape the player already understands.
               const reader = cloned.body.getReader();
               const encoder = new TextEncoder();
