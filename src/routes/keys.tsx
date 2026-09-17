@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { KeyRound } from "lucide-react";
 
 import { AiKeysCard } from "@/components/ai-keys-card";
+import { AiRolesCard } from "@/components/ai-roles-card";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { pickCopy, useLang } from "@/lib/i18n";
 
@@ -11,6 +12,8 @@ const copy = {
     hint: "Your own AI keys live here. Add one, test it, remove it, and see what it uses.",
     keys: "Your keys",
     keysHint: "Add a key, test it, or remove one. Free keys need no card.",
+    roles: "Who runs what",
+    rolesHint: "Choose which key does the translating, mining, chatting, voice and more.",
     usage: "Tokens and cost",
     usageHint: "How much you used today, what is left free, and when it refills.",
   },
@@ -19,6 +22,8 @@ const copy = {
     hint: "Таны өөрийн AI түлхүүрүүд энд байна. Нэмэх, шалгах, устгах, зарцуулалтаа харах.",
     keys: "Таны түлхүүрүүд",
     keysHint: "Түлхүүр нэмэх, шалгах, устгах. Үнэгүй түлхүүрт карт хэрэггүй.",
+    roles: "Хэн юу ажиллуулах вэ",
+    rolesHint: "Орчуулга, олборлолт, чат, дуу зэргийг аль түлхүүр ажиллуулахыг сонго.",
     usage: "Токен ба зардал",
     usageHint: "Өнөөдөр хэр зарцуулсан, үнэгүй хэр үлдсэн, хэзээ шинэчлэгдэх.",
   },
@@ -27,6 +32,8 @@ const copy = {
     hint: "내 AI 키를 여기서 관리합니다. 추가, 테스트, 삭제, 사용량 확인.",
     keys: "내 키",
     keysHint: "키를 추가하거나 테스트하거나 삭제하세요. 무료 키는 카드가 필요 없습니다.",
+    roles: "누가 무엇을 실행할까요",
+    rolesHint: "번역, 마이닝, 채팅, 음성을 어떤 키가 맡을지 고르세요.",
     usage: "토큰과 비용",
     usageHint: "오늘 사용량, 남은 무료 한도, 초기화 시각.",
   },
