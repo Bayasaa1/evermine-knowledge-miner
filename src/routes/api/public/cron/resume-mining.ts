@@ -100,7 +100,11 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // credit. A job whose owner has not saved a key yet cannot be mined
           // in the background — it waits with a clear reason instead of
           // burning attempts.
-          const ownerKey = typeof job.ai_credential === "string" ? job.ai_credential.trim() : "";
+          let ownerKey = typeof job.ai_credential === "string" ? job.ai_credential.trim() : "";
+          if (!ownerKey) {
+            const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
+            ownerKey = (await resolveGeminiCredential(job.user_id, {}, "mine").catch(() => null))?.value ?? "";
+          }
           if (!ownerKey) {
             await supabaseAdmin
               .from("mining_jobs")
