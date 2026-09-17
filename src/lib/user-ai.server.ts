@@ -94,7 +94,7 @@ export type ResolvedUserKey = {
 };
 
 /** One authoritative resolver used by every AI job. It can only return this user's enabled account keys. */
-export async function resolveUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey> {
+export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: string[] = []): Promise<ResolvedUserKey> {
   const { ROLE_PROVIDERS } = await import("@/lib/ai-roles");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const choice = await roleChoice(userId, role);
