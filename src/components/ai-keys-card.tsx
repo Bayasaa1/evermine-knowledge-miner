@@ -7,7 +7,7 @@
  * Free and paid providers are added through separate buttons so a free list
  * never shows paid names and the other way round.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   ExternalLink,
   KeyRound,
-  Lightbulb,
   Loader2,
   Plus,
   Trash2,
@@ -25,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
-import { adviceFor, recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
+import { recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
 import { saveUserAiKey, deleteUserAiKey, getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
@@ -400,8 +399,6 @@ export function AiKeysCard({
   const [openRec, setOpenRec] = useState<string | null>(null);
   const [pendingTop, setPendingTop] = useState(false);
 
-  const advice = useMemo(() => adviceFor(category, lang), [category, lang]);
-
   const refresh = useCallback(async () => {
     const local = await listAllKeys();
     let all = local;
@@ -611,24 +608,6 @@ export function AiKeysCard({
             </p>
           );
         })()}
-
-      {/* Guidance that follows the creation type picked in step 1. */}
-      <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-xs">
-        <p className="flex items-center gap-1.5 font-semibold text-foreground">
-          <Lightbulb className="h-3.5 w-3.5 text-primary" /> {t.adviceFirst}
-        </p>
-        <p className="mt-1 text-muted-foreground">{advice.first}</p>
-        <p className="mt-2 font-medium text-foreground">{t.adviceHelps}</p>
-        <p className="text-muted-foreground">{advice.helps}</p>
-        <p className="mt-2 font-medium text-foreground">{t.adviceSkip}</p>
-        <p className="text-muted-foreground">{advice.skip}</p>
-        <p className="mt-2 font-medium text-foreground">{t.adviceTips}</p>
-        <ul className="mt-0.5 space-y-0.5 text-muted-foreground">
-          {advice.tips.map((tip) => (
-            <li key={tip}>• {tip}</li>
-          ))}
-        </ul>
-      </div>
 
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t.empty}</p>
