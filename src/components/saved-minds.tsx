@@ -8,11 +8,11 @@
  */
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Trash2 } from "lucide-react";
+import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
@@ -59,33 +59,8 @@ export function SavedMinds({
 
   /** Saved source rows ticked for batch mining. */
   const [selected, setSelected] = useState<string[]>([]);
-  const navigate = useNavigate();
-
-  /**
-   * Hands videos to the Creator Studio mining step. The studio only lists the
-   * videos of the persona/project it is pointed at, so the destination travels
-   * with the handoff — otherwise the studio opens empty on step 1.
-   */
-  const sendToMiner = (ids: string[], row?: VaultRow | null) => {
-    if (ids.length === 0) return;
-    try {
-      window.localStorage.setItem("evermind.mine-batch", JSON.stringify(ids));
-      window.localStorage.setItem("evermind.mine-step", "3");
-      const persona = row?.personaId ?? personaId ?? null;
-      const project = row?.projectId ?? null;
-      if (persona && project) {
-        const raw = window.localStorage.getItem("evermind.studio-target");
-        const prev = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-        window.localStorage.setItem(
-          "evermind.studio-target",
-          JSON.stringify({ ...prev, personaId: persona, mode: "existing", projectId: project }),
-        );
-      }
-    } catch {
-      /* blocked storage still navigates — the studio just starts empty */
-    }
-    void navigate({ to: "/creator" });
-  };
+  /** Which card (or "batch") has its small mining setup panel open. */
+  const [setupId, setSetupId] = useState<string | null>(null);
 
   const t = {
     title: pickCopy({ en: "Saved Minds", mn: "Хадгалсан оюунууд", ko: "저장된 마인드" }, lang),
