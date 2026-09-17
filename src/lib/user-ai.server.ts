@@ -256,14 +256,20 @@ export async function generateRoleText(opts: {
     await log(resolved, run);
     return { text: run.text, provider: resolved.provider, tail: resolved.tail };
   } catch (error) {
-    if (!resolved.autoFallback || !isLimitError(error)) throw error;
+    const limit = isLimitError(error);
+    // Auto-switch covers a key that ran out AND a key the provider simply
+    // refuses (wrong model, dead endpoint) — otherwise one bad engine silently
+    // stops translation for the whole app.
+    if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
     await recordAiUsage(
       { userId: opts.userId, role: opts.role, provider: resolved.provider, keyId: resolved.id, keyTail: resolved.tail, subjectKind: opts.subjectKind ?? "other", ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}) },
-      { status: "quota", errorCode: "limit" },
+      { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error as Error).message.slice(0, 120) },
     );
-    const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    await markKeyUnavailable(resolved.id, "exhausted", cooldown);
-    const fallback = await resolveUserAiKey(opts.userId, opts.role);
+    if (limit) {
+      const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+    }
+    const fallback = await resolveUserAiKey(opts.userId, opts.role, limit ? [] : [resolved.id]);
     const run = await call(fallback);
     await log(fallback, run);
     return { text: run.text, provider: fallback.provider, tail: fallback.tail };
