@@ -58,3 +58,4 @@
 - [x] Remove old device-only Gemini bypasses from chat, diagnostics, subtitle repair and mining setup
 - [x] Route game-camera coaching through the video-call vision assignment, not the text-chat assignment
 - [x] Make mining resolve its assigned account key and remove the obsolete Engines alert
+- [x] Stop English pages translating themselves and wasting the user's quota

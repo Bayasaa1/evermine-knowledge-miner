@@ -547,7 +547,7 @@ function classifyGemini429(raw: string): UserAiError {
   if (isDaily) {
     return new UserAiError(
       "quota",
-      "Your free Gemini daily quota is used up. It resets in a few hours (Pacific midnight) — or add another free key in Engines.",
+      "Your free Gemini daily quota is used up. It resets in a few hours (Pacific midnight) — or choose another key in API Manager.",
       429,
     );
   }
@@ -570,10 +570,10 @@ async function raiseForGemini(res: Response): Promise<never> {
   }
   if (res.status === 429) throw classifyGemini429(raw);
   if (res.status === 400 && /api key|key not valid|permission/i.test(detail)) {
-    throw new UserAiError("no_credential", "That Gemini key was rejected. Add a valid free key in Engines.", 401);
+    throw new UserAiError("no_credential", "That Gemini key was rejected. Add or replace it in API Manager.", 401);
   }
   if (res.status === 401 || res.status === 403) {
-    throw new UserAiError("no_credential", "Gemini rejected this key. Add a valid free key in Engines.", 401);
+    throw new UserAiError("no_credential", "Gemini rejected this key. Add or replace it in API Manager.", 401);
   }
   throw new GeminiHttpError(res.status, detail || `Gemini request failed (${res.status}).`);
 }

@@ -1085,8 +1085,8 @@ function StepUpload({
         setErrorKey("errNoKey");
         return;
       }
-      // Files and Drive retain the creator's optional BYO path. Public YouTube
-      // videos use the authenticated built-in AI service and need no provider token.
+      // The server resolves the creator's Mining assignment from API Manager.
+      // Raw keys never need to pass through this screen.
       const key = "";
 
       // The destination must exist before any work starts, otherwise the button
