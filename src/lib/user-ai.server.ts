@@ -409,8 +409,11 @@ export async function testRoleKey(
       return tested.text ? { ok: true, message: "Working.", tail: report.effectiveTail } : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
     }
     return { ok: true, message: "Working.", tail: report.effectiveTail };
-  } catch {
-    return { ok: false, message: "Could not reach the engine.", tail: report.effectiveTail };
+  } catch (error) {
+    // The old generic "could not reach" hid the real reason (wrong model, bad
+    // key, quota), which made a broken engine impossible to fix.
+    const detail = error instanceof Error ? error.message : "";
+    return { ok: false, message: detail ? detail.slice(0, 180) : "Could not reach the engine.", tail: report.effectiveTail };
   }
 }
 
