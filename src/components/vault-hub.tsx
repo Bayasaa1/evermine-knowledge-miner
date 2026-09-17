@@ -606,36 +606,14 @@ function PersonaWorkspace({
           ) : (
             <ul className="space-y-2">
               {projects.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
-                  <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-sm font-semibold text-foreground">
-                      <Localized text={p.title} />
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => { await updateProject(p.id, { published: !p.published }); void load(); }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
-                  >
-                    {p.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                    {p.published ? t("published") : t("hidden")}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Delete project"
-                    onClick={async () => {
-                      if (!window.confirm(t("deleteProjectConfirm"))) return;
-                      await deleteProject(p.id);
-                      void load();
-                    }}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
+                <ProjectListItem
+                  key={p.id}
+                  lang={lang}
+                  project={p}
+                  siblings={projects.filter((s) => s.id !== p.id)}
+                  onOpen={() => setOpenId(p.id)}
+                  onChanged={() => void load()}
+                />
               ))}
             </ul>
           )}
