@@ -278,6 +278,27 @@ function aiLevelRules(level: number): string {
   ].join("\n");
 }
 
+/** The owner's limit for one mind: where the slider starts and how far it goes. */
+async function mindLevelCap(mindId: string): Promise<{ def: number; max: number }> {
+  if (!mindId.startsWith("project:")) return { def: 100, max: 100 };
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("projects")
+      .select("ai_level_default, ai_level_max")
+      .eq("id", mindId.slice(8))
+      .maybeSingle();
+    const clamp = (v: unknown, fallback: number) => {
+      const n = Math.round(Number(v));
+      return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : fallback;
+    };
+    const max = clamp(data?.ai_level_max, 100);
+    return { def: Math.min(clamp(data?.ai_level_default, 100), max), max };
+  } catch {
+    return { def: 100, max: 100 };
+  }
+}
+
 export const Route = createFileRoute("/api/mind-chat")({
   server: {
     handlers: {
@@ -319,7 +340,11 @@ export const Route = createFileRoute("/api/mind-chat")({
         if (!brain.ok) {
           return new Response(JSON.stringify({ error: brain.error ?? "Access denied" }), { status: 403 });
         }
-        const level = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? 100)) || 0));
+        // The mind's owner decides how far the AI may go; the viewer's slider
+        // can never ask for more than that.
+        const cap = await mindLevelCap(body.mindId ?? "");
+        const asked = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? cap.def)) || 0));
+        const level = Math.min(asked, cap.max);
         const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
         const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}`;
 
