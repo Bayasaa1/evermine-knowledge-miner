@@ -281,7 +281,25 @@ export function SavedMinds({
       const source = rows.find((r) => r.kind === "source") ?? null;
       const mined = rows.find((r) => r.kind !== "source") ?? null;
       const primary = source ?? rows[0]!;
-      return { rows, source, mined, primary, title: source?.title ?? primary.title, youtubeId: idOf(primary) ?? undefined };
+      const videoId = idOf(primary) ?? undefined;
+      const src = source ? (source.payload as unknown as SourcePayload) : null;
+      // A card always shows a picture when the video has a YouTube id — rows
+      // that came straight from mining carry no saved thumbnail.
+      const thumb = src?.video?.thumbnail || (videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : "");
+      const isMined = Boolean(mined) || src?.status === "mined";
+      const sourceUrl = src?.video?.url || (videoId ? `https://www.youtube.com/watch?v=${videoId}` : "");
+      return {
+        rows,
+        source,
+        mined,
+        isMined,
+        primary,
+        title: source?.title ?? primary.title,
+        youtubeId: videoId,
+        thumb,
+        sourceUrl,
+        unfiled: primary.personaId === null,
+      };
     });
   }, [vaults]);
 
@@ -289,16 +307,13 @@ export function SavedMinds({
   const mineable = useMemo(
     () =>
       groups
-        .filter(
-          (g) =>
-            g.source &&
-            !g.mined &&
-            (g.source.payload as unknown as SourcePayload)?.status !== "mined" &&
-            !(g.youtubeId && activeJobs.has(g.youtubeId)),
-        )
+        .filter((g) => g.source && !g.isMined && !(g.youtubeId && activeJobs.has(g.youtubeId)))
         .map((g) => g.source!.id),
     [groups, activeJobs],
   );
+
+  const pendingGroups = useMemo(() => groups.filter((g) => !g.isMined), [groups]);
+  const minedGroups = useMemo(() => groups.filter((g) => g.isMined), [groups]);
 
   if (!isAuthenticated) return null;
 
