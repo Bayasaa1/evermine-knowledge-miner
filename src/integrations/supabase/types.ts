@@ -945,6 +945,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_ai_roles: {
+        Row: {
+          id: string
+          key_tail: string | null
+          provider: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          key_tail?: string | null
+          provider: string
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          key_tail?: string | null
+          provider?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_flags: {
         Row: {
           ban_reason: string
