@@ -51,17 +51,17 @@ const clean = (v: unknown, max = 200): string => (typeof v === "string" ? v.trim
 export async function roleChoice(
   userId: string,
   role: AiRole,
-): Promise<{ provider: string; keyTail: string | null } | null> {
+): Promise<{ provider: string; keyTail: string | null; keyId: string | null; autoFallback: boolean } | null> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("user_ai_roles")
-      .select("provider, key_tail")
+      .select("provider, key_tail, key_id, auto_fallback")
       .eq("user_id", userId)
       .eq("role", role)
       .maybeSingle();
     if (!data?.provider) return null;
-    return { provider: data.provider, keyTail: data.key_tail ?? null };
+    return { provider: data.provider, keyTail: data.key_tail ?? null, keyId: data.key_id ?? null, autoFallback: data.auto_fallback ?? true };
   } catch {
     return null;
   }
@@ -81,6 +81,111 @@ async function savedKeys(userId: string, provider: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+export type ResolvedUserKey = {
+  id: string;
+  provider: string;
+  apiKey: string;
+  tail: string;
+  model: string | null;
+  endpoint: string | null;
+  autoFallback: boolean;
+};
+
+/** One authoritative resolver used by every AI job. It can only return this user's enabled account keys. */
+export async function resolveUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey> {
+  const { ROLE_PROVIDERS } = await import("@/lib/ai-roles");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const choice = await roleChoice(userId, role);
+  const allowed = ROLE_PROVIDERS[role];
+  const now = new Date().toISOString();
+  let query = supabaseAdmin
+    .from("user_ai_keys")
+    .select("id, provider, api_key, model, endpoint, cost_kind, monthly_limit_usd, spend_usd, enabled, status, cooldown_until, rank, updated_at")
+    .eq("user_id", userId)
+    .eq("enabled", true)
+    .in("provider", allowed)
+    .order("rank", { ascending: true })
+    .order("updated_at", { ascending: false });
+  const { data } = await query;
+  const usable = (data ?? []).filter((row) => {
+    if (row.status === "invalid") return false;
+    if (row.cooldown_until && row.cooldown_until > now) return false;
+    if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return false;
+    return true;
+  });
+  const selected = (choice?.keyId ? usable.find((row) => row.id === choice.keyId) : null)
+    ?? (choice?.keyTail ? usable.find((row) => row.provider === choice.provider && row.api_key.endsWith(choice.keyTail ?? "")) : null)
+    ?? ((!choice || choice.autoFallback) ? usable[0] : null);
+  if (!selected) throw new UserAiError("no_credential", NO_CREDENTIAL);
+  return {
+    id: selected.id,
+    provider: selected.provider,
+    apiKey: selected.api_key,
+    tail: selected.api_key.slice(-4),
+    model: selected.model,
+    endpoint: selected.endpoint,
+    autoFallback: choice?.autoFallback ?? true,
+  };
+}
+
+const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
+  groq: { base: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b" },
+  mistral: { base: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
+  cerebras: { base: "https://api.cerebras.ai/v1", model: "llama3.1-8b" },
+  together: { base: "https://api.together.ai/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free" },
+  github: { base: "https://models.github.ai/inference", model: "openai/gpt-4o-mini" },
+  openrouter: { base: "https://openrouter.ai/api/v1", model: "meta-llama/llama-3.3-70b-instruct:free" },
+  openai: { base: "https://api.openai.com/v1", model: "gpt-4o-mini" },
+  moonshot: { base: "https://api.moonshot.ai/v1", model: "kimi-k2-0711-preview" },
+  deepseek: { base: "https://api.deepseek.com/v1", model: "deepseek-chat" },
+  xai: { base: "https://api.x.ai/v1", model: "grok-3-mini" },
+  perplexity: { base: "https://api.perplexity.ai", model: "sonar" },
+  cohere: { base: "https://api.cohere.ai/compatibility/v1", model: "command-r7b-12-2024" },
+};
+
+/** Text generation using the provider actually assigned to the role. */
+export async function generateRoleText(opts: {
+  userId: string;
+  role: "translate" | "core_brain" | "chat";
+  system: string;
+  prompt: string;
+  json?: boolean;
+  maxTokens?: number;
+}): Promise<{ text: string; provider: string; tail: string }> {
+  const resolved = await resolveUserAiKey(opts.userId, opts.role);
+  if (resolved.provider === "gemini") {
+    const text = await geminiGenerate({
+      credential: { kind: "gemini_key", value: resolved.apiKey },
+      system: opts.system,
+      turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      json: opts.json,
+      maxTokens: opts.maxTokens,
+    });
+    return { text, provider: resolved.provider, tail: resolved.tail };
+  }
+  if (resolved.provider === "anthropic") {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": resolved.apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: [{ role: "user", content: opts.prompt }] }),
+    });
+    if (!res.ok) throw new GeminiHttpError(res.status, `Claude request failed (${res.status}).`);
+    const body = await res.json() as { content?: { type: string; text?: string }[] };
+    return { text: (body.content ?? []).map((part) => part.text ?? "").join(""), provider: resolved.provider, tail: resolved.tail };
+  }
+  const config = OPENAI_COMPATIBLE[resolved.provider];
+  const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
+  if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
+    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: opts.maxTokens ?? 2048, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+  });
+  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider} request failed (${res.status}).`);
+  const body = await res.json() as { choices?: { message?: { content?: string } }[] };
+  return { text: body.choices?.[0]?.message?.content?.trim() ?? "", provider: resolved.provider, tail: resolved.tail };
 }
 
 /** Picks the key the user assigned to a job, else the newest one. */
@@ -108,6 +213,11 @@ export async function resolveGeminiCredential(
   if (key) return { kind: "gemini_key", value: key };
 
   try {
+    if (role) {
+      const resolved = await resolveUserAiKey(userId, role);
+      if (resolved.provider !== "gemini") throw new UserAiError("unsupported_task", "This job requires Gemini video or image access.");
+      return { kind: "gemini_key", value: resolved.apiKey };
+    }
     // A creator may keep several Gemini keys (spares for when one hits its
     // daily quota), so never assume a single row here.
     const keys = await savedKeys(userId, "gemini");
@@ -129,10 +239,8 @@ export async function resolveRoleProviderKey(
   userId: string,
   role: AiRole,
 ): Promise<{ provider: string; apiKey: string } | null> {
-  const choice = await roleChoice(userId, role);
-  if (!choice || choice.provider === "gemini") return null;
-  const apiKey = pickByTail(await savedKeys(userId, choice.provider), choice.keyTail);
-  return apiKey ? { provider: choice.provider, apiKey } : null;
+  const resolved = await resolveUserAiKey(userId, role);
+  return resolved.provider === "gemini" ? null : { provider: resolved.provider, apiKey: resolved.apiKey };
 }
 
 /**

@@ -90,14 +90,12 @@ async function flush() {
     if (!texts.length) continue;
     for (const t of texts) inflight.add(`${lang}:${t}`);
     try {
-      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await translateTexts({
         data: {
           texts,
           target: lang,
           targetName: LANGUAGES[lang].name,
           domain: "AI video-mining app UI",
-          ...(await credentialPayload("translate")),
         },
       });
       const state = (res as { blocked?: string }).blocked;
