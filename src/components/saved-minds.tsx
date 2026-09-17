@@ -12,12 +12,14 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Settings2, Trash2 } from "lucide-react";
+import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Settings2, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
 import { MindAuditor } from "@/components/mind-auditor";
 import { ResultCompare } from "@/components/result-compare";
+import { MindVersioningHub } from "@/components/mind-versioning-hub";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 
@@ -58,6 +60,8 @@ export function SavedMinds({
   const [auditing, setAuditing] = useState<{ row: VaultRow; sourceId: string | null } | null>(null);
   /** Mined row currently open in the side-by-side AI result comparison. */
   const [comparing, setComparing] = useState<VaultRow | null>(null);
+  /** Mined row whose history & fixes panel is open. */
+  const [fixing, setFixing] = useState<VaultRow | null>(null);
 
   /** Saved source rows ticked for batch mining. */
   const [selected, setSelected] = useState<string[]>([]);
@@ -493,6 +497,16 @@ export function SavedMinds({
                               >
                                 <Gavel className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">{t.auditor}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFixing(openRow)}
+                                title={t.fix}
+                                aria-label={t.fix}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <Wrench className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{t.fix}</span>
                               </button>
                               <button
                                 type="button"
