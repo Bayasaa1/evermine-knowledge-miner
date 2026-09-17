@@ -22,8 +22,10 @@ import type { MindPayload } from "@/lib/mind-json";
 import { saveMindVersion } from "@/lib/mind-versions.functions";
 
 import { listVaults, updateVault, type VaultRow } from "@/lib/cloud-vault.functions";
-import { listMiningJobs } from "@/lib/mining-jobs.functions";
-import { jobProgress, type MiningJob } from "@/lib/mining-jobs";
+import { listMiningJobs, startMiningJobs } from "@/lib/mining-jobs.functions";
+import { defaultAssessmentFor, jobProgress, type MiningJob } from "@/lib/mining-jobs";
+import { ACTIVE_CATEGORIES, CATEGORY_LABELS } from "@/lib/creation-category";
+import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import { listProjectsByPersona, type Project } from "@/lib/projects";
