@@ -21,10 +21,10 @@ export const AI_ROLES: AiRole[] = [
 
 /** Providers that can actually do the job. Only these are offered for a role. */
 export const ROLE_PROVIDERS: Record<AiRole, string[]> = {
-  translate: ["gemini"],
+  translate: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
   mine: ["gemini"],
-  core_brain: ["gemini"],
-  chat: ["gemini", "openai", "anthropic", "deepseek"],
+  core_brain: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
+  chat: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
   voice_clone: ["elevenlabs"],
   face_clone: ["gemini"],
 };
@@ -38,7 +38,7 @@ export const ROLE_COPY: Record<"en" | "mn" | "ko", Record<AiRole, RoleCopy>> = {
     core_brain: { name: "Core brain", hint: "Builds the memory behind each mind." },
     chat: { name: "Chatting", hint: "Answers when someone talks to a mind." },
     voice_clone: { name: "Voice clone", hint: "Speaks in your own cloned voice. Without a key, the free device voice is used." },
-    face_clone: { name: "Face on calls", hint: "Looks at the caller on a video call." },
+    face_clone: { name: "Seeing on video calls", hint: "Reads camera frames. Gemini does not clone a face." },
   },
   mn: {
     translate: { name: "Орчуулга", hint: "Аппыг болон хадмалыг таны хэл рүү хөрвүүлнэ." },
@@ -46,7 +46,7 @@ export const ROLE_COPY: Record<"en" | "mn" | "ko", Record<AiRole, RoleCopy>> = {
     core_brain: { name: "Үндсэн тархи", hint: "Оюун бүрийн ой санамжийг бүтээнэ." },
     chat: { name: "Чат", hint: "Хүн оюунтай ярихад хариулна." },
     voice_clone: { name: "Дуу хуулбар", hint: "Таны өөрийн дуугаар ярина. Түлхүүргүй бол үнэгүй төхөөрөмжийн дуу." },
-    face_clone: { name: "Дуудлагын царай", hint: "Видео дуудлагад ярьж буй хүнийг хардаг." },
+    face_clone: { name: "Видео дуудлагаар харах", hint: "Камерын зургийг харна. Gemini царай хуулбарлахгүй." },
   },
   ko: {
     translate: { name: "번역", hint: "앱과 자막을 내 언어로 바꿉니다." },
@@ -54,7 +54,7 @@ export const ROLE_COPY: Record<"en" | "mn" | "ko", Record<AiRole, RoleCopy>> = {
     core_brain: { name: "코어 브레인", hint: "각 마인드의 기억을 만듭니다." },
     chat: { name: "채팅", hint: "마인드와 대화할 때 답합니다." },
     voice_clone: { name: "음성 클론", hint: "내 목소리로 말합니다. 키가 없으면 무료 기기 음성을 씁니다." },
-    face_clone: { name: "영상통화 얼굴", hint: "영상통화에서 상대를 봅니다." },
+    face_clone: { name: "영상통화 보기", hint: "카메라 화면을 읽습니다. Gemini는 얼굴을 복제하지 않습니다." },
   },
 };
 
@@ -64,9 +64,20 @@ export const PROVIDER_LABEL: Record<string, string> = {
   anthropic: "Claude",
   deepseek: "DeepSeek",
   elevenlabs: "ElevenLabs",
+  groq: "Groq",
+  mistral: "Mistral",
+  cerebras: "Cerebras",
+  together: "Together",
+  github: "GitHub Models",
+  openrouter: "OpenRouter",
+  moonshot: "Kimi",
+  xai: "Grok",
+  perplexity: "Perplexity",
+  cohere: "Cohere",
+  custom: "My own AI",
 };
 
-export type RoleChoice = { role: AiRole; provider: string; keyTail: string | null };
+export type RoleChoice = { role: AiRole; provider: string; keyTail: string | null; keyId: string | null; autoFallback: boolean };
 
 export function isAiRole(v: unknown): v is AiRole {
   return typeof v === "string" && (AI_ROLES as string[]).includes(v);

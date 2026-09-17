@@ -7,23 +7,21 @@
  */
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Loader2, RefreshCw, X } from "lucide-react";
 
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
-import { describeAiRoles, listAiRoles, setAiRole, testAiRoleKey } from "@/lib/ai-roles.functions";
+import { describeAiRoles, listAiRoles, setAiRole, testAiRoleKey, testAllAiRoles } from "@/lib/ai-roles.functions";
 import { AI_ROLES, PROVIDER_LABEL, ROLE_COPY, ROLE_PROVIDERS, type AiRole } from "@/lib/ai-roles";
-import { clearRoleCache, geminiKeyChain } from "@/lib/api-keys";
+import { clearRoleCache } from "@/lib/api-keys";
+import { Button } from "@/components/ui/button";
 import { pickCopy, useLang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
-type KeyRow = { provider: string; tail: string };
+type KeyRow = { id: string; provider: string; tail: string; enabled: boolean };
 type Report = { role: string; provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean };
 type TestState = { ok: boolean; message: string } | "running";
 
 const AUTO = "auto";
-/** Jobs whose key is read from this device's vault, not the account copy. */
-const DEVICE_ROLES: AiRole[] = ["translate", "mine"];
-
 export function AiRolesCard() {
   const { lang } = useLang();
   const { isAuthenticated } = useAuth();
@@ -32,11 +30,12 @@ export function AiRolesCard() {
   const loadReports = useServerFn(describeAiRoles);
   const saveRole = useServerFn(setAiRole);
   const runTest = useServerFn(testAiRoleKey);
+  const runAllTests = useServerFn(testAllAiRoles);
 
   const [keys, setKeys] = useState<KeyRow[]>([]);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [reports, setReports] = useState<Record<string, Report>>({});
-  const [deviceTails, setDeviceTails] = useState<string[]>([]);
+  const [fallback, setFallback] = useState<Record<string, boolean>>({});
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [busy, setBusy] = useState<AiRole | null>(null);
   const [note, setNote] = useState("");
@@ -52,16 +51,23 @@ export function AiRolesCard() {
     test: pickCopy({ en: "Test", mn: "Шалгах", ko: "테스트" }, lang),
     running: pickCopy({ en: "Running it now", mn: "Одоо ажиллуулж байна", ko: "지금 실행 중" }, lang),
     noKey: pickCopy({ en: "Add a key first", mn: "Эхлээд түлхүүр нэм", ko: "먼저 키를 추가하세요" }, lang),
+    fallback: pickCopy({ en: "Switch automatically when this key runs out", mn: "Энэ түлхүүр дуусвал автоматаар солих", ko: "이 키가 소진되면 자동 전환" }, lang),
+    checkAll: pickCopy({ en: "Check everything", mn: "Бүгдийг шалгах", ko: "모두 확인" }, lang),
   };
 
   const copy = ROLE_COPY[(["en", "mn", "ko"] as const).includes(lang as "en") ? (lang as "en" | "mn" | "ko") : "en"] ?? ROLE_COPY.en;
 
   const refresh = async () => {
     const [k, r, d] = await Promise.all([loadKeys(), loadRoles(), loadReports()]);
-    setKeys((k as KeyRow[]).map((row) => ({ provider: row.provider, tail: row.tail })));
+    setKeys((k as KeyRow[]).filter((row) => row.enabled));
     const next: Record<string, string> = {};
-    for (const row of r) next[row.role] = `${row.provider}:${row.keyTail ?? ""}`;
+    const nextFallback: Record<string, boolean> = {};
+    for (const row of r) {
+      next[row.role] = row.keyId ?? AUTO;
+      nextFallback[row.role] = row.autoFallback;
+    }
     setChoice(next);
+    setFallback(nextFallback);
     const byRole: Record<string, Report> = {};
     for (const row of d as Report[]) byRole[row.role] = row;
     setReports(byRole);
@@ -72,7 +78,6 @@ export function AiRolesCard() {
     void (async () => {
       try {
         await refresh();
-        setDeviceTails((await geminiKeyChain()).map((k) => k.value.slice(-4)));
       } catch {
         /* not signed in yet */
       }
@@ -92,14 +97,33 @@ export function AiRolesCard() {
       if (value === AUTO) {
         await saveRole({ data: { role, provider: null, keyTail: null } });
       } else {
-        const [provider, tail] = value.split(":");
-        await saveRole({ data: { role, provider: provider ?? null, keyTail: tail || null } });
+        const selected = keys.find((key) => key.id === value);
+        if (!selected) throw new Error(t.noKey);
+        await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: fallback[role] ?? true } });
       }
       clearRoleCache();
       setNote(t.saved);
       await refresh();
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleFallback = async (role: AiRole, enabled: boolean) => {
+    setFallback((current) => ({ ...current, [role]: enabled }));
+    const selected = keys.find((key) => key.id === choice[role]);
+    if (selected) await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: enabled } });
+  };
+
+  const testAll = async () => {
+    setBusy("chat");
+    try {
+      const result = await runAllTests();
+      const next: Record<string, TestState> = {};
+      for (const row of result) next[row.role] = { ok: row.ok, message: row.message };
+      setTests(next);
     } finally {
       setBusy(null);
     }
@@ -119,15 +143,8 @@ export function AiRolesCard() {
     <div className="space-y-2 rounded-xl border border-border bg-card p-3">
       {AI_ROLES.map((role) => {
         const options = keys.filter((k) => ROLE_PROVIDERS[role].includes(k.provider));
-        const single = ROLE_PROVIDERS[role].length === 1;
-        const only = ROLE_PROVIDERS[role][0]!;
         const report = reports[role];
         const state = tests[role];
-        const notOnDevice =
-          DEVICE_ROLES.includes(role) &&
-          report?.effectiveTail != null &&
-          deviceTails.length > 0 &&
-          !deviceTails.includes(report.effectiveTail);
 
         return (
           <div key={role} className="border-b border-border/60 py-2 last:border-0">
@@ -137,12 +154,6 @@ export function AiRolesCard() {
                 <p className="text-xs text-muted-foreground">{copy[role].hint}</p>
               </div>
 
-              {single && options.length <= 1 ? (
-                <p className="text-xs text-muted-foreground">
-                  {PROVIDER_LABEL[only] ?? only}
-                  {options[0] ? ` ···${options[0].tail}` : ` — ${t.noKey}`}
-                </p>
-              ) : (
                 <select
                   value={choice[role] ?? AUTO}
                   disabled={busy === role}
@@ -152,12 +163,11 @@ export function AiRolesCard() {
                 >
                   <option value={AUTO}>{options.length ? t.auto : t.none}</option>
                   {options.map((k) => (
-                    <option key={`${k.provider}:${k.tail}`} value={`${k.provider}:${k.tail}`}>
+                    <option key={k.id} value={k.id}>
                       {PROVIDER_LABEL[k.provider] ?? k.provider} ···{k.tail}
                     </option>
                   ))}
                 </select>
-              )}
 
               {report?.effectiveTail && (
                 <button
@@ -169,6 +179,10 @@ export function AiRolesCard() {
                 </button>
               )}
             </div>
+            <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+              <input type="checkbox" checked={fallback[role] ?? true} onChange={(event) => void toggleFallback(role, event.target.checked)} />
+              {t.fallback}
+            </label>
 
             {report && (
               <p className="mt-1 text-[11px] text-muted-foreground">
@@ -189,18 +203,6 @@ export function AiRolesCard() {
                 )}
               </p>
             )}
-            {notOnDevice && (
-              <p className="mt-1 text-[11px] text-amber-500">
-                {pickCopy(
-                  {
-                    en: "This key is not saved on this device, so this job may run on another one here.",
-                    mn: "Энэ түлхүүр энэ төхөөрөмж дээр хадгалагдаагүй тул энд өөр түлхүүр ажиллаж магадгүй.",
-                    ko: "이 키는 이 기기에 저장돼 있지 않아 여기서는 다른 키가 쓰일 수 있습니다.",
-                  },
-                  lang,
-                )}
-              </p>
-            )}
             {state && state !== "running" && (
               <p className={`mt-1 flex items-center gap-1 text-[11px] ${state.ok ? "text-emerald-500" : "text-destructive"}`}>
                 {state.ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
@@ -210,6 +212,9 @@ export function AiRolesCard() {
           </div>
         );
       })}
+      <Button type="button" variant="outline" size="sm" onClick={() => void testAll()} disabled={busy != null}>
+        {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} {t.checkAll}
+      </Button>
       {note && <p className="pt-1 text-xs text-muted-foreground">{note}</p>}
     </div>
   );

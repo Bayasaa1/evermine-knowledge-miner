@@ -90,14 +90,12 @@ async function flush() {
     if (!texts.length) continue;
     for (const t of texts) inflight.add(`${lang}:${t}`);
     try {
-      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await translateTexts({
         data: {
           texts,
           target: lang,
           targetName: LANGUAGES[lang].name,
           domain: "AI video-mining app UI",
-          ...(await credentialPayload("translate")),
         },
       });
       const state = (res as { blocked?: string }).blocked;
@@ -113,7 +111,7 @@ async function flush() {
             window.location.href = "/creator#engines";
           };
           const quotaMsg =
-            "Translation is paused because Google limited this Gemini project. Wait for its quota window to reset or use a key from a different Google Cloud project; extra keys from the same project share one quota.";
+            "Translation is paused because the selected AI reached its limit. Automatic switching will use the next compatible enabled key when available.";
           void import("sonner").then(({ toast }) =>
             toast.error(state === "quota" ? quotaMsg : "Translation needs your own free Gemini key — add it once in Engines.",
               {

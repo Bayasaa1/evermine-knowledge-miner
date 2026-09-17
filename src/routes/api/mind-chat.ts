@@ -351,6 +351,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         const {
           resolveGeminiCredential,
           resolveRoleProviderKey,
+          generateRoleText,
           geminiStream,
           geminiGenerate,
           aiErrorResponse,
@@ -371,15 +372,34 @@ export const Route = createFileRoute("/api/mind-chat")({
         // The engine the caller assigned to chatting in the API Manager, when
         // that is not Gemini. Their own saved key, never a platform one.
         const assigned = await resolveRoleProviderKey(auth.userId, "chat");
-        if (assigned && isProvider(assigned.provider)) {
-          const routed = await callProvider(
-            assigned.provider,
-            DEFAULT_MODEL[assigned.provider],
-            assigned.apiKey,
-            systemWithMemory,
-            history,
-          );
-          if (routed) return routed;
+        if (assigned) {
+          if (isProvider(assigned.provider)) {
+            const routed = await callProvider(
+              assigned.provider,
+              DEFAULT_MODEL[assigned.provider],
+              assigned.apiKey,
+              systemWithMemory,
+              history,
+            );
+            if (routed) return routed;
+          }
+          try {
+            const generated = await generateRoleText({
+              userId: auth.userId,
+              role: "chat",
+              system: systemWithMemory,
+              prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
+              maxTokens: 1024,
+            });
+            if (body.stream === true) {
+              return new Response(`data: ${JSON.stringify({ delta: generated.text })}\n\ndata: [DONE]\n\n`, {
+                headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+              });
+            }
+            return jsonReply(generated.text);
+          } catch (err) {
+            return aiErrorResponse(err);
+          }
         }
 
         // Default brain: the caller's own Gemini — a key from their vault or

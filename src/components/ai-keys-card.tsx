@@ -7,14 +7,14 @@
  * Free and paid providers are added through separate buttons so a free list
  * never shows paid names and the other way round.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
   ExternalLink,
   KeyRound,
-  Lightbulb,
   Loader2,
   Plus,
   Trash2,
@@ -24,8 +24,8 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
-import { adviceFor, recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
-import { saveUserAiKey, deleteUserAiKey } from "@/lib/user-ai-keys.functions";
+import { recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
+import { saveUserAiKey, deleteUserAiKey, getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
   DuplicateKeyError,
@@ -389,6 +389,7 @@ export function AiKeysCard({
   const { lang } = useLang();
   const t = COPY[lang as keyof typeof COPY] ?? COPY.en;
   const { isAuthenticated } = useAuth();
+  const loadAccountKeys = useServerFn(getUserAiKeyStatus);
   const [rows, setRows] = useState<SavedKey[]>([]);
   const [mode, setMode] = useState<AddMode>(null);
   const [provider, setProvider] = useState<ProviderId>("gemini");
@@ -398,14 +399,40 @@ export function AiKeysCard({
   const [openRec, setOpenRec] = useState<string | null>(null);
   const [pendingTop, setPendingTop] = useState(false);
 
-  const advice = useMemo(() => adviceFor(category, lang), [category, lang]);
-
   const refresh = useCallback(async () => {
-    const all = await listAllKeys();
+    const local = await listAllKeys();
+    let all = local;
+    if (isAuthenticated) {
+      try {
+        const account = await loadAccountKeys();
+        all = account.flatMap((row, index): SavedKey[] => {
+          const providerInfo = findProviderInfo(row.provider as ProviderId);
+          if (!providerInfo) return [];
+          return [{
+            id: row.id,
+            provider: providerInfo,
+            label: row.label || providerInfo.label,
+            maskedTail: row.tail,
+            state: row.status === "invalid" ? "invalid" : row.status === "exhausted" ? "exhausted" : "ok",
+            addedAt: new Date(row.createdAt).getTime(),
+            rank: index + 1,
+            callsToday: 0,
+            cost: row.costKind as SavedKey["cost"],
+            enabled: row.enabled,
+            monthlyCapUsd: row.monthlyLimitUsd,
+            spendUsd: row.spendUsd,
+            ...(row.model ? { model: row.model } : {}),
+            ...(row.endpoint ? { endpoint: row.endpoint } : {}),
+          }];
+        });
+      } catch {
+        // The local list remains available while authentication is settling.
+      }
+    }
     setRows(all);
     onChange?.(all);
     return all;
-  }, [onChange]);
+  }, [isAuthenticated, loadAccountKeys, onChange]);
 
   useEffect(() => {
     void refresh();
@@ -477,7 +504,18 @@ export function AiKeysCard({
       }
       if (isAuthenticated) {
         try {
-          await saveUserAiKey({ data: { provider, apiKey: key } });
+          await saveUserAiKey({
+            data: {
+              provider,
+              apiKey: key,
+              label: provider === "custom" ? custom.label.trim() : info.label,
+              model: provider === "custom" ? custom.model.trim() : result.model,
+              endpoint: provider === "custom" ? custom.endpoint.trim() : undefined,
+              costKind: info.paid ? "paid" : "free-tier",
+              rank: pendingTop ? 1 : 9000,
+            },
+          });
+          await refresh();
         } catch {
           /* the device save already succeeded */
         }
@@ -492,8 +530,6 @@ export function AiKeysCard({
 
   const drop = useCallback(
     async (row: SavedKey) => {
-      await removeKey(row);
-      await refresh();
       if (isAuthenticated) {
         try {
           await deleteUserAiKey({ data: { provider: row.provider.id, tail: row.maskedTail } });
@@ -501,6 +537,8 @@ export function AiKeysCard({
           /* fine */
         }
       }
+      await removeKey(row).catch(() => undefined);
+      await refresh();
       toast.success(t.removed);
     },
     [isAuthenticated, refresh, t],
@@ -508,7 +546,7 @@ export function AiKeysCard({
 
   const shift = useCallback(
     async (row: SavedKey, dir: "up" | "down") => {
-      await moveKey(row.id, dir);
+      await moveKey(row.id, dir).catch(() => undefined);
       await refresh();
     },
     [refresh],
@@ -570,24 +608,6 @@ export function AiKeysCard({
             </p>
           );
         })()}
-
-      {/* Guidance that follows the creation type picked in step 1. */}
-      <div className="rounded-lg border border-border/60 bg-background/60 p-3 text-xs">
-        <p className="flex items-center gap-1.5 font-semibold text-foreground">
-          <Lightbulb className="h-3.5 w-3.5 text-primary" /> {t.adviceFirst}
-        </p>
-        <p className="mt-1 text-muted-foreground">{advice.first}</p>
-        <p className="mt-2 font-medium text-foreground">{t.adviceHelps}</p>
-        <p className="text-muted-foreground">{advice.helps}</p>
-        <p className="mt-2 font-medium text-foreground">{t.adviceSkip}</p>
-        <p className="text-muted-foreground">{advice.skip}</p>
-        <p className="mt-2 font-medium text-foreground">{t.adviceTips}</p>
-        <ul className="mt-0.5 space-y-0.5 text-muted-foreground">
-          {advice.tips.map((tip) => (
-            <li key={tip}>• {tip}</li>
-          ))}
-        </ul>
-      </div>
 
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t.empty}</p>
