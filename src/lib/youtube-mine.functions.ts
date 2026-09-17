@@ -18,5 +18,5 @@ export const mineYoutubeVideo = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ChunkResult> => {
     const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
     const credential = await resolveGeminiCredential(context.userId, data, "mine");
-    return analyzeYoutubeVideo({ ...data, credential });
+    return analyzeYoutubeVideo({ ...data, credential, usage: { userId: context.userId, videoLabel: data.url, videoId: data.url } });
   });

@@ -311,6 +311,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
         endSec: chunk.end,
         assessment: job.assessment,
         credential: { kind: "gemini_key", value: activeKey },
+        usage: { userId: context.userId, videoLabel: job.sourceLabel, videoId: job.sourceUrl, jobId: job.id },
       });
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;
