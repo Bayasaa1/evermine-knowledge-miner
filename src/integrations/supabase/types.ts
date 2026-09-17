@@ -50,6 +50,72 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_events: {
+        Row: {
+          char_count: number
+          created_at: string
+          error_code: string | null
+          estimated_cost_usd: number
+          free_tier: boolean
+          id: string
+          input_tokens: number
+          job_id: string
+          key_id: string | null
+          key_tail: string | null
+          model: string
+          output_tokens: number
+          provider: string
+          role: string
+          status: string
+          subject_id: string
+          subject_kind: string
+          subject_label: string
+          user_id: string
+        }
+        Insert: {
+          char_count?: number
+          created_at?: string
+          error_code?: string | null
+          estimated_cost_usd?: number
+          free_tier?: boolean
+          id?: string
+          input_tokens?: number
+          job_id?: string
+          key_id?: string | null
+          key_tail?: string | null
+          model?: string
+          output_tokens?: number
+          provider?: string
+          role?: string
+          status?: string
+          subject_id?: string
+          subject_kind?: string
+          subject_label?: string
+          user_id: string
+        }
+        Update: {
+          char_count?: number
+          created_at?: string
+          error_code?: string | null
+          estimated_cost_usd?: number
+          free_tier?: boolean
+          id?: string
+          input_tokens?: number
+          job_id?: string
+          key_id?: string | null
+          key_tail?: string | null
+          model?: string
+          output_tokens?: number
+          provider?: string
+          role?: string
+          status?: string
+          subject_id?: string
+          subject_kind?: string
+          subject_label?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           body: string
