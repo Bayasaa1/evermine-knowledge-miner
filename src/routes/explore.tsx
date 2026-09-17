@@ -396,6 +396,11 @@ function Explore() {
     if (chatOpen) composerRef.current?.focus();
   }, [chatOpen, thinking]);
 
+  // Each mind remembers its own AI level on this device.
+  useEffect(() => {
+    setAiLevel(loadAiLevel(selected?.id ?? null));
+  }, [selected?.id]);
+
   /* ---------- native voice dubbing + lip-sync ---------- */
   function stopSpeaking() {
     dubRef.current?.stop();
