@@ -124,6 +124,12 @@ export function TalkToMindModal({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // The chosen mix is remembered on this device only.
+  useEffect(() => {
+    const saved = Number(localStorage.getItem("evermind.aiLevel"));
+    if (Number.isFinite(saved) && saved >= 0 && saved <= 100) setAiLevel(saved);
+  }, []);
+
 
   if (!open) return null;
 
