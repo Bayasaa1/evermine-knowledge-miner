@@ -32,10 +32,11 @@ export const listVaults = createServerFn({ method: "POST" })
       .select("id, title, kind, payload, persona_id, project_id, updated_at")
       .eq("user_id", context.userId);
     if (data.scoped) {
-      // Strict isolation: a persona only ever sees its own minds; unassigned
-      // minds live under the master (null) persona, nowhere else.
+      // A persona sees its own minds plus anything not filed under a persona
+      // yet — a saved video must never disappear just because it was mined
+      // before a persona was picked. The UI labels those rows "Not filed".
       query = data.personaId
-        ? query.eq("persona_id", data.personaId)
+        ? query.or(`persona_id.eq.${data.personaId},persona_id.is.null`)
         : query.is("persona_id", null);
       if (data.projectId) query = query.eq("project_id", data.projectId);
     }
