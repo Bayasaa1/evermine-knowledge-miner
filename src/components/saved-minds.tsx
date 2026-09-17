@@ -346,177 +346,228 @@ export function SavedMinds({
       </div>
 
       {mineable.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-2.5">
-          <button
-            type="button"
-            onClick={() => setSelected(selected.length === mineable.length ? [] : mineable)}
-            className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {selected.length === mineable.length ? t.clear : t.selectAll}
-          </button>
-          <span className="text-xs text-muted-foreground">
-            {selected.length} {t.picked}
-          </span>
-          <button
-            type="button"
-            disabled={selected.length === 0}
-            onClick={() => {
-              const first = groups.find((g) => g.source && selected.includes(g.source.id))?.source ?? null;
-              sendToMiner(selected, first);
-            }}
-            className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-          >
-            {t.mineSelected}
-          </button>
-          <p className="hidden w-full text-[11px] text-muted-foreground sm:block">{t.batchHint}</p>
+        <div className="mt-3 space-y-2 rounded-lg border border-border bg-background p-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelected(selected.length === mineable.length ? [] : mineable)}
+              className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {selected.length === mineable.length ? t.clear : t.selectAll}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {selected.length} {t.picked}
+            </span>
+            <button
+              type="button"
+              disabled={selected.length === 0}
+              onClick={() => setSetupId(setupId === "batch" ? null : "batch")}
+              className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {t.mineSelected}
+            </button>
+          </div>
+          <p className="hidden text-[11px] text-muted-foreground sm:block">{t.batchHint}</p>
+          {setupId === "batch" && selected.length > 0 ? (
+            <MineSetup
+              lang={lang}
+              userId={userId ?? ""}
+              personaId={personaId}
+              sources={groups
+                .filter((g) => g.source && selected.includes(g.source.id))
+                .map((g) => ({
+                  url: g.sourceUrl,
+                  title: g.title,
+                  projectId: g.primary.projectId,
+                  payload: g.source ? (g.source.payload as unknown as SourcePayload) : null,
+                }))}
+              onDone={() => {
+                setSetupId(null);
+                setSelected([]);
+                void refresh();
+                void queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+              }}
+            />
+          ) : null}
         </div>
       )}
 
       {groups.length > 0 ? (
-        <ul className="mt-3 space-y-2">
-          {groups.map((g) => {
-            const v = g.primary;
-            const src = g.source ? (g.source.payload as unknown as SourcePayload) : null;
-            const video = src?.video;
-            const mined = Boolean(g.mined) || src?.status === "mined";
-            const openRow = g.mined ?? v;
-            const sourceId = g.source?.id ?? null;
-            const ticked = sourceId ? selected.includes(sourceId) : false;
-            const job = g.youtubeId ? activeJobs.get(g.youtubeId) : undefined;
-            const busy = Boolean(job) && !mined;
-            const jobLabel = job
-              ? job.status === "queued"
-                ? t.queued
-                : job.status === "running"
-                  ? `${t.mining} ${jobProgress(job)}%`
-                  : t.paused
-              : "";
-            return (
-            <li key={v.id} className="rounded-lg border border-border bg-background p-3">
-              <div className="flex items-start gap-2">
-                {!mined && !busy && sourceId && (
-                  <input
-                    type="checkbox"
-                    checked={ticked}
-                    onChange={() =>
-                      setSelected((prev) =>
-                        prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId],
-                      )
-                    }
-                    aria-label={t.mine}
-                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
-                  />
-                )}
+        <div className="mt-3 space-y-5">
+          {[
+            { key: "pending", label: t.pendingSection, list: pendingGroups },
+            { key: "mined", label: t.minedSection, list: minedGroups },
+          ]
+            .filter((s) => s.list.length > 0)
+            .map((section) => (
+              <div key={section.key}>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {section.label} ({section.list.length})
+                </p>
+                <ul className="space-y-2">
+                  {section.list.map((g) => {
+                    const v = g.primary;
+                    const src = g.source ? (g.source.payload as unknown as SourcePayload) : null;
+                    const video = src?.video;
+                    const mined = g.isMined;
+                    const openRow = g.mined ?? v;
+                    const sourceId = g.source?.id ?? null;
+                    const ticked = sourceId ? selected.includes(sourceId) : false;
+                    const job = g.youtubeId ? activeJobs.get(g.youtubeId) : undefined;
+                    const busy = Boolean(job) && !mined;
+                    const jobLabel = job
+                      ? job.status === "queued"
+                        ? t.queued
+                        : job.status === "running"
+                          ? `${t.mining} ${jobProgress(job)}%`
+                          : t.paused
+                      : "";
+                    return (
+                      <li key={v.id} className="rounded-lg border border-border bg-background p-3">
+                        <div className="flex items-start gap-2">
+                          {!mined && !busy && sourceId && (
+                            <input
+                              type="checkbox"
+                              checked={ticked}
+                              onChange={() =>
+                                setSelected((prev) =>
+                                  prev.includes(sourceId) ? prev.filter((id) => id !== sourceId) : [...prev, sourceId],
+                                )
+                              }
+                              aria-label={t.mine}
+                              className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                            />
+                          )}
 
-                {video?.thumbnail && (
-                  <img
-                    src={video.thumbnail}
-                    alt=""
-                    loading="lazy"
-                    className="h-12 w-20 shrink-0 rounded-md object-cover"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  {/* Two readable lines — a single truncated line hid long titles. */}
-                  <p className="line-clamp-2 break-words text-sm font-medium leading-snug text-foreground">{g.title}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
-                    {video ? " · " : ""}
-                    <span className={mined ? "text-emerald-500" : busy ? "text-primary" : "text-amber-500"}>
-                      {mined ? t.mined : busy ? jobLabel : t.pending}
-                    </span>
-                    {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
-                  </p>
-                  {video?.description && (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
-                  )}
-                </div>
+                          {g.thumb ? (
+                            <img
+                              src={g.thumb}
+                              alt=""
+                              loading="lazy"
+                              className="h-12 w-20 shrink-0 rounded-md bg-muted object-cover"
+                            />
+                          ) : (
+                            <span className="h-12 w-20 shrink-0 rounded-md bg-muted" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 break-words text-sm font-medium leading-snug text-foreground">{g.title}</p>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {[video?.channel, video?.durationLabel].filter(Boolean).join(" · ")}
+                              {video ? " · " : ""}
+                              <span className={mined ? "text-emerald-500" : busy ? "text-primary" : "text-amber-500"}>
+                                {mined ? t.mined : busy ? jobLabel : t.pending}
+                              </span>
+                              {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
+                              {g.unfiled && personaId ? (
+                                <span className="text-amber-500"> · {t.notFiled}</span>
+                              ) : null}
+                            </p>
+                            {video?.description && (
+                              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{video.description}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions live on their own wrapped row so nothing overflows on phones. */}
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          {busy ? (
+                            <Link
+                              to="/mining"
+                              className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary"
+                            >
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              {jobLabel}
+                            </Link>
+                          ) : !mined ? (
+                            <button
+                              type="button"
+                              disabled={!g.sourceUrl}
+                              onClick={() => setSetupId(setupId === v.id ? null : v.id)}
+                              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                              {t.setupMine}
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setInspect(openRow)}
+                                title={t.view}
+                                aria-label={t.view}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{t.view}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAuditing({ row: openRow, sourceId })}
+                                title={t.auditor}
+                                aria-label={t.auditor}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <Gavel className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{t.auditor}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setComparing(openRow)}
+                                title={t.compare}
+                                aria-label={t.compare}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <Columns3 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{t.compare}</span>
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setEditing(v)}
+                            title={t.edit}
+                            aria-label={t.edit}
+                            className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={drop.isPending}
+                            onClick={() => {
+                              if (window.confirm(t.confirm)) {
+                                drop.mutate({ vaultIds: g.rows.map((r) => r.id), ...(g.youtubeId ? { youtubeId: g.youtubeId } : {}) });
+                              }
+                            }}
+                            title={t.del}
+                            aria-label={t.del}
+                            className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        {setupId === v.id && !mined ? (
+                          <MineSetup
+                            lang={lang}
+                            userId={userId ?? ""}
+                            personaId={personaId}
+                            sources={[{ url: g.sourceUrl, title: g.title, projectId: v.projectId, payload: src }]}
+                            onDone={() => {
+                              setSetupId(null);
+                              void refresh();
+                              void queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+                            }}
+                          />
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-
-              {/* Actions live on their own wrapped row so nothing overflows on phones. */}
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {busy ? (
-                  <Link
-                    to="/mining"
-                    className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-xs font-semibold text-primary"
-                  >
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    {jobLabel}
-                  </Link>
-                ) : !mined ? (
-                  <button
-                    type="button"
-                    disabled={!sourceId}
-                    onClick={() => sourceId && sendToMiner([sourceId], g.source)}
-                    className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
-                  >
-                    {t.mine}
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setInspect(openRow)}
-                      title={t.view}
-                      aria-label={t.view}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">{t.view}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuditing({ row: openRow, sourceId })}
-                      title={t.auditor}
-                      aria-label={t.auditor}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <Gavel className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">{t.auditor}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setComparing(openRow)}
-                      title={t.compare}
-                      aria-label={t.compare}
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <Columns3 className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">{t.compare}</span>
-                    </button>
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => setEditing(v)}
-                  title={t.edit}
-                  aria-label={t.edit}
-                  className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  disabled={drop.isPending}
-                  onClick={() => {
-                    if (window.confirm(t.confirm)) {
-                      drop.mutate({ vaultIds: g.rows.map((r) => r.id), ...(g.youtubeId ? { youtubeId: g.youtubeId } : {}) });
-                    }
-                  }}
-                  title={t.del}
-                  aria-label={t.del}
-                  className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </li>
-            );
-          })}
-        </ul>
-
-
+            ))}
+        </div>
       ) : (
         !isLoading && <p className="mt-3 text-sm text-muted-foreground">{t.empty}</p>
       )}
