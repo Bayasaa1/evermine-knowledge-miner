@@ -461,8 +461,8 @@ export async function testRoleKey(
       // green because automatic fallback quietly reached a different provider.
       const tested = await generateRoleTextOnce({
         resolved,
-        system: "Return only the word OK.",
-        prompt: "Connection test.",
+        system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
+        prompt: role === "translate" ? "Good morning" : "Connection test.",
         maxTokens: 512,
       });
       return tested.text

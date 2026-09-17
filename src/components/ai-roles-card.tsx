@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { pickCopy, useLang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
-type KeyRow = { id: string; provider: string; tail: string; enabled: boolean };
+type KeyRow = { id: string; provider: string; tail: string; enabled: boolean; status?: string };
 type Report = { role: string; provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean };
 type TestState = { ok: boolean; message: string } | "running";
 
@@ -59,7 +59,7 @@ export function AiRolesCard() {
 
   const refresh = async () => {
     const [k, r, d] = await Promise.all([loadKeys(), loadRoles(), loadReports()]);
-    setKeys((k as KeyRow[]).filter((row) => row.enabled));
+    setKeys((k as KeyRow[]).filter((row) => row.enabled && row.status !== "invalid" && row.status !== "exhausted"));
     const next: Record<string, string> = {};
     const nextFallback: Record<string, boolean> = {};
     for (const row of r) {
