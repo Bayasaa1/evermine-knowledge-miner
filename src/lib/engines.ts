@@ -238,9 +238,8 @@ export function defaultProviderSetting(paid: boolean): ProviderSetting {
 }
 
 /**
- * Default stack for newly onboarded creators: Gemini 2.5 Flash on the free tier.
- * With no BYO key the chat API automatically falls back to the central
- * GEMINI_API_KEY backend secret, so creators hit zero paywalls and zero key setup.
+ * Default display stack for newly onboarded creators. Real AI work resolves
+ * only the signed-in owner's keys from API Manager.
  */
 export function freeStack(): EngineStack {
   return { llm: "gemini-flash", tts: "edge-tts", avatar: "webgl-avatar", billing: "byo", keys: {}, providers: {} };

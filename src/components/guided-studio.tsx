@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scopedKey } from "@/lib/user-scope";
 import { useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   AlertCircle,
   CheckCircle2,
@@ -100,6 +101,7 @@ import {
 } from "@/lib/mining-jobs.functions";
 import { withNetworkRetry } from "@/lib/retry";
 import { AiKeysCard } from "@/components/ai-keys-card";
+import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 
 
 const MODEL = "gemini-2.5-flash";
@@ -124,12 +126,19 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
     return 1;
   });
   const { isAuthenticated } = useAuth();
+  const loadAccountKeys = useServerFn(getUserAiKeyStatus);
   const [category, setCategory] = useState<CreationCategory>(() => getCreationCategory());
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
 
   useEffect(() => {
-    void loadApiKeys().then((keys) => setHasGeminiKey(keys.some((key) => key.state === "ok")));
-  }, [step]);
+    if (!isAuthenticated) {
+      setHasGeminiKey(false);
+      return;
+    }
+    void loadAccountKeys()
+      .then((keys) => setHasGeminiKey(keys.some((key) => key.provider === "gemini" && key.enabled && key.status !== "invalid")))
+      .catch(() => setHasGeminiKey(false));
+  }, [isAuthenticated, loadAccountKeys, step]);
 
   const continueSetup = useCallback(async () => {
     // Already signed in? Never make the creator sit through the sign-in step.
@@ -142,8 +151,8 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       return;
     }
     if (step === 3) {
-      const keys = await loadApiKeys();
-      if (!keys.some((key) => key.state === "ok")) {
+      const keys = await loadAccountKeys();
+      if (!keys.some((key) => key.provider === "gemini" && key.enabled && key.status !== "invalid")) {
         toast.error(pickCopy({ en: "Add and test a Gemini key first.", mn: "Эхлээд Gemini түлхүүр нэмж шалгана уу.", ko: "먼저 Gemini 키를 추가하고 테스트하세요." }, lang));
         return;
       }
@@ -155,7 +164,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
     }
     toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang));
     void navigate({ to: "/vaults" });
-  }, [isAuthenticated, lang, navigate, step]);
+  }, [isAuthenticated, lang, loadAccountKeys, navigate, step]);
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6">
@@ -390,6 +399,7 @@ function StepUpload({
   const [file, setFile] = useState<File | null>(null);
   const [hasAuth, setHasAuth] = useState(true);
   const { isAuthenticated: signedIn, userId } = useAuth();
+  const loadAccountKeys = useServerFn(getUserAiKeyStatus);
   const [target, setTarget] = useState<ProjectTarget>(DEFAULT_TARGET);
 
   // The chosen destination (persona / project / feed switch) survives a page
@@ -629,8 +639,14 @@ function StepUpload({
 
 
   useEffect(() => {
-    void loadApiKeys().then((keys) => setHasAuth(signedIn && keys.some((key) => key.state === "ok")));
-  }, [signedIn]);
+    if (!signedIn) {
+      setHasAuth(false);
+      return;
+    }
+    void loadAccountKeys()
+      .then((keys) => setHasAuth(keys.some((key) => key.provider === "gemini" && key.enabled && key.status !== "invalid")))
+      .catch(() => setHasAuth(false));
+  }, [loadAccountKeys, signedIn]);
 
   /**
    * Zero-touch onboarding: the moment a YouTube link is pasted or typed, pull

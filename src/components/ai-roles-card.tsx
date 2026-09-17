@@ -78,13 +78,16 @@ export function AiRolesCard() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    void (async () => {
+    const run = () => void (async () => {
       try {
         await refresh();
       } catch {
         /* not signed in yet */
       }
     })();
+    run();
+    window.addEventListener("evermind:ai-keys-changed", run);
+    return () => window.removeEventListener("evermind:ai-keys-changed", run);
   }, [isAuthenticated]);
 
   if (!isAuthenticated) {

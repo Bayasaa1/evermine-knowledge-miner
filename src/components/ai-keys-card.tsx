@@ -7,7 +7,7 @@
  * Free and paid providers are added through separate buttons so a free list
  * never shows paid names and the other way round.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
 import { recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
-import { saveUserAiKey, deleteUserAiKey, getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
+import { saveUserAiKey, deleteUserAiKey, getUserAiKeyStatus, updateUserAiKey } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
   DuplicateKeyError,
@@ -404,6 +404,9 @@ export function AiKeysCard({
   const t = COPY[lang as keyof typeof COPY] ?? COPY.en;
   const { isAuthenticated } = useAuth();
   const loadAccountKeys = useServerFn(getUserAiKeyStatus);
+  const saveAccountKey = useServerFn(saveUserAiKey);
+  const deleteAccountKey = useServerFn(deleteUserAiKey);
+  const updateAccountKey = useServerFn(updateUserAiKey);
   const [rows, setRows] = useState<SavedKey[]>([]);
   const [mode, setMode] = useState<AddMode>(null);
   const [provider, setProvider] = useState<ProviderId>("gemini");
@@ -412,14 +415,43 @@ export function AiKeysCard({
   const [busy, setBusy] = useState(false);
   const [openRec, setOpenRec] = useState<string | null>(null);
   const [pendingTop, setPendingTop] = useState(false);
+  const importedLegacy = useRef(false);
 
   const refresh = useCallback(async () => {
     const local = await listAllKeys();
     let all = local;
     if (isAuthenticated) {
       try {
-        const account = await loadAccountKeys();
-        all = account.flatMap((row, index): SavedKey[] => {
+        let account = await loadAccountKeys();
+        if (!importedLegacy.current && local.length > 0) {
+          importedLegacy.current = true;
+          for (const row of local) {
+            if (account.some((saved) => saved.provider === row.provider.id && saved.tail === row.maskedTail)) {
+              await removeKey(row).catch(() => undefined);
+              continue;
+            }
+            const raw = await import("@/lib/key-manager").then(({ rawValueForSavedKey }) => rawValueForSavedKey(row));
+            if (!raw) continue;
+            try {
+              await saveAccountKey({ data: {
+                provider: row.provider.id,
+                apiKey: raw,
+                label: row.label,
+                rank: row.rank,
+                enabled: row.enabled,
+                ...(row.model ? { model: row.model } : {}),
+                ...(row.endpoint ? { endpoint: row.endpoint } : {}),
+                costKind: row.cost,
+                monthlyLimitUsd: row.monthlyCapUsd,
+              } });
+              await removeKey(row);
+            } catch {
+              // Keep the device copy visible until it can be imported safely.
+            }
+          }
+          account = await loadAccountKeys();
+        }
+        const accountRows = account.flatMap((row, index): SavedKey[] => {
           const providerInfo = findProviderInfo(row.provider as ProviderId);
           if (!providerInfo) return [];
           return [{
@@ -439,6 +471,10 @@ export function AiKeysCard({
             ...(row.endpoint ? { endpoint: row.endpoint } : {}),
           }];
         });
+        const notImported = (await listAllKeys()).filter((localRow) =>
+          !accountRows.some((saved) => saved.provider.id === localRow.provider.id && saved.maskedTail === localRow.maskedTail),
+        );
+        all = [...accountRows, ...notImported];
       } catch {
         // The local list remains available while authentication is settling.
       }
@@ -446,7 +482,7 @@ export function AiKeysCard({
     setRows(all);
     onChange?.(all);
     return all;
-  }, [isAuthenticated, loadAccountKeys, onChange]);
+  }, [isAuthenticated, loadAccountKeys, onChange, saveAccountKey]);
 
   useEffect(() => {
     void refresh();
@@ -492,22 +528,32 @@ export function AiKeysCard({
         toast.error(`${info.label}: ${reason}`);
         return;
       }
-      await addKey(
-        provider,
-        key,
-        provider === "custom"
-          ? { label: custom.label.trim() || "My AI", endpoint: custom.endpoint.trim(), model: custom.model.trim() }
-          : result.model
-            ? { model: result.model }
-            : undefined,
-      );
+      if (isAuthenticated) {
+        await saveAccountKey({ data: {
+          provider,
+          apiKey: key,
+          label: provider === "custom" ? custom.label.trim() || "My AI" : info.label,
+          model: provider === "custom" ? custom.model.trim() : result.model,
+          endpoint: provider === "custom" ? custom.endpoint.trim() : undefined,
+          costKind: info.paid ? "paid" : "free-tier",
+          rank: pendingTop ? 1 : 9000,
+        } });
+      } else {
+        await addKey(
+          provider,
+          key,
+          provider === "custom"
+            ? { label: custom.label.trim() || "My AI", endpoint: custom.endpoint.trim(), model: custom.model.trim() }
+            : result.model ? { model: result.model } : undefined,
+        );
+      }
       setValue("");
       setCustom({ label: "", endpoint: "", model: "" });
       setMode(null);
       let all = await refresh();
       // A teammate added from the suggestion strip belongs right under Gemini,
       // otherwise it sits at the bottom and never actually runs.
-      if (pendingTop) {
+      if (pendingTop && !isAuthenticated) {
         setPendingTop(false);
         let target = all.find((r) => r.provider.id === provider);
         for (let guard = 0; target && target.rank > 2 && guard < 20; guard += 1) {
@@ -516,54 +562,44 @@ export function AiKeysCard({
           target = all.find((r) => r.provider.id === provider);
         }
       }
-      if (isAuthenticated) {
-        try {
-          await saveUserAiKey({
-            data: {
-              provider,
-              apiKey: key,
-              label: provider === "custom" ? custom.label.trim() : info.label,
-              model: provider === "custom" ? custom.model.trim() : result.model,
-              endpoint: provider === "custom" ? custom.endpoint.trim() : undefined,
-              costKind: info.paid ? "paid" : "free-tier",
-              rank: pendingTop ? 1 : 9000,
-            },
-          });
-          await refresh();
-        } catch {
-          /* the device save already succeeded */
-        }
-      }
+      window.dispatchEvent(new Event("evermind:ai-keys-changed"));
       toast.success(t.saved);
     } catch (err) {
       toast.error(err instanceof DuplicateKeyError ? t.dupe : t.invalid);
     } finally {
       setBusy(false);
     }
-  }, [busy, custom, isAuthenticated, pendingTop, provider, refresh, t, value]);
+  }, [busy, custom, isAuthenticated, pendingTop, provider, refresh, saveAccountKey, t, value]);
 
   const drop = useCallback(
     async (row: SavedKey) => {
       if (isAuthenticated) {
         try {
-          await deleteUserAiKey({ data: { provider: row.provider.id, tail: row.maskedTail } });
+          await deleteAccountKey({ data: { provider: row.provider.id, tail: row.maskedTail } });
         } catch {
           /* fine */
         }
       }
-      await removeKey(row).catch(() => undefined);
+      if (!isAuthenticated) await removeKey(row).catch(() => undefined);
       await refresh();
+      window.dispatchEvent(new Event("evermind:ai-keys-changed"));
       toast.success(t.removed);
     },
-    [isAuthenticated, refresh, t],
+    [deleteAccountKey, isAuthenticated, refresh, t],
   );
 
   const shift = useCallback(
     async (row: SavedKey, dir: "up" | "down") => {
-      await moveKey(row.id, dir).catch(() => undefined);
+      if (isAuthenticated) {
+        const nextRank = dir === "up" ? Math.max(0, row.rank - 2) : row.rank + 2;
+        await updateAccountKey({ data: { id: row.id, rank: nextRank } });
+      } else {
+        await moveKey(row.id, dir).catch(() => undefined);
+      }
       await refresh();
+      window.dispatchEvent(new Event("evermind:ai-keys-changed"));
     },
-    [refresh],
+    [isAuthenticated, refresh, updateAccountKey],
   );
 
   // Recommended providers for the chosen creation type come first in the list.
@@ -699,7 +735,9 @@ export function AiKeysCard({
                 <div className="mt-2 flex flex-wrap items-center gap-2 pl-8">
                   <button
                     type="button"
-                    onClick={() => void setProviderEnabled(row.provider.keyField, !row.enabled).then(refresh)}
+                    onClick={() => void (isAuthenticated
+                      ? updateAccountKey({ data: { id: row.id, enabled: !row.enabled } })
+                      : setProviderEnabled(row.provider.keyField, !row.enabled)).then(refresh)}
                     className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
                       row.enabled
                         ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-500"
@@ -715,7 +753,9 @@ export function AiKeysCard({
                       min={0}
                       value={row.monthlyCapUsd}
                       onChange={(e) =>
-                        void setProviderCap(row.provider.keyField, Number(e.target.value) || 0).then(refresh)
+                        void (isAuthenticated
+                          ? updateAccountKey({ data: { id: row.id, monthlyLimitUsd: Number(e.target.value) || 0 } })
+                          : setProviderCap(row.provider.keyField, Number(e.target.value) || 0)).then(refresh)
                       }
                       className="h-7 w-16 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus:border-primary"
                     />

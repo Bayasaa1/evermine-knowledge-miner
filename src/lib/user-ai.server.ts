@@ -374,7 +374,7 @@ export async function generateRoleText(opts: {
         await markKeyUnavailable(resolved.id, minute ? "ok" : "exhausted", cooldown);
       }
       skipped.push(resolved.id);
-      if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
+      if (!resolved.autoFallback) throw error;
     }
   }
 }
@@ -400,9 +400,6 @@ export async function resolveGeminiCredential(
   body?: { apiKey?: unknown },
   role?: AiRole,
 ): Promise<AiCredential> {
-  const key = clean(body?.apiKey);
-  if (key) return { kind: "gemini_key", value: key };
-
   try {
     if (role) {
       const resolved = await resolveUserAiKey(userId, role);

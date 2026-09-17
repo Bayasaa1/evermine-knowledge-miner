@@ -122,6 +122,32 @@ export const getUserAiKeyStatus = createServerFn({ method: "GET" })
     }));
   });
 
+export const updateUserAiKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      id: z.string().uuid(),
+      rank: z.number().int().min(0).max(10000).optional(),
+      enabled: z.boolean().optional(),
+      monthlyLimitUsd: z.number().min(0).max(10000).optional(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: { rank?: number; enabled?: boolean; monthly_limit_usd?: number; updated_at: string } = {
+      updated_at: new Date().toISOString(),
+    };
+    if (data.rank != null) patch.rank = data.rank;
+    if (data.enabled != null) patch.enabled = data.enabled;
+    if (data.monthlyLimitUsd != null) patch.monthly_limit_usd = data.monthlyLimitUsd;
+    const { error } = await context.supabase
+      .from("user_ai_keys")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
 export const deleteUserAiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>

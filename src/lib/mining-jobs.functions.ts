@@ -251,7 +251,6 @@ export const runNextChunk = createServerFn({ method: "POST" })
 
     // The chunk uses the private credential captured when the job was created.
     // Old jobs without one are resolved through the current Mining assignment.
-    const sentKey = (data.apiKey ?? "").trim();
     const { data: credRow } = await context.supabase
       .from("mining_jobs")
       .select("ai_credential")
@@ -259,11 +258,11 @@ export const runNextChunk = createServerFn({ method: "POST" })
       .maybeSingle();
     const jobKey = ((credRow as { ai_credential?: string | null } | null)?.ai_credential ?? "").trim();
     let accountKey = "";
-    if (!sentKey && !jobKey) {
+    if (!jobKey) {
       const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
       accountKey = (await resolveGeminiCredential(context.userId, {}, "mine")).value;
     }
-    const activeKey = sentKey || jobKey || accountKey;
+    const activeKey = jobKey || accountKey;
     if (!activeKey) {
       throw new Error("Choose and test a Gemini key for Mining videos in API Manager.");
     }
