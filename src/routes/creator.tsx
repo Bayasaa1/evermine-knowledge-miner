@@ -16,8 +16,6 @@ import { LanguageSelector } from "@/components/language-selector";
 
 import { BrainStudio, BRAIN_STUDIO_TAB_LABEL } from "@/components/brain-studio";
 import { MindManager } from "@/components/mind-manager";
-import { ProjectManager } from "@/components/project-manager";
-import { MindVersioningHub } from "@/components/mind-versioning-hub";
 import { CloudStorageHub, CLOUD_HUB_TAB_LABEL } from "@/components/cloud-storage-hub";
 import { recordGrowth } from "@/lib/analytics";
 import { useState, useRef, useCallback, useEffect } from "react";
@@ -978,7 +976,7 @@ class QuotaPaused extends Error {
 
 function Index() {
   const { lang, setLang } = useLang();
-  const [view, setView] = useState<"guided" | "advanced" | "versions" | "projects">("guided");
+  const [view, setView] = useState<"guided" | "advanced">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-2.5-flash");
