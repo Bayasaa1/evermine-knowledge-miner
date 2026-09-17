@@ -3,6 +3,7 @@ import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { Cpu, Gauge, Wallet, RotateCcw } from "lucide-react";
 import {
   clearUsage,
+  costOf,
   loadUsage,
   rateFor,
   summarizeUsage,
