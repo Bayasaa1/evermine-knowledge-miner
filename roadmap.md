@@ -52,4 +52,4 @@
 - [x] Keep full-video mining on Gemini and rename face cloning to video-call sight
 - [x] Add per-role key selection, automatic fallback setting, and end-to-end checks
 - [x] Prove no AI job can call Lovable AI credits
-- [ ] Route the remaining legacy Core Brain browser payload through the account resolver
+- [x] Route Core Brain generation through the account resolver

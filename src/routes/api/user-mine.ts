@@ -33,26 +33,21 @@ export const Route = createFileRoute("/api/user-mine")({
           : [];
         if (utterances.length === 0) return json({ error: "No utterances" }, 400);
 
-        const { resolveGeminiCredential, geminiGenerate, aiErrorResponse } = await import(
+        const { generateRoleText, aiErrorResponse } = await import(
           "@/lib/user-ai.server"
         );
 
         let text = "";
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body, "core_brain");
-          text = await geminiGenerate({
-            credential,
-            model: "gemini-2.5-flash",
+          const generated = await generateRoleText({
+            userId: auth.userId,
+            role: "core_brain",
             system: SYSTEM,
             json: true,
             maxTokens: 1024,
-            turns: [
-              {
-                role: "user",
-                parts: [{ text: `USER TURNS:\n${utterances.map((u) => `- ${u}`).join("\n")}` }],
-              },
-            ],
+            prompt: `USER TURNS:\n${utterances.map((u) => `- ${u}`).join("\n")}`,
           });
+          text = generated.text;
         } catch (err) {
           return aiErrorResponse(err);
         }
