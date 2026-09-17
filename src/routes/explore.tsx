@@ -37,7 +37,7 @@ import {
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
-import { DEFAULT_AI_LEVEL, loadAiLevel } from "@/lib/ai-level";
+import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { useLang } from "@/lib/i18n";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
@@ -155,7 +155,6 @@ function Explore() {
   const [index, setIndex] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   // How much the AI may add on top of what this mind learned (per mind).
-  const [aiLevel, setAiLevel] = useState(DEFAULT_AI_LEVEL);
   const [showLevel, setShowLevel] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
@@ -395,11 +394,6 @@ function Explore() {
   useEffect(() => {
     if (chatOpen) composerRef.current?.focus();
   }, [chatOpen, thinking]);
-
-  // Each mind remembers its own AI level on this device.
-  useEffect(() => {
-    setAiLevel(loadAiLevel(selected?.id ?? null));
-  }, [selected?.id]);
 
   /* ---------- native voice dubbing + lip-sync ---------- */
   function stopSpeaking() {
@@ -952,7 +946,7 @@ function Explore() {
         </div>
 
         {showLevel && (
-          <AiLevelSlider mindId={selected.id} level={aiLevel} lang={lang} onChange={setAiLevel} />
+          <AiLevelSlider mindId={selected.id} level={aiLevel} max={aiLevelMax} lang={lang} onChange={setAiLevel} />
         )}
 
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 pb-2">

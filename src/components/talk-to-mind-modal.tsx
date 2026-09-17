@@ -10,7 +10,7 @@ import { MindAvatar } from "@/components/mind-avatar";
 import { mergeSession } from "@/lib/viewer-brain.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
-import { DEFAULT_AI_LEVEL, loadAiLevel } from "@/lib/ai-level";
+import { useMindAiLevel } from "@/hooks/use-ai-level";
 
 
 type Msg = { role: "user" | "agent"; text: string };
@@ -42,7 +42,7 @@ export function TalkToMindModal({
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
   // How much the AI may add on top of what this mind actually learned.
   // 0 = only the mined records, 100 = the AI fills every gap.
-  const [aiLevel, setAiLevel] = useState(DEFAULT_AI_LEVEL);
+  const { level: aiLevel, setLevel: setAiLevel, max: aiLevelMax } = useMindAiLevel(mindId);
   const [showLevel, setShowLevel] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
@@ -125,11 +125,6 @@ export function TalkToMindModal({
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // The chosen mix is remembered per mind, on this device only.
-  useEffect(() => {
-    setAiLevel(loadAiLevel(mindId));
-  }, [mindId, open]);
 
 
   if (!open) return null;
@@ -236,7 +231,7 @@ export function TalkToMindModal({
         </div>
 
         {showLevel && (
-          <AiLevelSlider mindId={mindId} level={aiLevel} lang={lang} onChange={setAiLevel} />
+          <AiLevelSlider mindId={mindId} level={aiLevel} max={aiLevelMax} lang={lang} onChange={setAiLevel} />
         )}
 
         {callMode !== "chat" && (
