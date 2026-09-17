@@ -69,6 +69,21 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function flush() {
   timer = null;
+  // Translation runs on the signed-in person's own AI key, so the server
+  // function needs a session. Signed-out visitors keep the original text
+  // instead of firing an unauthorised call that surfaces as an error.
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      pending.clear();
+      inflight.clear();
+      return;
+    }
+  } catch {
+    pending.clear();
+    return;
+  }
   const jobs = [...pending.entries()];
   pending.clear();
   let firstBatch = true;
