@@ -38,3 +38,10 @@
 - [x] Concept index table written as mining finishes, rebuildable for old Core Brains
 - [x] Table view with search, paging and bulk move / feed-or-training / delete
 - [x] Persona level shows project cards with counts instead of one huge canvas
+
+## Full control over mined videos, projects and personas
+- [x] Bulk move videos to another persona or project, or into a brand-new project
+- [x] Split selected videos off into a new project; merge one project into another (same persona)
+- [x] Remove videos from a project without deleting (Unsorted holder + Not filed strip)
+- [x] Rename persona (name, handle, bio) and project (title, description, cover)
+- [x] Rename a video, re-mine selected, select all of one kind, 10-second Undo on moves

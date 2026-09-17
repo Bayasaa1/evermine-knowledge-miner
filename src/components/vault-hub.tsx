@@ -46,6 +46,7 @@ import {
   listPersonas,
   personaHandle,
   switchPersona,
+  updatePersona,
   type Persona,
 } from "@/lib/personas";
 import {
@@ -55,12 +56,14 @@ import {
   listProjectContent,
   listProjectsByPersona,
   listUnfiledProjects,
+  mergeProjects,
   updateProject,
   updateProjectContent,
   type ContentKind,
   type Project,
   type ProjectContent,
 } from "@/lib/projects";
+import { rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
 import { listMiningJobs, startMiningJobs } from "@/lib/mining-jobs.functions";
 import { CATEGORY_LABELS } from "@/lib/creation-category";
 import { DEFAULT_ASSESSMENT } from "@/lib/mining-jobs";
@@ -156,6 +159,19 @@ const C = {
     mn: "Энэ төслийг бүх контенттой нь устгах уу?",
     ko: "이 프로젝트와 모든 콘텐츠를 삭제할까요?",
   },
+  editPersona: { en: "Edit persona", mn: "Персон засах", ko: "페르소나 편집" },
+  personaName: { en: "Name", mn: "Нэр", ko: "이름" },
+  personaHandle: { en: "Handle", mn: "Хэрэглэгчийн нэр", ko: "핸들" },
+  personaBio: { en: "Short bio", mn: "Товч танилцуулга", ko: "짧은 소개" },
+  mergeInto: { en: "Merge into…", mn: "Нэгтгэх…", ko: "병합…" },
+  mergeConfirm: {
+    en: "Move everything from \"{a}\" into \"{b}\"? \"{a}\" will be removed.",
+    mn: "\"{a}\" дэх бүхнийг \"{b}\" руу зөөх үү? \"{a}\" устана.",
+    ko: "\"{a}\"의 모든 항목을 \"{b}\"로 옮길까요? \"{a}\"은 삭제됩니다.",
+  },
+  merged: { en: "Projects merged", mn: "Төслүүд нэгдлээ", ko: "프로젝트가 병합되었습니다" },
+  editProject: { en: "Edit project", mn: "Төсөл засах", ko: "프로젝트 편집" },
+  coverField: { en: "Cover image URL", mn: "Нүүр зургийн холбоос", ko: "커버 이미지 URL" },
   signIn: { en: "Sign in to open your vaults.", mn: "Сангаа нээхийн тулд нэвтэрнэ үү.", ko: "볼트를 열려면 로그인하세요." },
 } as const;
 
@@ -255,10 +271,23 @@ export function VaultHub({
             lang={lang}
             name={p.name}
             handle={p.handle}
+            bio={p.bio}
             avatarUrl={p.avatar_url}
             isActive={p.is_active}
             onOpen={() => setSelected({ id: p.id, name: p.name })}
             onActivate={async () => { await switchPersona(user.id, p.id); await loadPersonas(); }}
+            onSave={async (patch) => {
+              const error = await updatePersona(p.id, patch);
+              if (error) {
+                toast.error(error);
+                return;
+              }
+              await loadPersonas();
+              // The persona's name rides on its published videos too.
+              await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+              await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
+              toast.success(t("saved"));
+            }}
             onDelete={async () => {
               const error = await deletePersona(p.id);
               if (error) {
@@ -303,22 +332,76 @@ function PersonaCard({
   lang,
   name,
   handle,
+  bio,
   avatarUrl,
   isActive,
   onOpen,
   onActivate,
+  onSave,
   onDelete,
 }: {
   lang: Lang;
   name: string;
   handle: string;
+  bio?: string;
   avatarUrl?: string | null;
   isActive: boolean;
   onOpen: () => void;
   onActivate: () => void | Promise<void>;
+  onSave?: (patch: { name: string; handle: string; bio: string }) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(name);
+  const [editHandle, setEditHandle] = useState(handle);
+  const [editBio, setEditBio] = useState(bio ?? "");
+
+  if (editing) {
+    return (
+      <article className="space-y-2 rounded-xl border border-primary/40 bg-card p-4">
+        <input
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          placeholder={t("personaName")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editHandle}
+          onChange={(e) => setEditHandle(e.target.value)}
+          placeholder={t("personaHandle")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editBio}
+          onChange={(e) => setEditBio(e.target.value)}
+          placeholder={t("personaBio")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground"
+          >
+            {t("cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!editName.trim()}
+            onClick={async () => {
+              await onSave?.({ name: editName, handle: editHandle, bio: editBio });
+              setEditing(false);
+            }}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {t("save")}
+          </button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="rounded-xl border border-border bg-card p-4">
       <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 text-left">
@@ -353,6 +436,21 @@ function PersonaCard({
         >
           {t("open")}
         </button>
+        {onSave ? (
+          <button
+            type="button"
+            aria-label={t("editPersona")}
+            onClick={() => {
+              setEditName(name);
+              setEditHandle(handle);
+              setEditBio(bio ?? "");
+              setEditing(true);
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        ) : null}
         {onDelete ? (
           <button
             type="button"
@@ -508,36 +606,14 @@ function PersonaWorkspace({
           ) : (
             <ul className="space-y-2">
               {projects.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
-                  <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 text-left">
-                    <span className="block truncate text-sm font-semibold text-foreground">
-                      <Localized text={p.title} />
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => { await updateProject(p.id, { published: !p.published }); void load(); }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
-                  >
-                    {p.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                    {p.published ? t("published") : t("hidden")}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Delete project"
-                    onClick={async () => {
-                      if (!window.confirm(t("deleteProjectConfirm"))) return;
-                      await deleteProject(p.id);
-                      void load();
-                    }}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
+                <ProjectListItem
+                  key={p.id}
+                  lang={lang}
+                  project={p}
+                  siblings={projects.filter((s) => s.id !== p.id)}
+                  onOpen={() => setOpenId(p.id)}
+                  onChanged={() => void load()}
+                />
               ))}
             </ul>
           )}
@@ -546,6 +622,164 @@ function PersonaWorkspace({
       )}
 
     </section>
+  );
+}
+
+/**
+ * One project row: open, publish toggle, rename/cover edit, merge into a
+ * sibling project of the same persona, and delete.
+ */
+function ProjectListItem({
+  lang,
+  project: p,
+  siblings,
+  onOpen,
+  onChanged,
+}: {
+  lang: Lang;
+  project: Project;
+  siblings: Project[];
+  onOpen: () => void;
+  onChanged: () => void;
+}) {
+  const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const rebuildConcepts = useServerFn(rebuildProjectConcepts);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(p.title);
+  const [editDesc, setEditDesc] = useState(p.description ?? "");
+  const [editCover, setEditCover] = useState(p.cover_url ?? "");
+
+  const merge = async (targetId: string) => {
+    const target = siblings.find((s) => s.id === targetId);
+    if (!target) return;
+    const msg = t("mergeConfirm").replaceAll("{a}", p.title).replaceAll("{b}", target.title);
+    if (!window.confirm(msg)) return;
+    const error = await mergeProjects(p.id, targetId);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    try {
+      await rebuildConcepts({ data: { projectId: targetId } });
+    } catch {
+      /* the map can still be rebuilt by hand */
+    }
+    toast.success(t("merged"));
+    onChanged();
+  };
+
+  if (editing) {
+    return (
+      <li className="space-y-2 rounded-xl border border-primary/40 bg-card p-4">
+        <input
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          placeholder={t("titleField")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editDesc}
+          onChange={(e) => setEditDesc(e.target.value)}
+          placeholder={t("descField")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editCover}
+          onChange={(e) => setEditCover(e.target.value)}
+          placeholder={t("coverField")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground"
+          >
+            {t("cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!editTitle.trim()}
+            onClick={async () => {
+              const error = await updateProject(p.id, {
+                title: editTitle,
+                description: editDesc,
+                cover_url: editCover || null,
+              });
+              if (error) toast.error(error);
+              else toast.success(t("saved"));
+              setEditing(false);
+              onChanged();
+            }}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {t("save")}
+          </button>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-semibold text-foreground">
+          <Localized text={p.title} />
+        </span>
+        <span className="block text-xs text-muted-foreground">
+          {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={async () => { await updateProject(p.id, { published: !p.published }); onChanged(); }}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
+      >
+        {p.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+        {p.published ? t("published") : t("hidden")}
+      </button>
+      {siblings.length > 0 ? (
+        <select
+          defaultValue=""
+          onChange={(e) => {
+            const target = e.target.value;
+            e.target.value = "";
+            if (target) void merge(target);
+          }}
+          className="rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-foreground"
+        >
+          <option value="">{t("mergeInto")}</option>
+          {siblings.map((s) => (
+            <option key={s.id} value={s.id}>{s.title}</option>
+          ))}
+        </select>
+      ) : null}
+      <button
+        type="button"
+        aria-label={t("editProject")}
+        onClick={() => {
+          setEditTitle(p.title);
+          setEditDesc(p.description ?? "");
+          setEditCover(p.cover_url ?? "");
+          setEditing(true);
+        }}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Delete project"
+        onClick={async () => {
+          if (!window.confirm(t("deleteProjectConfirm"))) return;
+          await deleteProject(p.id);
+          onChanged();
+        }}
+        className="text-muted-foreground hover:text-destructive"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </li>
   );
 }
 

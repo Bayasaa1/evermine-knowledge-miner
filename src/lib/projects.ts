@@ -393,3 +393,127 @@ export async function listUnfiledProjects(userId: string): Promise<Project[]> {
     .order("created_at", { ascending: false });
   return (data as Project[] | null) ?? [];
 }
+
+/**
+ * Finds (or creates) the project that should hold `contentIds`, then moves the
+ * videos. Used by every bulk move so videos always land somewhere visible.
+ */
+async function moveIntoProject(
+  owner: string,
+  targetProjectId: string,
+  contentIds: string[],
+): Promise<string | null> {
+  if (contentIds.length === 0) return null;
+  const { error } = await supabase
+    .from("project_content")
+    .update({ project_id: targetProjectId })
+    .in("id", contentIds)
+    .eq("user_id", owner);
+  return error?.message ?? null;
+}
+
+/**
+ * Moves videos into another persona's space. Content rows have no persona
+ * column — persona lives on the project — so the videos move into a project
+ * owned by that persona (created automatically when the persona has none).
+ */
+export async function moveContentToPersona(
+  contentIds: string[],
+  personaId: string | null,
+  personaName: string,
+): Promise<{ projectId: string | null; error: string | null }> {
+  const owner = await currentOwnerId();
+  if (!owner) return { projectId: null, error: NOT_SIGNED_IN };
+  const mine = await listMyProjects(owner);
+  let target = mine.find((p) => (p.persona_id ?? null) === personaId) ?? null;
+  if (!target) {
+    const { project, error } = await createProject(owner, {
+      title: personaName,
+      creatorName: personaName,
+      personaId,
+    });
+    if (error || !project) return { projectId: null, error: error ?? "Could not create the project" };
+    target = project;
+  }
+  const error = await moveIntoProject(owner, target.id, contentIds);
+  return { projectId: error ? null : target.id, error };
+}
+
+/**
+ * Takes videos out of their project without deleting anything. They land in a
+ * private "Unsorted" holder project (never published, so they leave the public
+ * feed) and show up in the "Not filed" strip until the creator files them.
+ */
+export async function unfileContent(contentIds: string[]): Promise<{ projectId: string | null; error: string | null }> {
+  const owner = await currentOwnerId();
+  if (!owner) return { projectId: null, error: NOT_SIGNED_IN };
+  const mine = await listMyProjects(owner);
+  let holder =
+    mine.find((p) => p.title === "Unsorted" && p.persona_id === null) ?? null;
+  if (!holder) {
+    const { project, error } = await createProject(owner, { title: "Unsorted", personaId: null });
+    if (error || !project) return { projectId: null, error: error ?? "Could not create the holding project" };
+    holder = project;
+  }
+  const error = await moveIntoProject(owner, holder.id, contentIds);
+  return { projectId: error ? null : holder.id, error };
+}
+
+/**
+ * Merges one project into another of the same persona: every video and saved
+ * mind moves over, then the emptied project is removed. Topics are derived
+ * data — the caller rebuilds the map for the target afterwards.
+ */
+export async function mergeProjects(sourceId: string, targetId: string): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  if (sourceId === targetId) return "Pick two different projects";
+  const mine = await listMyProjects(owner);
+  const source = mine.find((p) => p.id === sourceId);
+  const target = mine.find((p) => p.id === targetId);
+  if (!source || !target) return "Project not found";
+  if ((source.persona_id ?? null) !== (target.persona_id ?? null)) {
+    return "Projects of two different personas cannot be merged";
+  }
+  const { error: contentError } = await supabase
+    .from("project_content")
+    .update({ project_id: targetId })
+    .eq("project_id", sourceId)
+    .eq("user_id", owner);
+  if (contentError) return contentError.message;
+  const { error: vaultError } = await supabase
+    .from("mind_vaults")
+    .update({ project_id: targetId })
+    .eq("project_id", sourceId)
+    .eq("user_id", owner);
+  if (vaultError) return vaultError.message;
+  const { error: jobError } = await supabase
+    .from("mining_jobs")
+    .update({ project_id: targetId })
+    .eq("project_id", sourceId)
+    .eq("user_id", owner);
+  if (jobError) return jobError.message;
+  return deleteProject(sourceId);
+}
+
+/** Peels the selected videos off into a brand-new project of the same persona. */
+export async function splitProject(
+  sourceId: string,
+  contentIds: string[],
+  newTitle: string,
+): Promise<{ projectId: string | null; error: string | null }> {
+  const owner = await currentOwnerId();
+  if (!owner) return { projectId: null, error: NOT_SIGNED_IN };
+  const mine = await listMyProjects(owner);
+  const source = mine.find((p) => p.id === sourceId);
+  if (!source) return { projectId: null, error: "Project not found" };
+  const { project, error } = await createProject(owner, {
+    title: newTitle,
+    creatorName: source.creator_name,
+    creatorAvatarUrl: source.creator_avatar_url,
+    personaId: source.persona_id ?? null,
+  });
+  if (error || !project) return { projectId: null, error: error ?? "Could not create the project" };
+  const moveError = await moveIntoProject(owner, project.id, contentIds);
+  return { projectId: moveError ? null : project.id, error: moveError };
+}
