@@ -3,6 +3,7 @@ import { KeyRound } from "lucide-react";
 
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { AiRolesCard } from "@/components/ai-roles-card";
+import { TokenHistory } from "@/components/token-history";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { pickCopy, useLang } from "@/lib/i18n";
 
@@ -87,6 +88,10 @@ function KeysPage() {
           <h2 className="text-sm font-semibold text-foreground">{t.usage}</h2>
           <p className="mb-3 mt-1 text-xs text-muted-foreground">{t.usageHint}</p>
           <TokenUsagePanel lang={lang} />
+        </section>
+
+        <section className="mt-8">
+          <TokenHistory lang={lang} />
         </section>
       </div>
     </div>
