@@ -45,3 +45,10 @@
 - [x] Remove videos from a project without deleting (Unsorted holder + Not filed strip)
 - [x] Rename persona (name, handle, bio) and project (title, description, cover)
 - [x] Rename a video, re-mine selected, select all of one kind, 10-second Undo on moves
+
+## API Manager as the real AI control centre
+- [ ] Make account-saved keys the single source used by every device and job
+- [ ] Wire all compatible text providers to translation, Core Brain and chat
+- [ ] Keep full-video mining on Gemini and rename face cloning to video-call sight
+- [ ] Add per-role automatic fallback and end-to-end checks
+- [ ] Prove no AI job can call Lovable AI credits

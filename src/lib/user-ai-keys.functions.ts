@@ -57,7 +57,17 @@ async function verifyGeminiKey(apiKey: string): Promise<void> {
 export const saveUserAiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ provider: PROVIDER, apiKey: z.string().min(8).max(200) }).parse(input),
+    z.object({
+      provider: PROVIDER,
+      apiKey: z.string().min(8).max(200),
+      label: z.string().max(80).optional(),
+      rank: z.number().int().min(0).max(10000).optional(),
+      enabled: z.boolean().optional(),
+      model: z.string().max(160).optional(),
+      endpoint: z.string().url().max(500).optional(),
+      costKind: z.enum(["free-tier", "free-model", "paid"]).optional(),
+      monthlyLimitUsd: z.number().min(0).max(10000).optional(),
+    }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const apiKey = data.apiKey.trim();
@@ -67,7 +77,18 @@ export const saveUserAiKey = createServerFn({ method: "POST" })
     const { error } = await context.supabase
       .from("user_ai_keys")
       .upsert(
-        { user_id: context.userId, provider: data.provider, api_key: apiKey },
+        {
+          user_id: context.userId,
+          provider: data.provider,
+          api_key: apiKey,
+          label: data.label ?? "",
+          rank: data.rank ?? 9000,
+          enabled: data.enabled ?? true,
+          model: data.model ?? null,
+          endpoint: data.endpoint ?? null,
+          cost_kind: data.costKind ?? "free-tier",
+          monthly_limit_usd: data.monthlyLimitUsd ?? 0,
+        },
         { onConflict: "user_id,provider,api_key" },
       );
     if (error) throw new Error(error.message);
@@ -77,10 +98,26 @@ export const saveUserAiKey = createServerFn({ method: "POST" })
 export const getUserAiKeyStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase.from("user_ai_keys").select("provider, api_key, updated_at");
-    return ((data ?? []) as { provider: string; api_key: string; updated_at: string }[]).map((row) => ({
+    const { data } = await context.supabase
+      .from("user_ai_keys")
+      .select("id, provider, api_key, label, rank, enabled, model, endpoint, cost_kind, monthly_limit_usd, spend_usd, status, cooldown_until, created_at, updated_at")
+      .order("rank", { ascending: true })
+      .order("updated_at", { ascending: false });
+    return (data ?? []).map((row) => ({
+      id: row.id,
       provider: row.provider,
       tail: row.api_key.slice(-4),
+      label: row.label,
+      rank: row.rank,
+      enabled: row.enabled,
+      model: row.model,
+      endpoint: row.endpoint,
+      costKind: row.cost_kind,
+      monthlyLimitUsd: Number(row.monthly_limit_usd),
+      spendUsd: Number(row.spend_usd),
+      status: row.status,
+      cooldownUntil: row.cooldown_until,
+      createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
   });
