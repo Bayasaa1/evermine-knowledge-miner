@@ -37,7 +37,7 @@ const COPY = {
     open: "Notifications",
     label: "Alerts",
     keyTitle: "Add your free Gemini key",
-    keyBody: "Mining, chat and translation run on your own free Gemini access. Add the key once in Engines.",
+    keyBody: "Video mining needs your own Gemini key. Add it once in API Manager.",
     running: "Mining in progress",
     queued: "Waiting in the queue",
     pausedQuota: "Paused — free quota used up",
@@ -54,7 +54,7 @@ const COPY = {
     open: "Мэдэгдэл",
     label: "Мэдэгдэл",
     keyTitle: "Үнэгүй Gemini түлхүүрээ нэмнэ үү",
-    keyBody: "Олборлолт, чат, орчуулга таны өөрийн үнэгүй Gemini хандалтаар ажилладаг. Хөдөлгүүр хэсэгт нэг удаа нэмнэ үү.",
+    keyBody: "Видео олборлолтод таны өөрийн Gemini түлхүүр хэрэгтэй. API удирдлагад нэг удаа нэмнэ үү.",
     running: "Олборлож байна",
     queued: "Дараалалд хүлээж байна",
     pausedQuota: "Түр зогссон — үнэгүй хязгаар дууссан",
@@ -71,7 +71,7 @@ const COPY = {
     open: "알림",
     label: "알림",
     keyTitle: "무료 Gemini 키를 추가하세요",
-    keyBody: "마이닝, 채팅, 번역은 본인의 무료 Gemini 액세스로 실행됩니다. 엔진에서 한 번만 추가하세요.",
+    keyBody: "영상 마이닝에는 내 Gemini 키가 필요합니다. API 관리자에서 한 번 추가하세요.",
     running: "마이닝 진행 중",
     queued: "대기열에서 대기 중",
     pausedQuota: "일시 중지 — 무료 할당량 소진",
@@ -127,7 +127,7 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
       return () => { alive = false; };
     }
     void loadKeys()
-      .then((keys) => alive && setHasKey(keys.some((key) => key.enabled && key.status !== "invalid")))
+      .then((keys) => alive && setHasKey(keys.some((key) => key.provider === "gemini" && key.enabled && key.status !== "invalid")))
       .catch(() => alive && setHasKey(true));
     return () => {
       alive = false;
