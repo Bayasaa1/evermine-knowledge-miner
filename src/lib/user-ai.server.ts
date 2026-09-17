@@ -142,6 +142,20 @@ function isLimitError(error: unknown): boolean {
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
 
+/** Turns a provider failure into a short sentence a person can act on. */
+async function errorDetail(res: Response): Promise<string> {
+  const raw = (await res.text().catch(() => "")).slice(0, 400);
+  let message = raw;
+  try {
+    const parsed = JSON.parse(raw) as { error?: { message?: string } | string; message?: string };
+    const inner = typeof parsed.error === "string" ? parsed.error : parsed.error?.message;
+    message = inner ?? parsed.message ?? raw;
+  } catch {
+    /* keep the bounded raw text */
+  }
+  return `HTTP ${res.status} — ${message || "no details returned"}`;
+}
+
 async function generateRoleTextOnce(opts: {
   resolved: ResolvedUserKey;
   system: string;
