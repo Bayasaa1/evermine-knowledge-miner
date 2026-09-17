@@ -416,7 +416,7 @@ export function AiKeysCard({
             provider: providerInfo,
             label: row.label || providerInfo.label,
             maskedTail: row.tail,
-            state: row.status === "invalid" ? "rejected" : row.status === "exhausted" ? "exhausted" : "ok",
+            state: row.status === "invalid" ? "invalid" : row.status === "exhausted" ? "exhausted" : "ok",
             addedAt: new Date(row.createdAt).getTime(),
             rank: index + 1,
             callsToday: 0,
