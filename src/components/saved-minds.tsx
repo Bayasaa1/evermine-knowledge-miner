@@ -28,7 +28,7 @@ import { ACTIVE_CATEGORIES, CATEGORY_LABELS } from "@/lib/creation-category";
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
-import { listProjectsByPersona, type Project } from "@/lib/projects";
+import { createProject, listProjectsByPersona, type Project } from "@/lib/projects";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
