@@ -71,6 +71,12 @@ function KeysPage() {
         </section>
 
         <section className="mt-8">
+          <h2 className="text-sm font-semibold text-foreground">{t.roles}</h2>
+          <p className="mb-3 mt-1 text-xs text-muted-foreground">{t.rolesHint}</p>
+          <AiRolesCard />
+        </section>
+
+        <section className="mt-8">
           <h2 className="text-sm font-semibold text-foreground">{t.usage}</h2>
           <p className="mb-3 mt-1 text-xs text-muted-foreground">{t.usageHint}</p>
           <TokenUsagePanel lang={lang} />
