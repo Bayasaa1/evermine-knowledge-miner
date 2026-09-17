@@ -106,7 +106,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               .from("mining_jobs")
               .update({
                 last_error:
-                  "Add your free Gemini key in Engines so background mining can run on your own free quota.",
+                  "Choose and test a Gemini key for Mining videos in API Manager so background mining can continue.",
                 retry_after: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
               })
               .eq("id", job.id);

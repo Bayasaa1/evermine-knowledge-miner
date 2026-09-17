@@ -18,7 +18,7 @@ import { pickCopy, useLang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
 type KeyRow = { id: string; provider: string; tail: string; enabled: boolean; status?: string };
-type Report = { role: string; provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean };
+type Report = { role: string; provider: string; assignedProvider: string | null; assignedTail: string | null; assignedKeyId: string | null; effectiveProvider: string | null; effectiveTail: string | null; missing: boolean };
 type TestState = { ok: boolean; message: string } | "running";
 
 const AUTO = "auto";
@@ -51,6 +51,7 @@ export function AiRolesCard() {
     test: pickCopy({ en: "Test", mn: "Шалгах", ko: "테스트" }, lang),
     running: pickCopy({ en: "Running it now", mn: "Одоо ажиллуулж байна", ko: "지금 실행 중" }, lang),
     noKey: pickCopy({ en: "Add a key first", mn: "Эхлээд түлхүүр нэм", ko: "먼저 키를 추가하세요" }, lang),
+    unavailable: pickCopy({ en: "currently unavailable", mn: "одоогоор ажиллахгүй", ko: "현재 사용 불가" }, lang),
     fallback: pickCopy({ en: "Switch automatically when this key runs out", mn: "Энэ түлхүүр дуусвал автоматаар солих", ko: "이 키가 소진되면 자동 전환" }, lang),
     checkAll: pickCopy({ en: "Check everything", mn: "Бүгдийг шалгах", ko: "모두 확인" }, lang),
   };
@@ -59,7 +60,9 @@ export function AiRolesCard() {
 
   const refresh = async () => {
     const [k, r, d] = await Promise.all([loadKeys(), loadRoles(), loadReports()]);
-    setKeys((k as KeyRow[]).filter((row) => row.enabled && row.status !== "invalid" && row.status !== "exhausted"));
+    // Keep every enabled key visible. A provider limit must not make a saved
+    // key or its role assignment look deleted.
+    setKeys((k as KeyRow[]).filter((row) => row.enabled));
     const next: Record<string, string> = {};
     const nextFallback: Record<string, boolean> = {};
     for (const row of r) {
@@ -165,6 +168,7 @@ export function AiRolesCard() {
                   {options.map((k) => (
                     <option key={k.id} value={k.id}>
                       {PROVIDER_LABEL[k.provider] ?? k.provider} ···{k.tail}
+                      {k.status === "exhausted" || k.status === "invalid" ? ` — ${t.unavailable}` : ""}
                     </option>
                   ))}
                 </select>
@@ -187,7 +191,7 @@ export function AiRolesCard() {
             {report && (
               <p className="mt-1 text-[11px] text-muted-foreground">
                 {report.effectiveTail
-                  ? `${PROVIDER_LABEL[report.provider] ?? report.provider} ···${report.effectiveTail}`
+                  ? `${PROVIDER_LABEL[report.effectiveProvider ?? report.provider] ?? report.effectiveProvider ?? report.provider} ···${report.effectiveTail}`
                   : t.noKey}
               </p>
             )}
@@ -195,9 +199,9 @@ export function AiRolesCard() {
               <p className="mt-1 text-[11px] text-amber-500">
                 {pickCopy(
                   {
-                    en: `The key you chose (···${report.assignedTail}) is gone — ···${report.effectiveTail ?? "?"} is running it.`,
-                    mn: `Сонгосон түлхүүр (···${report.assignedTail}) алга — ···${report.effectiveTail ?? "?"} ажиллаж байна.`,
-                    ko: `선택한 키(···${report.assignedTail})가 없어 ···${report.effectiveTail ?? "?"} 가 실행합니다.`,
+                    en: `${PROVIDER_LABEL[report.assignedProvider ?? ""] ?? report.assignedProvider} ···${report.assignedTail} is unavailable. Automatic switching is using ${PROVIDER_LABEL[report.effectiveProvider ?? ""] ?? report.effectiveProvider} ···${report.effectiveTail ?? "?"}.`,
+                    mn: `${PROVIDER_LABEL[report.assignedProvider ?? ""] ?? report.assignedProvider} ···${report.assignedTail} одоогоор ажиллахгүй. Автомат солилт ${PROVIDER_LABEL[report.effectiveProvider ?? ""] ?? report.effectiveProvider} ···${report.effectiveTail ?? "?"}-г ашиглаж байна.`,
+                    ko: `${PROVIDER_LABEL[report.assignedProvider ?? ""] ?? report.assignedProvider} ···${report.assignedTail} 키는 현재 사용할 수 없습니다. 자동 전환이 ${PROVIDER_LABEL[report.effectiveProvider ?? ""] ?? report.effectiveProvider} ···${report.effectiveTail ?? "?"} 키를 사용 중입니다.`,
                   },
                   lang,
                 )}

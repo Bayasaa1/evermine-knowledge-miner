@@ -132,9 +132,33 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   };
 }
 
-async function markKeyUnavailable(keyId: string, status: "exhausted" | "invalid", cooldownUntil: string | null) {
+async function markKeyUnavailable(keyId: string, status: "ok" | "exhausted" | "invalid", cooldownUntil: string | null) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   await supabaseAdmin.from("user_ai_keys").update({ status, cooldown_until: cooldownUntil }).eq("id", keyId);
+}
+
+/** Returns the key explicitly assigned to a role, even when it is cooling down. */
+async function assignedUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey | null> {
+  const choice = await roleChoice(userId, role);
+  if (!choice?.keyId) return null;
+  const { ROLE_PROVIDERS } = await import("@/lib/ai-roles");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("user_ai_keys")
+    .select("id, provider, api_key, model, endpoint, enabled")
+    .eq("user_id", userId)
+    .eq("id", choice.keyId)
+    .maybeSingle();
+  if (!data?.enabled || !ROLE_PROVIDERS[role].includes(data.provider)) return null;
+  return {
+    id: data.id,
+    provider: data.provider,
+    apiKey: data.api_key,
+    tail: data.api_key.slice(-4),
+    model: data.model,
+    endpoint: data.endpoint,
+    autoFallback: choice.autoFallback,
+  };
 }
 
 function isLimitError(error: unknown): boolean {
@@ -209,6 +233,8 @@ async function generateRoleTextOnce(opts: {
   prompt: string;
   json?: boolean;
   maxTokens?: number;
+  model?: string;
+  disableThinking?: boolean;
 }): Promise<RoleTextRun> {
   const { readUsageTokens } = await import("@/lib/ai-usage.server");
   const resolved = opts.resolved;
@@ -216,11 +242,13 @@ async function generateRoleTextOnce(opts: {
     let tokens = { inputTokens: 0, outputTokens: 0 };
     const text = await geminiGenerate({
       credential: { kind: "gemini_key", value: resolved.apiKey },
+      ...(opts.model ? { model: opts.model } : {}),
       system: opts.system,
       turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
       onTokens: (t) => { tokens = t; },
       ...(opts.json != null ? { json: opts.json } : {}),
       ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
+      ...(opts.disableThinking ? { disableThinking: true } : {}),
     });
     return { text, ...tokens };
   }
@@ -304,7 +332,17 @@ export async function generateRoleText(opts: {
     );
   };
   const call = (key: ResolvedUserKey) =>
-    generateRoleTextOnce({ resolved: key, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) });
+    generateRoleTextOnce({
+      resolved: key,
+      system: opts.system,
+      prompt: opts.prompt,
+      ...(opts.json != null ? { json: opts.json } : {}),
+      ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
+      // Translation does not need long internal reasoning. Flash-Lite plus a
+      // zero thinking budget is faster and avoids burning thousands of hidden
+      // tokens on a short subtitle batch.
+      ...(opts.role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
+    });
   const skipped: string[] = [];
   let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
   for (;;) {
@@ -326,8 +364,14 @@ export async function generateRoleText(opts: {
         { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error instanceof Error ? error.message : "provider error").slice(0, 120) },
       );
       if (limit) {
-        const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-        await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+        // A minute burst is not an exhausted key. Briefly cool it down, then
+        // let it rejoin the fallback pool automatically. Only daily/provider
+        // credit exhaustion receives the persistent exhausted status.
+        const minute = error instanceof UserAiError && error.code === "rate_minute";
+        const cooldown = minute
+          ? new Date(Date.now() + Math.max(20, error.retryAfterSec) * 1000).toISOString()
+          : new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        await markKeyUnavailable(resolved.id, minute ? "ok" : "exhausted", cooldown);
       }
       skipped.push(resolved.id);
       if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
@@ -413,7 +457,7 @@ export async function roleKeyReport(
   userId: string,
   role: AiRole,
   fallbackProvider: string,
-): Promise<{ provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean }> {
+): Promise<{ provider: string; assignedProvider: string | null; assignedTail: string | null; assignedKeyId: string | null; effectiveProvider: string | null; effectiveTail: string | null; missing: boolean }> {
   const choice = await roleChoice(userId, role);
   let resolved: ResolvedUserKey | null = null;
   try {
@@ -426,9 +470,12 @@ export async function roleKeyReport(
   const assignedTail = choice?.keyTail ?? null;
   return {
     provider,
+    assignedProvider: choice?.provider ?? null,
     assignedTail,
+    assignedKeyId: choice?.keyId ?? null,
+    effectiveProvider: resolved?.provider ?? null,
     effectiveTail,
-    missing: Boolean(assignedTail) && effectiveTail !== assignedTail,
+    missing: Boolean(choice?.keyId) && resolved?.id !== choice?.keyId,
   };
 }
 
@@ -439,22 +486,29 @@ export async function testRoleKey(
   fallbackProvider: string,
 ): Promise<{ ok: boolean; message: string; tail: string | null }> {
   const report = await roleKeyReport(userId, role, fallbackProvider);
-  if (!report.effectiveTail) return { ok: false, message: "No key saved for this job yet.", tail: null };
-  const resolved = await resolveUserAiKey(userId, role);
+  const assigned = await assignedUserAiKey(userId, role);
+  const resolved = assigned ?? await resolveUserAiKey(userId, role);
+  if (!resolved) return { ok: false, message: "No key saved for this job yet.", tail: null };
   const key = resolved.apiKey;
 
   try {
-    if (report.provider === "elevenlabs") {
+    if (resolved.provider === "elevenlabs") {
       const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
       return res.ok
         ? { ok: true, message: "Working.", tail: report.effectiveTail }
         : { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
     }
-    if (report.provider === "gemini") {
-      const res = await fetch(`${GEMINI_BASE}/models?key=${encodeURIComponent(key)}`);
-      if (res.ok) return { ok: true, message: "Working.", tail: report.effectiveTail };
-      if (res.status === 429) return { ok: false, message: "Busy right now — try again in a minute.", tail: report.effectiveTail };
-      return { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
+    if (resolved.provider === "gemini") {
+      const tested = await generateRoleTextOnce({
+        resolved,
+        system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
+        prompt: role === "translate" ? "Good morning" : "Connection test.",
+        maxTokens: 64,
+        ...(role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
+      });
+      if (!tested.text) return { ok: false, message: "Connected but returned no text.", tail: resolved.tail };
+      await markKeyUnavailable(resolved.id, "ok", null);
+      return { ok: true, message: `Working through Gemini ···${resolved.tail}.`, tail: resolved.tail };
     }
     if (role === "translate" || role === "core_brain" || role === "chat") {
       // A role test must prove the selected key itself. It must never report
@@ -465,6 +519,7 @@ export async function testRoleKey(
         prompt: role === "translate" ? "Good morning" : "Connection test.",
         maxTokens: 512,
       });
+      if (tested.text) await markKeyUnavailable(resolved.id, "ok", null);
       return tested.text
         ? { ok: true, message: `Working through ${resolved.provider} ···${resolved.tail}.`, tail: resolved.tail }
         : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
@@ -509,11 +564,14 @@ function parseRetryDelaySec(raw: string): number {
  */
 function classifyGemini429(raw: string): UserAiError {
   const retryAfter = parseRetryDelaySec(raw);
-  const isDaily = /PerDay|per_day|daily/i.test(raw);
+  // RetryInfo means Google expects this request to work shortly. Some payloads
+  // list several quota names, including daily ones, so "PerDay" alone used to
+  // incorrectly disable a key that successfully answered moments later.
+  const isDaily = retryAfter === 0 && /PerDay|per_day|daily/i.test(raw);
   if (isDaily) {
     return new UserAiError(
       "quota",
-      "Your free Gemini daily quota is used up. It resets in a few hours (Pacific midnight) — or add another free key in Engines.",
+      "Your free Gemini daily quota is used up. It resets in a few hours (Pacific midnight) — or choose another key in API Manager.",
       429,
     );
   }
@@ -536,10 +594,10 @@ async function raiseForGemini(res: Response): Promise<never> {
   }
   if (res.status === 429) throw classifyGemini429(raw);
   if (res.status === 400 && /api key|key not valid|permission/i.test(detail)) {
-    throw new UserAiError("no_credential", "That Gemini key was rejected. Add a valid free key in Engines.", 401);
+    throw new UserAiError("no_credential", "That Gemini key was rejected. Add or replace it in API Manager.", 401);
   }
   if (res.status === 401 || res.status === 403) {
-    throw new UserAiError("no_credential", "Gemini rejected this key. Add a valid free key in Engines.", 401);
+    throw new UserAiError("no_credential", "Gemini rejected this key. Add or replace it in API Manager.", 401);
   }
   throw new GeminiHttpError(res.status, detail || `Gemini request failed (${res.status}).`);
 }
@@ -578,6 +636,8 @@ export async function geminiGenerate(opts: {
   json?: boolean;
   maxTokens?: number;
   temperature?: number;
+  /** Translation and classification do not need Gemini's hidden reasoning. */
+  disableThinking?: boolean;
   /** Reports the tokens Gemini billed, so the caller can log them. */
   onTokens?: (tokens: { inputTokens: number; outputTokens: number }) => void;
   /** When given, the call is written to the account usage history itself. */
@@ -597,6 +657,7 @@ export async function geminiGenerate(opts: {
           maxOutputTokens: opts.maxTokens ?? 2048,
           ...(opts.temperature != null ? { temperature: opts.temperature } : {}),
           ...(opts.json ? { responseMimeType: "application/json" } : {}),
+          ...(opts.disableThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       }),
     });

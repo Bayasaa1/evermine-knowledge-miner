@@ -239,7 +239,7 @@ export async function runAudit(
   } else {
     const key = await existingKeyFor(auditorId);
     if (auditorId === "gemini" && !key) {
-      throw new Error("Add your free Gemini key in Engines first — the auditor runs on your own quota.");
+      throw new Error("Choose and test a Gemini key for this job in API Manager.");
     } else if (!key) {
       throw new Error(`${label} needs its API key before it can audit.`);
     } else if (auditorId === "claude") {

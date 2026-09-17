@@ -1016,10 +1016,8 @@ function StepUpload({
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
       const dest = await jobDestination();
-      const { bestGeminiKey } = await import("@/lib/api-keys");
-      const apiKey = (await bestGeminiKey()) ?? undefined;
       const jobs = await withNetworkRetry(
-        () => startMiningJobs({ data: { url: source.url, assessment, ...dest, apiKey } }),
+        () => startMiningJobs({ data: { url: source.url, assessment, ...dest } }),
         {
           onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
         },
@@ -1087,8 +1085,8 @@ function StepUpload({
         setErrorKey("errNoKey");
         return;
       }
-      // Files and Drive retain the creator's optional BYO path. Public YouTube
-      // videos use the authenticated built-in AI service and need no provider token.
+      // The server resolves the creator's Mining assignment from API Manager.
+      // Raw keys never need to pass through this screen.
       const key = "";
 
       // The destination must exist before any work starts, otherwise the button
@@ -1118,12 +1116,10 @@ function StepUpload({
           } else {
             const jobs: MiningJob[] = [];
             const dest = await jobDestination();
-            const { bestGeminiKey } = await import("@/lib/api-keys");
-            const apiKey = (await bestGeminiKey()) ?? undefined;
             for (const u of urls) {
               jobs.push(
                 ...(await withNetworkRetry(() =>
-                  startMiningJobs({ data: { url: u, assessment, ...dest, apiKey } }),
+                  startMiningJobs({ data: { url: u, assessment, ...dest } }),
                 )),
               );
             }

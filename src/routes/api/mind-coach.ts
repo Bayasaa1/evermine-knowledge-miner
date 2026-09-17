@@ -114,13 +114,13 @@ export const Route = createFileRoute("/api/mind-coach")({
           "@/lib/user-ai.server"
         );
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body, "chat");
+          const credential = await resolveGeminiCredential(auth.userId, body, "face_clone");
           const advice = await geminiGenerate({
             credential,
             model: "gemini-2.5-flash",
             system,
             maxTokens: 512,
-            usage: { userId: auth.userId, role: "chat", subjectKind: "other", subjectLabel: "Game coaching" },
+            usage: { userId: auth.userId, role: "face_clone", subjectKind: "other", subjectLabel: "Game coaching" },
             turns: [
               {
                 role: "user",

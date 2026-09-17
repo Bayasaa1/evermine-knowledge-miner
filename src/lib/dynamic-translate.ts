@@ -62,6 +62,9 @@ export function translationVersion(): number {
 /** Returns the cached translation, or null when it has not been fetched yet. */
 export function getCachedTranslation(text: string, lang: LangCode): string | null {
   if (!text) return "";
+  // English is the stored source language. Returning it immediately prevents
+  // an English page from wasting dozens of translation calls on itself.
+  if (lang === "en") return text;
   return loadCache(lang)[text] ?? null;
 }
 
@@ -152,7 +155,10 @@ async function flush() {
       const cache = loadCache(lang);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
-        cache[src] = out;
+        // A failed or malformed provider reply returns the source text. Do not
+        // cache that as a successful translation or the subtitle stays stuck
+        // forever even after the key is fixed or automatic switching succeeds.
+        if (out !== src || lang === "en") cache[src] = out;
       });
       persist(lang);
       emit();
@@ -168,6 +174,7 @@ async function flush() {
 /** Queues a string for translation into `lang`. Safe to call in render. */
 export function requestTranslation(text: string, lang: LangCode): void {
   if (typeof window === "undefined") return;
+  if (lang === "en") return;
   if (blocked) return;
   if (!text) return;
   if (text.length > 3000) return;

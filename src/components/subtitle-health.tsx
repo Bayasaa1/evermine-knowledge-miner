@@ -31,9 +31,7 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
   const fixTimings = useMutation({
     mutationFn: async (v: { contentId: string; mode: "free" | "ai" }) => {
       if (v.mode === "free") return repair({ data: { contentId: v.contentId } });
-      const { bestGeminiKey } = await import("@/lib/api-keys");
-      const apiKey = (await bestGeminiKey()) ?? undefined;
-      return retime({ data: { contentId: v.contentId, apiKey } });
+      return retime({ data: { contentId: v.contentId } });
     },
     onSuccess: (row, v) => {
       toast.success(

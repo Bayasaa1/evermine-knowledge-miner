@@ -4,7 +4,7 @@
  * A persistent bottom-left chat bubble wired to the global error-capture
  * buffer (`@/lib/error-capture`). Users can ask "Why did my video fail?" at
  * any time; the recent error context is sent to Gemini along with the
- * conversation, and the reply comes back in the active UI language
+ * conversation, and the reply comes back through the account's Chatting role
  * (English or Mongolian) as plain, step-by-step guidance.
  *
  * Conversation shape: one session-scoped conversation, kept in memory only.
@@ -21,12 +21,7 @@ import {
   describeThrowable,
   type CapturedError,
 } from "@/lib/error-capture";
-import { loadApiKeys } from "@/lib/keystore";
-import { getGeminiAccessToken } from "@/lib/google-gemini-auth";
 import { apiFetch } from "@/lib/api-fetch";
-
-const MODEL = "gemini-2.5-flash";
-const GEMINI_BASE = "https://generativelanguage.googleapis.com";
 
 type ChatMsg = { role: "user" | "model"; text: string };
 
@@ -69,7 +64,7 @@ function systemPrompt(lang: Lang, errors: CapturedError[]): string {
     PLATFORM_DOCS,
     ``,
     `When the user asks about a failure, analyse the captured system errors below, say what went wrong in one short paragraph, then give exact numbered steps to fix it.`,
-    `Concrete fixes you can suggest when relevant: re-check the Gemini API key in Step 1 (invalid keys cause HTTP 400/401/403 from generativelanguage.googleapis.com), wait for quota reset or add another key on HTTP 429, make sure a YouTube link is Public or Unlisted (Private videos fail), make sure a Google Drive file is shared as "Anyone with the link", keep files under 2GB and videos under 2 hours, check the internet connection on network failures.`,
+    `Concrete fixes you can suggest when relevant: test the AI assigned to the affected job in API Manager; wait for its quota reset or enable automatic switching when it reaches a limit; for video mining specifically, check the Gemini key assigned to Mining videos; make sure a YouTube link is Public or Unlisted; make sure a Google Drive file is shared as "Anyone with the link"; keep files under 2GB and videos under 2 hours; check the internet connection on network failures.`,
     `If no captured error explains the question, say so and ask for more detail.`,
     `Never invent error logs. Keep answers short: one summary paragraph plus a numbered fix list.`,
     ``,
@@ -78,52 +73,14 @@ function systemPrompt(lang: Lang, errors: CapturedError[]): string {
   ].join("\n");
 }
 
-async function askGemini(
-  auth: { kind: "key"; value: string } | { kind: "oauth"; value: string },
-  lang: Lang,
-  history: ChatMsg[],
-): Promise<string> {
-  const url =
-    auth.kind === "key"
-      ? `${GEMINI_BASE}/v1/models/${MODEL}:generateContent?key=${encodeURIComponent(auth.value)}`
-      : `${GEMINI_BASE}/v1/models/${MODEL}:generateContent`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(auth.kind === "oauth" ? { Authorization: `Bearer ${auth.value}` } : {}),
-      ...skipCaptureHeader(),
-    },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt(lang, getCapturedErrors()) }] },
-      contents: history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
-      generationConfig: { temperature: 0.3 },
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
-  }
-  const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = (data.candidates?.[0]?.content?.parts ?? [])
-    .map((p) => p.text ?? "")
-    .join("")
-    .trim();
-  return text || "…";
-}
-
-/** Server-side fallback so a signed-in user is never blocked on a missing key. */
+/** The account's Chatting role is the only path used for diagnostics. */
 async function askBackend(lang: Lang, history: ChatMsg[]): Promise<string> {
-  const { credentialPayload } = await import("@/lib/api-keys");
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
     body: JSON.stringify({
       system: systemPrompt(lang, getCapturedErrors()),
       messages: history,
-      ...(await credentialPayload()),
     }),
   });
   const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
@@ -131,40 +88,8 @@ async function askBackend(lang: Lang, history: ChatMsg[]): Promise<string> {
   return data.text?.trim() || "…";
 }
 
-/**
- * Answers using whatever Gemini access the account already has: every key in
- * the rotation pool first, then the active Google OAuth session, then the
- * zero-setup backend. Only a total failure surfaces an error.
- */
 async function answer(lang: Lang, history: ChatMsg[]): Promise<string> {
-  const attempts: { kind: "key" | "oauth"; value: string }[] = [];
-  try {
-    for (const k of await loadApiKeys()) {
-      if (k.value) attempts.push({ kind: "key", value: k.value });
-    }
-  } catch {
-    /* key vault unavailable — fall through to session / backend */
-  }
-  try {
-    const token = await getGeminiAccessToken();
-    if (token) attempts.push({ kind: "oauth", value: token });
-  } catch {
-    /* no Google session */
-  }
-
-  let lastError: unknown = null;
-  for (const auth of attempts) {
-    try {
-      return await askGemini(auth, lang, history);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  try {
-    return await askBackend(lang, history);
-  } catch (err) {
-    throw attempts.length ? (lastError ?? err) : err;
-  }
+  return askBackend(lang, history);
 }
 
 export function DiagnosticChat() {
