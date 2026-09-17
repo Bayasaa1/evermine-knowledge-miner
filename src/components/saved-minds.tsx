@@ -618,7 +618,16 @@ export function SavedMinds({
         />
       )}
 
-
+      {fixing && (
+        <Dialog open={!!fixing} onOpenChange={(o) => { if (!o) setFixing(null); }}>
+          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{fixing.title}</DialogTitle>
+            </DialogHeader>
+            <MindVersioningHub lang={lang} signedIn={isAuthenticated} vaultId={fixing.id} />
+          </DialogContent>
+        </Dialog>
+      )}
 
 
       {editing && (
