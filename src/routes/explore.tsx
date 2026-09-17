@@ -234,6 +234,7 @@ function Explore() {
 
 
   const selected = MINDS[index] ?? MINDS[0]!;
+  const { level: aiLevel, setLevel: setAiLevel, max: aiLevelMax } = useMindAiLevel(selected.id);
   const messages = threads[selected.id] ?? [greeting(selected)];
 
   /* ---------- user vault bootstrapping ---------- */
