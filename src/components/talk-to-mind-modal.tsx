@@ -154,7 +154,8 @@ export function TalkToMindModal({
           messages: next,
           stream: live,
           seen: call.sees || undefined,
-          ...(await credentialPayload()),
+          aiLevel,
+          ...(await credentialPayload("chat")),
         }),
       });
 
