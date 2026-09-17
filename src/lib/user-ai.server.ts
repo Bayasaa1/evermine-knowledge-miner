@@ -31,7 +31,7 @@ export class UserAiError extends Error {
 }
 
 const NO_CREDENTIAL =
-  "This feature needs your own AI key. Add your free Gemini key in Engines — it takes a minute and costs nothing.";
+  "This job has no working AI key yet. Open the API Manager and add or enable a key for it.";
 
 /** Creates a request-scoped client that acts as the bearer-token caller (RLS as them). */
 export function callerClient(request: Request) {
@@ -169,19 +169,22 @@ async function generateRoleTextOnce(opts: {
       headers: { "Content-Type": "application/json", "x-api-key": resolved.apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: [{ role: "user", content: opts.prompt }] }),
     });
-    if (!res.ok) throw new GeminiHttpError(res.status, `Claude request failed (${res.status}).`);
+    if (!res.ok) throw new GeminiHttpError(res.status, `Claude: ${await errorDetail(res)}`);
     const body = await res.json() as { content?: { text?: string }[] };
     return { text: (body.content ?? []).map((part) => part.text ?? "").join(""), ...readUsageTokens(body) };
   }
   const config = OPENAI_COMPATIBLE[resolved.provider];
   const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
   if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
+  // Free community models usually cap well below the Gemini-sized budgets the
+  // callers ask for, and an oversized cap is rejected outright.
+  const cap = Math.min(opts.maxTokens ?? 2048, 4096);
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
-    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: opts.maxTokens ?? 2048, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
   });
-  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider} request failed (${res.status}).`);
+  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
   const body = await res.json() as { choices?: { message?: { content?: string } }[] };
   return { text: body.choices?.[0]?.message?.content?.trim() ?? "", ...readUsageTokens(body) };
 }
