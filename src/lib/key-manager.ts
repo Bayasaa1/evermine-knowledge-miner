@@ -456,6 +456,16 @@ export async function removeKey(row: SavedKey): Promise<void> {
   await saveStack({ ...stack, keys, providers });
 }
 
+/** Reads a legacy device key only for its one-time move into the signed-in account store. */
+export async function rawValueForSavedKey(row: SavedKey): Promise<string> {
+  if (row.provider.id === "gemini") {
+    const keys = await loadApiKeys();
+    return keys.find((key) => key.id === row.id)?.value ?? "";
+  }
+  const stack = await loadStack();
+  return (stack.keys[row.provider.keyField] ?? "").trim();
+}
+
 async function patchProvider(keyField: string, patch: Partial<ProviderSetting>): Promise<void> {
   const stack = await loadStack();
   const paid = providerForKeyField(keyField)?.paid ?? true;

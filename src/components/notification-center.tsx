@@ -15,7 +15,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { listMiningJobs } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJob } from "@/lib/mining-jobs";
 import { listUnreadUpdates, markUpdateRead } from "@/lib/creator-updates.functions";
-import { hasAnyCredential } from "@/lib/api-keys";
+import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -118,14 +118,21 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
   const { isAuthenticated, userId } = useAuth();
   const [open, setOpen] = useState(false);
   const [hasKey, setHasKey] = useState(true);
+  const loadKeys = useServerFn(getUserAiKeyStatus);
 
   useEffect(() => {
     let alive = true;
-    void hasAnyCredential().then((ok) => alive && setHasKey(ok));
+    if (!isAuthenticated) {
+      setHasKey(true);
+      return () => { alive = false; };
+    }
+    void loadKeys()
+      .then((keys) => alive && setHasKey(keys.some((key) => key.enabled && key.status !== "invalid")))
+      .catch(() => alive && setHasKey(true));
     return () => {
       alive = false;
     };
-  }, [isAuthenticated, userId, open]);
+  }, [isAuthenticated, userId, open, loadKeys]);
 
   const fetchJobs = useServerFn(listMiningJobs);
   // The owner id is part of the cache name: two accounts can never share one
@@ -157,7 +164,7 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
       icon: KeyRound,
       title: t.keyTitle,
       body: t.keyBody,
-      href: "/creator#engines",
+      href: "/keys",
       attention: true,
     });
   }
