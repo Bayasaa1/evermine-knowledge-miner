@@ -112,6 +112,7 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   const usable = (data ?? []).filter((row) => {
     if (skipIds.includes(row.id)) return false;
     if (row.status === "invalid") return false;
+    if (row.status === "exhausted" && (!row.cooldown_until || row.cooldown_until > now)) return false;
     if (row.cooldown_until && row.cooldown_until > now) return false;
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return false;
     return true;
@@ -138,7 +139,7 @@ async function markKeyUnavailable(keyId: string, status: "exhausted" | "invalid"
 
 function isLimitError(error: unknown): boolean {
   return error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")
-    || error instanceof GeminiHttpError && error.status === 429;
+    || error instanceof GeminiHttpError && (error.status === 402 || error.status === 429);
 }
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
@@ -470,6 +471,9 @@ export async function testRoleKey(
     }
     return { ok: true, message: "Working.", tail: report.effectiveTail };
   } catch (error) {
+    if (error instanceof GeminiHttpError && error.status === 402) {
+      await markKeyUnavailable(resolved.id, "exhausted", null);
+    }
     // The old generic "could not reach" hid the real reason (wrong model, bad
     // key, quota), which made a broken engine impossible to fix.
     const detail = error instanceof Error ? error.message : "";
