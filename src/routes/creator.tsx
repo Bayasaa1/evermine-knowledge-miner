@@ -1906,34 +1906,10 @@ function Index() {
             >
               {tr(lang, "advanced")}
             </button>
-            <button
-              onClick={() => setView("versions")}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                view === "versions" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {pickCopy({ en: "Versions", mn: "Хувилбарууд", ko: "버전" }, lang)}
-            </button>
-            <button
-              onClick={() => setView("projects")}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                view === "projects" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {pickCopy({ en: "Projects", mn: "Төслүүд", ko: "프로젝트" }, lang)}
-            </button>
           </div>
         </div>
 
-        {view === "projects" ? (
-          <div className="p-4 pb-28 sm:p-6 lg:p-8 xl:p-10">
-            <ProjectManager lang={lang} />
-          </div>
-        ) : view === "versions" ? (
-          <div className="p-4 pb-28 sm:p-6 lg:p-8 xl:p-10">
-            <MindVersioningHub lang={lang} signedIn={isAuthenticated} />
-          </div>
-        ) : view === "guided" ? (
+        {view === "guided" ? (
           <div className="p-4 sm:p-6 lg:p-8 xl:p-10">
             <GuidedStudio lang={lang} creatorEmail={ownership.creatorEmail} />
           </div>
