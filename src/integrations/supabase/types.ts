@@ -927,25 +927,55 @@ export type Database = {
       user_ai_keys: {
         Row: {
           api_key: string
+          cooldown_until: string | null
+          cost_kind: string
           created_at: string
+          enabled: boolean
+          endpoint: string | null
           id: string
+          label: string
+          model: string | null
+          monthly_limit_usd: number
           provider: string
+          rank: number
+          spend_usd: number
+          status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           api_key: string
+          cooldown_until?: string | null
+          cost_kind?: string
           created_at?: string
+          enabled?: boolean
+          endpoint?: string | null
           id?: string
+          label?: string
+          model?: string | null
+          monthly_limit_usd?: number
           provider: string
+          rank?: number
+          spend_usd?: number
+          status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           api_key?: string
+          cooldown_until?: string | null
+          cost_kind?: string
           created_at?: string
+          enabled?: boolean
+          endpoint?: string | null
           id?: string
+          label?: string
+          model?: string | null
+          monthly_limit_usd?: number
           provider?: string
+          rank?: number
+          spend_usd?: number
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -953,7 +983,9 @@ export type Database = {
       }
       user_ai_roles: {
         Row: {
+          auto_fallback: boolean
           id: string
+          key_id: string | null
           key_tail: string | null
           provider: string
           role: string
@@ -961,7 +993,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_fallback?: boolean
           id?: string
+          key_id?: string | null
           key_tail?: string | null
           provider: string
           role: string
@@ -969,14 +1003,24 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_fallback?: boolean
           id?: string
+          key_id?: string | null
           key_tail?: string | null
           provider?: string
           role?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_ai_roles_key_id_fkey"
+            columns: ["key_id"]
+            isOneToOne: false
+            referencedRelation: "user_ai_keys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_flags: {
         Row: {
