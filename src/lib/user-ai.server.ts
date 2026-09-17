@@ -130,6 +130,56 @@ export async function resolveUserAiKey(userId: string, role: AiRole): Promise<Re
   };
 }
 
+async function markKeyUnavailable(keyId: string, status: "exhausted" | "invalid", cooldownUntil: string | null) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("user_ai_keys").update({ status, cooldown_until: cooldownUntil }).eq("id", keyId);
+}
+
+function isLimitError(error: unknown): boolean {
+  return error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")
+    || error instanceof GeminiHttpError && error.status === 429;
+}
+
+async function generateRoleTextOnce(opts: {
+  resolved: ResolvedUserKey;
+  system: string;
+  prompt: string;
+  json?: boolean;
+  maxTokens?: number;
+}): Promise<string> {
+  const resolved = opts.resolved;
+  if (resolved.provider === "gemini") {
+    return geminiGenerate({
+      credential: { kind: "gemini_key", value: resolved.apiKey },
+      system: opts.system,
+      turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      ...(opts.json != null ? { json: opts.json } : {}),
+      ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
+    });
+  }
+  if (resolved.provider === "anthropic") {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": resolved.apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: [{ role: "user", content: opts.prompt }] }),
+    });
+    if (!res.ok) throw new GeminiHttpError(res.status, `Claude request failed (${res.status}).`);
+    const body = await res.json() as { content?: { text?: string }[] };
+    return (body.content ?? []).map((part) => part.text ?? "").join("");
+  }
+  const config = OPENAI_COMPATIBLE[resolved.provider];
+  const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
+  if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
+    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: opts.maxTokens ?? 2048, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+  });
+  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider} request failed (${res.status}).`);
+  const body = await res.json() as { choices?: { message?: { content?: string } }[] };
+  return body.choices?.[0]?.message?.content?.trim() ?? "";
+}
+
 const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
   groq: { base: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b" },
   mistral: { base: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
@@ -155,37 +205,15 @@ export async function generateRoleText(opts: {
   maxTokens?: number;
 }): Promise<{ text: string; provider: string; tail: string }> {
   const resolved = await resolveUserAiKey(opts.userId, opts.role);
-  if (resolved.provider === "gemini") {
-    const text = await geminiGenerate({
-      credential: { kind: "gemini_key", value: resolved.apiKey },
-      system: opts.system,
-      turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
-      ...(opts.json != null ? { json: opts.json } : {}),
-      ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
-    });
-    return { text, provider: resolved.provider, tail: resolved.tail };
+  try {
+    return { text: await generateRoleTextOnce({ resolved, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) }), provider: resolved.provider, tail: resolved.tail };
+  } catch (error) {
+    if (!resolved.autoFallback || !isLimitError(error)) throw error;
+    const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+    const fallback = await resolveUserAiKey(opts.userId, opts.role);
+    return { text: await generateRoleTextOnce({ resolved: fallback, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) }), provider: fallback.provider, tail: fallback.tail };
   }
-  if (resolved.provider === "anthropic") {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": resolved.apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: [{ role: "user", content: opts.prompt }] }),
-    });
-    if (!res.ok) throw new GeminiHttpError(res.status, `Claude request failed (${res.status}).`);
-    const body = await res.json() as { content?: { type: string; text?: string }[] };
-    return { text: (body.content ?? []).map((part) => part.text ?? "").join(""), provider: resolved.provider, tail: resolved.tail };
-  }
-  const config = OPENAI_COMPATIBLE[resolved.provider];
-  const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
-  if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
-  const res = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
-    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: opts.maxTokens ?? 2048, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
-  });
-  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider} request failed (${res.status}).`);
-  const body = await res.json() as { choices?: { message?: { content?: string } }[] };
-  return { text: body.choices?.[0]?.message?.content?.trim() ?? "", provider: resolved.provider, tail: resolved.tail };
 }
 
 /** Picks the key the user assigned to a job, else the newest one. */
