@@ -386,36 +386,6 @@ function PersonaCard({
           placeholder={t("personaBio")}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
         />
-        <div className="rounded-lg border border-border bg-background p-3">
-          <p className="text-xs font-medium text-foreground">{t("aiLevelField")}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{t("aiLevelHint")}</p>
-          <div className="mt-2 flex items-center gap-3">
-            <label className="flex-1 text-[11px] text-muted-foreground">
-              {t("aiLevelStart")}
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={10}
-                value={editLevel}
-                onChange={(e) => setEditLevel(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
-              />
-            </label>
-            <label className="flex-1 text-[11px] text-muted-foreground">
-              {t("aiLevelCap")}
-              <input
-                type="number"
-                min={0}
-                max={100}
-                step={10}
-                value={editLevelMax}
-                onChange={(e) => setEditLevelMax(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
-              />
-            </label>
-          </div>
-        </div>
         <div className="flex justify-end gap-2">
           <button
             type="button"
@@ -729,6 +699,36 @@ function ProjectListItem({
           placeholder={t("coverField")}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
         />
+        <div className="rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-medium text-foreground">{t("aiLevelField")}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{t("aiLevelHint")}</p>
+          <div className="mt-2 flex items-center gap-3">
+            <label className="flex-1 text-[11px] text-muted-foreground">
+              {t("aiLevelStart")}
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={10}
+                value={editLevel}
+                onChange={(e) => setEditLevel(Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </label>
+            <label className="flex-1 text-[11px] text-muted-foreground">
+              {t("aiLevelCap")}
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={10}
+                value={editLevelMax}
+                onChange={(e) => setEditLevelMax(Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </label>
+          </div>
+        </div>
         <div className="flex justify-end gap-2">
           <button
             type="button"
