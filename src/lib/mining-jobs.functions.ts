@@ -40,6 +40,8 @@ const startSchema = z.object({
    * their tab is closed. Never returned to any client.
    */
   apiKey: z.string().max(200).optional(),
+  /** Last characters of the saved Gemini key the creator picked for this run. */
+  apiKeyTail: z.string().max(8).optional(),
 });
 
 type JobRow = {
@@ -114,14 +116,18 @@ export const startMiningJobs = createServerFn({ method: "POST" })
     // the background worker can keep going after the tab closes.
     let ownerKey = (data.apiKey ?? "").trim();
     if (!ownerKey) {
-      const { data: savedKey } = await context.supabase
+      const { data: savedKeys } = await context.supabase
         .from("user_ai_keys")
         .select("api_key")
         .eq("user_id", context.userId)
         .eq("provider", "gemini")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      ownerKey = (savedKey?.[0]?.api_key ?? "").trim();
+        .order("updated_at", { ascending: false });
+      const rows = savedKeys ?? [];
+      // The creator can own several Gemini keys. When they picked one by its
+      // last characters, that exact key runs the job; otherwise the newest one.
+      const tail = (data.apiKeyTail ?? "").trim();
+      const chosen = tail ? rows.find((r) => r.api_key.endsWith(tail)) : undefined;
+      ownerKey = ((chosen ?? rows[0])?.api_key ?? "").trim();
     }
     if (!ownerKey) {
       throw new Error(
