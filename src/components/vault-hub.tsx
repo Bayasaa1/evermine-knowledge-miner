@@ -46,6 +46,7 @@ import {
   listPersonas,
   personaHandle,
   switchPersona,
+  updatePersona,
   type Persona,
 } from "@/lib/personas";
 import {
@@ -55,12 +56,14 @@ import {
   listProjectContent,
   listProjectsByPersona,
   listUnfiledProjects,
+  mergeProjects,
   updateProject,
   updateProjectContent,
   type ContentKind,
   type Project,
   type ProjectContent,
 } from "@/lib/projects";
+import { rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
 import { listMiningJobs, startMiningJobs } from "@/lib/mining-jobs.functions";
 import { CATEGORY_LABELS } from "@/lib/creation-category";
 import { DEFAULT_ASSESSMENT } from "@/lib/mining-jobs";
@@ -156,6 +159,19 @@ const C = {
     mn: "Энэ төслийг бүх контенттой нь устгах уу?",
     ko: "이 프로젝트와 모든 콘텐츠를 삭제할까요?",
   },
+  editPersona: { en: "Edit persona", mn: "Персон засах", ko: "페르소나 편집" },
+  personaName: { en: "Name", mn: "Нэр", ko: "이름" },
+  personaHandle: { en: "Handle", mn: "Хэрэглэгчийн нэр", ko: "핸들" },
+  personaBio: { en: "Short bio", mn: "Товч танилцуулга", ko: "짧은 소개" },
+  mergeInto: { en: "Merge into…", mn: "Нэгтгэх…", ko: "병합…" },
+  mergeConfirm: {
+    en: "Move everything from \"{a}\" into \"{b}\"? \"{a}\" will be removed.",
+    mn: "\"{a}\" дэх бүхнийг \"{b}\" руу зөөх үү? \"{a}\" устана.",
+    ko: "\"{a}\"의 모든 항목을 \"{b}\"로 옮길까요? \"{a}\"은 삭제됩니다.",
+  },
+  merged: { en: "Projects merged", mn: "Төслүүд нэгдлээ", ko: "프로젝트가 병합되었습니다" },
+  editProject: { en: "Edit project", mn: "Төсөл засах", ko: "프로젝트 편집" },
+  coverField: { en: "Cover image URL", mn: "Нүүр зургийн холбоос", ko: "커버 이미지 URL" },
   signIn: { en: "Sign in to open your vaults.", mn: "Сангаа нээхийн тулд нэвтэрнэ үү.", ko: "볼트를 열려면 로그인하세요." },
 } as const;
 
