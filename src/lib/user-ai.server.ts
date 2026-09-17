@@ -456,15 +456,16 @@ export async function testRoleKey(
       return { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
     }
     if (role === "translate" || role === "core_brain" || role === "chat") {
-      const tested = await generateRoleText({
-        userId,
-        role,
+      // A role test must prove the selected key itself. It must never report
+      // green because automatic fallback quietly reached a different provider.
+      const tested = await generateRoleTextOnce({
+        resolved,
         system: "Return only the word OK.",
         prompt: "Connection test.",
-         maxTokens: 96,
+        maxTokens: 512,
       });
       return tested.text
-        ? { ok: true, message: `Working through ${tested.provider} ···${tested.tail}.`, tail: tested.tail }
+        ? { ok: true, message: `Working through ${resolved.provider} ···${resolved.tail}.`, tail: resolved.tail }
         : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
     }
     return { ok: true, message: "Working.", tail: report.effectiveTail };
