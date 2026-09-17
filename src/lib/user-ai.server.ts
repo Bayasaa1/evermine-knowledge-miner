@@ -145,6 +145,61 @@ export async function resolveVoiceKey(userId: string): Promise<string | null> {
   return pickByTail(await savedKeys(userId, "elevenlabs"), choice?.keyTail ?? null);
 }
 
+/**
+ * Which key would actually run a job right now: the assigned one when it still
+ * exists, otherwise the newest key of the provider that job uses. Only the last
+ * four characters ever leave the server.
+ */
+export async function roleKeyReport(
+  userId: string,
+  role: AiRole,
+  fallbackProvider: string,
+): Promise<{ provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean }> {
+  const choice = await roleChoice(userId, role);
+  const provider = choice?.provider ?? fallbackProvider;
+  const keys = await savedKeys(userId, provider);
+  const key = pickByTail(keys, choice?.keyTail ?? null);
+  const effectiveTail = key ? key.slice(-4) : null;
+  const assignedTail = choice?.keyTail ?? null;
+  return {
+    provider,
+    assignedTail,
+    effectiveTail,
+    missing: Boolean(assignedTail) && effectiveTail !== assignedTail,
+  };
+}
+
+/** One tiny live call with the key a job would use, so the user can see it work. */
+export async function testRoleKey(
+  userId: string,
+  role: AiRole,
+  fallbackProvider: string,
+): Promise<{ ok: boolean; message: string; tail: string | null }> {
+  const report = await roleKeyReport(userId, role, fallbackProvider);
+  if (!report.effectiveTail) return { ok: false, message: "No key saved for this job yet.", tail: null };
+  const choice = await roleChoice(userId, role);
+  const keys = await savedKeys(userId, report.provider);
+  const key = pickByTail(keys, choice?.keyTail ?? null)!;
+
+  try {
+    if (report.provider === "elevenlabs") {
+      const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
+      return res.ok
+        ? { ok: true, message: "Working.", tail: report.effectiveTail }
+        : { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
+    }
+    if (report.provider === "gemini") {
+      const res = await fetch(`${GEMINI_BASE}/models?key=${encodeURIComponent(key)}`);
+      if (res.ok) return { ok: true, message: "Working.", tail: report.effectiveTail };
+      if (res.status === 429) return { ok: false, message: "Busy right now — try again in a minute.", tail: report.effectiveTail };
+      return { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
+    }
+    return { ok: true, message: "Saved. This engine is checked when it runs.", tail: report.effectiveTail };
+  } catch {
+    return { ok: false, message: "Could not reach the engine.", tail: report.effectiveTail };
+  }
+}
+
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 function geminiUrl(model: string, method: string, cred: AiCredential): { url: string; headers: HeadersInit } {
