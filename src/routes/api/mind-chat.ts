@@ -242,6 +242,42 @@ function jsonReply(text: string): Response {
   });
 }
 
+/**
+ * How much the AI is allowed to add on top of what the mind actually learned.
+ * 0 = only the mined knowledge, word for word; 100 = the AI fills every gap.
+ */
+function aiLevelRules(level: number): string {
+  if (level <= 0) {
+    return [
+      `ANSWER SOURCE — 0% AI:`,
+      `- Use ONLY the mined knowledge above (the mind's own saved records).`,
+      `- Quote or lightly join the saved lines. Add no facts, no examples, no guesses of your own.`,
+      `- If the answer is not in the saved records, reply only: "This is not in this mind's records yet." and, if useful, name the closest saved topic.`,
+    ].join("\n");
+  }
+  if (level <= 30) {
+    return [
+      `ANSWER SOURCE — ${level}% AI (mined knowledge only):`,
+      `- Every fact must come from the mined knowledge above. You may rewrite it in your own clear words.`,
+      `- Never add information that is not saved. If something is missing, say plainly that the mind has not learned it.`,
+    ].join("\n");
+  }
+  if (level <= 70) {
+    return [
+      `ANSWER SOURCE — ${level}% AI (mostly mined knowledge):`,
+      `- Lead with the mined knowledge above. It always wins over anything you know.`,
+      `- You may fill small gaps with general knowledge, but keep it short, and mark those parts with "(not from the videos)".`,
+      `- Never contradict the mined knowledge.`,
+    ].join("\n");
+  }
+  return [
+    `ANSWER SOURCE — ${level}% AI (fill the gaps):`,
+    `- Start from the mined knowledge above; it stays the source of truth for opinions and style.`,
+    `- When the answer is missing, complete it with your own general knowledge so the person gets a full answer.`,
+    `- Mark anything that did not come from the videos with "(not from the videos)".`,
+  ].join("\n");
+}
+
 export const Route = createFileRoute("/api/mind-chat")({
   server: {
     handlers: {
