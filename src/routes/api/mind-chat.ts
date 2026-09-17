@@ -319,7 +319,17 @@ export const Route = createFileRoute("/api/mind-chat")({
         if (!brain.ok) {
           return new Response(JSON.stringify({ error: brain.error ?? "Access denied" }), { status: 403 });
         }
-        const systemWithMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+        const level = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? 100)) || 0));
+        const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+        const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}`;
+
+        const {
+          resolveGeminiCredential,
+          resolveRoleProviderKey,
+          geminiStream,
+          geminiGenerate,
+          aiErrorResponse,
+        } = await import("@/lib/user-ai.server");
 
         // Routing uses the caller's OWN key only. There is no server-stored key
         // and no shared platform credit anywhere in this path.
@@ -328,23 +338,30 @@ export const Route = createFileRoute("/api/mind-chat")({
           const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL[provider];
           const key = (typeof body.apiKey === "string" && body.apiKey.trim()) || "";
           if (key) {
-            const routed = await callProvider(provider, model, key, system, history);
+            const routed = await callProvider(provider, model, key, systemWithMemory, history);
             if (routed) return routed;
           }
         }
 
+        // The engine the caller assigned to chatting in the API Manager, when
+        // that is not Gemini. Their own saved key, never a platform one.
+        const assigned = await resolveRoleProviderKey(auth.userId, "chat");
+        if (assigned && isProvider(assigned.provider)) {
+          const routed = await callProvider(
+            assigned.provider,
+            DEFAULT_MODEL[assigned.provider],
+            assigned.apiKey,
+            systemWithMemory,
+            history,
+          );
+          if (routed) return routed;
+        }
+
         // Default brain: the caller's own Gemini — a key from their vault or
-        // account, or their Google sign-in token. There is no shared platform
-        // credit to fall back to.
-        const {
-          resolveGeminiCredential,
-          geminiStream,
-          geminiGenerate,
-          aiErrorResponse,
-        } = await import("@/lib/user-ai.server");
+        // account. There is no shared platform credit to fall back to.
         let credential;
         try {
-          credential = await resolveGeminiCredential(auth.userId, body);
+          credential = await resolveGeminiCredential(auth.userId, body, "chat");
         } catch (err) {
           return aiErrorResponse(err);
         }
