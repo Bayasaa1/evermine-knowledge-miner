@@ -790,6 +790,8 @@ export type Database = {
       }
       projects: {
         Row: {
+          ai_level_default: number
+          ai_level_max: number
           chat_access: string
           cover_url: string | null
           created_at: string
@@ -808,6 +810,8 @@ export type Database = {
           view_count: number
         }
         Insert: {
+          ai_level_default?: number
+          ai_level_max?: number
           chat_access?: string
           cover_url?: string | null
           created_at?: string
@@ -826,6 +830,8 @@ export type Database = {
           view_count?: number
         }
         Update: {
+          ai_level_default?: number
+          ai_level_max?: number
           chat_access?: string
           cover_url?: string | null
           created_at?: string

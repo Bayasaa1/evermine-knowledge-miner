@@ -78,6 +78,13 @@
       "when": 1789621318520,
       "tag": "0010_create_user_ai_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789622500543,
+      "tag": "0011_add_project_ai_level_limits",
+      "breakpoints": true
     }
   ]
 }
