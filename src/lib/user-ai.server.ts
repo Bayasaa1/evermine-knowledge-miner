@@ -341,7 +341,7 @@ export async function generateRoleText(opts: {
       // Translation does not need long internal reasoning. Flash-Lite plus a
       // zero thinking budget is faster and avoids burning thousands of hidden
       // tokens on a short subtitle batch.
-      ...(opts.role === "translate" ? { model: "gemini-2.5-flash-lite", disableThinking: true } : {}),
+      ...(opts.role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
     });
   const skipped: string[] = [];
   let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
@@ -504,7 +504,7 @@ export async function testRoleKey(
         system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
         prompt: role === "translate" ? "Good morning" : "Connection test.",
         maxTokens: 64,
-        ...(role === "translate" ? { model: "gemini-2.5-flash-lite", disableThinking: true } : {}),
+        ...(role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
       });
       if (!tested.text) return { ok: false, message: "Connected but returned no text.", tail: resolved.tail };
       await markKeyUnavailable(resolved.id, "ok", null);
