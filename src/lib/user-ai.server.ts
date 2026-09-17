@@ -11,6 +11,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import type { AiRole } from "@/lib/ai-roles";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
@@ -44,30 +45,74 @@ export function callerClient(request: Request) {
 const clean = (v: unknown, max = 200): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 /**
+ * The engine the user picked for one job ("who runs what"), or null when they
+ * left it on automatic.
+ */
+export async function roleChoice(
+  userId: string,
+  role: AiRole,
+): Promise<{ provider: string; keyTail: string | null } | null> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("user_ai_roles")
+      .select("provider, key_tail")
+      .eq("user_id", userId)
+      .eq("role", role)
+      .maybeSingle();
+    if (!data?.provider) return null;
+    return { provider: data.provider, keyTail: data.key_tail ?? null };
+  } catch {
+    return null;
+  }
+}
+
+/** Every saved key for one provider, newest first. */
+async function savedKeys(userId: string, provider: string): Promise<string[]> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("user_ai_keys")
+      .select("api_key")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .order("updated_at", { ascending: false });
+    return ((data ?? []) as { api_key: string }[]).map((r) => clean(r.api_key)).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/** Picks the key the user assigned to a job, else the newest one. */
+function pickByTail(keys: string[], tail: string | null | undefined): string | null {
+  if (!keys.length) return null;
+  if (tail) {
+    const match = keys.find((k) => k.endsWith(tail));
+    if (match) return match;
+  }
+  return keys[0] ?? null;
+}
+
+/**
  * Resolves the caller's Gemini credential.
  * `userId` must come from guardApi/requireSupabaseAuth. `body` may carry
- * `apiKey` (a key from the caller's own vault). With none, their saved account
- * key is used.
+ * `apiKey` (a key from the caller's own vault). With none, the key they
+ * assigned to this job in the API Manager is used, else their newest saved key.
  */
 export async function resolveGeminiCredential(
   userId: string,
   body?: { apiKey?: unknown },
+  role?: AiRole,
 ): Promise<AiCredential> {
   const key = clean(body?.apiKey);
   if (key) return { kind: "gemini_key", value: key };
 
   try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // A creator may keep several Gemini keys (spares for when one hits its
     // daily quota), so never assume a single row here.
-    const { data } = await supabaseAdmin
-      .from("user_ai_keys")
-      .select("api_key")
-      .eq("user_id", userId)
-      .eq("provider", "gemini")
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    const saved = clean(data?.[0]?.api_key);
+    const keys = await savedKeys(userId, "gemini");
+    const choice = role ? await roleChoice(userId, role) : null;
+    const saved = pickByTail(keys, choice?.provider === "gemini" ? choice.keyTail : null);
     if (saved) return { kind: "gemini_key", value: saved };
   } catch {
     /* fall through to the clear missing-key error */
@@ -77,24 +122,27 @@ export async function resolveGeminiCredential(
 }
 
 /**
+ * The provider + key the user assigned to a job when it is not Gemini
+ * (currently only chat can run on another engine). Null means "use Gemini".
+ */
+export async function resolveRoleProviderKey(
+  userId: string,
+  role: AiRole,
+): Promise<{ provider: string; apiKey: string } | null> {
+  const choice = await roleChoice(userId, role);
+  if (!choice || choice.provider === "gemini") return null;
+  const apiKey = pickByTail(await savedKeys(userId, choice.provider), choice.keyTail);
+  return apiKey ? { provider: choice.provider, apiKey } : null;
+}
+
+/**
  * The caller's own voice-cloning key, or null when they have not added one.
  * Never falls back to a platform key: with no key the mind simply speaks with
  * the free device voice.
  */
 export async function resolveVoiceKey(userId: string): Promise<string | null> {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data } = await supabaseAdmin
-      .from("user_ai_keys")
-      .select("api_key")
-      .eq("user_id", userId)
-      .eq("provider", "elevenlabs")
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    return clean(data?.[0]?.api_key) || null;
-  } catch {
-    return null;
-  }
+  const choice = await roleChoice(userId, "voice_clone");
+  return pickByTail(await savedKeys(userId, "elevenlabs"), choice?.keyTail ?? null);
 }
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";

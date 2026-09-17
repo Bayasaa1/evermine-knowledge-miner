@@ -110,7 +110,7 @@ export const retimeContent = createServerFn({ method: "POST" })
     if (!url) throw new Error("This mind has no linked YouTube source to re-watch.");
 
     const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
-    const credential = await resolveGeminiCredential(context.userId, data);
+    const credential = await resolveGeminiCredential(context.userId, data, "mine");
     const repaired = await relistenTranscript(url, original, credential);
     return saveTimings(context, row, repaired);
   });

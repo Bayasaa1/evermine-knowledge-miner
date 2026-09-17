@@ -97,7 +97,7 @@ async function flush() {
           target: lang,
           targetName: LANGUAGES[lang].name,
           domain: "AI video-mining app UI",
-          ...(await credentialPayload()),
+          ...(await credentialPayload("translate")),
         },
       });
       const state = (res as { blocked?: string }).blocked;

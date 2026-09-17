@@ -114,7 +114,7 @@ export const Route = createFileRoute("/api/mind-coach")({
           "@/lib/user-ai.server"
         );
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body);
+          const credential = await resolveGeminiCredential(auth.userId, body, "chat");
           const advice = await geminiGenerate({
             credential,
             model: "gemini-2.5-flash",

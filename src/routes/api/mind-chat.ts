@@ -242,6 +242,42 @@ function jsonReply(text: string): Response {
   });
 }
 
+/**
+ * How much the AI is allowed to add on top of what the mind actually learned.
+ * 0 = only the mined knowledge, word for word; 100 = the AI fills every gap.
+ */
+function aiLevelRules(level: number): string {
+  if (level <= 0) {
+    return [
+      `ANSWER SOURCE — 0% AI:`,
+      `- Use ONLY the mined knowledge above (the mind's own saved records).`,
+      `- Quote or lightly join the saved lines. Add no facts, no examples, no guesses of your own.`,
+      `- If the answer is not in the saved records, reply only: "This is not in this mind's records yet." and, if useful, name the closest saved topic.`,
+    ].join("\n");
+  }
+  if (level <= 30) {
+    return [
+      `ANSWER SOURCE — ${level}% AI (mined knowledge only):`,
+      `- Every fact must come from the mined knowledge above. You may rewrite it in your own clear words.`,
+      `- Never add information that is not saved. If something is missing, say plainly that the mind has not learned it.`,
+    ].join("\n");
+  }
+  if (level <= 70) {
+    return [
+      `ANSWER SOURCE — ${level}% AI (mostly mined knowledge):`,
+      `- Lead with the mined knowledge above. It always wins over anything you know.`,
+      `- You may fill small gaps with general knowledge, but keep it short, and mark those parts with "(not from the videos)".`,
+      `- Never contradict the mined knowledge.`,
+    ].join("\n");
+  }
+  return [
+    `ANSWER SOURCE — ${level}% AI (fill the gaps):`,
+    `- Start from the mined knowledge above; it stays the source of truth for opinions and style.`,
+    `- When the answer is missing, complete it with your own general knowledge so the person gets a full answer.`,
+    `- Mark anything that did not come from the videos with "(not from the videos)".`,
+  ].join("\n");
+}
+
 export const Route = createFileRoute("/api/mind-chat")({
   server: {
     handlers: {
@@ -260,8 +296,8 @@ export const Route = createFileRoute("/api/mind-chat")({
           stream?: boolean;
           /** What the Mind currently sees on a video call. */
           seen?: string;
-
-
+          /** 0-100: how much the AI may add on top of the mined knowledge. */
+          aiLevel?: number;
         };
         try {
           body = (await request.json()) as typeof body;
@@ -283,7 +319,17 @@ export const Route = createFileRoute("/api/mind-chat")({
         if (!brain.ok) {
           return new Response(JSON.stringify({ error: brain.error ?? "Access denied" }), { status: 403 });
         }
-        const systemWithMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+        const level = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? 100)) || 0));
+        const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+        const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}`;
+
+        const {
+          resolveGeminiCredential,
+          resolveRoleProviderKey,
+          geminiStream,
+          geminiGenerate,
+          aiErrorResponse,
+        } = await import("@/lib/user-ai.server");
 
         // Routing uses the caller's OWN key only. There is no server-stored key
         // and no shared platform credit anywhere in this path.
@@ -292,23 +338,30 @@ export const Route = createFileRoute("/api/mind-chat")({
           const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL[provider];
           const key = (typeof body.apiKey === "string" && body.apiKey.trim()) || "";
           if (key) {
-            const routed = await callProvider(provider, model, key, system, history);
+            const routed = await callProvider(provider, model, key, systemWithMemory, history);
             if (routed) return routed;
           }
         }
 
+        // The engine the caller assigned to chatting in the API Manager, when
+        // that is not Gemini. Their own saved key, never a platform one.
+        const assigned = await resolveRoleProviderKey(auth.userId, "chat");
+        if (assigned && isProvider(assigned.provider)) {
+          const routed = await callProvider(
+            assigned.provider,
+            DEFAULT_MODEL[assigned.provider],
+            assigned.apiKey,
+            systemWithMemory,
+            history,
+          );
+          if (routed) return routed;
+        }
+
         // Default brain: the caller's own Gemini — a key from their vault or
-        // account, or their Google sign-in token. There is no shared platform
-        // credit to fall back to.
-        const {
-          resolveGeminiCredential,
-          geminiStream,
-          geminiGenerate,
-          aiErrorResponse,
-        } = await import("@/lib/user-ai.server");
+        // account. There is no shared platform credit to fall back to.
         let credential;
         try {
-          credential = await resolveGeminiCredential(auth.userId, body);
+          credential = await resolveGeminiCredential(auth.userId, body, "chat");
         } catch (err) {
           return aiErrorResponse(err);
         }

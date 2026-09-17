@@ -124,8 +124,18 @@ export const startMiningJobs = createServerFn({ method: "POST" })
         .order("updated_at", { ascending: false });
       const rows = savedKeys ?? [];
       // The creator can own several Gemini keys. When they picked one by its
-      // last characters, that exact key runs the job; otherwise the newest one.
-      const tail = (data.apiKeyTail ?? "").trim();
+      // last characters, that exact key runs the job; otherwise the key they
+      // assigned to mining in the API Manager, else the newest one.
+      let tail = (data.apiKeyTail ?? "").trim();
+      if (!tail) {
+        const { data: role } = await context.supabase
+          .from("user_ai_roles")
+          .select("provider, key_tail")
+          .eq("user_id", context.userId)
+          .eq("role", "mine")
+          .maybeSingle();
+        if (role?.provider === "gemini" && role.key_tail) tail = role.key_tail;
+      }
       const chosen = tail ? rows.find((r) => r.api_key.endsWith(tail)) : undefined;
       ownerKey = ((chosen ?? rows[0])?.api_key ?? "").trim();
     }

@@ -34,7 +34,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
           "@/lib/user-ai.server"
         );
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body);
+          const credential = await resolveGeminiCredential(auth.userId, body, "chat");
           const text = await geminiGenerate({
             credential,
             model: "gemini-2.5-flash",

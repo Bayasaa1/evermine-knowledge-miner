@@ -17,6 +17,6 @@ export const mineYoutubeVideo = createServerFn({ method: "POST" })
   .inputValidator((input) => inputSchema.parse(input))
   .handler(async ({ data, context }): Promise<ChunkResult> => {
     const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
-    const credential = await resolveGeminiCredential(context.userId, data);
+    const credential = await resolveGeminiCredential(context.userId, data, "mine");
     return analyzeYoutubeVideo({ ...data, credential });
   });

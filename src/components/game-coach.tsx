@@ -106,7 +106,7 @@ export function GameCoach({
       const res = await apiFetch("/api/mind-coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: mindName, lang, image, heard, brain, ...(await credentialPayload()) }),
+        body: JSON.stringify({ name: mindName, lang, image, heard, brain, ...(await credentialPayload("chat")) }),
       });
       const data = (await res.json().catch(() => ({}))) as { advice?: string; error?: string };
       if (!res.ok) {

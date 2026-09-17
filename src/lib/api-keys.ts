@@ -14,10 +14,41 @@ function isFresh(k: ApiKeyEntry): boolean {
   return k.state === "ok" || (k.state === "exhausted" && isNextDay(k.exhaustedAt));
 }
 
-/** The highest-ranked healthy Gemini key in the signed-in account's vault. */
-export async function bestGeminiKey(): Promise<string | null> {
+/** The user's "who runs what" choices, cached briefly for the whole session. */
+let rolesCache: { at: number; rows: { role: string; provider: string; keyTail: string | null }[] } | null = null;
+
+/** Forget the cached choices after the user changes one in the API Manager. */
+export function clearRoleCache(): void {
+  rolesCache = null;
+}
+
+async function tailForRole(role?: string): Promise<string | null> {
+  if (!role) return null;
   try {
-    return (await geminiKeyChain())[0]?.value ?? null;
+    if (!rolesCache || Date.now() - rolesCache.at > 60_000) {
+      const { listAiRoles } = await import("@/lib/ai-roles.functions");
+      rolesCache = { at: Date.now(), rows: await listAiRoles() };
+    }
+    const row = rolesCache.rows.find((r) => r.role === role);
+    return row && row.provider === "gemini" ? row.keyTail : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The Gemini key that should run this job: the one the user assigned to it in
+ * the API Manager, else the highest-ranked healthy key in their vault.
+ */
+export async function bestGeminiKey(role?: string): Promise<string | null> {
+  try {
+    const chain = await geminiKeyChain();
+    const tail = await tailForRole(role);
+    if (tail) {
+      const chosen = chain.find((k) => k.value.endsWith(tail));
+      if (chosen) return chosen.value;
+    }
+    return chain[0]?.value ?? null;
   } catch {
     return null;
   }
@@ -71,9 +102,12 @@ export async function markKeyExhausted(keyValue: string): Promise<void> {
   }
 }
 
-/** Credentials to merge into an API request body. */
-export async function credentialPayload(): Promise<{ apiKey?: string }> {
-  const key = await bestGeminiKey();
+/**
+ * Credentials to merge into an API request body. Pass the job name (translate,
+ * chat, core_brain, face_clone…) so the key the user picked for that job runs it.
+ */
+export async function credentialPayload(role?: string): Promise<{ apiKey?: string }> {
+  const key = await bestGeminiKey(role);
   if (key) void recordKeyUse(key);
   return key ? { apiKey: key } : {};
 }

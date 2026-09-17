@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/user-mine")({
 
         let text = "";
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body);
+          const credential = await resolveGeminiCredential(auth.userId, body, "core_brain");
           text = await geminiGenerate({
             credential,
             model: "gemini-2.5-flash",
