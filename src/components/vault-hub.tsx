@@ -704,7 +704,7 @@ function ProjectListItem({
               const error = await updateProject(p.id, {
                 title: editTitle,
                 description: editDesc,
-                coverUrl: editCover,
+                cover_url: editCover || null,
               });
               if (error) toast.error(error);
               else toast.success(t("saved"));
