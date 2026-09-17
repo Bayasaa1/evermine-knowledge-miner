@@ -8,21 +8,42 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Loader2, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { listProjectVideos, rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
-import { listProjectsByPersona, moveProjectContent, updateProjectContent, type Project } from "@/lib/projects";
+import { startMiningJobs } from "@/lib/mining-jobs.functions";
+import {
+  createProject,
+  listProjectsByPersona,
+  moveContentToPersona,
+  moveProjectContent,
+  splitProject,
+  unfileContent,
+  updateProjectContent,
+  type Project,
+} from "@/lib/projects";
+import { listPersonas, type Persona } from "@/lib/personas";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 const PAGE = 25;
+const NEW_PROJECT = "__new__";
 
 const C = {
   title: { en: "All videos", mn: "Бүх видео", ko: "모든 영상" },
   search: { en: "Search by title", mn: "Гарчгаар хайх", ko: "제목으로 검색" },
   selected: { en: "{n} selected", mn: "{n} сонгосон", ko: "{n}개 선택됨" },
   moveTo: { en: "Move to project", mn: "Төсөл рүү зөөх", ko: "프로젝트로 이동" },
+  movePersona: { en: "Move to persona", mn: "Персон руу зөөх", ko: "페르소나로 이동" },
+  newProject: { en: "New project…", mn: "Шинэ төсөл…", ko: "새 프로젝트…" },
+  newProjectName: { en: "Name the new project", mn: "Шинэ төслийн нэр", ko: "새 프로젝트 이름" },
+  split: { en: "Split into new project", mn: "Шинэ төсөл болгон хуваах", ko: "새 프로젝트로 분할" },
+  exclude: { en: "Remove from project", mn: "Төслөөс хасах", ko: "프로젝트에서 제외" },
+  excludeDone: { en: "Moved to Not filed. Nothing was deleted.", mn: "Бүртгэгдээгүй рүү зөөгдлөө. Юу ч устаагүй.", ko: "미분류로 이동했습니다. 삭제된 것은 없습니다." },
+  remine: { en: "Re-mine selected", mn: "Дахин олборлох", ko: "다시 마이닝" },
+  remineDone: { en: "Mining queued", mn: "Олборлолт ээлжлэгдлээ", ko: "마이닝 대기열에 추가됨" },
+  remineNeedsPersona: { en: "File this project under a persona first, then re-mine.", mn: "Эхлээд төслийг персон дээр бүртгэ, дараа нь дахин олборло.", ko: "먼저 이 프로젝트를 페르소나에 배정한 뒤 다시 마이닝하세요." },
   makeFeed: { en: "Show in feed", mn: "Хуудсанд харуулах", ko: "피드에 표시" },
   makeTraining: { en: "Training only", mn: "Зөвхөн сургалт", ko: "학습 전용" },
   remove: { en: "Delete", mn: "Устгах", ko: "삭제" },
@@ -32,6 +53,7 @@ const C = {
     ko: "선택한 영상을 영구 삭제할까요? 되돌릴 수 없습니다.",
   },
   done: { en: "Done", mn: "Боллоо", ko: "완료" },
+  undo: { en: "Undo", mn: "Буцаах", ko: "되돌리기" },
   empty: { en: "No videos match.", mn: "Тохирох видео алга.", ko: "일치하는 영상이 없습니다." },
   colTitle: { en: "Video", mn: "Видео", ko: "영상" },
   colKind: { en: "Use", mn: "Ашиглалт", ko: "용도" },
@@ -39,6 +61,9 @@ const C = {
   colDate: { en: "Added", mn: "Нэмсэн", ko: "추가됨" },
   feed: { en: "Feed", mn: "Хуудас", ko: "피드" },
   training: { en: "Training", mn: "Сургалт", ko: "학습" },
+  selectFeed: { en: "Select feed", mn: "Хуудас сонгох", ko: "피드 선택" },
+  selectTraining: { en: "Select training", mn: "Сургалт сонгох", ko: "학습 선택" },
+  renamePrompt: { en: "New title for this video", mn: "Видеоны шинэ гарчиг", ko: "이 영상의 새 제목" },
 } as const;
 
 export function ProjectContentTable({
@@ -57,6 +82,7 @@ export function ProjectContentTable({
   const fetchVideos = useServerFn(listProjectVideos);
   const removeVideo = useServerFn(permanentlyDeleteVideo);
   const rebuildConcepts = useServerFn(rebuildProjectConcepts);
+  const startMining = useServerFn(startMiningJobs);
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -83,18 +109,58 @@ export function ProjectContentTable({
     enabled: Boolean(userId),
   });
 
+  const { data: personas = [] } = useQuery<Persona[]>({
+    queryKey: ["personas", userId],
+    queryFn: () => listPersonas(userId),
+    enabled: Boolean(userId),
+  });
+
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const allPicked = useMemo(() => rows.length > 0 && rows.every((r) => picked.includes(r.id)), [rows, picked]);
 
   const refresh = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["project-table", userId, project.id] });
-    await queryClient.invalidateQueries({ queryKey: ["project-content", userId, project.id] });
+    await queryClient.invalidateQueries({ queryKey: ["project-table", userId] });
+    await queryClient.invalidateQueries({ queryKey: ["project-content", userId] });
+    await queryClient.invalidateQueries({ queryKey: ["projects", userId] });
     await queryClient.invalidateQueries({ queryKey: ["graph-summary"] });
     await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
+    await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
     setPicked([]);
     onChanged?.();
+  };
+
+  const rebuildMaps = async (extraProjectId?: string | null) => {
+    // The knowledge map counts videos, so it must be re-indexed after a bulk
+    // move or delete — otherwise topics keep counting videos that are gone.
+    for (const projectId of [project.id, ...(extraProjectId ? [extraProjectId] : [])]) {
+      try {
+        await rebuildConcepts({ data: { projectId } });
+      } catch {
+        /* the map can still be rebuilt by hand */
+      }
+    }
+  };
+
+  /** Toast with a 10-second Undo that moves the same videos back here. */
+  const doneWithUndo = (ids: string[], message?: string) => {
+    toast.success(message ?? t("done"), {
+      duration: 10_000,
+      action: {
+        label: t("undo"),
+        onClick: () => {
+          void (async () => {
+            setBusy(true);
+            for (const id of ids) await moveProjectContent(id, project.id);
+            await rebuildMaps();
+            setBusy(false);
+            await refresh();
+          })();
+        },
+      },
+    });
   };
 
   const runBulk = async (
@@ -112,19 +178,102 @@ export function ProjectContentTable({
         failed += 1;
       }
     }
-    // The knowledge map counts videos, so it must be re-indexed after a bulk
-    // move or delete — otherwise topics keep counting videos that are gone.
-    for (const projectId of [project.id, ...(targetProjectId ? [targetProjectId] : [])]) {
-      try {
-        await rebuildConcepts({ data: { projectId } });
-      } catch {
-        /* the map can still be rebuilt by hand */
-      }
-    }
+    await rebuildMaps(targetProjectId);
     setBusy(false);
     if (failed > 0) toast.error(`${failed}`);
     else toast.success(t("done"));
     await refresh();
+  };
+
+  /** Bulk moves that go through a "where to" helper rather than a per-id call. */
+  const runGroupMove = async (
+    mover: () => Promise<{ projectId: string | null; error: string | null }>,
+    message?: string,
+  ) => {
+    const ids = [...picked];
+    setBusy(true);
+    const { projectId: targetId, error } = await mover();
+    if (error) {
+      setBusy(false);
+      toast.error(error);
+      return;
+    }
+    await rebuildMaps(targetId);
+    setBusy(false);
+    doneWithUndo(ids, message);
+    await refresh();
+  };
+
+  const moveToProject = async (target: string) => {
+    if (target === NEW_PROJECT) {
+      const title = window.prompt(t("newProjectName"))?.trim();
+      if (!title) return;
+      const { project: created, error } = await createProject(userId, {
+        title,
+        personaId: project.persona_id ?? null,
+        creatorName: project.creator_name,
+        creatorAvatarUrl: project.creator_avatar_url,
+      });
+      if (error || !created) {
+        toast.error(error ?? "Could not create the project");
+        return;
+      }
+      await runGroupMove(async () => {
+        const err = await moveSelectedInto(created.id);
+        return { projectId: err ? null : created.id, error: err };
+      });
+      return;
+    }
+    await runGroupMove(async () => {
+      const err = await moveSelectedInto(target);
+      return { projectId: err ? null : target, error: err };
+    });
+  };
+
+  const moveSelectedInto = async (targetId: string): Promise<string | null> => {
+    for (const id of picked) {
+      const err = await moveProjectContent(id, targetId);
+      if (err) return err;
+    }
+    return null;
+  };
+
+  const remine = async () => {
+    if (!project.persona_id) {
+      toast.error(t("remineNeedsPersona"));
+      return;
+    }
+    const urls = rows.filter((r) => picked.includes(r.id) && r.sourceUrl).map((r) => r.sourceUrl);
+    if (urls.length === 0) return;
+    setBusy(true);
+    let failed = 0;
+    for (const url of urls) {
+      try {
+        await startMining({
+          data: {
+            url,
+            personaId: project.persona_id,
+            projectId: project.id,
+            force: true,
+            publishToFeed: false,
+          },
+        });
+      } catch (error) {
+        failed += 1;
+        if (failed === 1) toast.error(error instanceof Error ? error.message : String(error));
+      }
+    }
+    setBusy(false);
+    if (failed === 0) toast.success(t("remineDone"));
+    await queryClient.invalidateQueries({ queryKey: ["mining-jobs", userId] });
+  };
+
+  const renameRow = async (id: string, current: string) => {
+    const title = window.prompt(t("renamePrompt"), current)?.trim();
+    if (!title || title === current) return;
+    const error = await updateProjectContent(id, { title });
+    if (error) toast.error(error);
+    else await refresh();
   };
 
   return (
@@ -133,6 +282,20 @@ export function ProjectContentTable({
         <h3 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
           {t("title")} <span className="text-muted-foreground">({total})</span>
         </h3>
+        <button
+          type="button"
+          onClick={() => setPicked(rows.filter((r) => r.kind !== "TRAINING_ONLY").map((r) => r.id))}
+          className="rounded-lg border border-border px-2 py-1 text-[11px] text-muted-foreground"
+        >
+          {t("selectFeed")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPicked(rows.filter((r) => r.kind === "TRAINING_ONLY").map((r) => r.id))}
+          className="rounded-lg border border-border px-2 py-1 text-[11px] text-muted-foreground"
+        >
+          {t("selectTraining")}
+        </button>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -153,7 +316,7 @@ export function ProjectContentTable({
             onChange={(e) => {
               const target = e.target.value;
               e.target.value = "";
-              if (target) void runBulk((id) => moveProjectContent(id, target), target);
+              if (target) void moveToProject(target);
             }}
             className="rounded-lg border border-border bg-background px-2 py-1 text-foreground"
           >
@@ -161,7 +324,56 @@ export function ProjectContentTable({
             {projects.filter((p) => p.id !== project.id).map((p) => (
               <option key={p.id} value={p.id}>{p.title}</option>
             ))}
+            <option value={NEW_PROJECT}>{t("newProject")}</option>
           </select>
+          {personas.length > 0 ? (
+            <select
+              defaultValue=""
+              disabled={busy}
+              onChange={(e) => {
+                const target = e.target.value;
+                e.target.value = "";
+                const persona = personas.find((p) => p.id === target);
+                if (persona) {
+                  void runGroupMove(() => moveContentToPersona(picked, persona.id, persona.name));
+                }
+              }}
+              className="rounded-lg border border-border bg-background px-2 py-1 text-foreground"
+            >
+              <option value="">{t("movePersona")}</option>
+              {personas.filter((p) => p.id !== project.persona_id).map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          ) : null}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              const title = window.prompt(t("newProjectName"))?.trim();
+              if (!title) return;
+              void runGroupMove(() => splitProject(project.id, picked, title));
+            }}
+            className="rounded-lg border border-border px-2 py-1 text-foreground"
+          >
+            {t("split")}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void runGroupMove(() => unfileContent(picked), t("excludeDone"))}
+            className="rounded-lg border border-border px-2 py-1 text-foreground"
+          >
+            {t("exclude")}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void remine()}
+            className="rounded-lg border border-border px-2 py-1 text-foreground"
+          >
+            {t("remine")}
+          </button>
           <button
             type="button"
             disabled={busy}
@@ -217,6 +429,7 @@ export function ProjectContentTable({
                 <th className="py-2">{t("colKind")}</th>
                 <th className="hidden py-2 sm:table-cell">{t("colTags")}</th>
                 <th className="hidden py-2 sm:table-cell">{t("colDate")}</th>
+                <th className="w-8 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -240,6 +453,16 @@ export function ProjectContentTable({
                   </td>
                   <td className="hidden py-2 text-muted-foreground sm:table-cell">
                     {new Date(row.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="py-2">
+                    <button
+                      type="button"
+                      aria-label={`Rename ${row.title}`}
+                      onClick={() => void renameRow(row.id, row.title)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}
