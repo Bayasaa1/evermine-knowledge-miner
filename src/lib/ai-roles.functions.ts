@@ -94,3 +94,10 @@ export const testAiRoleKey = createServerFn({ method: "POST" })
     const { testRoleKey } = await import("@/lib/user-ai.server");
     return testRoleKey(context.userId, data.role, ROLE_PROVIDERS[data.role][0]!);
   });
+
+export const testAllAiRoles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { testRoleKey } = await import("@/lib/user-ai.server");
+    return Promise.all(AI_ROLES.map(async (role) => ({ role, ...(await testRoleKey(context.userId, role, ROLE_PROVIDERS[role][0]!)) })));
+  });

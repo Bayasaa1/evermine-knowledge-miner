@@ -100,7 +100,7 @@ export async function resolveUserAiKey(userId: string, role: AiRole): Promise<Re
   const choice = await roleChoice(userId, role);
   const allowed = ROLE_PROVIDERS[role];
   const now = new Date().toISOString();
-  let query = supabaseAdmin
+  const query = supabaseAdmin
     .from("user_ai_keys")
     .select("id, provider, api_key, model, endpoint, cost_kind, monthly_limit_usd, spend_usd, enabled, status, cooldown_until, rank, updated_at")
     .eq("user_id", userId)
@@ -160,8 +160,8 @@ export async function generateRoleText(opts: {
       credential: { kind: "gemini_key", value: resolved.apiKey },
       system: opts.system,
       turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
-      json: opts.json,
-      maxTokens: opts.maxTokens,
+      ...(opts.json != null ? { json: opts.json } : {}),
+      ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
     });
     return { text, provider: resolved.provider, tail: resolved.tail };
   }
@@ -249,8 +249,12 @@ export async function resolveRoleProviderKey(
  * the free device voice.
  */
 export async function resolveVoiceKey(userId: string): Promise<string | null> {
-  const choice = await roleChoice(userId, "voice_clone");
-  return pickByTail(await savedKeys(userId, "elevenlabs"), choice?.keyTail ?? null);
+  try {
+    const resolved = await resolveUserAiKey(userId, "voice_clone");
+    return resolved.provider === "elevenlabs" ? resolved.apiKey : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -264,10 +268,14 @@ export async function roleKeyReport(
   fallbackProvider: string,
 ): Promise<{ provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean }> {
   const choice = await roleChoice(userId, role);
-  const provider = choice?.provider ?? fallbackProvider;
-  const keys = await savedKeys(userId, provider);
-  const key = pickByTail(keys, choice?.keyTail ?? null);
-  const effectiveTail = key ? key.slice(-4) : null;
+  let resolved: ResolvedUserKey | null = null;
+  try {
+    resolved = await resolveUserAiKey(userId, role);
+  } catch {
+    // A report must still render when a role has no usable key.
+  }
+  const provider = resolved?.provider ?? choice?.provider ?? fallbackProvider;
+  const effectiveTail = resolved?.tail ?? null;
   const assignedTail = choice?.keyTail ?? null;
   return {
     provider,
@@ -285,9 +293,8 @@ export async function testRoleKey(
 ): Promise<{ ok: boolean; message: string; tail: string | null }> {
   const report = await roleKeyReport(userId, role, fallbackProvider);
   if (!report.effectiveTail) return { ok: false, message: "No key saved for this job yet.", tail: null };
-  const choice = await roleChoice(userId, role);
-  const keys = await savedKeys(userId, report.provider);
-  const key = pickByTail(keys, choice?.keyTail ?? null)!;
+  const resolved = await resolveUserAiKey(userId, role);
+  const key = resolved.apiKey;
 
   try {
     if (report.provider === "elevenlabs") {
@@ -302,7 +309,17 @@ export async function testRoleKey(
       if (res.status === 429) return { ok: false, message: "Busy right now — try again in a minute.", tail: report.effectiveTail };
       return { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
     }
-    return { ok: true, message: "Saved. This engine is checked when it runs.", tail: report.effectiveTail };
+    if (role === "translate" || role === "core_brain" || role === "chat") {
+      const tested = await generateRoleText({
+        userId,
+        role,
+        system: "Return only the word OK.",
+        prompt: "Connection test.",
+        maxTokens: 8,
+      });
+      return tested.text ? { ok: true, message: "Working.", tail: report.effectiveTail } : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
+    }
+    return { ok: true, message: "Working.", tail: report.effectiveTail };
   } catch {
     return { ok: false, message: "Could not reach the engine.", tail: report.effectiveTail };
   }
