@@ -14,8 +14,7 @@ const schema = z.object({
  * Display-layer translation. The Core Brain JSON stays English in the database;
  * this only renders English source strings into the viewer's active language.
  *
- * Translation runs on the viewer's OWN free Gemini access — a key from their
- * device vault. Without one, the original text
+ * Translation runs on the viewer's selected account AI key. Without one, the original text
  * comes back with `blocked: "no_key"` so the app can say why instead of
  * silently showing untranslated strings.
  */
@@ -24,7 +23,7 @@ export const translateTexts = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(
     async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; via?: "key" }> => {
-    // Abuse guard: anonymous callers share a per-IP sliding window.
+    // Abuse guard for repeated translation requests.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
     const ip =

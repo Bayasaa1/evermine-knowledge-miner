@@ -8,6 +8,7 @@
  * never shows paid names and the other way round.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDown,
   ArrowUp,
@@ -25,7 +26,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
 import { adviceFor, recommendationFor, suggestedTeam, type RecLevel } from "@/lib/key-advice";
-import { saveUserAiKey, deleteUserAiKey } from "@/lib/user-ai-keys.functions";
+import { saveUserAiKey, deleteUserAiKey, getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import {
   addKey,
   DuplicateKeyError,
@@ -389,6 +390,7 @@ export function AiKeysCard({
   const { lang } = useLang();
   const t = COPY[lang as keyof typeof COPY] ?? COPY.en;
   const { isAuthenticated } = useAuth();
+  const loadAccountKeys = useServerFn(getUserAiKeyStatus);
   const [rows, setRows] = useState<SavedKey[]>([]);
   const [mode, setMode] = useState<AddMode>(null);
   const [provider, setProvider] = useState<ProviderId>("gemini");
@@ -401,11 +403,39 @@ export function AiKeysCard({
   const advice = useMemo(() => adviceFor(category, lang), [category, lang]);
 
   const refresh = useCallback(async () => {
-    const all = await listAllKeys();
+    const local = await listAllKeys();
+    let all = local;
+    if (isAuthenticated) {
+      try {
+        const account = await loadAccountKeys();
+        all = account.flatMap((row, index): SavedKey[] => {
+          const providerInfo = findProviderInfo(row.provider as ProviderId);
+          if (!providerInfo) return [];
+          return [{
+            id: row.id,
+            provider: providerInfo,
+            label: row.label || providerInfo.label,
+            maskedTail: row.tail,
+            state: row.status === "invalid" ? "rejected" : row.status === "exhausted" ? "exhausted" : "ok",
+            addedAt: new Date(row.createdAt).getTime(),
+            rank: index + 1,
+            callsToday: 0,
+            cost: row.costKind as SavedKey["cost"],
+            enabled: row.enabled,
+            monthlyCapUsd: row.monthlyLimitUsd,
+            spendUsd: row.spendUsd,
+            ...(row.model ? { model: row.model } : {}),
+            ...(row.endpoint ? { endpoint: row.endpoint } : {}),
+          }];
+        });
+      } catch {
+        // The local list remains available while authentication is settling.
+      }
+    }
     setRows(all);
     onChange?.(all);
     return all;
-  }, [onChange]);
+  }, [isAuthenticated, loadAccountKeys, onChange]);
 
   useEffect(() => {
     void refresh();
@@ -477,7 +507,18 @@ export function AiKeysCard({
       }
       if (isAuthenticated) {
         try {
-          await saveUserAiKey({ data: { provider, apiKey: key } });
+          await saveUserAiKey({
+            data: {
+              provider,
+              apiKey: key,
+              label: provider === "custom" ? custom.label.trim() : info.label,
+              model: provider === "custom" ? custom.model.trim() : result.model,
+              endpoint: provider === "custom" ? custom.endpoint.trim() : undefined,
+              costKind: info.paid ? "paid" : "free-tier",
+              rank: pendingTop ? 1 : 9000,
+            },
+          });
+          await refresh();
         } catch {
           /* the device save already succeeded */
         }
@@ -492,8 +533,6 @@ export function AiKeysCard({
 
   const drop = useCallback(
     async (row: SavedKey) => {
-      await removeKey(row);
-      await refresh();
       if (isAuthenticated) {
         try {
           await deleteUserAiKey({ data: { provider: row.provider.id, tail: row.maskedTail } });
@@ -501,6 +540,8 @@ export function AiKeysCard({
           /* fine */
         }
       }
+      await removeKey(row).catch(() => undefined);
+      await refresh();
       toast.success(t.removed);
     },
     [isAuthenticated, refresh, t],
@@ -508,7 +549,7 @@ export function AiKeysCard({
 
   const shift = useCallback(
     async (row: SavedKey, dir: "up" | "down") => {
-      await moveKey(row.id, dir);
+      await moveKey(row.id, dir).catch(() => undefined);
       await refresh();
     },
     [refresh],

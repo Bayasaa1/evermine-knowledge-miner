@@ -111,7 +111,7 @@ async function flush() {
             window.location.href = "/creator#engines";
           };
           const quotaMsg =
-            "Translation is paused because Google limited this Gemini project. Wait for its quota window to reset or use a key from a different Google Cloud project; extra keys from the same project share one quota.";
+            "Translation is paused because the selected AI reached its limit. Automatic switching will use the next compatible enabled key when available.";
           void import("sonner").then(({ toast }) =>
             toast.error(state === "quota" ? quotaMsg : "Translation needs your own free Gemini key — add it once in Engines.",
               {
