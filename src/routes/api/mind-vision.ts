@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/mind-vision")({
           "@/lib/user-ai.server"
         );
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body);
+          const credential = await resolveGeminiCredential(auth.userId, body, "face_clone");
           const seen = await geminiGenerate({
             credential,
             model: "gemini-2.5-flash",

@@ -23,7 +23,7 @@ export const auditWithBuiltIn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<string> => {
     const { resolveGeminiCredential, geminiGenerate, UserAiError } = await import("@/lib/user-ai.server");
     try {
-      const credential = await resolveGeminiCredential(context.userId, data);
+      const credential = await resolveGeminiCredential(context.userId, data, "core_brain");
       return await geminiGenerate({
         credential,
         model: "gemini-2.5-flash",
