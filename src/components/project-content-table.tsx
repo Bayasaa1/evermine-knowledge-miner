@@ -145,7 +145,7 @@ export function ProjectContentTable({
   };
 
   /** Toast with a 10-second Undo that moves the same videos back here. */
-  const doneWithUndo = (ids: string[], message?: string) => {
+  const doneWithUndo = (ids: string[], message?: string, undoSourceProjectId?: string | null) => {
     toast.success(message ?? t("done"), {
       duration: 10_000,
       action: {
@@ -154,7 +154,7 @@ export function ProjectContentTable({
           void (async () => {
             setBusy(true);
             for (const id of ids) await moveProjectContent(id, project.id);
-            await rebuildMaps();
+            await rebuildMaps(undoSourceProjectId);
             setBusy(false);
             await refresh();
           })();
@@ -200,7 +200,7 @@ export function ProjectContentTable({
     }
     await rebuildMaps(targetId);
     setBusy(false);
-    doneWithUndo(ids, message);
+    doneWithUndo(ids, message, targetId);
     await refresh();
   };
 
