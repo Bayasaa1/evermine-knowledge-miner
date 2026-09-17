@@ -25,6 +25,11 @@ export function clearRoleCache(): void {
 async function tailForRole(role?: string): Promise<string | null> {
   if (!role) return null;
   try {
+    // Signed-out visitors have no saved choices; asking would only raise a
+    // pointless "not signed in" error in the console.
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return null;
     if (!rolesCache || Date.now() - rolesCache.at > 60_000) {
       const { listAiRoles } = await import("@/lib/ai-roles.functions");
       rolesCache = { at: Date.now(), rows: await listAiRoles() };
