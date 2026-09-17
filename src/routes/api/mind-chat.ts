@@ -392,7 +392,7 @@ export const Route = createFileRoute("/api/mind-chat")({
               maxTokens: 1024,
               subjectKind: "mind",
               subjectId: String(body.mindId ?? ""),
-              subjectLabel: String(body.name ?? body.mindId ?? "Chat"),
+              subjectLabel: String(body.mindId ?? "Chat"),
             });
             if (body.stream === true) {
               return new Response(`data: ${JSON.stringify({ delta: generated.text })}\n\ndata: [DONE]\n\n`, {
@@ -440,7 +440,7 @@ export const Route = createFileRoute("/api/mind-chat")({
                     role: "chat",
                     subjectKind: "mind",
                     subjectId: String(body.mindId ?? ""),
-                    subjectLabel: String(body.name ?? body.mindId ?? "Chat"),
+                    subjectLabel: String(body.mindId ?? "Chat"),
                   },
                   onDelta: (delta) =>
                     controller.enqueue(enc.encode(`data: ${JSON.stringify({ delta })}\n\n`)),
@@ -470,7 +470,7 @@ export const Route = createFileRoute("/api/mind-chat")({
               role: "chat",
               subjectKind: "mind",
               subjectId: String(body.mindId ?? ""),
-              subjectLabel: String(body.name ?? body.mindId ?? "Chat"),
+              subjectLabel: String(body.mindId ?? "Chat"),
             },
           });
           return jsonReply(text);
