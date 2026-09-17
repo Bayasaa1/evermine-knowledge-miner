@@ -681,3 +681,185 @@ export function SavedMinds({
     </section>
   );
 }
+
+/**
+ * The small setup box on a saved (not yet mined) video: what kind of mind to
+ * build, which AI key runs it, and which persona and project it is filed under.
+ * Pressing Start queues the job right here — no trip through Creator Studio.
+ */
+function MineSetup({
+  lang,
+  userId,
+  personaId,
+  sources,
+  onDone,
+}: {
+  lang: Lang;
+  userId: string;
+  personaId: string | null;
+  sources: { url: string; title: string; projectId: string | null; payload: SourcePayload | null }[];
+  onDone: () => void;
+}) {
+  const startMining = useServerFn(startMiningJobs);
+  const keyStatus = useServerFn(getUserAiKeyStatus);
+
+  const c = {
+    type: pickCopy({ en: "What to build", mn: "Юу бүтээх вэ", ko: "무엇을 만들까요" }, lang),
+    ai: pickCopy({ en: "Which AI", mn: "Аль AI", ko: "어떤 AI" }, lang),
+    newest: pickCopy({ en: "Newest key", mn: "Хамгийн сүүлийн түлхүүр", ko: "최신 키" }, lang),
+    persona: pickCopy({ en: "Persona", mn: "Дүр", ko: "페르소나" }, lang),
+    project: pickCopy({ en: "Project", mn: "Төсөл", ko: "프로젝트" }, lang),
+    newProject: pickCopy({ en: "New project…", mn: "Шинэ төсөл…", ko: "새 프로젝트…" }, lang),
+    projectName: pickCopy({ en: "Project name", mn: "Төслийн нэр", ko: "프로젝트 이름" }, lang),
+    start: pickCopy({ en: "Start mining", mn: "Олборлож эхлэх", ko: "마이닝 시작" }, lang),
+    pickPersona: pickCopy({ en: "Pick a persona", mn: "Дүр сонгоно уу", ko: "페르소나를 선택하세요" }, lang),
+    queued: pickCopy({ en: "Mining started", mn: "Олборлолт эхэллээ", ko: "마이닝이 시작되었습니다" }, lang),
+  };
+
+  const [category, setCategory] = useState<string>("knowledge");
+  const [tail, setTail] = useState("");
+  const [persona, setPersona] = useState<string>(personaId ?? "");
+  const [project, setProject] = useState<string>(sources[0]?.projectId ?? "");
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const { data: personas = [] } = useQuery<Persona[]>({
+    queryKey: ["personas", userId],
+    queryFn: () => listPersonas(userId),
+    enabled: Boolean(userId),
+  });
+
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["persona-projects", userId, persona || null],
+    queryFn: () => listProjectsByPersona(userId, persona || null),
+    enabled: Boolean(userId),
+  });
+
+  const { data: keys = [] } = useQuery({
+    queryKey: ["ai-key-status", userId],
+    queryFn: () => keyStatus(),
+    enabled: Boolean(userId),
+  });
+  const geminiKeys = keys.filter((k) => k.provider === "gemini");
+
+  const start = async () => {
+    if (!persona) {
+      toast.error(c.pickPersona);
+      return;
+    }
+    setBusy(true);
+    try {
+      let target = project;
+      if (!target || target === "__new") {
+        const { project: made, error } = await createProject(userId, {
+          title: newName.trim() || sources[0]?.title || "New project",
+          personaId: persona,
+          creatorName: personas.find((p) => p.id === persona)?.name ?? "",
+        });
+        if (error || !made) throw new Error(error ?? "Could not create that project");
+        target = made.id;
+      }
+      const { bestGeminiKey } = await import("@/lib/api-keys");
+      const localKey = tail ? null : await bestGeminiKey();
+      for (const s of sources) {
+        const video = s.payload?.video;
+        await startMining({
+          data: {
+            url: s.url,
+            category,
+            personaId: persona,
+            projectId: target,
+            ...(tail ? { apiKeyTail: tail } : localKey ? { apiKey: localKey } : {}),
+            assessment: {
+              ...defaultAssessmentFor(category),
+              sourceTitle: video?.title ?? s.title,
+              sourceDescription: video?.description ?? "",
+              sourceChannel: video?.channel ?? "",
+              sourceDurationLabel: video?.durationLabel ?? "",
+              sourcePublishedAt: video?.publishedAt ?? "",
+              outputLanguage: lang,
+            },
+          },
+        });
+      }
+      toast.success(c.queued);
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const field = "w-full rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary";
+
+  return (
+    <div className="mt-2 grid gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5 sm:grid-cols-2">
+      <label className="block text-[11px] text-muted-foreground">
+        {c.type}
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={`mt-1 ${field}`}>
+          {ACTIVE_CATEGORIES.map((key) => (
+            <option key={key} value={key}>
+              {CATEGORY_LABELS[key][lang === "mn" || lang === "ko" ? lang : "en"].title}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block text-[11px] text-muted-foreground">
+        {c.ai}
+        <select value={tail} onChange={(e) => setTail(e.target.value)} className={`mt-1 ${field}`}>
+          <option value="">{c.newest}</option>
+          {geminiKeys.map((k) => (
+            <option key={k.tail} value={k.tail}>
+              Gemini ···{k.tail}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block text-[11px] text-muted-foreground">
+        {c.persona}
+        <select
+          value={persona}
+          onChange={(e) => { setPersona(e.target.value); setProject(""); }}
+          className={`mt-1 ${field}`}
+        >
+          <option value="">{c.pickPersona}</option>
+          {personas.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block text-[11px] text-muted-foreground">
+        {c.project}
+        <select value={project} onChange={(e) => setProject(e.target.value)} className={`mt-1 ${field}`}>
+          <option value="__new">{c.newProject}</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>{p.title}</option>
+          ))}
+        </select>
+      </label>
+
+      {(!project || project === "__new") && (
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder={c.projectName}
+          className={`${field} sm:col-span-2`}
+        />
+      )}
+
+      <button
+        type="button"
+        onClick={() => void start()}
+        disabled={busy}
+        className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50 sm:col-span-2"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {c.start} {sources.length > 1 ? `(${sources.length})` : ""}
+      </button>
+    </div>
+  );
+}
