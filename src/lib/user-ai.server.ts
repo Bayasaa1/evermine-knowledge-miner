@@ -567,6 +567,8 @@ export async function geminiStream(opts: {
   turns: GeminiTurn[];
   maxTokens?: number;
   onDelta: (text: string) => void;
+  /** When given, the call is written to the account usage history. */
+  usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
   const model = opts.model ?? "gemini-2.5-flash";
   const { url, headers } = geminiUrl(model, "streamGenerateContent?alt=sse", opts.credential);
@@ -590,7 +592,13 @@ export async function geminiStream(opts: {
   } catch {
     throw new GeminiHttpError(502, "Could not reach Gemini.");
   }
-  if (!res.ok) await raiseForGemini(res);
+  if (!res.ok) {
+    if (opts.usage) {
+      const { recordAiUsage } = await import("@/lib/ai-usage.server");
+      await recordAiUsage({ provider: "gemini", model, ...opts.usage }, { status: res.status === 429 ? "quota" : "error", errorCode: String(res.status) });
+    }
+    await raiseForGemini(res);
+  }
   const streamBody = res.body;
   if (!streamBody) throw new GeminiHttpError(502, "Gemini returned no stream.");
 
@@ -598,6 +606,8 @@ export async function geminiStream(opts: {
   const decoder = new TextDecoder();
   let buffer = "";
   let full = "";
+  let tokens = { inputTokens: 0, outputTokens: 0 };
+  const { readUsageTokens, recordAiUsage } = await import("@/lib/ai-usage.server");
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -612,6 +622,8 @@ export async function geminiStream(opts: {
         const evt = JSON.parse(payload) as {
           candidates?: { content?: { parts?: { text?: string }[] } }[];
         };
+        const counted = readUsageTokens(evt);
+        if (counted.inputTokens || counted.outputTokens) tokens = counted;
         const delta = (evt.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
         if (delta) {
           full += delta;
@@ -622,6 +634,7 @@ export async function geminiStream(opts: {
       }
     }
   }
+  if (opts.usage) await recordAiUsage({ provider: "gemini", model, ...opts.usage }, tokens);
   return full.trim();
 }
 
