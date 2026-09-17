@@ -28,25 +28,25 @@ import {
 } from "@/lib/mind-json";
 
 const C = {
-  title: { en: "JSON Surgical Editor", mn: "JSON Мэс Засал Засварлагч", ko: "JSON 정밀 편집기" },
+  title: { en: "Fix this mind", mn: "Энэ оюуныг засах", ko: "이 마인드 고치기" },
   desc: {
-    en: "Erase bad 5-minute chunks, overrule contradictions and inject Q&A patches. Saving creates a new version.",
-    mn: "Муу 5 минутын хэсгийг устгаж, зөрчилтэй мэдэгдлийг залруулж, Q&A нөхөөс нэмнэ. Хадгалахад шинэ хувилбар үүснэ.",
-    ko: "잘못된 5분 청크를 지우고, 모순을 정정하고, Q&A 패치를 추가하세요. 저장하면 새 버전이 생성됩니다.",
+    en: "Remove a bad part, correct something wrong, or add a question and answer. Saving keeps the old copy too.",
+    mn: "Муу хэсгийг хасах, буруу зүйлийг засах, эсвэл асуулт хариулт нэмэх. Хадгалахад хуучин хувь нь бас үлдэнэ.",
+    ko: "잘못된 부분을 지우거나, 틀린 내용을 고치거나, 질문과 답을 추가하세요. 저장해도 예전 사본은 남습니다.",
   },
-  chunks: { en: "Chunk Eraser", mn: "Хэсэг Устгагч", ko: "청크 삭제" },
-  noChunks: { en: "No timestamped chunks found in this Mind.", mn: "Энэ оюунд цагийн тэмдэгтэй хэсэг олдсонгүй.", ko: "타임스탬프 청크를 찾을 수 없습니다." },
-  erase: { en: "Erase chunk", mn: "Хэсгийг устгах", ko: "청크 삭제" },
-  annotations: { en: "Conflict Annotations", mn: "Зөрчлийн Тэмдэглэл", ko: "충돌 주석" },
-  statement: { en: "Contradictory statement", mn: "Зөрчилтэй мэдэгдэл", ko: "모순된 진술" },
-  overrule: { en: "Your overrule / correction", mn: "Таны залруулга", ko: "정정 내용" },
-  faq: { en: "FAQ Patch Injector", mn: "FAQ Нөхөөс", ko: "FAQ 패치 주입" },
+  chunks: { en: "Bad part? Remove it", mn: "Муу хэсэг үү? Устга", ko: "잘못된 부분 지우기" },
+  noChunks: { en: "This mind has no time-marked parts.", mn: "Энэ оюунд цагаар тэмдэглэсэн хэсэг алга.", ko: "시간 표시된 부분이 없습니다." },
+  erase: { en: "Remove", mn: "Устгах", ko: "지우기" },
+  annotations: { en: "Something wrong? Correct it", mn: "Буруу зүйл байна уу? Зас", ko: "틀린 내용 고치기" },
+  statement: { en: "What it says wrong", mn: "Буруу хэлсэн зүйл", ko: "잘못 말한 내용" },
+  overrule: { en: "What it should say", mn: "Юу гэж хэлэх ёстой вэ", ko: "올바른 내용" },
+  faq: { en: "Add a question and answer", mn: "Асуулт хариулт нэмэх", ko: "질문과 답 추가" },
   question: { en: "Question", mn: "Асуулт", ko: "질문" },
-  answer: { en: "Correct answer", mn: "Зөв хариулт", ko: "올바른 답변" },
+  answer: { en: "Right answer", mn: "Зөв хариулт", ko: "올바른 답" },
   add: { en: "Add", mn: "Нэмэх", ko: "추가" },
-  notes: { en: "Release notes for this patch", mn: "Энэ засварын тэмдэглэл", ko: "이 패치의 릴리스 노트" },
-  save: { en: "Save as new version", mn: "Шинэ хувилбар болгож хадгалах", ko: "새 버전으로 저장" },
-  saved: { en: "Patched version saved", mn: "Засварласан хувилбар хадгалагдлаа", ko: "패치 버전이 저장되었습니다" },
+  notes: { en: "What changed (short note)", mn: "Юу өөрчлөгдсөн (богино тэмдэглэл)", ko: "변경 내용 (짧은 메모)" },
+  save: { en: "Save", mn: "Хадгалах", ko: "저장" },
+  saved: { en: "Saved", mn: "Хадгаллаа", ko: "저장되었습니다" },
 } as const;
 
 export function JsonSurgicalEditor({
