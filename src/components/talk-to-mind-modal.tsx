@@ -38,6 +38,10 @@ export function TalkToMindModal({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
+  // How much the AI may add on top of what this mind actually learned.
+  // 0 = only the mined records, 100 = the AI fills every gap.
+  const [aiLevel, setAiLevel] = useState(100);
+  const [showLevel, setShowLevel] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
