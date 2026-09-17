@@ -271,10 +271,23 @@ export function VaultHub({
             lang={lang}
             name={p.name}
             handle={p.handle}
+            bio={p.bio}
             avatarUrl={p.avatar_url}
             isActive={p.is_active}
             onOpen={() => setSelected({ id: p.id, name: p.name })}
             onActivate={async () => { await switchPersona(user.id, p.id); await loadPersonas(); }}
+            onSave={async (patch) => {
+              const error = await updatePersona(p.id, patch);
+              if (error) {
+                toast.error(error);
+                return;
+              }
+              await loadPersonas();
+              // The persona's name rides on its published videos too.
+              await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+              await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
+              toast.success(t("saved"));
+            }}
             onDelete={async () => {
               const error = await deletePersona(p.id);
               if (error) {
