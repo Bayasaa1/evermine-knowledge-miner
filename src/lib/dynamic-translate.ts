@@ -118,22 +118,31 @@ async function flush() {
         // The viewer has no working AI access of their own: stop queueing work
         // and say so once, instead of quietly showing the original language.
         blocked = true;
+        // A block is never permanent: a key can be added, enabled or reset
+        // while the page stays open, so try again a few minutes later.
+        setTimeout(() => {
+          blocked = false;
+          noticeShown = false;
+        }, 5 * 60 * 1000);
         pending.clear();
         for (const t of texts) inflight.delete(`${lang}:${t}`);
         if (!noticeShown) {
           noticeShown = true;
-          const goToEngines = () => {
-            window.location.href = "/creator#engines";
+          const goToKeys = () => {
+            window.location.href = "/keys";
           };
           const quotaMsg =
-            "Translation is paused because the selected AI reached its limit. Automatic switching will use the next compatible enabled key when available.";
+            "Translation is paused because the AI chosen for translating reached its limit. It will switch to your next enabled key automatically.";
           void import("sonner").then(({ toast }) =>
-            toast.error(state === "quota" ? quotaMsg : "Translation needs your own free Gemini key — add it once in Engines.",
+            toast.error(
+              state === "quota"
+                ? quotaMsg
+                : "No working AI key for translating yet. Pick one for “Translating” in the API Manager.",
               {
                 duration: 12_000,
                 // Tapping the action takes the viewer straight to the key setup
                 // guide instead of leaving them stuck on untranslated text.
-                action: { label: "Add key", onClick: goToEngines },
+                action: { label: "Open API Manager", onClick: goToKeys },
               },
             ),
           );

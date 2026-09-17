@@ -31,7 +31,7 @@ export class UserAiError extends Error {
 }
 
 const NO_CREDENTIAL =
-  "This feature needs your own AI key. Add your free Gemini key in Engines — it takes a minute and costs nothing.";
+  "This job has no working AI key yet. Open the API Manager and add or enable a key for it.";
 
 /** Creates a request-scoped client that acts as the bearer-token caller (RLS as them). */
 export function callerClient(request: Request) {
@@ -94,7 +94,7 @@ export type ResolvedUserKey = {
 };
 
 /** One authoritative resolver used by every AI job. It can only return this user's enabled account keys. */
-export async function resolveUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey> {
+export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: string[] = []): Promise<ResolvedUserKey> {
   const { ROLE_PROVIDERS } = await import("@/lib/ai-roles");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const choice = await roleChoice(userId, role);
@@ -110,6 +110,7 @@ export async function resolveUserAiKey(userId: string, role: AiRole): Promise<Re
     .order("updated_at", { ascending: false });
   const { data } = await query;
   const usable = (data ?? []).filter((row) => {
+    if (skipIds.includes(row.id)) return false;
     if (row.status === "invalid") return false;
     if (row.cooldown_until && row.cooldown_until > now) return false;
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return false;
@@ -142,6 +143,20 @@ function isLimitError(error: unknown): boolean {
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
 
+/** Turns a provider failure into a short sentence a person can act on. */
+async function errorDetail(res: Response): Promise<string> {
+  const raw = (await res.text().catch(() => "")).slice(0, 400);
+  let message = raw;
+  try {
+    const parsed = JSON.parse(raw) as { error?: { message?: string } | string; message?: string };
+    const inner = typeof parsed.error === "string" ? parsed.error : parsed.error?.message;
+    message = inner ?? parsed.message ?? raw;
+  } catch {
+    /* keep the bounded raw text */
+  }
+  return `HTTP ${res.status} — ${message || "no details returned"}`;
+}
+
 async function generateRoleTextOnce(opts: {
   resolved: ResolvedUserKey;
   system: string;
@@ -169,19 +184,22 @@ async function generateRoleTextOnce(opts: {
       headers: { "Content-Type": "application/json", "x-api-key": resolved.apiKey, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: [{ role: "user", content: opts.prompt }] }),
     });
-    if (!res.ok) throw new GeminiHttpError(res.status, `Claude request failed (${res.status}).`);
+    if (!res.ok) throw new GeminiHttpError(res.status, `Claude: ${await errorDetail(res)}`);
     const body = await res.json() as { content?: { text?: string }[] };
     return { text: (body.content ?? []).map((part) => part.text ?? "").join(""), ...readUsageTokens(body) };
   }
   const config = OPENAI_COMPATIBLE[resolved.provider];
   const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
   if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
+  // Free community models usually cap well below the Gemini-sized budgets the
+  // callers ask for, and an oversized cap is rejected outright.
+  const cap = Math.min(opts.maxTokens ?? 2048, 4096);
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
-    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: opts.maxTokens ?? 2048, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    body: JSON.stringify({ model: resolved.model || config?.model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
   });
-  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider} request failed (${res.status}).`);
+  if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
   const body = await res.json() as { choices?: { message?: { content?: string } }[] };
   return { text: body.choices?.[0]?.message?.content?.trim() ?? "", ...readUsageTokens(body) };
 }
@@ -239,14 +257,20 @@ export async function generateRoleText(opts: {
     await log(resolved, run);
     return { text: run.text, provider: resolved.provider, tail: resolved.tail };
   } catch (error) {
-    if (!resolved.autoFallback || !isLimitError(error)) throw error;
+    const limit = isLimitError(error);
+    // Auto-switch covers a key that ran out AND a key the provider simply
+    // refuses (wrong model, dead endpoint) — otherwise one bad engine silently
+    // stops translation for the whole app.
+    if (!resolved.autoFallback || error instanceof UserAiError && error.code === "no_credential") throw error;
     await recordAiUsage(
       { userId: opts.userId, role: opts.role, provider: resolved.provider, keyId: resolved.id, keyTail: resolved.tail, subjectKind: opts.subjectKind ?? "other", ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}) },
-      { status: "quota", errorCode: "limit" },
+      { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error as Error).message.slice(0, 120) },
     );
-    const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    await markKeyUnavailable(resolved.id, "exhausted", cooldown);
-    const fallback = await resolveUserAiKey(opts.userId, opts.role);
+    if (limit) {
+      const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      await markKeyUnavailable(resolved.id, "exhausted", cooldown);
+    }
+    const fallback = await resolveUserAiKey(opts.userId, opts.role, limit ? [] : [resolved.id]);
     const run = await call(fallback);
     await log(fallback, run);
     return { text: run.text, provider: fallback.provider, tail: fallback.tail };
@@ -385,8 +409,11 @@ export async function testRoleKey(
       return tested.text ? { ok: true, message: "Working.", tail: report.effectiveTail } : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
     }
     return { ok: true, message: "Working.", tail: report.effectiveTail };
-  } catch {
-    return { ok: false, message: "Could not reach the engine.", tail: report.effectiveTail };
+  } catch (error) {
+    // The old generic "could not reach" hid the real reason (wrong model, bad
+    // key, quota), which made a broken engine impossible to fix.
+    const detail = error instanceof Error ? error.message : "";
+    return { ok: false, message: detail ? detail.slice(0, 180) : "Could not reach the engine.", tail: report.effectiveTail };
   }
 }
 
