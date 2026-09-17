@@ -61,8 +61,8 @@ const COPY = {
     removed: "Key removed.",
     today: "today",
     calls: "calls",
-    working: "working",
-    usedUp: "used up — skipped until it resets",
+    working: "saved",
+    usedUp: "unavailable — skipped",
     rejected: "rejected",
     cap: "Monthly limit",
     on: "On",
@@ -117,8 +117,8 @@ const COPY = {
     removed: "Түлхүүр устгагдлаа.",
     today: "өнөөдөр",
     calls: "дуудлага",
-    working: "ажиллаж байна",
-    usedUp: "дууссан — сэргэх хүртэл алгасна",
+    working: "хадгалсан",
+    usedUp: "ашиглах боломжгүй — алгасна",
     rejected: "татгалзсан",
     cap: "Сарын хязгаар",
     on: "Асаалттай",
@@ -173,8 +173,8 @@ const COPY = {
     removed: "키가 삭제되었습니다.",
     today: "오늘",
     calls: "호출",
-    working: "정상",
-    usedUp: "소진됨 — 초기화까지 건너뜀",
+    working: "저장됨",
+    usedUp: "사용 불가 — 건너뜀",
     rejected: "거부됨",
     cap: "월 한도",
     on: "켜짐",
@@ -296,12 +296,26 @@ async function testKey(
 
     const baseUrl = (custom?.endpoint || provider.baseUrl).replace(/\/+$/, "");
 
-    // A key that can list models is a valid key, whatever the model names are.
+    // Save a model this account can really use. A model-list-only success used
+    // to preserve retired defaults, so the role looked healthy here and then
+    // failed with 404 when translation or Core Brain actually ran.
     if (!custom && provider.modelsPath) {
       const list = await fetch(`${baseUrl}${provider.modelsPath}`, {
         headers: { Authorization: `Bearer ${key}` },
       });
-      if (list.ok) return { ok: true };
+      if (list.ok) {
+        const body = (await list.json().catch(() => ({}))) as {
+          data?: { id?: string }[];
+          models?: { id?: string; name?: string }[];
+        };
+        const available = [
+          ...(body.data ?? []).map((row) => row.id ?? ""),
+          ...(body.models ?? []).map((row) => row.id ?? row.name ?? ""),
+        ].filter((id) => id && !/embed|rerank|whisper|speech|audio|image|moderation/i.test(id));
+        const preferred = testModelsFor(provider).find((model) => available.includes(model));
+        const model = preferred ?? available.find((id) => /instruct|chat|gpt|llama|qwen|mistral|command|sonar/i.test(id));
+        if (model) return { ok: true, model };
+      }
       if (list.status === 401 || list.status === 403) {
         return { ok: false, status: list.status, detail: (await list.text().catch(() => "")).slice(0, 200) };
       }

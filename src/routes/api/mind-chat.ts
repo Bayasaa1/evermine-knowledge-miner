@@ -348,132 +348,29 @@ export const Route = createFileRoute("/api/mind-chat")({
         const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
         const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}`;
 
-        const {
-          resolveGeminiCredential,
-          resolveRoleProviderKey,
-          generateRoleText,
-          geminiStream,
-          geminiGenerate,
-          aiErrorResponse,
-        } = await import("@/lib/user-ai.server");
-
-        // Routing uses the caller's OWN key only. There is no server-stored key
-        // and no shared platform credit anywhere in this path.
-        if (isProvider(body.provider)) {
-          const provider = body.provider;
-          const model = typeof body.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL[provider];
-          const key = (typeof body.apiKey === "string" && body.apiKey.trim()) || "";
-          if (key) {
-            const routed = await callProvider(provider, model, key, systemWithMemory, history);
-            if (routed) return routed;
-          }
-        }
-
-        // The engine the caller assigned to chatting in the API Manager, when
-        // that is not Gemini. Their own saved key, never a platform one.
-        const assigned = await resolveRoleProviderKey(auth.userId, "chat");
-        if (assigned) {
-          if (isProvider(assigned.provider)) {
-            const routed = await callProvider(
-              assigned.provider,
-              DEFAULT_MODEL[assigned.provider],
-              assigned.apiKey,
-              systemWithMemory,
-              history,
-            );
-            if (routed) return routed;
-          }
-          try {
-            const generated = await generateRoleText({
-              userId: auth.userId,
-              role: "chat",
-              system: systemWithMemory,
-              prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
-              maxTokens: 1024,
-              subjectKind: "mind",
-              subjectId: String(body.mindId ?? ""),
-              subjectLabel: String(body.mindId ?? "Chat"),
-            });
-            if (body.stream === true) {
-              return new Response(`data: ${JSON.stringify({ delta: generated.text })}\n\ndata: [DONE]\n\n`, {
-                headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-              });
-            }
-            return jsonReply(generated.text);
-          } catch (err) {
-            return aiErrorResponse(err);
-          }
-        }
-
-        // Default brain: the caller's own Gemini — a key from their vault or
-        // account. There is no shared platform credit to fall back to.
-        let credential;
-        try {
-          credential = await resolveGeminiCredential(auth.userId, body, "chat");
-        } catch (err) {
-          return aiErrorResponse(err);
-        }
+        const { generateRoleText, aiErrorResponse } = await import("@/lib/user-ai.server");
 
         // On a video call the Mind is also told what it can see right now, so it
         // reacts to the person in front of it the way a caller would expect.
         const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
         const systemText = seen ? `${systemWithMemory}\n\nRight now you can see on the video call: ${seen}` : systemWithMemory;
-        const turns = history.map((m) => ({
-          role: (m.role === "user" ? "user" : "model") as "user" | "model",
-          parts: [{ text: m.text }],
-        }));
-
-        // Live mode: forward the answer word by word so the voice clone can start
-        // speaking the first phrase while the rest is still being written. This is
-        // what removes the "wait, then talk" delay on voice and video calls.
-        if (body.stream === true) {
-          const enc = new TextEncoder();
-          const live = new ReadableStream<Uint8Array>({
-            async start(controller) {
-              try {
-                await geminiStream({
-                  credential,
-                  system: systemText,
-                  turns,
-                  usage: {
-                    userId: auth.userId,
-                    role: "chat",
-                    subjectKind: "mind",
-                    subjectId: String(body.mindId ?? ""),
-                    subjectLabel: String(body.mindId ?? "Chat"),
-                  },
-                  onDelta: (delta) =>
-                    controller.enqueue(enc.encode(`data: ${JSON.stringify({ delta })}\n\n`)),
-                });
-                controller.enqueue(enc.encode("data: [DONE]\n\n"));
-              } catch (err) {
-                const message = err instanceof Error ? err.message : "AI request failed.";
-                controller.enqueue(enc.encode(`data: ${JSON.stringify({ error: message })}\n\n`));
-              } finally {
-                controller.close();
-              }
-            },
-          });
-          return new Response(live, {
-            headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
-          });
-        }
-
         try {
-          const text = await geminiGenerate({
-            credential,
+          const generated = await generateRoleText({
+            userId: auth.userId,
+            role: "chat",
             system: systemText,
-            turns,
+            prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
             maxTokens: 1024,
-            usage: {
-              userId: auth.userId,
-              role: "chat",
-              subjectKind: "mind",
-              subjectId: String(body.mindId ?? ""),
-              subjectLabel: String(body.mindId ?? "Chat"),
-            },
+            subjectKind: "mind",
+            subjectId: String(body.mindId ?? ""),
+            subjectLabel: String(body.mindId ?? "Chat"),
           });
-          return jsonReply(text);
+          if (body.stream === true) {
+            return new Response(`data: ${JSON.stringify({ delta: generated.text })}\n\ndata: [DONE]\n\n`, {
+              headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+            });
+          }
+          return jsonReply(generated.text);
         } catch (err) {
           return aiErrorResponse(err);
         }

@@ -491,7 +491,6 @@ function Explore() {
     try {
       // Every answer runs on the caller's own key — the one they assigned to
       // "Chatting" in the API Manager, else their newest working key.
-      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -500,7 +499,6 @@ function Explore() {
           lang,
           messages: history.map((m) => ({ role: m.role, text: m.text })),
           aiLevel,
-          ...(await credentialPayload("chat")),
         }),
       });
       const data = (await res.json()) as { text?: string; error?: string };
