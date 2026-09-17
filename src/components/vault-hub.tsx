@@ -438,6 +438,43 @@ function PersonaWorkspace({
           {/* One card per project — the map itself lives inside a project. */}
           <ProjectGraphOverview lang={lang} userId={userId} personaId={personaId} onOpen={(id) => setOpenId(id)} />
 
+          {/* Videos mined before a persona was picked landed in one-off projects
+              with no persona. They are never hidden: they show here until the
+              creator files them. */}
+          {personaId && unfiled.length > 0 ? (
+            <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+              <p className="text-sm font-semibold text-foreground">{t("unfiled")}</p>
+              <p className="text-xs text-muted-foreground">{t("unfiledDesc")}</p>
+              <ul className="space-y-2">
+                {unfiled.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+                    <button type="button" onClick={() => setOpenId(p.id)} className="min-w-0 flex-1 truncate text-left text-xs font-medium text-foreground">
+                      <Localized text={p.title} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const error = await assignProjectToPersona(p.id, personaId, { creatorName: personaName });
+                        if (error) {
+                          toast.error(error);
+                          return;
+                        }
+                        toast.success(t("moved"));
+                        await queryClient.invalidateQueries({ queryKey: ["unfiled-projects", userId] });
+                        await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
+                        await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+                        void load();
+                      }}
+                      className="rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                    >
+                      {t("moveHere")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
             <FolderPlus className="h-4 w-4 text-primary" />
             <input
