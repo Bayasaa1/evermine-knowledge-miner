@@ -296,8 +296,8 @@ export const Route = createFileRoute("/api/mind-chat")({
           stream?: boolean;
           /** What the Mind currently sees on a video call. */
           seen?: string;
-
-
+          /** 0-100: how much the AI may add on top of the mined knowledge. */
+          aiLevel?: number;
         };
         try {
           body = (await request.json()) as typeof body;
