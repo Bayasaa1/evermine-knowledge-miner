@@ -49,10 +49,12 @@ import {
   type Persona,
 } from "@/lib/personas";
 import {
+  assignProjectToPersona,
   createProject,
   deleteProject,
   listProjectContent,
   listProjectsByPersona,
+  listUnfiledProjects,
   updateProject,
   updateProjectContent,
   type ContentKind,
@@ -388,6 +390,13 @@ function PersonaWorkspace({
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects", userId, personaId],
     queryFn: () => listProjectsByPersona(userId, personaId),
+  });
+
+  // Projects with no persona — shown so no mined video ever stays invisible.
+  const { data: unfiled = [] } = useQuery<Project[]>({
+    queryKey: ["unfiled-projects", userId],
+    queryFn: () => listUnfiledProjects(userId),
+    enabled: Boolean(personaId),
   });
 
 
