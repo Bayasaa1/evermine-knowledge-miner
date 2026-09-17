@@ -113,6 +113,8 @@ export async function analyzeYoutubeVideo(input: {
   assessment?: Assessment;
   /** The job owner's own Gemini credential — mining never uses platform AI. */
   credential: AiCredential;
+  /** Who owns this job and which video it is, for the usage history. */
+  usage?: { userId: string; videoLabel?: string; videoId?: string; jobId?: string };
 }): Promise<ChunkResult> {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
@@ -125,6 +127,17 @@ export async function analyzeYoutubeVideo(input: {
     if (err instanceof UserAiError) throw err;
   }
 
+  const usageMeta = input.usage
+    ? {
+        userId: input.usage.userId,
+        role: "mine",
+        subjectKind: "video" as const,
+        subjectId: input.usage.videoId ?? url,
+        subjectLabel: input.usage.videoLabel ?? url,
+        jobId: input.usage.jobId ?? "",
+      }
+    : undefined;
+
   let text: string;
   try {
     text = await geminiGenerate({
@@ -132,6 +145,7 @@ export async function analyzeYoutubeVideo(input: {
       model: "gemini-2.5-flash",
       json: true,
       maxTokens: 65536,
+      ...(usageMeta ? { usage: usageMeta } : {}),
       turns: [
         {
           role: "user",
