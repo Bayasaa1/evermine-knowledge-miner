@@ -30,6 +30,15 @@ A pencil on the persona card opens a small box for name, handle and short bio. S
 
 Each of these actions rebuilds the knowledge map counts for both the source and the destination project, and refreshes the video lists, so the map never shows topics for videos that moved away.
 
+## Suggested extras (included)
+
+- **Re-mine selected** — one button on selected rows that re-runs mining with the newest key, so improved videos refresh their learned topics without you re-pasting links.
+- **Rename a video** — pencil on a row edits the title and description shown in the feed.
+- **Project rename & cover** — small edit box on the project card for title, description and cover picture.
+- **Project counts on cards** — every project card shows "n videos · n topics · mined" so you see the result of a move or split instantly.
+- **Select all of one kind** — one tap selects all "Training" or all "Feed" rows, which makes splits and merges fast on big projects.
+- **Undo for 10 seconds** — exclude/move/merge actions show a toast with Undo that reverses the move (deletes stay final and always ask first).
+
 ## Technical notes
 
 - `src/lib/projects.ts`: add `moveContentToPersona(ids, personaId)`, `unfileContent(ids)` (sets `project_id` to a per-user "Unsorted" project or a null-persona holder and flips the row out of the feed), `mergeProjects(sourceId, targetId)` (moves `project_content` + `mind_vaults` + `project_concepts` rows, then deletes the source), `splitProject(projectId, contentIds, newTitle)`. All owner-scoped via `currentOwnerId()` + `.eq("user_id", owner)`.
