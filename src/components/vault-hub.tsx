@@ -332,22 +332,76 @@ function PersonaCard({
   lang,
   name,
   handle,
+  bio,
   avatarUrl,
   isActive,
   onOpen,
   onActivate,
+  onSave,
   onDelete,
 }: {
   lang: Lang;
   name: string;
   handle: string;
+  bio?: string;
   avatarUrl?: string | null;
   isActive: boolean;
   onOpen: () => void;
   onActivate: () => void | Promise<void>;
+  onSave?: (patch: { name: string; handle: string; bio: string }) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(name);
+  const [editHandle, setEditHandle] = useState(handle);
+  const [editBio, setEditBio] = useState(bio ?? "");
+
+  if (editing) {
+    return (
+      <article className="space-y-2 rounded-xl border border-primary/40 bg-card p-4">
+        <input
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          placeholder={t("personaName")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editHandle}
+          onChange={(e) => setEditHandle(e.target.value)}
+          placeholder={t("personaHandle")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editBio}
+          onChange={(e) => setEditBio(e.target.value)}
+          placeholder={t("personaBio")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground"
+          >
+            {t("cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!editName.trim()}
+            onClick={async () => {
+              await onSave?.({ name: editName, handle: editHandle, bio: editBio });
+              setEditing(false);
+            }}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {t("save")}
+          </button>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="rounded-xl border border-border bg-card p-4">
       <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 text-left">
@@ -382,6 +436,21 @@ function PersonaCard({
         >
           {t("open")}
         </button>
+        {onSave ? (
+          <button
+            type="button"
+            aria-label={t("editPersona")}
+            onClick={() => {
+              setEditName(name);
+              setEditHandle(handle);
+              setEditBio(bio ?? "");
+              setEditing(true);
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        ) : null}
         {onDelete ? (
           <button
             type="button"
