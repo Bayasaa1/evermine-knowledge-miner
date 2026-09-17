@@ -172,6 +172,14 @@ const C = {
   merged: { en: "Projects merged", mn: "Төслүүд нэгдлээ", ko: "프로젝트가 병합되었습니다" },
   editProject: { en: "Edit project", mn: "Төсөл засах", ko: "프로젝트 편집" },
   coverField: { en: "Cover image URL", mn: "Нүүр зургийн холбоос", ko: "커버 이미지 URL" },
+  aiLevelField: { en: "How much AI in chat", mn: "Чат дахь AI хэр их", ko: "채팅에서 AI 사용량" },
+  aiLevelHint: {
+    en: "0 means answers come only from your videos. 100 lets the AI fill what is missing.",
+    mn: "0 бол зөвхөн таны видеонуудаас хариулна. 100 бол дутууг AI нөхнө.",
+    ko: "0이면 영상 내용만 답합니다. 100이면 AI가 부족한 부분을 채웁니다.",
+  },
+  aiLevelStart: { en: "Starts at", mn: "Эхлэх", ko: "시작값" },
+  aiLevelCap: { en: "Never above", mn: "Дээд хязгаар", ko: "최대" },
   signIn: { en: "Sign in to open your vaults.", mn: "Сангаа нээхийн тулд нэвтэрнэ үү.", ko: "볼트를 열려면 로그인하세요." },
 } as const;
 
@@ -648,6 +656,8 @@ function ProjectListItem({
   const [editTitle, setEditTitle] = useState(p.title);
   const [editDesc, setEditDesc] = useState(p.description ?? "");
   const [editCover, setEditCover] = useState(p.cover_url ?? "");
+  const [editLevel, setEditLevel] = useState(p.ai_level_default ?? 100);
+  const [editLevelMax, setEditLevelMax] = useState(p.ai_level_max ?? 100);
 
   const merge = async (targetId: string) => {
     const target = siblings.find((s) => s.id === targetId);
@@ -689,6 +699,36 @@ function ProjectListItem({
           placeholder={t("coverField")}
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
         />
+        <div className="rounded-lg border border-border bg-background p-3">
+          <p className="text-xs font-medium text-foreground">{t("aiLevelField")}</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{t("aiLevelHint")}</p>
+          <div className="mt-2 flex items-center gap-3">
+            <label className="flex-1 text-[11px] text-muted-foreground">
+              {t("aiLevelStart")}
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={10}
+                value={editLevel}
+                onChange={(e) => setEditLevel(Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </label>
+            <label className="flex-1 text-[11px] text-muted-foreground">
+              {t("aiLevelCap")}
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={10}
+                value={editLevelMax}
+                onChange={(e) => setEditLevelMax(Number(e.target.value))}
+                className="mt-1 w-full rounded-lg border border-border bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </label>
+          </div>
+        </div>
         <div className="flex justify-end gap-2">
           <button
             type="button"
@@ -701,10 +741,14 @@ function ProjectListItem({
             type="button"
             disabled={!editTitle.trim()}
             onClick={async () => {
+              const clamp = (v: number) => Math.max(0, Math.min(100, Math.round(v) || 0));
+              const cap = clamp(editLevelMax);
               const error = await updateProject(p.id, {
                 title: editTitle,
                 description: editDesc,
                 cover_url: editCover || null,
+                ai_level_max: cap,
+                ai_level_default: Math.min(clamp(editLevel), cap),
               });
               if (error) toast.error(error);
               else toast.success(t("saved"));

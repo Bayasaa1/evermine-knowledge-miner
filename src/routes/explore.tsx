@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { ModeSwitch } from "@/components/mode-switch";
 import { MINDS, pickVisual, pickClip, findClip, type Mind, type VisualAsset, type SourceClip } from "@/lib/minds";
+import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
+import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { LANGUAGES, LANG_LIST, type LangCode } from "@/lib/languages";
 import { useLang } from "@/lib/i18n";
 import { startDub, type DubHandle } from "@/lib/voice-dub";
@@ -49,7 +51,7 @@ import {
 import { startSession, endSession, recordQuery } from "@/lib/analytics";
 import { useNetworkQuality, TIER_LABEL, type StreamTier } from "@/lib/network-quality";
 import { startMiningCapture, MINING_PROFILES, formatBytes, type MiningRecorderHandle } from "@/lib/mining-audio";
-import { brainEngineRoute, loadStack } from "@/lib/engines";
+
 import {
   applyDelta,
   emptyVault,
@@ -152,6 +154,8 @@ function greeting(mind: Mind): Msg {
 function Explore() {
   const [index, setIndex] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  // How much the AI may add on top of what this mind learned (per mind).
+  const [showLevel, setShowLevel] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
 
@@ -230,6 +234,7 @@ function Explore() {
 
 
   const selected = MINDS[index] ?? MINDS[0]!;
+  const { level: aiLevel, setLevel: setAiLevel, max: aiLevelMax } = useMindAiLevel(selected.id);
   const messages = threads[selected.id] ?? [greeting(selected)];
 
   /* ---------- user vault bootstrapping ---------- */
@@ -484,10 +489,9 @@ function Explore() {
 
     let reply = "";
     try {
-      // Route the reply through the creator-selected brain engine when one is
-      // configured (BYO key on this device, else a backend secret); otherwise the
-      // server falls back to the platform default model.
-      const brain = brainEngineRoute(await loadStack());
+      // Every answer runs on the caller's own key — the one they assigned to
+      // "Chatting" in the API Manager, else their newest working key.
+      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -495,9 +499,8 @@ function Explore() {
           mindId: selected.id,
           lang,
           messages: history.map((m) => ({ role: m.role, text: m.text })),
-          ...(brain
-            ? { provider: brain.provider, model: brain.model, ...(brain.apiKey ? { apiKey: brain.apiKey } : {}) }
-            : {}),
+          aiLevel,
+          ...(await credentialPayload("chat")),
         }),
       });
       const data = (await res.json()) as { text?: string; error?: string };
@@ -920,6 +923,7 @@ function Explore() {
               {LANGUAGES[lang].native} voice · {capture ? "Mind Miner on" : "Mind Miner off"}
             </p>
           </div>
+          <AiLevelButton level={aiLevel} open={showLevel} onToggle={() => setShowLevel((v) => !v)} />
           <button
             onClick={() => setCallOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground"
@@ -941,6 +945,10 @@ function Explore() {
             <X className="h-4.5 w-4.5" />
           </button>
         </div>
+
+        {showLevel && (
+          <AiLevelSlider mindId={selected.id} level={aiLevel} max={aiLevelMax} lang={lang} onChange={setAiLevel} />
+        )}
 
         <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 pb-2">
           {messages.map((m) => (

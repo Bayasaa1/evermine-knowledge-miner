@@ -3,6 +3,7 @@ import { useVisibleInterval } from "@/hooks/use-visible-interval";
 import { Cpu, Gauge, Wallet, RotateCcw } from "lucide-react";
 import {
   clearUsage,
+  costOf,
   loadUsage,
   rateFor,
   summarizeUsage,
@@ -142,6 +143,27 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
   useVisibleInterval(() => void loadUsage().then(setLedger), 5000);
 
   const s: UsageSummary = summarizeUsage(ledger);
+
+  // Today's calls and cost grouped by the job that made them, so a creator can
+  // see which job burns their free quota.
+  const dayStart = new Date(now).setHours(0, 0, 0, 0);
+  const jobLabels: Record<string, { en: string; mn: string; ko: string }> = {
+    mine: { en: "Mining videos", mn: "Видео олборлолт", ko: "영상 마이닝" },
+    chat: { en: "Chatting", mn: "Чат", ko: "채팅" },
+    core_brain: { en: "Core brain", mn: "Үндсэн тархи", ko: "코어 브레인" },
+  };
+  const jobOf = (stage: string) => (stage === "chat" ? "chat" : stage === "audit" ? "core_brain" : "mine");
+  const byJob = new Map<string, { calls: number; tokens: number; cost: number }>();
+  for (const e of ledger.entries) {
+    if (e.at < dayStart) continue;
+    const job = jobOf(e.stage);
+    const row = byJob.get(job) ?? { calls: 0, tokens: 0, cost: 0 };
+    row.calls += 1;
+    row.tokens += e.inputTokens + e.outputTokens;
+    row.cost += costOf(e);
+    byJob.set(job, row);
+  }
+  const jobRows = [...byJob.entries()].sort((a, b) => b[1].tokens - a[1].tokens);
 
   const cards = [
     { key: "total", icon: Cpu, label: t.totalTokens, value: fmt(s.totalTokens), note: `${s.totalCalls} ${t.calls}` },
@@ -299,6 +321,24 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
 
       {geminiCard}
       {credits}
+
+      {jobRows.length > 0 && (
+        <div className="mt-4 rounded-xl border border-border p-3">
+          <p className="text-xs font-medium text-foreground">
+            {pickCopy({ en: "Today, by job", mn: "Өнөөдөр, ажлаар", ko: "오늘, 작업별" }, lang)}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {jobRows.map(([job, row]) => (
+              <li key={job} className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{pickCopy(jobLabels[job]!, lang)}</span>
+                <span className="tabular-nums text-foreground">
+                  {row.calls}× · {fmt(row.tokens)} · {usd(row.cost)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[520px] text-left text-sm">

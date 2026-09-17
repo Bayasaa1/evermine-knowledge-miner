@@ -60,3 +60,26 @@ export const setAiRole = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });
+
+/** For each job: which key is assigned, which one would really run it. */
+export const describeAiRoles = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { roleKeyReport } = await import("@/lib/user-ai.server");
+    const rows = await Promise.all(
+      AI_ROLES.map(async (role) => ({
+        role,
+        ...(await roleKeyReport(context.userId, role, ROLE_PROVIDERS[role][0]!)),
+      })),
+    );
+    return rows;
+  });
+
+/** One tiny live call with the key a job would use. */
+export const testAiRoleKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ role: ROLE }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { testRoleKey } = await import("@/lib/user-ai.server");
+    return testRoleKey(context.userId, data.role, ROLE_PROVIDERS[data.role][0]!);
+  });
