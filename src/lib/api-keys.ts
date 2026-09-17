@@ -102,9 +102,12 @@ export async function markKeyExhausted(keyValue: string): Promise<void> {
   }
 }
 
-/** Credentials to merge into an API request body. */
-export async function credentialPayload(): Promise<{ apiKey?: string }> {
-  const key = await bestGeminiKey();
+/**
+ * Credentials to merge into an API request body. Pass the job name (translate,
+ * chat, core_brain, face_clone…) so the key the user picked for that job runs it.
+ */
+export async function credentialPayload(role?: string): Promise<{ apiKey?: string }> {
+  const key = await bestGeminiKey(role);
   if (key) void recordKeyUse(key);
   return key ? { apiKey: key } : {};
 }
