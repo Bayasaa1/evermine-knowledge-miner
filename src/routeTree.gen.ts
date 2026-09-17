@@ -26,6 +26,7 @@ import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindCoachRouteImport } from './routes/api/mind-coach'
 import { Route as ApiMindFaceRouteImport } from './routes/api/mind-face'
+import { Route as ApiMindLevelRouteImport } from './routes/api/mind-level'
 import { Route as ApiMindVisionRouteImport } from './routes/api/mind-vision'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
@@ -121,6 +122,11 @@ const ApiMindFaceRoute = ApiMindFaceRouteImport.update({
   path: '/api/mind-face',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMindLevelRoute = ApiMindLevelRouteImport.update({
+  id: '/api/mind-level',
+  path: '/api/mind-level',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMindVisionRoute = ApiMindVisionRouteImport.update({
   id: '/api/mind-vision',
   path: '/api/mind-vision',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
@@ -209,6 +216,7 @@ export interface FileRoutesByTo {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
@@ -237,6 +245,7 @@ export interface FileRoutesById {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
@@ -266,6 +275,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-coach'
     | '/api/mind-face'
+    | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
     | '/api/user-mine'
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-coach'
     | '/api/mind-face'
+    | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
     | '/api/user-mine'
@@ -320,6 +331,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-coach'
     | '/api/mind-face'
+    | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
     | '/api/user-mine'
@@ -348,6 +360,7 @@ export interface RootRouteChildren {
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindCoachRoute: typeof ApiMindCoachRoute
   ApiMindFaceRoute: typeof ApiMindFaceRoute
+  ApiMindLevelRoute: typeof ApiMindLevelRoute
   ApiMindVisionRoute: typeof ApiMindVisionRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
@@ -479,6 +492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMindFaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mind-level': {
+      id: '/api/mind-level'
+      path: '/api/mind-level'
+      fullPath: '/api/mind-level'
+      preLoaderRoute: typeof ApiMindLevelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mind-vision': {
       id: '/api/mind-vision'
       path: '/api/mind-vision'
@@ -557,6 +577,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindCoachRoute: ApiMindCoachRoute,
   ApiMindFaceRoute: ApiMindFaceRoute,
+  ApiMindLevelRoute: ApiMindLevelRoute,
   ApiMindVisionRoute: ApiMindVisionRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
