@@ -625,6 +625,164 @@ function PersonaWorkspace({
   );
 }
 
+/**
+ * One project row: open, publish toggle, rename/cover edit, merge into a
+ * sibling project of the same persona, and delete.
+ */
+function ProjectListItem({
+  lang,
+  project: p,
+  siblings,
+  onOpen,
+  onChanged,
+}: {
+  lang: Lang;
+  project: Project;
+  siblings: Project[];
+  onOpen: () => void;
+  onChanged: () => void;
+}) {
+  const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const rebuildConcepts = useServerFn(rebuildProjectConcepts);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(p.title);
+  const [editDesc, setEditDesc] = useState(p.description ?? "");
+  const [editCover, setEditCover] = useState(p.cover_url ?? "");
+
+  const merge = async (targetId: string) => {
+    const target = siblings.find((s) => s.id === targetId);
+    if (!target) return;
+    const msg = t("mergeConfirm").replaceAll("{a}", p.title).replaceAll("{b}", target.title);
+    if (!window.confirm(msg)) return;
+    const error = await mergeProjects(p.id, targetId);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    try {
+      await rebuildConcepts({ data: { projectId: targetId } });
+    } catch {
+      /* the map can still be rebuilt by hand */
+    }
+    toast.success(t("merged"));
+    onChanged();
+  };
+
+  if (editing) {
+    return (
+      <li className="space-y-2 rounded-xl border border-primary/40 bg-card p-4">
+        <input
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          placeholder={t("titleField")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editDesc}
+          onChange={(e) => setEditDesc(e.target.value)}
+          placeholder={t("descField")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <input
+          value={editCover}
+          onChange={(e) => setEditCover(e.target.value)}
+          placeholder={t("coverField")}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground"
+          >
+            {t("cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={!editTitle.trim()}
+            onClick={async () => {
+              const error = await updateProject(p.id, {
+                title: editTitle,
+                description: editDesc,
+                coverUrl: editCover,
+              });
+              if (error) toast.error(error);
+              else toast.success(t("saved"));
+              setEditing(false);
+              onChanged();
+            }}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            {t("save")}
+          </button>
+        </div>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-semibold text-foreground">
+          <Localized text={p.title} />
+        </span>
+        <span className="block text-xs text-muted-foreground">
+          {t("views")}: {p.view_count} · {new Date(p.updated_at).toLocaleDateString()}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={async () => { await updateProject(p.id, { published: !p.published }); onChanged(); }}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
+      >
+        {p.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+        {p.published ? t("published") : t("hidden")}
+      </button>
+      {siblings.length > 0 ? (
+        <select
+          defaultValue=""
+          onChange={(e) => {
+            const target = e.target.value;
+            e.target.value = "";
+            if (target) void merge(target);
+          }}
+          className="rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-foreground"
+        >
+          <option value="">{t("mergeInto")}</option>
+          {siblings.map((s) => (
+            <option key={s.id} value={s.id}>{s.title}</option>
+          ))}
+        </select>
+      ) : null}
+      <button
+        type="button"
+        aria-label={t("editProject")}
+        onClick={() => {
+          setEditTitle(p.title);
+          setEditDesc(p.description ?? "");
+          setEditCover(p.cover_url ?? "");
+          setEditing(true);
+        }}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        aria-label="Delete project"
+        onClick={async () => {
+          if (!window.confirm(t("deleteProjectConfirm"))) return;
+          await deleteProject(p.id);
+          onChanged();
+        }}
+        className="text-muted-foreground hover:text-destructive"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </li>
+  );
+}
+
 function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: Project; onChanged: () => void }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
