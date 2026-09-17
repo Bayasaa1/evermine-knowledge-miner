@@ -247,14 +247,20 @@ async function generateRoleTextOnce(opts: {
     body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
   });
   if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
-  const body = await res.json() as { choices?: { message?: { content?: string } }[] };
-  return { text: body.choices?.[0]?.message?.content?.trim() ?? "", ...readUsageTokens(body) };
+  const body = await res.json() as {
+    choices?: { message?: { content?: string | { text?: string }[]; reasoning_content?: string } }[];
+  };
+  const content = body.choices?.[0]?.message?.content;
+  const text = typeof content === "string"
+    ? content
+    : (content ?? []).map((part) => part.text ?? "").join("");
+  return { text: text.trim(), ...readUsageTokens(body) };
 }
 
 const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
   groq: { base: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b" },
   mistral: { base: "https://api.mistral.ai/v1", model: "mistral-small-latest" },
-  cerebras: { base: "https://api.cerebras.ai/v1", model: "llama3.1-8b" },
+  cerebras: { base: "https://api.cerebras.ai/v1", model: "gpt-oss-120b" },
   together: { base: "https://api.together.ai/v1", model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free" },
   github: { base: "https://models.github.ai/inference", model: "openai/gpt-4o-mini" },
   openrouter: { base: "https://openrouter.ai/api/v1", model: "meta-llama/llama-3.3-70b-instruct:free" },
@@ -455,7 +461,7 @@ export async function testRoleKey(
         role,
         system: "Return only the word OK.",
         prompt: "Connection test.",
-        maxTokens: 8,
+         maxTokens: 96,
       });
       return tested.text
         ? { ok: true, message: `Working through ${tested.provider} ···${tested.tail}.`, tail: tested.tail }
