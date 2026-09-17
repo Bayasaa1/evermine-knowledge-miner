@@ -1,25 +1,14 @@
 /**
- * Mind Versioning & Creator Hub — high-visibility home for every mined Mind:
- * full version history with release notes, rollback / delete of a bad update,
- * stored-data-type cards and the JSON Surgical Editor.
+ * History & fixes — every saved copy of a mined Mind, with plain-language
+ * rollback, delete and the fixing editor. Can show every Mind (hub mode) or a
+ * single Mind when a vaultId is passed.
  */
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import {
-  Brain,
-  Clock,
-  FileJson,
-  History,
-  Loader2,
-  Move3d,
-  RotateCcw,
-  Smile,
-  Trash2,
-  AudioLines,
-} from "lucide-react";
+import { Clock, History, Loader2, RotateCcw, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -34,36 +23,47 @@ import { dataTypeCards, type MindPayload } from "@/lib/mind-json";
 import { JsonSurgicalEditor } from "@/components/json-surgical-editor";
 
 const C = {
-  title: { en: "Mind Versioning & Creator Hub", mn: "Оюун Хувилбар ба Бүтээгчийн Төв", ko: "마인드 버전 & 크리에이터 허브" },
+  title: { en: "History & fixes", mn: "Түүх ба засвар", ko: "기록과 수정" },
   subtitle: {
-    en: "Every mined Mind, every version, every release note — with one-click rollback.",
-    mn: "Олборлосон оюун бүр, хувилбар бүр, тэмдэглэл бүр — нэг товшилтоор буцаана.",
-    ko: "모든 마인드, 모든 버전, 모든 릴리스 노트 — 원클릭 롤백.",
+    en: "Every saved copy of your mind. Fix it, or go back to an older copy.",
+    mn: "Оюуны чинь хадгалсан хувь бүр. Засах эсвэл хуучин хувь руу буцаана.",
+    ko: "마인드의 모든 저장본. 고치거나 예전 것으로 되돌리세요.",
   },
-  signIn: { en: "Sign in to see your Mind versions.", mn: "Хувилбаруудаа харахын тулд нэвтэрнэ үү.", ko: "버전을 보려면 로그인하세요." },
-  empty: { en: "No Minds saved yet — mine a video to create v1.0.", mn: "Одоогоор хадгалсан оюун алга — видео олборлож v1.0 үүсгэнэ үү.", ko: "저장된 마인드가 없습니다 — 영상을 마이닝해 v1.0을 만드세요." },
-  current: { en: "Current", mn: "Одоогийн", ko: "현재" },
-  rollback: { en: "Rollback", mn: "Буцаах", ko: "롤백" },
-  del: { en: "Delete update", mn: "Шинэчлэлт устгах", ko: "업데이트 삭제" },
-  edit: { en: "Open JSON editor", mn: "JSON засварлагч нээх", ko: "JSON 편집기 열기" },
-  notes: { en: "Release notes", mn: "Хувилбарын тэмдэглэл", ko: "릴리스 노트" },
-  noNotes: { en: "No release notes for this version.", mn: "Энэ хувилбарт тэмдэглэл алга.", ko: "이 버전에는 릴리스 노트가 없습니다." },
-  knowledgeGraph: { en: "Knowledge Graph", mn: "Мэдлэгийн Граф", ko: "지식 그래프" },
-  voiceEmbeddings: { en: "Voice Embeddings", mn: "Дуу Хоолойн Багц", ko: "음성 임베딩" },
-  emotionTimeline: { en: "Emotion Timeline", mn: "Сэтгэл Хөдлөлийн Цуваа", ko: "감정 타임라인" },
-  vlaTrajectories: { en: "VLA Trajectories", mn: "VLA Хөдөлгөөн", ko: "VLA 궤적" },
-  rolled: { en: "Rolled back", mn: "Буцаалаа", ko: "롤백되었습니다" },
-  deleted: { en: "Update deleted", mn: "Шинэчлэлт устгагдлаа", ko: "업데이트가 삭제되었습니다" },
+  signIn: { en: "Sign in to see this.", mn: "Үзэхийн тулд нэвтэрнэ үү.", ko: "보려면 로그인하세요." },
+  empty: { en: "Nothing saved yet — mine a video first.", mn: "Одоохондоо юу ч алга — эхлээд видео олборлоно уу.", ko: "아직 없습니다 — 먼저 영상을 마이닝하세요." },
+  current: { en: "Now in use", mn: "Одоо ашиглаж байна", ko: "현재 사용 중" },
+  rollback: { en: "Go back to this version", mn: "Энэ хувилбар руу буцах", ko: "이 버전으로 되돌리기" },
+  del: { en: "Delete this copy", mn: "Энэ хувийг устгах", ko: "이 사본 삭제" },
+  edit: { en: "Fix this mind", mn: "Энэ оюуныг засах", ko: "이 마인드 고치기" },
+  notes: { en: "What changed", mn: "Юу өөрчлөгдсөн", ko: "변경 내용" },
+  noNotes: { en: "No note.", mn: "Тэмдэглэл алга.", ko: "메모 없음." },
+  learned: { en: "things learned", mn: "сурсан зүйл", ko: "학습 항목" },
+  voice: { en: "voice samples", mn: "дуу хоолойн дээж", ko: "음성 샘플" },
+  feelings: { en: "feeling moments", mn: "сэтгэлийн мөч", ko: "감정 구간" },
+  moves: { en: "movements", mn: "хөдөлгөөн", ko: "동작" },
+  saved: { en: "saved", mn: "хадгалсан", ko: "저장" },
+  earlier: { en: "Earlier versions", mn: "Өмнөх хувилбарууд", ko: "이전 버전" },
+  rolled: { en: "Went back", mn: "Буцлаа", ko: "되돌렸습니다" },
+  deleted: { en: "Copy deleted", mn: "Хувь устгагдлаа", ko: "사본이 삭제되었습니다" },
 } as const;
 
-const ICONS = {
-  knowledgeGraph: Brain,
-  voiceEmbeddings: AudioLines,
-  emotionTimeline: Smile,
-  vlaTrajectories: Move3d,
+const LABEL = {
+  knowledgeGraph: "learned",
+  voiceEmbeddings: "voice",
+  emotionTimeline: "feelings",
+  vlaTrajectories: "moves",
 } as const;
 
-export function MindVersioningHub({ lang, signedIn }: { lang: Lang; signedIn: boolean }) {
+export function MindVersioningHub({
+  lang,
+  signedIn,
+  vaultId,
+}: {
+  lang: Lang;
+  signedIn: boolean;
+  /** When set, only this one Mind is shown. */
+  vaultId?: string;
+}) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -73,6 +73,7 @@ export function MindVersioningHub({ lang, signedIn }: { lang: Lang; signedIn: bo
   const deleteFn = useServerFn(deleteMindVersion);
   const saveFn = useServerFn(saveMindVersion);
   const [editing, setEditing] = useState<MindVersion | null>(null);
+  const [openHistory, setOpenHistory] = useState<Record<string, boolean>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ["mind-versions", userId],
@@ -83,12 +84,13 @@ export function MindVersioningHub({ lang, signedIn }: { lang: Lang; signedIn: bo
   const groups = useMemo(() => {
     const map = new Map<string, MindVersion[]>();
     for (const v of data ?? []) {
+      if (vaultId && v.vaultId !== vaultId) continue;
       const list = map.get(v.vaultId) ?? [];
       list.push(v);
       map.set(v.vaultId, list);
     }
     return [...map.values()].map((list) => list.sort((a, b) => b.versionNum - a.versionNum));
-  }, [data]);
+  }, [data, vaultId]);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
@@ -133,60 +135,74 @@ export function MindVersioningHub({ lang, signedIn }: { lang: Lang; signedIn: bo
         groups.map((versions) => {
           const head = versions[0]!;
           const active = versions.find((v) => v.isActive) ?? head;
-          const cards = dataTypeCards((active.payload ?? {}) as MindPayload);
+          // Only counts above zero are worth a word; empty stats mean nothing.
+          const summary = dataTypeCards((active.payload ?? {}) as MindPayload)
+            .filter((c) => c.count > 0)
+            .map((c) => `${c.count} ${t(LABEL[c.key as keyof typeof LABEL])}`);
+          summary.push(`${t("saved")} ${new Date(active.createdAt).toLocaleDateString()}`);
+          const older = versions.filter((v) => v.id !== active.id);
+          const shown = openHistory[head.vaultId] ? older : [];
           return (
             <article key={head.vaultId} className="min-w-0 rounded-xl border border-border bg-card p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="min-w-0 truncate text-base font-semibold text-foreground">{head.title}</h3>
-                <Button size="sm" variant="outline" onClick={() => setEditing(active)}>
-                  <FileJson className="mr-1.5 h-3.5 w-3.5" /> {t("edit")}
+                <Button size="sm" onClick={() => setEditing(active)}>
+                  <Wrench className="mr-1.5 h-3.5 w-3.5" /> {t("edit")}
                 </Button>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {cards.map((c) => {
-                  const Icon = ICONS[c.key as keyof typeof ICONS];
-                  return (
-                    <div key={c.key} className="rounded-lg border border-border bg-muted/40 p-3">
-                      <Icon className="mb-1.5 h-4 w-4 text-primary" />
-                      <p className="text-lg font-semibold text-foreground">{c.count}</p>
-                      <p className="text-xs text-muted-foreground">{pickCopy(C[c.key as keyof typeof C], lang)}</p>
-                    </div>
-                  );
-                })}
+              <p className="mt-2 text-xs text-muted-foreground">{summary.join(" · ")}</p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
+                <Badge>{active.version}</Badge>
+                <span className="text-xs text-primary">{t("current")}</span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" /> {new Date(active.createdAt).toLocaleString()}
+                </span>
+                <p className="w-full text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{t("notes")}: </span>
+                  {active.releaseNotes || t("noNotes")}
+                </p>
               </div>
 
-              <ul className="mt-4 space-y-2">
-                {versions.map((v) => (
-                  <li key={v.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-border p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={v.isActive ? "default" : "secondary"}>{v.version}</Badge>
-                        {v.isActive ? <span className="text-xs text-primary">{t("current")}</span> : null}
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" /> {new Date(v.createdAt).toLocaleString()}
-                        </span>
+              {older.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setOpenHistory((p) => ({ ...p, [head.vaultId]: !p[head.vaultId] }))}
+                  className="mt-3 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  {t("earlier")} ({older.length})
+                </button>
+              ) : null}
+
+              {shown.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {shown.map((v) => (
+                    <li key={v.id} className="flex flex-wrap items-start gap-3 rounded-lg border border-border p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary">{v.version}</Badge>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" /> {new Date(v.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{t("notes")}: </span>
+                          {v.releaseNotes || t("noNotes")}
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">{t("notes")}: </span>
-                        {v.releaseNotes || t("noNotes")}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      {!v.isActive ? (
+                      <div className="flex gap-2">
                         <Button size="sm" variant="secondary" disabled={rollback.isPending} onClick={() => rollback.mutate(v.id)}>
                           <RotateCcw className="mr-1 h-3.5 w-3.5" /> {t("rollback")}
                         </Button>
-                      ) : null}
-                      {versions.length > 1 ? (
                         <Button size="sm" variant="ghost" disabled={remove.isPending} onClick={() => remove.mutate(v.id)}>
                           <Trash2 className="mr-1 h-3.5 w-3.5" /> {t("del")}
                         </Button>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </article>
           );
         })
