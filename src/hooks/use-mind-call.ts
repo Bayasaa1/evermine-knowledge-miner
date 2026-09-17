@@ -184,7 +184,7 @@ export function useMindCall(
         const res = await apiFetch("/api/mind-vision", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image, name: mindName, lang, ...(await credentialPayload()) }),
+          body: JSON.stringify({ image, name: mindName, lang, ...(await credentialPayload("face_clone")) }),
         });
         const data = (await res.json()) as { seen?: string };
         if (res.ok && data.seen) setSees(data.seen);

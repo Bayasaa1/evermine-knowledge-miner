@@ -504,7 +504,7 @@ export async function existingKeyFor(id: MinerId): Promise<string> {
   if (!field) return "";
   // Gemini keys live in the device keystore (the one the key list writes), so
   // a saved key can never look missing here.
-  if (field === "GEMINI_API_KEY") return (await bestGeminiKey()) ?? "";
+  if (field === "GEMINI_API_KEY") return (await bestGeminiKey("mine")) ?? "";
   const stack = await loadStack();
   return stack.keys[field] ?? "";
 }
