@@ -180,11 +180,10 @@ export function useMindCall(
       canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const image = canvas.toDataURL("image/jpeg", 0.6);
       try {
-        const { credentialPayload } = await import("@/lib/api-keys");
         const res = await apiFetch("/api/mind-vision", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image, name: mindName, lang, ...(await credentialPayload("face_clone")) }),
+          body: JSON.stringify({ image, name: mindName, lang }),
         });
         const data = (await res.json()) as { seen?: string };
         if (res.ok && data.seen) setSees(data.seen);
