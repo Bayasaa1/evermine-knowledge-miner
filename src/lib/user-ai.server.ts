@@ -140,22 +140,28 @@ function isLimitError(error: unknown): boolean {
     || error instanceof GeminiHttpError && error.status === 429;
 }
 
+type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
+
 async function generateRoleTextOnce(opts: {
   resolved: ResolvedUserKey;
   system: string;
   prompt: string;
   json?: boolean;
   maxTokens?: number;
-}): Promise<string> {
+}): Promise<RoleTextRun> {
+  const { readUsageTokens } = await import("@/lib/ai-usage.server");
   const resolved = opts.resolved;
   if (resolved.provider === "gemini") {
-    return geminiGenerate({
+    let tokens = { inputTokens: 0, outputTokens: 0 };
+    const text = await geminiGenerate({
       credential: { kind: "gemini_key", value: resolved.apiKey },
       system: opts.system,
       turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      onTokens: (t) => { tokens = t; },
       ...(opts.json != null ? { json: opts.json } : {}),
       ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
     });
+    return { text, ...tokens };
   }
   if (resolved.provider === "anthropic") {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -165,7 +171,7 @@ async function generateRoleTextOnce(opts: {
     });
     if (!res.ok) throw new GeminiHttpError(res.status, `Claude request failed (${res.status}).`);
     const body = await res.json() as { content?: { text?: string }[] };
-    return (body.content ?? []).map((part) => part.text ?? "").join("");
+    return { text: (body.content ?? []).map((part) => part.text ?? "").join(""), ...readUsageTokens(body) };
   }
   const config = OPENAI_COMPATIBLE[resolved.provider];
   const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
@@ -177,7 +183,7 @@ async function generateRoleTextOnce(opts: {
   });
   if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider} request failed (${res.status}).`);
   const body = await res.json() as { choices?: { message?: { content?: string } }[] };
-  return body.choices?.[0]?.message?.content?.trim() ?? "";
+  return { text: body.choices?.[0]?.message?.content?.trim() ?? "", ...readUsageTokens(body) };
 }
 
 const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
@@ -203,16 +209,47 @@ export async function generateRoleText(opts: {
   prompt: string;
   json?: boolean;
   maxTokens?: number;
+  /** What this call was for, so the usage history can name it. */
+  subjectKind?: "video" | "mind" | "project" | "test" | "other";
+  subjectId?: string;
+  subjectLabel?: string;
 }): Promise<{ text: string; provider: string; tail: string }> {
+  const { recordAiUsage } = await import("@/lib/ai-usage.server");
   const resolved = await resolveUserAiKey(opts.userId, opts.role);
+  const log = async (key: ResolvedUserKey, run: RoleTextRun) => {
+    await recordAiUsage(
+      {
+        userId: opts.userId,
+        role: opts.role,
+        provider: key.provider,
+        keyId: key.id,
+        keyTail: key.tail,
+        model: key.model ?? "",
+        subjectKind: opts.subjectKind ?? "other",
+        ...(opts.subjectId ? { subjectId: opts.subjectId } : {}),
+        ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}),
+      },
+      { inputTokens: run.inputTokens, outputTokens: run.outputTokens },
+    );
+  };
+  const call = (key: ResolvedUserKey) =>
+    generateRoleTextOnce({ resolved: key, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) });
   try {
-    return { text: await generateRoleTextOnce({ resolved, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) }), provider: resolved.provider, tail: resolved.tail };
+    const run = await call(resolved);
+    await log(resolved, run);
+    return { text: run.text, provider: resolved.provider, tail: resolved.tail };
   } catch (error) {
     if (!resolved.autoFallback || !isLimitError(error)) throw error;
+    await recordAiUsage(
+      { userId: opts.userId, role: opts.role, provider: resolved.provider, keyId: resolved.id, keyTail: resolved.tail, subjectKind: opts.subjectKind ?? "other", ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}) },
+      { status: "quota", errorCode: "limit" },
+    );
     const cooldown = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     await markKeyUnavailable(resolved.id, "exhausted", cooldown);
     const fallback = await resolveUserAiKey(opts.userId, opts.role);
-    return { text: await generateRoleTextOnce({ resolved: fallback, system: opts.system, prompt: opts.prompt, ...(opts.json != null ? { json: opts.json } : {}), ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}) }), provider: fallback.provider, tail: fallback.tail };
+    const run = await call(fallback);
+    await log(fallback, run);
+    return { text: run.text, provider: fallback.provider, tail: fallback.tail };
   }
 }
 
