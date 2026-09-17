@@ -27,6 +27,9 @@ export type Project = {
   /** Creator-wide subscription lengths mirrored onto each project. */
   plan_tiers?: Json;
   persona_id: string | null;
+  /** How much AI the owner allows in chat: where the slider starts, and its cap. */
+  ai_level_default?: number;
+  ai_level_max?: number;
   view_count: number;
   created_at: string;
   updated_at: string;
@@ -61,7 +64,7 @@ export type ProjectContent = {
 };
 
 const PROJECT_COLS =
-  "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,view_count,created_at,updated_at";
+  "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,ai_level_default,ai_level_max,view_count,created_at,updated_at";
 const CONTENT_COLS =
   "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,created_at,updated_at";
 
