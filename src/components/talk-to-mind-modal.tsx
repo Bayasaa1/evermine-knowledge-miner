@@ -140,7 +140,6 @@ export function TalkToMindModal({
     try {
       if (!mindId) throw new Error("This mind is still private to its creator.");
       const live = callMode !== "chat";
-      const { credentialPayload } = await import("@/lib/api-keys");
       const res = await apiFetch("/api/mind-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -151,7 +150,6 @@ export function TalkToMindModal({
           stream: live,
           seen: call.sees || undefined,
           aiLevel,
-          ...(await credentialPayload("chat")),
         }),
       });
 

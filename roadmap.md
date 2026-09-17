@@ -53,3 +53,8 @@
 - [x] Add per-role key selection, automatic fallback setting, and end-to-end checks
 - [x] Prove no AI job can call Lovable AI credits
 - [x] Route Core Brain generation through the account resolver
+- [x] Keep unavailable keys visible in role choices and test the assigned key without hidden Gemini fallback
+- [x] Never cache failed subtitle output as a successful translation
+- [x] Remove old device-only Gemini bypasses from chat, diagnostics, subtitle repair and mining setup
+- [x] Route game-camera coaching through the video-call vision assignment, not the text-chat assignment
+- [x] Make mining resolve its assigned account key and remove the obsolete Engines alert

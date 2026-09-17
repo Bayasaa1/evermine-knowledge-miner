@@ -152,7 +152,10 @@ async function flush() {
       const cache = loadCache(lang);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
-        cache[src] = out;
+        // A failed or malformed provider reply returns the source text. Do not
+        // cache that as a successful translation or the subtitle stays stuck
+        // forever even after the key is fixed or automatic switching succeeds.
+        if (out !== src || lang === "en") cache[src] = out;
       });
       persist(lang);
       emit();

@@ -1,8 +1,8 @@
 /**
  * Diagnostic Assistant backend.
  *
- * Runs on the caller's own AI access — their Gemini key or their saved account
- * key. There is no shared platform credit:
+ * Runs on the caller's saved account key assigned to Chatting. There is no
+ * shared platform credit:
  * when the caller has no credential yet, the reply says exactly how to add a
  * free key instead of answering on someone else's budget.
  */
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
       POST: async ({ request }) => {
         const auth = await guardApi(request, "diagnose-chat", 20);
         if (auth instanceof Response) return auth;
-        let body: { system?: string; messages?: ChatMsg[]; apiKey?: string };
+        let body: { system?: string; messages?: ChatMsg[] };
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -30,22 +30,20 @@ export const Route = createFileRoute("/api/diagnose-chat")({
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
 
-        const { resolveGeminiCredential, geminiGenerate, aiErrorResponse } = await import(
+        const { generateRoleText, aiErrorResponse } = await import(
           "@/lib/user-ai.server"
         );
         try {
-          const credential = await resolveGeminiCredential(auth.userId, body, "chat");
-          const text = await geminiGenerate({
-            credential,
-            model: "gemini-2.5-flash",
+          const generated = await generateRoleText({
+            userId: auth.userId,
+            role: "chat",
             system,
+            prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
             maxTokens: 1024,
-            turns: history.map((m) => ({
-              role: (m.role === "model" ? "model" : "user") as "user" | "model",
-              parts: [{ text: m.text }],
-            })),
+            subjectKind: "test",
+            subjectLabel: "Diagnostic assistant",
           });
-          return new Response(JSON.stringify({ text: text || "…" }), {
+          return new Response(JSON.stringify({ text: generated.text || "…" }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

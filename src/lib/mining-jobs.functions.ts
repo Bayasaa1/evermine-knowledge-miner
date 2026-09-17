@@ -111,39 +111,11 @@ export const startMiningJobs = createServerFn({ method: "POST" })
       throw new Error("Choose a persona and a saved project before mining.");
     }
 
-    // Mining always runs on the creator's own AI key — there is no shared
-    // platform credit to fall back to. The key rides along on the job row so
-    // the background worker can keep going after the tab closes.
-    let ownerKey = (data.apiKey ?? "").trim();
-    if (!ownerKey) {
-      const { data: savedKeys } = await context.supabase
-        .from("user_ai_keys")
-        .select("api_key")
-        .eq("user_id", context.userId)
-        .eq("provider", "gemini")
-        .order("updated_at", { ascending: false });
-      const rows = savedKeys ?? [];
-      // The creator can own several Gemini keys. When they picked one by its
-      // last characters, that exact key runs the job; otherwise the key they
-      // assigned to mining in the API Manager, else the newest one.
-      let tail = (data.apiKeyTail ?? "").trim();
-      if (!tail) {
-        const { data: role } = await context.supabase
-          .from("user_ai_roles")
-          .select("provider, key_tail")
-          .eq("user_id", context.userId)
-          .eq("role", "mine")
-          .maybeSingle();
-        if (role?.provider === "gemini" && role.key_tail) tail = role.key_tail;
-      }
-      const chosen = tail ? rows.find((r) => r.api_key.endsWith(tail)) : undefined;
-      ownerKey = ((chosen ?? rows[0])?.api_key ?? "").trim();
-    }
-    if (!ownerKey) {
-      throw new Error(
-        "Add your free Gemini key in Engines first — mining runs on your own free quota, and it takes a minute to set up.",
-      );
-    }
+    // Resolve the account key assigned to Mining in API Manager. The key rides
+    // on the private job row so background work can continue after the tab closes.
+    const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
+    const credential = await resolveGeminiCredential(context.userId, data, "mine");
+    const ownerKey = credential.value;
     const { data: destination } = await context.supabase
       .from("projects")
       .select("id, persona_id")
@@ -277,8 +249,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
     const chunk = job.chunks[job.nextIndex]!;
     const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
 
-    // The chunk is mined on the creator's own key: the one their tab sent, the
-    // one saved on the job, or the one saved on their account.
+    // The chunk uses the private credential captured when the job was created.
+    // Old jobs without one are resolved through the current Mining assignment.
     const sentKey = (data.apiKey ?? "").trim();
     const { data: credRow } = await context.supabase
       .from("mining_jobs")
@@ -288,20 +260,12 @@ export const runNextChunk = createServerFn({ method: "POST" })
     const jobKey = ((credRow as { ai_credential?: string | null } | null)?.ai_credential ?? "").trim();
     let accountKey = "";
     if (!sentKey && !jobKey) {
-      const { data: savedKey } = await context.supabase
-        .from("user_ai_keys")
-        .select("api_key")
-        .eq("user_id", context.userId)
-        .eq("provider", "gemini")
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      accountKey = (savedKey?.[0]?.api_key ?? "").trim();
+      const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
+      accountKey = (await resolveGeminiCredential(context.userId, {}, "mine")).value;
     }
     const activeKey = sentKey || jobKey || accountKey;
     if (!activeKey) {
-      throw new Error(
-        "Add your free Gemini key in Engines first — mining runs on your own free quota, and it takes a minute to set up.",
-      );
+      throw new Error("Choose and test a Gemini key for Mining videos in API Manager.");
     }
 
     try {

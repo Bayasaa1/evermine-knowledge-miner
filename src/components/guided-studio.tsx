@@ -1016,10 +1016,8 @@ function StepUpload({
   const runYoutubeJobs = useCallback(
     async (source: ImportSource & { kind: "youtube" }, assessment: Assessment) => {
       const dest = await jobDestination();
-      const { bestGeminiKey } = await import("@/lib/api-keys");
-      const apiKey = (await bestGeminiKey()) ?? undefined;
       const jobs = await withNetworkRetry(
-        () => startMiningJobs({ data: { url: source.url, assessment, ...dest, apiKey } }),
+        () => startMiningJobs({ data: { url: source.url, assessment, ...dest } }),
         {
           onRetry: (attempt) => say(`  ! ${term.reconnect} (${attempt}/3)`),
         },
@@ -1118,12 +1116,10 @@ function StepUpload({
           } else {
             const jobs: MiningJob[] = [];
             const dest = await jobDestination();
-            const { bestGeminiKey } = await import("@/lib/api-keys");
-            const apiKey = (await bestGeminiKey()) ?? undefined;
             for (const u of urls) {
               jobs.push(
                 ...(await withNetworkRetry(() =>
-                  startMiningJobs({ data: { url: u, assessment, ...dest, apiKey } }),
+                  startMiningJobs({ data: { url: u, assessment, ...dest } }),
                 )),
               );
             }

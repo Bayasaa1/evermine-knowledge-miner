@@ -785,8 +785,6 @@ function MineSetup({
         if (error || !made) throw new Error(error ?? "Could not create that project");
         target = made.id;
       }
-      const { bestGeminiKey } = await import("@/lib/api-keys");
-      const localKey = tail ? null : await bestGeminiKey();
       for (const s of sources) {
         const video = s.payload?.video;
         await startMining({
@@ -795,7 +793,7 @@ function MineSetup({
             category,
             personaId: persona,
             projectId: target,
-            ...(tail ? { apiKeyTail: tail } : localKey ? { apiKey: localKey } : {}),
+            ...(tail ? { apiKeyTail: tail } : {}),
             assessment: {
               ...defaultAssessmentFor(category),
               sourceTitle: video?.title ?? s.title,

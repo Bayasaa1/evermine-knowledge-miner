@@ -132,9 +132,33 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   };
 }
 
-async function markKeyUnavailable(keyId: string, status: "exhausted" | "invalid", cooldownUntil: string | null) {
+async function markKeyUnavailable(keyId: string, status: "ok" | "exhausted" | "invalid", cooldownUntil: string | null) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   await supabaseAdmin.from("user_ai_keys").update({ status, cooldown_until: cooldownUntil }).eq("id", keyId);
+}
+
+/** Returns the key explicitly assigned to a role, even when it is cooling down. */
+async function assignedUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey | null> {
+  const choice = await roleChoice(userId, role);
+  if (!choice?.keyId) return null;
+  const { ROLE_PROVIDERS } = await import("@/lib/ai-roles");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("user_ai_keys")
+    .select("id, provider, api_key, model, endpoint, enabled")
+    .eq("user_id", userId)
+    .eq("id", choice.keyId)
+    .maybeSingle();
+  if (!data?.enabled || !ROLE_PROVIDERS[role].includes(data.provider)) return null;
+  return {
+    id: data.id,
+    provider: data.provider,
+    apiKey: data.api_key,
+    tail: data.api_key.slice(-4),
+    model: data.model,
+    endpoint: data.endpoint,
+    autoFallback: choice.autoFallback,
+  };
 }
 
 function isLimitError(error: unknown): boolean {
@@ -413,7 +437,7 @@ export async function roleKeyReport(
   userId: string,
   role: AiRole,
   fallbackProvider: string,
-): Promise<{ provider: string; assignedTail: string | null; effectiveTail: string | null; missing: boolean }> {
+): Promise<{ provider: string; assignedProvider: string | null; assignedTail: string | null; assignedKeyId: string | null; effectiveProvider: string | null; effectiveTail: string | null; missing: boolean }> {
   const choice = await roleChoice(userId, role);
   let resolved: ResolvedUserKey | null = null;
   try {
@@ -426,9 +450,12 @@ export async function roleKeyReport(
   const assignedTail = choice?.keyTail ?? null;
   return {
     provider,
+    assignedProvider: choice?.provider ?? null,
     assignedTail,
+    assignedKeyId: choice?.keyId ?? null,
+    effectiveProvider: resolved?.provider ?? null,
     effectiveTail,
-    missing: Boolean(assignedTail) && effectiveTail !== assignedTail,
+    missing: Boolean(choice?.keyId) && resolved?.id !== choice?.keyId,
   };
 }
 
@@ -439,22 +466,28 @@ export async function testRoleKey(
   fallbackProvider: string,
 ): Promise<{ ok: boolean; message: string; tail: string | null }> {
   const report = await roleKeyReport(userId, role, fallbackProvider);
-  if (!report.effectiveTail) return { ok: false, message: "No key saved for this job yet.", tail: null };
-  const resolved = await resolveUserAiKey(userId, role);
+  const assigned = await assignedUserAiKey(userId, role);
+  const resolved = assigned ?? await resolveUserAiKey(userId, role);
+  if (!resolved) return { ok: false, message: "No key saved for this job yet.", tail: null };
   const key = resolved.apiKey;
 
   try {
-    if (report.provider === "elevenlabs") {
+    if (resolved.provider === "elevenlabs") {
       const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
       return res.ok
         ? { ok: true, message: "Working.", tail: report.effectiveTail }
         : { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
     }
-    if (report.provider === "gemini") {
-      const res = await fetch(`${GEMINI_BASE}/models?key=${encodeURIComponent(key)}`);
-      if (res.ok) return { ok: true, message: "Working.", tail: report.effectiveTail };
-      if (res.status === 429) return { ok: false, message: "Busy right now — try again in a minute.", tail: report.effectiveTail };
-      return { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
+    if (resolved.provider === "gemini") {
+      const tested = await generateRoleTextOnce({
+        resolved,
+        system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
+        prompt: role === "translate" ? "Good morning" : "Connection test.",
+        maxTokens: 64,
+      });
+      if (!tested.text) return { ok: false, message: "Connected but returned no text.", tail: resolved.tail };
+      await markKeyUnavailable(resolved.id, "ok", null);
+      return { ok: true, message: `Working through Gemini ···${resolved.tail}.`, tail: resolved.tail };
     }
     if (role === "translate" || role === "core_brain" || role === "chat") {
       // A role test must prove the selected key itself. It must never report
@@ -465,6 +498,7 @@ export async function testRoleKey(
         prompt: role === "translate" ? "Good morning" : "Connection test.",
         maxTokens: 512,
       });
+      if (tested.text) await markKeyUnavailable(resolved.id, "ok", null);
       return tested.text
         ? { ok: true, message: `Working through ${resolved.provider} ···${resolved.tail}.`, tail: resolved.tail }
         : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
