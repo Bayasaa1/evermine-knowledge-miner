@@ -80,8 +80,36 @@ export const PROVIDER_LABEL: Record<string, string> = {
   perplexity: "Perplexity",
   cohere: "Cohere",
   custom: "My own AI",
-  nvidia: "NVIDIA NIM",
-  huggingface: "Hugging Face",
+};
+
+export const ROLE_STRENGTH: Record<"en" | "mn" | "ko", Partial<Record<string, string>>> = {
+  en: {
+    gemini: "Watches video and images; also handles text.",
+    groq: "Fast text; strong for translation and write-up.",
+    mistral: "Structured text; strong for Core Brain.",
+    openrouter: "Uses the model saved with this key; free or paid depends on that model.",
+    cerebras: "Fast text when the account has allowance.",
+    together: "Open-model text when the account has allowance.",
+    elevenlabs: "Voice cloning only.",
+  },
+  mn: {
+    gemini: "Видео, зураг харна; мөн текст ажиллуулна.",
+    groq: "Хурдан текст; орчуулга, бичиж цэгцлэхэд сайн.",
+    mistral: "Бүтэцтэй текст; Үндсэн тархинд сайн.",
+    openrouter: "Хадгалсан загварыг ашиглана; үнэ нь тэр загвараас хамаарна.",
+    cerebras: "Эрх үлдсэн үед хурдан текст ажиллуулна.",
+    together: "Эрх үлдсэн үед нээлттэй загвар ажиллуулна.",
+    elevenlabs: "Зөвхөн дуу хуулбарлана.",
+  },
+  ko: {
+    gemini: "영상과 이미지를 보고 텍스트도 처리합니다.",
+    groq: "빠른 텍스트 처리; 번역과 마이닝 정리에 적합합니다.",
+    mistral: "구조화된 텍스트; 코어 브레인에 적합합니다.",
+    openrouter: "저장한 모델을 사용하며 무료/유료 여부는 모델에 따라 다릅니다.",
+    cerebras: "계정 할당량이 남아 있을 때 빠른 텍스트를 제공합니다.",
+    together: "계정 할당량이 남아 있을 때 오픈 모델을 사용합니다.",
+    elevenlabs: "음성 복제 전용입니다.",
+  },
 };
 
 export type RoleChoice = { role: AiRole; provider: string; keyTail: string | null; keyId: string | null; autoFallback: boolean };

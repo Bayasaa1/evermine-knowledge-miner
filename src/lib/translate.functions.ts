@@ -22,7 +22,7 @@ export const translateTexts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(
-    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; retry?: boolean; via?: "key"; provider?: string; tail?: string }> => {
+    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; retry?: boolean; failed?: string; via?: "key"; provider?: string; tail?: string }> => {
     // Abuse guard for repeated translation requests.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
@@ -78,7 +78,7 @@ export const translateTexts = createServerFn({ method: "POST" })
           return { texts: data.texts, blocked: "quota" as const, via: "key" as const };
         return { texts: data.texts, blocked: "no_key" as const };
       }
-       return { texts: data.texts, retry: true };
+       return { texts: data.texts, failed: err instanceof Error ? err.message.slice(0, 180) : "Translation failed." };
     }
   },
   );

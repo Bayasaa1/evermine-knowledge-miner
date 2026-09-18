@@ -183,8 +183,6 @@ const MODEL_PREFERENCES: Record<string, RegExp[]> = {
   xai: [/grok.*mini/i, /grok/i],
   perplexity: [/sonar/i],
   cohere: [/command.*r/i],
-  nvidia: [/llama.*instruct/i, /qwen.*instruct/i, /nemotron/i],
-  huggingface: [/llama.*instruct/i, /qwen.*instruct/i, /mistral/i],
 };
 
 function chooseAvailableModel(provider: string, configured: string | null, ids: string[]): string | null {
@@ -304,8 +302,6 @@ const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
   xai: { base: "https://api.x.ai/v1", model: "grok-3-mini" },
   perplexity: { base: "https://api.perplexity.ai", model: "sonar" },
   cohere: { base: "https://api.cohere.ai/compatibility/v1", model: "command-r7b-12-2024" },
-  nvidia: { base: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.3-70b-instruct" },
-  huggingface: { base: "https://router.huggingface.co/v1", model: "meta-llama/Llama-3.1-8B-Instruct" },
 };
 
 /** Text generation using the provider actually assigned to the role. */
