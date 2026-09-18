@@ -9,7 +9,18 @@ Why you can "only pick Gemini" today:
 
 So three of the six rows really do show Gemini alone. That is the part worth changing.
 
-## 1. Split mining into "watch" and "write"
+## 1. Never stop when a key runs out (most important)
+
+Today, text jobs (translating, core brain, chat) do move to the next key when one hits its limit — but mining does not: it grabs one Gemini key at the start and the whole job stops when that key's daily quota ends.
+
+- Mining will keep a list of your usable keys for the job instead of one. When the running key hits its limit, the next chunk continues on the next key, and the video finishes.
+- The same for your spare Gemini keys: two Gemini keys means roughly double the daily mining.
+- The switch is written into the job, so a paused job resumed later starts from the key that still has room.
+- Each row shows plainly: "started on Gemini ···aAog, finished on Gemini ···awxg", never a silent swap.
+- The "switch automatically" checkbox stays in charge: off means the job stops with the real reason instead of moving.
+
+## 2. Split mining into "watch" and "write"
+
 
 Mining is two different jobs glued together. Only the first needs eyes.
 
