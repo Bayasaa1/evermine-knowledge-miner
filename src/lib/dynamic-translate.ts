@@ -14,6 +14,8 @@ type Cache = Record<string, string>;
 const memory = new Map<LangCode, Cache>();
 const pending = new Map<LangCode, Set<string>>();
 const inflight = new Set<string>();
+/** Retry counter per string so a broken reply is re-tried, then dropped. */
+const attempts = new Map<string, number>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let version = 0;
@@ -118,9 +120,16 @@ async function flush() {
       });
       const state = (res as { blocked?: string }).blocked;
       if ((res as { retry?: boolean }).retry) {
+        // Re-queue a limited number of times: a broken reply must never be
+        // cached as a translation, but it must not loop forever either.
         const keep = pending.get(lang) ?? new Set<string>();
-        for (const t of texts) keep.add(t);
-        pending.set(lang, keep);
+        for (const t of texts) {
+          const key = `${lang}:${t}`;
+          const tries = (attempts.get(key) ?? 0) + 1;
+          attempts.set(key, tries);
+          if (tries <= 3) keep.add(t);
+        }
+        if (keep.size) pending.set(lang, keep);
         continue;
       }
       const failed = (res as { failed?: string }).failed;
@@ -167,12 +176,15 @@ async function flush() {
         return;
       }
       const cache = loadCache(lang);
+      const skipped = new Set((res as { untranslated?: number[] }).untranslated ?? []);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
-        // Cache every returned string, including ones that come back identical
-        // (names, numbers, "OK"). Skipping them made the app re-ask the AI for
-        // the same words on every page view and burn the user's tokens.
+        // Cache every genuinely returned string, including ones that come back
+        // identical (names, numbers, "OK"), but never cache an item the engine
+        // failed to translate — that would freeze it in English forever.
+        if (skipped.has(i)) return;
         cache[src] = out;
+        attempts.delete(`${lang}:${src}`);
       });
       persist(lang);
       emit();

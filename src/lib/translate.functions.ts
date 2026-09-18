@@ -22,7 +22,7 @@ export const translateTexts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(
-    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; retry?: boolean; failed?: string; via?: "key"; provider?: string; tail?: string }> => {
+    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; retry?: boolean; failed?: string; via?: "key"; provider?: string; tail?: string; untranslated?: number[] }> => {
     // Abuse guard for repeated translation requests.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
@@ -59,14 +59,28 @@ export const translateTexts = createServerFn({ method: "POST" })
       });
       const raw = result.text;
       const match = raw.match(/\[[\s\S]*\]/);
+      // A broken reply is not a translation. Flag it as retryable so the
+      // original text is never stored as if it had been translated.
       if (!match) {
         console.error("translate unparsable reply", raw.slice(0, 300));
-        return { texts: data.texts };
+        return { texts: data.texts, retry: true };
       }
-      const parsed = JSON.parse(match[0]) as unknown;
-      if (!Array.isArray(parsed) || parsed.length !== data.texts.length) return { texts: data.texts };
-      const out = parsed.map((v, i) => (typeof v === "string" && v.trim() ? v : data.texts[i]!));
-       return { texts: out, provider: result.provider, tail: result.tail };
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(match[0]);
+      } catch {
+        return { texts: data.texts, retry: true };
+      }
+      if (!Array.isArray(parsed) || parsed.length !== data.texts.length) return { texts: data.texts, retry: true };
+      // Track which items came back empty so the client does not cache the
+      // untouched source string for them.
+      const untranslated: number[] = [];
+      const out = parsed.map((v, i) => {
+        if (typeof v === "string" && v.trim()) return v;
+        untranslated.push(i);
+        return data.texts[i]!;
+      });
+       return { texts: out, provider: result.provider, tail: result.tail, untranslated };
     } catch (err) {
       const { UserAiError } = await import("@/lib/user-ai.server");
       if (err instanceof UserAiError) {
