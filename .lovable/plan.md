@@ -65,6 +65,7 @@ I will add NVIDIA and Hugging Face as choices, and surface GitHub Models in the 
 
 ## Technical details
 
+- Mining keeps a key list: `resolveGeminiCredential` gains a "skip these key ids" argument, and `miner-pool` / `mining-jobs` / `resume-mining` retry the current chunk on the next usable key on a quota error, saving the new key id onto the job row.
 - `ROLE_PROVIDERS` gains `mine_write` (all text providers) while `mine` stays Gemini-only; `AI_ROLES`, `ROLE_COPY` (EN/MN/KO) and the role-check server functions extend with it.
 - `miner-pool` / `youtube-mine.server` / `mining-jobs` call `generateRoleText("mine_write", ...)` for the summarise/extract pass, falling back to Gemini when that key errors.
 - `OPENAI_COMPATIBLE` gains `nvidia` (`https://integrate.api.nvidia.com/v1`) and `huggingface` (`https://router.huggingface.co/v1`); provider enum, labels and rates updated.
