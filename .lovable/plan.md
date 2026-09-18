@@ -35,7 +35,7 @@ video -> [WATCH]  Gemini: what is on screen, what is said   -> raw notes
 - Result: Gemini's free quota is spent only on watching, which roughly doubles how many videos you can mine in a day, and Groq does the heavy text work for free and much faster.
 - If the write-up engine fails, the watching engine finishes the job as it does today, and the row says so.
 
-## 2. Make each engine's strength visible
+## 3. Make each engine's strength visible
 
 Next to each choice, one short line about what that engine is good at, so picking is not guesswork:
 - Groq — fastest free text. Best for translating and mining write-up.
@@ -47,7 +47,7 @@ Next to each choice, one short line about what that engine is good at, so pickin
 Also add a one-tap "Spread the work" button that sets a sensible split for you:
 watching = Gemini, write-up = Groq, translating = Groq, core brain = Mistral, chat = Gemini.
 
-## 3. Better free options to add (answering "what about meta.ai")
+## 4. Better free options to add (answering "what about meta.ai")
 
 Meta has no public AI API — meta.ai is a consumer chat site only. But Meta's Llama models are free through providers you can already add. Worth offering in the add-key list:
 - NVIDIA NIM — free tier, hosts Llama and Qwen.
@@ -57,7 +57,7 @@ Meta has no public AI API — meta.ai is a consumer chat site only. But Meta's L
 
 I will add NVIDIA and Hugging Face as choices, and surface GitHub Models in the suggestion list.
 
-## 4. Honesty rules kept
+## 5. Honesty rules kept
 
 - A key is only shown as working after a real call of that exact job.
 - Used-up or rejected keys stay visible with the real reason.
