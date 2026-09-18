@@ -61,3 +61,8 @@
 - [x] Stop English pages translating themselves and wasting the user's quota
 - [x] Treat Gemini per-minute throttling as a short cooldown, not daily exhaustion
 - [x] Use Gemini Flash-Lite without hidden thinking tokens for translation
+- [x] Make failed translation responses retry or show the real error instead of caching original text
+- [x] Route Mind Auditor through the selected Core Brain AI
+- [x] Add a separate text-engine role for organizing mined video notes
+- [x] Let mining switch to another saved Gemini key when the selected key reaches its limit
+- [ ] Verify real translation, Core Brain, chat, video mining and voice behavior through a signed-in customer account
