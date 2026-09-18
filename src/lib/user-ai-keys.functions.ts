@@ -25,6 +25,8 @@ const PROVIDER = z.enum([
   "xai",
   "perplexity",
   "cohere",
+    "nvidia",
+    "huggingface",
   // Voice cloning engine. Optional: without it minds speak with the free
   // device voice instead.
   "elevenlabs",
@@ -72,7 +74,8 @@ export const saveUserAiKey = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const apiKey = data.apiKey.trim();
     if (!KEY_RE.test(apiKey)) throw new Error("That does not look like an API key.");
-    // Only Gemini runs unattended background jobs, so only it is verified here.
+    // Gemini is verified on save. Other engines are proved through the real
+    // role test, which uses the same request and parser as the actual job.
     if (data.provider === "gemini") await verifyGeminiKey(apiKey);
     const { error } = await context.supabase
       .from("user_ai_keys")

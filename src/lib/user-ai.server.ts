@@ -183,6 +183,8 @@ const MODEL_PREFERENCES: Record<string, RegExp[]> = {
   xai: [/grok.*mini/i, /grok/i],
   perplexity: [/sonar/i],
   cohere: [/command.*r/i],
+  nvidia: [/llama.*instruct/i, /qwen.*instruct/i, /nemotron/i],
+  huggingface: [/llama.*instruct/i, /qwen.*instruct/i, /mistral/i],
 };
 
 function chooseAvailableModel(provider: string, configured: string | null, ids: string[]): string | null {
@@ -273,7 +275,10 @@ async function generateRoleTextOnce(opts: {
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
-    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    // Some real jobs return a JSON array (translation), while OpenAI-compatible
+    // json_object mode only permits an object. The system prompt still demands
+    // JSON; omitting response_format keeps every compatible provider usable.
+    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }] }),
   });
   if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
   const body = await res.json() as {
@@ -299,12 +304,14 @@ const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
   xai: { base: "https://api.x.ai/v1", model: "grok-3-mini" },
   perplexity: { base: "https://api.perplexity.ai", model: "sonar" },
   cohere: { base: "https://api.cohere.ai/compatibility/v1", model: "command-r7b-12-2024" },
+  nvidia: { base: "https://integrate.api.nvidia.com/v1", model: "meta/llama-3.3-70b-instruct" },
+  huggingface: { base: "https://router.huggingface.co/v1", model: "meta-llama/Llama-3.1-8B-Instruct" },
 };
 
 /** Text generation using the provider actually assigned to the role. */
 export async function generateRoleText(opts: {
   userId: string;
-  role: "translate" | "core_brain" | "chat";
+  role: "translate" | "mine_write" | "core_brain" | "chat";
   system: string;
   prompt: string;
   json?: boolean;
@@ -341,7 +348,7 @@ export async function generateRoleText(opts: {
       // Translation does not need long internal reasoning. Flash-Lite plus a
       // zero thinking budget is faster and avoids burning thousands of hidden
       // tokens on a short subtitle batch.
-      ...(opts.role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
+      ...(opts.role === "translate" && key.provider === "gemini" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
     });
   const skipped: string[] = [];
   let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
