@@ -99,5 +99,19 @@ export const testAllAiRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { testRoleKey } = await import("@/lib/user-ai.server");
-    return Promise.all(AI_ROLES.map(async (role) => ({ role, ...(await testRoleKey(context.userId, role, ROLE_PROVIDERS[role][0]!)) })));
+    // One job without a key (most people have no voice-clone key) must never
+    // wipe out the results for every other job.
+    const rows = await Promise.allSettled(
+      AI_ROLES.map(async (role) => ({ role, ...(await testRoleKey(context.userId, role, ROLE_PROVIDERS[role][0]!)) })),
+    );
+    return rows.map((row, i) =>
+      row.status === "fulfilled"
+        ? row.value
+        : {
+            role: AI_ROLES[i]!,
+            ok: false,
+            message: row.reason instanceof Error ? row.reason.message : "No key saved for this job yet.",
+            tail: null as string | null,
+          },
+    );
   });
