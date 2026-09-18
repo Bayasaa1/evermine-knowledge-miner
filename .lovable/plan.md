@@ -9,7 +9,18 @@ Why you can "only pick Gemini" today:
 
 So three of the six rows really do show Gemini alone. That is the part worth changing.
 
-## 1. Split mining into "watch" and "write"
+## 1. Never stop when a key runs out (most important)
+
+Today, text jobs (translating, core brain, chat) do move to the next key when one hits its limit — but mining does not: it grabs one Gemini key at the start and the whole job stops when that key's daily quota ends.
+
+- Mining will keep a list of your usable keys for the job instead of one. When the running key hits its limit, the next chunk continues on the next key, and the video finishes.
+- The same for your spare Gemini keys: two Gemini keys means roughly double the daily mining.
+- The switch is written into the job, so a paused job resumed later starts from the key that still has room.
+- Each row shows plainly: "started on Gemini ···aAog, finished on Gemini ···awxg", never a silent swap.
+- The "switch automatically" checkbox stays in charge: off means the job stops with the real reason instead of moving.
+
+## 2. Split mining into "watch" and "write"
+
 
 Mining is two different jobs glued together. Only the first needs eyes.
 
@@ -24,7 +35,7 @@ video -> [WATCH]  Gemini: what is on screen, what is said   -> raw notes
 - Result: Gemini's free quota is spent only on watching, which roughly doubles how many videos you can mine in a day, and Groq does the heavy text work for free and much faster.
 - If the write-up engine fails, the watching engine finishes the job as it does today, and the row says so.
 
-## 2. Make each engine's strength visible
+## 3. Make each engine's strength visible
 
 Next to each choice, one short line about what that engine is good at, so picking is not guesswork:
 - Groq — fastest free text. Best for translating and mining write-up.
@@ -36,7 +47,7 @@ Next to each choice, one short line about what that engine is good at, so pickin
 Also add a one-tap "Spread the work" button that sets a sensible split for you:
 watching = Gemini, write-up = Groq, translating = Groq, core brain = Mistral, chat = Gemini.
 
-## 3. Better free options to add (answering "what about meta.ai")
+## 4. Better free options to add (answering "what about meta.ai")
 
 Meta has no public AI API — meta.ai is a consumer chat site only. But Meta's Llama models are free through providers you can already add. Worth offering in the add-key list:
 - NVIDIA NIM — free tier, hosts Llama and Qwen.
@@ -46,7 +57,7 @@ Meta has no public AI API — meta.ai is a consumer chat site only. But Meta's L
 
 I will add NVIDIA and Hugging Face as choices, and surface GitHub Models in the suggestion list.
 
-## 4. Honesty rules kept
+## 5. Honesty rules kept
 
 - A key is only shown as working after a real call of that exact job.
 - Used-up or rejected keys stay visible with the real reason.
@@ -54,6 +65,7 @@ I will add NVIDIA and Hugging Face as choices, and surface GitHub Models in the 
 
 ## Technical details
 
+- Mining keeps a key list: `resolveGeminiCredential` gains a "skip these key ids" argument, and `miner-pool` / `mining-jobs` / `resume-mining` retry the current chunk on the next usable key on a quota error, saving the new key id onto the job row.
 - `ROLE_PROVIDERS` gains `mine_write` (all text providers) while `mine` stays Gemini-only; `AI_ROLES`, `ROLE_COPY` (EN/MN/KO) and the role-check server functions extend with it.
 - `miner-pool` / `youtube-mine.server` / `mining-jobs` call `generateRoleText("mine_write", ...)` for the summarise/extract pass, falling back to Gemini when that key errors.
 - `OPENAI_COMPATIBLE` gains `nvidia` (`https://integrate.api.nvidia.com/v1`) and `huggingface` (`https://router.huggingface.co/v1`); provider enum, labels and rates updated.
