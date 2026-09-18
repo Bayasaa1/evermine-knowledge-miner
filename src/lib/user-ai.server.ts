@@ -402,9 +402,15 @@ export async function resolveGeminiCredential(
 ): Promise<AiCredential> {
   try {
     if (role) {
-      const resolved = await resolveUserAiKey(userId, role);
-      if (resolved.provider !== "gemini") throw new UserAiError("unsupported_task", "This job requires Gemini video or image access.");
-      return { kind: "gemini_key", value: resolved.apiKey };
+      try {
+        const resolved = await resolveUserAiKey(userId, role);
+        if (resolved.provider === "gemini") return { kind: "gemini_key", value: resolved.apiKey };
+      } catch {
+        /* no usable key for this role — try the account's own Gemini keys below */
+      }
+      // This job needs Gemini itself. When the role runs on another engine
+      // (Groq, Mistral, OpenRouter…), use the user's own saved Gemini key
+      // instead of failing the whole job.
     }
     // A creator may keep several Gemini keys (spares for when one hits its
     // daily quota), so never assume a single row here.

@@ -130,6 +130,8 @@ export function AiRolesCard() {
       const next: Record<string, TestState> = {};
       for (const row of result) next[row.role] = { ok: row.ok, message: row.message };
       setTests(next);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : t.noKey);
     } finally {
       setBusy(null);
     }

@@ -155,10 +155,10 @@ async function flush() {
       const cache = loadCache(lang);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
-        // A failed or malformed provider reply returns the source text. Do not
-        // cache that as a successful translation or the subtitle stays stuck
-        // forever even after the key is fixed or automatic switching succeeds.
-        if (out !== src || lang === "en") cache[src] = out;
+        // Cache every returned string, including ones that come back identical
+        // (names, numbers, "OK"). Skipping them made the app re-ask the AI for
+        // the same words on every page view and burn the user's tokens.
+        cache[src] = out;
       });
       persist(lang);
       emit();
