@@ -100,12 +100,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // credit. A job whose owner has not saved a key yet cannot be mined
           // in the background — it waits with a clear reason instead of
           // burning attempts.
-          let ownerKey = typeof job.ai_credential === "string" ? job.ai_credential.trim() : "";
-          if (!ownerKey) {
-            const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
-            ownerKey = (await resolveGeminiCredential(job.user_id, {}, "mine").catch(() => null))?.value ?? "";
-          }
-          if (!ownerKey) {
+          const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
+          const hasMiningKey = await runGeminiRoleWithFallback(job.user_id, "mine", async (_credential, key) => key).catch(() => null);
+          if (!hasMiningKey) {
             await supabaseAdmin
               .from("mining_jobs")
               .update({
@@ -116,26 +113,26 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               .eq("id", job.id);
             continue;
           }
-          const credential = { kind: "gemini_key" as const, value: ownerKey };
-
           // Keep mining this video while there is time left, instead of one
           // chunk every five minutes.
           while (index < chunks.length && Date.now() < deadline) {
             const chunk = chunks[index]!;
             try {
-              const mined = await analyzeYoutubeVideo({
-                url: job.source_url,
-                startSec: chunk.start,
-                endSec: chunk.end,
-                assessment,
-                credential,
-                usage: {
-                  userId: job.user_id,
-                  videoLabel: job.source_label ?? job.source_url,
-                  videoId: job.source_url,
-                  jobId: job.id,
-                },
-              });
+              const { value: mined, key } = await runGeminiRoleWithFallback(job.user_id, "mine", (credential) =>
+                analyzeYoutubeVideo({
+                  url: job.source_url,
+                  startSec: chunk.start,
+                  endSec: chunk.end,
+                  assessment,
+                  credential,
+                  usage: {
+                    userId: job.user_id,
+                    videoLabel: job.source_label ?? job.source_url,
+                    videoId: job.source_url,
+                    jobId: job.id,
+                  },
+                }),
+              );
               results = [...results, mined];
               index += 1;
               await supabaseAdmin
@@ -148,6 +145,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
                   retry_after: null,
                   // Real progress clears the failure budget.
                   attempts: 0,
+                  ai_credential: key.apiKey,
                 })
                 .eq("id", job.id);
               resumed += 1;
