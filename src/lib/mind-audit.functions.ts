@@ -21,17 +21,19 @@ export const auditWithBuiltIn = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }): Promise<string> => {
-    const { resolveGeminiCredential, geminiGenerate, UserAiError } = await import("@/lib/user-ai.server");
+    const { generateRoleText, UserAiError } = await import("@/lib/user-ai.server");
     try {
-      const credential = await resolveGeminiCredential(context.userId, data, "core_brain");
-      return await geminiGenerate({
-        credential,
-        model: "gemini-2.5-flash",
+      const result = await generateRoleText({
+        userId: context.userId,
+        role: "core_brain",
         system: data.prompt,
         json: true,
         maxTokens: 8192,
-        turns: [{ role: "user", parts: [{ text: data.brief }] }],
+        prompt: data.brief,
+        subjectKind: "mind",
+        subjectLabel: "Mind audit",
       });
+      return result.text;
     } catch (err) {
       if (err instanceof UserAiError) throw new Error(err.message);
       throw err;

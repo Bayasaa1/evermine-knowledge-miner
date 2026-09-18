@@ -11,7 +11,7 @@ import { Check, Loader2, RefreshCw, X } from "lucide-react";
 
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { describeAiRoles, listAiRoles, setAiRole, testAiRoleKey, testAllAiRoles } from "@/lib/ai-roles.functions";
-import { AI_ROLES, PROVIDER_LABEL, ROLE_COPY, ROLE_PROVIDERS, type AiRole } from "@/lib/ai-roles";
+import { AI_ROLES, PROVIDER_LABEL, ROLE_COPY, ROLE_PROVIDERS, ROLE_STRENGTH, type AiRole } from "@/lib/ai-roles";
 import { clearRoleCache } from "@/lib/api-keys";
 import { Button } from "@/components/ui/button";
 import { pickCopy, useLang } from "@/lib/i18n";
@@ -56,7 +56,9 @@ export function AiRolesCard() {
     checkAll: pickCopy({ en: "Check everything", mn: "Бүгдийг шалгах", ko: "모두 확인" }, lang),
   };
 
-  const copy = ROLE_COPY[(["en", "mn", "ko"] as const).includes(lang as "en") ? (lang as "en" | "mn" | "ko") : "en"] ?? ROLE_COPY.en;
+  const language = (["en", "mn", "ko"] as const).includes(lang as "en") ? (lang as "en" | "mn" | "ko") : "en";
+  const copy = ROLE_COPY[language] ?? ROLE_COPY.en;
+  const strengths = ROLE_STRENGTH[language];
 
   const refresh = async () => {
     const [k, r, d] = await Promise.all([loadKeys(), loadRoles(), loadReports()]);
@@ -200,6 +202,11 @@ export function AiRolesCard() {
                   : t.noKey}
               </p>
             )}
+            {choice[role] && choice[role] !== AUTO && (() => {
+              const selected = keys.find((key) => key.id === choice[role]);
+              const hint = selected ? strengths[selected.provider] : null;
+              return hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null;
+            })()}
             {report?.missing && (
               <p className="mt-1 text-[11px] text-amber-500">
                 {pickCopy(

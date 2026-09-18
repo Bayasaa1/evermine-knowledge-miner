@@ -22,7 +22,7 @@ export const translateTexts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(
-    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; via?: "key" }> => {
+    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; retry?: boolean; failed?: string; via?: "key"; provider?: string; tail?: string }> => {
     // Abuse guard for repeated translation requests.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
@@ -30,7 +30,7 @@ export const translateTexts = createServerFn({ method: "POST" })
       getRequestHeader("cf-connecting-ip") ??
       getRequestHeader("x-forwarded-for")?.split(",")[0]?.trim() ??
       "unknown";
-    if (rateLimit("translate", ip, 120)) return { texts: data.texts };
+    if (rateLimit("translate", ip, 120)) return { texts: data.texts, retry: true };
 
     const system = [
       `You are a UI and subtitle localisation engine for Evermind, a video-mining AI platform.`,
@@ -66,19 +66,19 @@ export const translateTexts = createServerFn({ method: "POST" })
       const parsed = JSON.parse(match[0]) as unknown;
       if (!Array.isArray(parsed) || parsed.length !== data.texts.length) return { texts: data.texts };
       const out = parsed.map((v, i) => (typeof v === "string" && v.trim() ? v : data.texts[i]!));
-      return { texts: out };
+       return { texts: out, provider: result.provider, tail: result.tail };
     } catch (err) {
       const { UserAiError } = await import("@/lib/user-ai.server");
       if (err instanceof UserAiError) {
         // A per-minute burst is transient: return the originals quietly and let
         // the client re-queue the strings for the next batch instead of
         // scaring the viewer with a quota warning.
-        if (err.code === "rate_minute") return { texts: data.texts };
+         if (err.code === "rate_minute") return { texts: data.texts, retry: true };
         if (err.code === "quota")
           return { texts: data.texts, blocked: "quota" as const, via: "key" as const };
         return { texts: data.texts, blocked: "no_key" as const };
       }
-      return { texts: data.texts };
+       return { texts: data.texts, failed: err instanceof Error ? err.message.slice(0, 180) : "Translation failed." };
     }
   },
   );

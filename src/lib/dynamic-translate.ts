@@ -117,6 +117,20 @@ async function flush() {
         },
       });
       const state = (res as { blocked?: string }).blocked;
+      if ((res as { retry?: boolean }).retry) {
+        const keep = pending.get(lang) ?? new Set<string>();
+        for (const t of texts) keep.add(t);
+        pending.set(lang, keep);
+        continue;
+      }
+      const failed = (res as { failed?: string }).failed;
+      if (failed) {
+        if (!noticeShown) {
+          noticeShown = true;
+          void import("sonner").then(({ toast }) => toast.error(failed, { duration: 12_000 }));
+        }
+        continue;
+      }
       if (state === "no_key" || state === "quota") {
         // The viewer has no working AI access of their own: stop queueing work
         // and say so once, instead of quietly showing the original language.

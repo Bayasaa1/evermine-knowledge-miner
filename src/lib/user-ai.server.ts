@@ -137,6 +137,45 @@ async function markKeyUnavailable(keyId: string, status: "ok" | "exhausted" | "i
   await supabaseAdmin.from("user_ai_keys").update({ status, cooldown_until: cooldownUntil }).eq("id", keyId);
 }
 
+/**
+ * Runs a Gemini-only job on the user's Mining/vision assignment and moves to
+ * the next saved Gemini key when the provider reports a real limit. The role's
+ * automatic-switch setting remains authoritative.
+ */
+export async function runGeminiRoleWithFallback<T>(
+  userId: string,
+  role: "mine" | "face_clone",
+  run: (credential: AiCredential, key: ResolvedUserKey) => Promise<T>,
+): Promise<{ value: T; key: ResolvedUserKey }> {
+  const skipped: string[] = [];
+  let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
+  for (;;) {
+    let key: ResolvedUserKey;
+    try {
+      key = await resolveUserAiKey(userId, role, skipped);
+    } catch {
+      throw lastError;
+    }
+    if (key.provider !== "gemini") {
+      skipped.push(key.id);
+      continue;
+    }
+    try {
+      const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+      await markKeyUnavailable(key.id, "ok", null);
+      return { value, key };
+    } catch (error) {
+      lastError = error;
+      if (!isLimitError(error)) throw error;
+      const minute = error instanceof UserAiError && error.code === "rate_minute";
+      const cooldown = new Date(Date.now() + (minute ? Math.max(20, error.retryAfterSec) * 1000 : 60 * 60 * 1000)).toISOString();
+      await markKeyUnavailable(key.id, minute ? "ok" : "exhausted", cooldown);
+      skipped.push(key.id);
+      if (!key.autoFallback) throw error;
+    }
+  }
+}
+
 /** Returns the key explicitly assigned to a role, even when it is cooling down. */
 async function assignedUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey | null> {
   const choice = await roleChoice(userId, role);
@@ -273,7 +312,10 @@ async function generateRoleTextOnce(opts: {
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${resolved.apiKey}` },
-    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }], ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
+    // Some real jobs return a JSON array (translation), while OpenAI-compatible
+    // json_object mode only permits an object. The system prompt still demands
+    // JSON; omitting response_format keeps every compatible provider usable.
+    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }] }),
   });
   if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
   const body = await res.json() as {
@@ -304,7 +346,7 @@ const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
 /** Text generation using the provider actually assigned to the role. */
 export async function generateRoleText(opts: {
   userId: string;
-  role: "translate" | "core_brain" | "chat";
+  role: "translate" | "mine_write" | "core_brain" | "chat";
   system: string;
   prompt: string;
   json?: boolean;
@@ -341,7 +383,7 @@ export async function generateRoleText(opts: {
       // Translation does not need long internal reasoning. Flash-Lite plus a
       // zero thinking budget is faster and avoids burning thousands of hidden
       // tokens on a short subtitle batch.
-      ...(opts.role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
+      ...(opts.role === "translate" && key.provider === "gemini" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
     });
   const skipped: string[] = [];
   let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
@@ -501,31 +543,49 @@ export async function testRoleKey(
         ? { ok: true, message: "Working.", tail: report.effectiveTail }
         : { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
     }
-    if (resolved.provider === "gemini") {
+    if (role === "translate" || role === "mine_write" || role === "core_brain" || role === "chat") {
+      // A role test must prove the selected key itself. It must never report
+      // green because automatic fallback quietly reached a different provider.
+      const translation = role === "translate";
+      const structured = role === "core_brain" || role === "mine_write";
       const tested = await generateRoleTextOnce({
         resolved,
-        system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
-        prompt: role === "translate" ? "Good morning" : "Connection test.",
-        maxTokens: 64,
-        ...(role === "translate" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
+        system: translation
+          ? "Translate every item into Korean. Return only a JSON array with the same length and order."
+          : structured
+            ? "Build a tiny Core Brain record. Return only JSON with keys summary and facts, where facts is an array."
+            : "Answer as a helpful Mind using the supplied saved knowledge.",
+        prompt: translation
+          ? JSON.stringify(["The robot picked up the red cup.", "The next lesson starts tomorrow."])
+          : structured
+            ? "Saved knowledge: Mina builds small educational robots and teaches safe handling."
+            : "Saved knowledge: Mina builds small educational robots. Question: What does Mina build?",
+        json: translation || structured,
+        maxTokens: 512,
+        ...(translation && resolved.provider === "gemini" ? { model: "gemini-3.1-flash-lite", disableThinking: true } : {}),
       });
+      let valid = Boolean(tested.text.trim());
+      if (translation) {
+        try {
+          const parsed = JSON.parse(tested.text) as unknown;
+          valid = Array.isArray(parsed) && parsed.length === 2 && parsed.some((item) => typeof item === "string" && !["The robot picked up the red cup.", "The next lesson starts tomorrow."].includes(item));
+        } catch { valid = false; }
+      } else if (structured) {
+        try {
+          const parsed = JSON.parse(tested.text) as { summary?: unknown; facts?: unknown };
+          valid = typeof parsed.summary === "string" && Array.isArray(parsed.facts);
+        } catch { valid = false; }
+      }
+      if (valid) await markKeyUnavailable(resolved.id, "ok", null);
+      return valid
+        ? { ok: true, message: `Working through ${resolved.provider} ···${resolved.tail}.`, tail: resolved.tail }
+        : { ok: false, message: "The engine answered, but its result did not work for this job.", tail: report.effectiveTail };
+    }
+    if (resolved.provider === "gemini") {
+      const tested = await generateRoleTextOnce({ resolved, system: "Return only the word OK.", prompt: "Connection test.", maxTokens: 64 });
       if (!tested.text) return { ok: false, message: "Connected but returned no text.", tail: resolved.tail };
       await markKeyUnavailable(resolved.id, "ok", null);
       return { ok: true, message: `Working through Gemini ···${resolved.tail}.`, tail: resolved.tail };
-    }
-    if (role === "translate" || role === "core_brain" || role === "chat") {
-      // A role test must prove the selected key itself. It must never report
-      // green because automatic fallback quietly reached a different provider.
-      const tested = await generateRoleTextOnce({
-        resolved,
-        system: role === "translate" ? "Translate into Korean. Return only the translation." : "Return only the word OK.",
-        prompt: role === "translate" ? "Good morning" : "Connection test.",
-        maxTokens: 512,
-      });
-      if (tested.text) await markKeyUnavailable(resolved.id, "ok", null);
-      return tested.text
-        ? { ok: true, message: `Working through ${resolved.provider} ···${resolved.tail}.`, tail: resolved.tail }
-        : { ok: false, message: "Connected but returned no text.", tail: report.effectiveTail };
     }
     return { ok: true, message: "Working.", tail: report.effectiveTail };
   } catch (error) {
