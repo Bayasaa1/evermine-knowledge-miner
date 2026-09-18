@@ -14,6 +14,8 @@ type Cache = Record<string, string>;
 const memory = new Map<LangCode, Cache>();
 const pending = new Map<LangCode, Set<string>>();
 const inflight = new Set<string>();
+/** Retry counter per string so a broken reply is re-tried, then dropped. */
+const attempts = new Map<string, number>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let version = 0;
