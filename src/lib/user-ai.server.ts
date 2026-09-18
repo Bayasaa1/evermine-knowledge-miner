@@ -137,6 +137,45 @@ async function markKeyUnavailable(keyId: string, status: "ok" | "exhausted" | "i
   await supabaseAdmin.from("user_ai_keys").update({ status, cooldown_until: cooldownUntil }).eq("id", keyId);
 }
 
+/**
+ * Runs a Gemini-only job on the user's Mining/vision assignment and moves to
+ * the next saved Gemini key when the provider reports a real limit. The role's
+ * automatic-switch setting remains authoritative.
+ */
+export async function runGeminiRoleWithFallback<T>(
+  userId: string,
+  role: "mine" | "face_clone",
+  run: (credential: AiCredential, key: ResolvedUserKey) => Promise<T>,
+): Promise<{ value: T; key: ResolvedUserKey }> {
+  const skipped: string[] = [];
+  let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
+  for (;;) {
+    let key: ResolvedUserKey;
+    try {
+      key = await resolveUserAiKey(userId, role, skipped);
+    } catch {
+      throw lastError;
+    }
+    if (key.provider !== "gemini") {
+      skipped.push(key.id);
+      continue;
+    }
+    try {
+      const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+      await markKeyUnavailable(key.id, "ok", null);
+      return { value, key };
+    } catch (error) {
+      lastError = error;
+      if (!isLimitError(error)) throw error;
+      const minute = error instanceof UserAiError && error.code === "rate_minute";
+      const cooldown = new Date(Date.now() + (minute ? Math.max(20, error.retryAfterSec) * 1000 : 60 * 60 * 1000)).toISOString();
+      await markKeyUnavailable(key.id, minute ? "ok" : "exhausted", cooldown);
+      skipped.push(key.id);
+      if (!key.autoFallback) throw error;
+    }
+  }
+}
+
 /** Returns the key explicitly assigned to a role, even when it is cooling down. */
 async function assignedUserAiKey(userId: string, role: AiRole): Promise<ResolvedUserKey | null> {
   const choice = await roleChoice(userId, role);

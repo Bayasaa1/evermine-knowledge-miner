@@ -172,6 +172,30 @@ export async function analyzeYoutubeVideo(input: {
     throw new Error("AI returned an unreadable video analysis.");
   }
 
+  // Watching and organizing are separate jobs. Gemini remains responsible for
+  // the actual video; the user's Mining — writing up assignment can clean the
+  // structured notes with a text engine such as Groq or Mistral.
+  if (input.usage) {
+    try {
+      const { generateRoleText } = await import("@/lib/user-ai.server");
+      const written = await generateRoleText({
+        userId: input.usage.userId,
+        role: "mine_write",
+        system: "You organize video-mining JSON. Preserve every timestamp, quote, fact and JSON key. Remove repetition and improve clarity. Return only valid JSON with exactly the same structure.",
+        prompt: JSON.stringify(result),
+        json: true,
+        maxTokens: 16384,
+        subjectKind: "video",
+        subjectId: input.usage.videoId ?? url,
+        subjectLabel: input.usage.videoLabel ?? url,
+      });
+      result = normalizeChunkResult(JSON.parse(written.text));
+    } catch {
+      // The watched result is complete and remains usable when the optional
+      // writing engine is unavailable.
+    }
+  }
+
   // Step 3 — the measured timeline always wins over the described one.
   if (cues.length) {
     const roleOf = new Map(

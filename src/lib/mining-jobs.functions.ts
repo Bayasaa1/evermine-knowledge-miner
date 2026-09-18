@@ -249,33 +249,18 @@ export const runNextChunk = createServerFn({ method: "POST" })
     const chunk = job.chunks[job.nextIndex]!;
     const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
 
-    // The chunk uses the private credential captured when the job was created.
-    // Old jobs without one are resolved through the current Mining assignment.
-    const { data: credRow } = await context.supabase
-      .from("mining_jobs")
-      .select("ai_credential")
-      .eq("id", data.jobId)
-      .maybeSingle();
-    const jobKey = ((credRow as { ai_credential?: string | null } | null)?.ai_credential ?? "").trim();
-    let accountKey = "";
-    if (!jobKey) {
-      const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
-      accountKey = (await resolveGeminiCredential(context.userId, {}, "mine")).value;
-    }
-    const activeKey = jobKey || accountKey;
-    if (!activeKey) {
-      throw new Error("Choose and test a Gemini key for Mining videos in API Manager.");
-    }
-
     try {
-      const mined = await analyzeYoutubeVideo({
-        url: job.sourceUrl,
-        startSec: chunk.start,
-        endSec: chunk.end,
-        assessment: job.assessment,
-        credential: { kind: "gemini_key", value: activeKey },
-        usage: { userId: context.userId, videoLabel: job.sourceLabel, videoId: job.sourceUrl, jobId: job.id },
-      });
+      const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
+      const { value: mined, key } = await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
+        analyzeYoutubeVideo({
+          url: job.sourceUrl,
+          startSec: chunk.start,
+          endSec: chunk.end,
+          assessment: job.assessment,
+          credential,
+          usage: { userId: context.userId, videoLabel: job.sourceLabel, videoId: job.sourceUrl, jobId: job.id },
+        }),
+      );
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;
       const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "running";
@@ -287,6 +272,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
           status,
           last_error: null,
           retry_after: null,
+          ai_credential: key.apiKey,
         })
         .eq("id", job.id)
         .eq("user_id", context.userId);
