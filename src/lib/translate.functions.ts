@@ -47,40 +47,71 @@ export const translateTexts = createServerFn({ method: "POST" })
 
     try {
       const { generateRoleText } = await import("@/lib/user-ai.server");
-      const result = await generateRoleText({
+      let provider: string | undefined;
+      let tail: string | undefined;
+
+      /**
+       * Translates one batch. A reply that comes back cut in half (the engine
+       * ran out of room) or in the wrong shape is not usable, so the batch is
+       * halved and tried again — that is what used to leave whole pages stuck
+       * in the original language forever.
+       */
+      const run = async (texts: string[]): Promise<string[] | null> => {
+        const result = await generateRoleText({
           userId: context.userId,
           role: "translate",
           system,
           json: true,
-          maxTokens: 4096,
-          prompt: JSON.stringify(data.texts),
+          // Translated text can be far longer than the source, and reasoning
+          // engines spend extra room thinking. Give them plenty.
+          maxTokens: 16384,
+          prompt: JSON.stringify(texts),
           subjectKind: "other",
           subjectLabel: `Translating into ${data.targetName}`,
-      });
-      const raw = result.text;
-      const match = raw.match(/\[[\s\S]*\]/);
-      // A broken reply is not a translation. Flag it as retryable so the
-      // original text is never stored as if it had been translated.
-      if (!match) {
-        console.error("translate unparsable reply", raw.slice(0, 300));
-        return { texts: data.texts, retry: true };
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(match[0]);
-      } catch {
-        return { texts: data.texts, retry: true };
-      }
-      if (!Array.isArray(parsed) || parsed.length !== data.texts.length) return { texts: data.texts, retry: true };
+        });
+        provider = result.provider;
+        tail = result.tail;
+        const match = result.text.match(/\[[\s\S]*\]/);
+        let parsed: unknown = null;
+        if (match) {
+          try {
+            parsed = JSON.parse(match[0]);
+          } catch {
+            parsed = null;
+          }
+        }
+        if (Array.isArray(parsed) && parsed.length === texts.length) {
+          return parsed.map((v, i) => (typeof v === "string" && v.trim() ? v : ""));
+        }
+        if (texts.length === 1) {
+          console.error("translate unparsable reply", result.text.slice(0, 300));
+          return null;
+        }
+        const mid = Math.ceil(texts.length / 2);
+        const left = await run(texts.slice(0, mid));
+        if (!left) return null;
+        const right = await run(texts.slice(mid));
+        if (!right) return null;
+        return [...left, ...right];
+      };
+
+      const translated = await run(data.texts);
+      if (!translated) return { texts: data.texts, retry: true };
+
       // Track which items came back empty so the client does not cache the
       // untouched source string for them.
       const untranslated: number[] = [];
-      const out = parsed.map((v, i) => {
-        if (typeof v === "string" && v.trim()) return v;
+      const out = translated.map((v, i) => {
+        if (v) return v;
         untranslated.push(i);
         return data.texts[i]!;
       });
-       return { texts: out, provider: result.provider, tail: result.tail, untranslated };
+      return {
+        texts: out,
+        ...(provider ? { provider } : {}),
+        ...(tail ? { tail } : {}),
+        untranslated,
+      };
     } catch (err) {
       const { UserAiError } = await import("@/lib/user-ai.server");
       if (err instanceof UserAiError) {
