@@ -98,10 +98,10 @@ async function flush() {
     if (!firstBatch) await sleep(1200);
     firstBatch = false;
     const queued = [...set].filter((t) => !inflight.has(`${lang}:${t}`));
-    const texts = queued.slice(0, 40);
+    const texts = queued.slice(0, 16);
     // Anything over one batch stays queued instead of being silently dropped —
     // that is why long pages used to stay half-translated.
-    const rest = queued.slice(40);
+    const rest = queued.slice(16);
     if (rest.length) {
       const keep = pending.get(lang) ?? new Set<string>();
       for (const t of rest) keep.add(t);
