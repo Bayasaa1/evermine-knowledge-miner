@@ -200,6 +200,12 @@ async function assignedUserAiKey(userId: string, role: AiRole): Promise<Resolved
   };
 }
 
+/** True when the provider said the key itself is wrong (not a limit). */
+function isRejectedKeyError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message.toLowerCase() : "";
+  return /http 401|http 403|invalid api key|unauthorized|invalid_api_key/.test(msg);
+}
+
 function isLimitError(error: unknown): boolean {
   return error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")
     || error instanceof GeminiHttpError && (error.status === 402 || error.status === 429);
@@ -405,6 +411,9 @@ export async function generateRoleText(opts: {
         { userId: opts.userId, role: opts.role, provider: resolved.provider, keyId: resolved.id, keyTail: resolved.tail, subjectKind: opts.subjectKind ?? "other", ...(opts.subjectLabel ? { subjectLabel: opts.subjectLabel } : {}) },
         { status: limit ? "quota" : "error", errorCode: limit ? "limit" : (error instanceof Error ? error.message : "provider error").slice(0, 120) },
       );
+      // A key the provider itself rejects is not a temporary problem: park it
+      // so every later job skips it instead of losing a round trip each time.
+      if (isRejectedKeyError(error)) await markKeyUnavailable(resolved.id, "invalid", null);
       if (limit) {
         // A minute burst is not an exhausted key. Briefly cool it down, then
         // let it rejoin the fallback pool automatically. Only daily/provider
