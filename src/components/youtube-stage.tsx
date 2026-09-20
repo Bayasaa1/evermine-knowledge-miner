@@ -132,7 +132,7 @@ export function YouTubeStage({
       if (!mutedRef.current) {
         const restore = window.setTimeout(() => {
           p.unMute();
-          p.setVolume(100);
+          p.setVolume(duckRef.current ? 18 : 100);
         }, 400);
         return () => window.clearTimeout(restore);
       }
