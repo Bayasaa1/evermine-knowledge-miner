@@ -747,6 +747,11 @@ function FeedCard({
     else v.pause();
   }, [isActive, paused]);
 
+  // Uploaded clips get the same ducking the YouTube player does.
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.volume = speaking ? 0.18 : 1;
+  }, [speaking]);
+
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
 
