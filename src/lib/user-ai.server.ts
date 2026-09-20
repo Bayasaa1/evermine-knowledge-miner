@@ -202,10 +202,14 @@ async function assignedUserAiKey(userId: string, role: AiRole): Promise<Resolved
   };
 }
 
-/** True when the provider said the key itself is wrong (not a limit). */
+/**
+ * True when the provider said the key itself is wrong (not a limit).
+ * 403 is deliberately excluded: providers also use it for model access,
+ * region and policy refusals, which say nothing about the key.
+ */
 function isRejectedKeyError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message.toLowerCase() : "";
-  return /http 401|http 403|invalid api key|unauthorized|invalid_api_key/.test(msg);
+  return /http 401|invalid api key|invalid_api_key|unauthorized/.test(msg);
 }
 
 function isLimitError(error: unknown): boolean {
