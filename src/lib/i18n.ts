@@ -428,3 +428,23 @@ export function useDisplayTexts(texts: (string | null | undefined)[]): string[] 
   return texts.map((text) => display(text, lang));
 }
 
+/**
+ * Same cached translation path, but into a language the viewer picked for one
+ * place (subtitles, spoken voice) instead of the whole app. `"source"` keeps
+ * the text exactly as it was mined.
+ */
+export function useDisplayTextsIn(
+  texts: (string | null | undefined)[],
+  lang: Lang | "source",
+): string[] {
+  // Subscribing keeps the caller re-rendering as translations land, exactly
+  // like useDisplayTexts does through useLang.
+  useSyncExternalStore(subscribeTranslations, translationVersion, () => 0);
+  if (lang === "source") return texts.map((t) => t ?? "");
+  return texts.map((text) => display(text, lang));
+}
+
+export function useDisplayTextIn(text: string | null | undefined, lang: Lang | "source"): string {
+  return useDisplayTextsIn([text], lang)[0] ?? "";
+}
+
