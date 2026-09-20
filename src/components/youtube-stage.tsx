@@ -115,9 +115,9 @@ export function YouTubeStage({
     if (muted) p.mute();
     else {
       p.unMute();
-      p.setVolume(100);
+      p.setVolume(duck ? 18 : 100);
     }
-  }, [muted, ready]);
+  }, [muted, duck, ready]);
 
   useEffect(() => {
     const p = player.current;
