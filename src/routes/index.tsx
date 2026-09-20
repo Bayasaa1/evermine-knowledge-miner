@@ -819,6 +819,57 @@ function FeedCard({
                   <div className="mb-2 flex items-center justify-between text-xs"><span>Timing</span><span>{subtitleOffset > 0 ? "+" : ""}{subtitleOffset.toFixed(1)}s</span></div>
                   <Slider min={-10} max={10} step={0.5} value={[subtitleOffset]} onValueChange={(value) => setSubtitleOffset(value[0] ?? 0)} aria-label="Subtitle timing" />
                 </div>
+                <div className="space-y-2 border-t pt-3">
+                  <span className="text-xs">{vc.subtitleLang}</span>
+                  <Select
+                    value={subtitleLang}
+                    onValueChange={(value) => {
+                      setSubtitleLang(value as LangCode | "source");
+                      writePref("evermind:subtitle-lang", value);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      <SelectItem value="source">{vc.original}</SelectItem>
+                      {Object.entries(LANGUAGES).map(([code, meta]) => (
+                        <SelectItem key={code} value={code}>{meta.native}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 border-t pt-3">
+                  <span className="text-xs">{vc.voiceLang}</span>
+                  <Select
+                    value={voiceLang}
+                    onValueChange={(value) => {
+                      setVoiceLang(value as LangCode);
+                      writePref("evermind:voice-lang", value);
+                      setVoiceBlocked(null);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {Object.entries(LANGUAGES).map(([code, meta]) => (
+                        <SelectItem key={code} value={code}>{meta.native}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs">{vc.speak}</span>
+                    <Switch
+                      checked={speakOn}
+                      disabled={!item.mindId}
+                      onCheckedChange={(on) => {
+                        setVoiceBlocked(null);
+                        setSpeakOn(on);
+                      }}
+                      aria-label={vc.speak}
+                    />
+                  </div>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {voiceBlocked ?? (item.mindId ? vc.speakNote : vc.noVoice)}
+                  </p>
+                </div>
               </PopoverContent>
             </Popover>
           </div>
