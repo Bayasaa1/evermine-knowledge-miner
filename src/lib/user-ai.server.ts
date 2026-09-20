@@ -419,7 +419,11 @@ export async function generateRoleText(opts: {
       );
       // A key the provider itself rejects is not a temporary problem: park it
       // so every later job skips it instead of losing a round trip each time.
-      if (isRejectedKeyError(error)) await markKeyUnavailable(resolved.id, "invalid", null);
+      if (isRejectedKeyError(error)) {
+        // Parked for a day, not forever: later jobs skip it, but the key comes
+        // back on its own in case the refusal was temporary.
+        await markKeyUnavailable(resolved.id, "invalid", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
+      }
       if (limit) {
         // A minute burst is not an exhausted key. Briefly cool it down, then
         // let it rejoin the fallback pool automatically. Only daily/provider
