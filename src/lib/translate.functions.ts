@@ -56,15 +56,22 @@ export const translateTexts = createServerFn({ method: "POST" })
        * halved and tried again — that is what used to leave whole pages stuck
        * in the original language forever.
        */
-      const run = async (texts: string[]): Promise<string[] | null> => {
+      // Hard ceiling on how many engine calls one request may cost, so a badly
+      // behaved engine can never quietly burn a page's worth of quota.
+      let calls = 0;
+      const MAX_CALLS = 4;
+
+      const run = async (texts: string[], depth = 0): Promise<string[] | null> => {
+        if (calls >= MAX_CALLS) return null;
+        calls += 1;
         const result = await generateRoleText({
           userId: context.userId,
           role: "translate",
           system,
           json: true,
-          // Translated text can be far longer than the source, and reasoning
-          // engines spend extra room thinking. Give them plenty.
-          maxTokens: 16384,
+          // Translated text is longer than the source, but a huge budget also
+          // invites huge (and expensive) replies. Keep it proportional.
+          maxTokens: 6144,
           prompt: JSON.stringify(texts),
           subjectKind: "other",
           subjectLabel: `Translating into ${data.targetName}`,
@@ -81,16 +88,18 @@ export const translateTexts = createServerFn({ method: "POST" })
           }
         }
         if (Array.isArray(parsed) && parsed.length === texts.length) {
-          return parsed.map((v, i) => (typeof v === "string" && v.trim() ? v : ""));
+          return parsed.map((v) => (typeof v === "string" && v.trim() ? v : ""));
         }
-        if (texts.length === 1) {
+        // One split only: a reply that is cut in half usually succeeds on a
+        // smaller batch, but deeper splitting just multiplies the cost.
+        if (texts.length === 1 || depth >= 1) {
           console.error("translate unparsable reply", result.text.slice(0, 300));
           return null;
         }
         const mid = Math.ceil(texts.length / 2);
-        const left = await run(texts.slice(0, mid));
+        const left = await run(texts.slice(0, mid), depth + 1);
         if (!left) return null;
-        const right = await run(texts.slice(mid));
+        const right = await run(texts.slice(mid), depth + 1);
         if (!right) return null;
         return [...left, ...right];
       };

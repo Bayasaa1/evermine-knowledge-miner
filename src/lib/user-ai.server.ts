@@ -111,7 +111,9 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   const { data } = await query;
   const usable = (data ?? []).filter((row) => {
     if (skipIds.includes(row.id)) return false;
-    if (row.status === "invalid") return false;
+    // A rejected key is parked, never binned: once its cooldown passes it is
+    // tried again, so a temporary provider refusal cannot kill a saved key.
+    if (row.status === "invalid" && (!row.cooldown_until || row.cooldown_until > now)) return false;
     if (row.status === "exhausted" && (!row.cooldown_until || row.cooldown_until > now)) return false;
     if (row.cooldown_until && row.cooldown_until > now) return false;
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return false;
@@ -200,10 +202,14 @@ async function assignedUserAiKey(userId: string, role: AiRole): Promise<Resolved
   };
 }
 
-/** True when the provider said the key itself is wrong (not a limit). */
+/**
+ * True when the provider said the key itself is wrong (not a limit).
+ * 403 is deliberately excluded: providers also use it for model access,
+ * region and policy refusals, which say nothing about the key.
+ */
 function isRejectedKeyError(error: unknown): boolean {
   const msg = error instanceof Error ? error.message.toLowerCase() : "";
-  return /http 401|http 403|invalid api key|unauthorized|invalid_api_key/.test(msg);
+  return /http 401|invalid api key|invalid_api_key|unauthorized/.test(msg);
 }
 
 function isLimitError(error: unknown): boolean {
@@ -413,7 +419,11 @@ export async function generateRoleText(opts: {
       );
       // A key the provider itself rejects is not a temporary problem: park it
       // so every later job skips it instead of losing a round trip each time.
-      if (isRejectedKeyError(error)) await markKeyUnavailable(resolved.id, "invalid", null);
+      if (isRejectedKeyError(error)) {
+        // Parked for a day, not forever: later jobs skip it, but the key comes
+        // back on its own in case the refusal was temporary.
+        await markKeyUnavailable(resolved.id, "invalid", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
+      }
       if (limit) {
         // A minute burst is not an exhausted key. Briefly cool it down, then
         // let it rejoin the fallback pool automatically. Only daily/provider
