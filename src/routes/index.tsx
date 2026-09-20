@@ -47,6 +47,34 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 
+/** Plain wording for the subtitle / voice controls, in the viewer's language. */
+const VOICE_COPY = {
+  en: {
+    subtitleLang: "Subtitle language",
+    original: "Original (as spoken)",
+    voiceLang: "Voice language",
+    speak: "Speak this video",
+    speakNote: "Spoken in the creator's own voice, on their account. The original sound stays quiet underneath.",
+    noVoice: "This creator has not made a voice yet, so this video cannot be spoken.",
+  },
+  mn: {
+    subtitleLang: "Хадмалын хэл",
+    original: "Эх хэлээр нь",
+    voiceLang: "Дуу хоолойн хэл",
+    speak: "Энэ бичлэгийг ярьж уншуулах",
+    speakNote: "Бүтээгчийн өөрийнх нь хоолойгоор, түүний дансаар ярина. Эх дуу нь намуухан үлдэнэ.",
+    noVoice: "Энэ бүтээгч хоолой үүсгээгүй тул уншуулах боломжгүй.",
+  },
+  ko: {
+    subtitleLang: "자막 언어",
+    original: "원래 언어 그대로",
+    voiceLang: "음성 언어",
+    speak: "이 영상 말로 듣기",
+    speakNote: "제작자의 목소리로, 제작자 계정으로 말합니다. 원래 소리는 작게 유지됩니다.",
+    noVoice: "이 제작자는 아직 목소리를 만들지 않아 말로 들을 수 없습니다.",
+  },
+};
+
 /** Small device-saved viewer preferences (subtitle / voice language). */
 function readPref<T extends string>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
