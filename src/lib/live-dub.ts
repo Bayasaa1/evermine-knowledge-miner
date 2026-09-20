@@ -189,7 +189,7 @@ export function createLiveDub(opts: {
         if (!audio) return;
         if (audio.state === "suspended") await audio.resume().catch(() => {});
         const buffer = audio.createBuffer(1, pcm.length, SAMPLE_RATE);
-        buffer.copyToChannel(pcm, 0);
+        buffer.getChannelData(0).set(pcm);
         const node = audio.createBufferSource();
         node.buffer = buffer;
         node.connect(audio.destination);
