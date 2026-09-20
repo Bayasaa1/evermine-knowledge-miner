@@ -127,7 +127,9 @@ async function flush() {
           const key = `${lang}:${t}`;
           const tries = (attempts.get(key) ?? 0) + 1;
           attempts.set(key, tries);
-          if (tries <= 3) keep.add(t);
+          // One retry only: more than that just spends the viewer's quota on
+          // an engine that is clearly not answering properly right now.
+          if (tries <= 1) keep.add(t);
         }
         if (keep.size) pending.set(lang, keep);
         continue;
