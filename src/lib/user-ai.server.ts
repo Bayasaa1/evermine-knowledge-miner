@@ -111,7 +111,9 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   const { data } = await query;
   const usable = (data ?? []).filter((row) => {
     if (skipIds.includes(row.id)) return false;
-    if (row.status === "invalid") return false;
+    // A rejected key is parked, never binned: once its cooldown passes it is
+    // tried again, so a temporary provider refusal cannot kill a saved key.
+    if (row.status === "invalid" && (!row.cooldown_until || row.cooldown_until > now)) return false;
     if (row.status === "exhausted" && (!row.cooldown_until || row.cooldown_until > now)) return false;
     if (row.cooldown_until && row.cooldown_until > now) return false;
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return false;
