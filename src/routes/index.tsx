@@ -27,7 +27,17 @@ import { YouTubeStage } from "@/components/youtube-stage";
 import { loadFeed, loadFeedTracks, type FeedItem } from "@/lib/feed";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
+import { pickCopy, useDisplayText, useDisplayTexts, useDisplayTextsIn, useLang } from "@/lib/i18n";
+import { LANGUAGES, type LangCode } from "@/lib/languages";
+import { createLiveDub, type LiveDub } from "@/lib/live-dub";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
