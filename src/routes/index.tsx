@@ -27,7 +27,17 @@ import { YouTubeStage } from "@/components/youtube-stage";
 import { loadFeed, loadFeedTracks, type FeedItem } from "@/lib/feed";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { pickCopy, useDisplayText, useDisplayTexts, useLang } from "@/lib/i18n";
+import { pickCopy, useDisplayText, useDisplayTexts, useDisplayTextsIn, useLang } from "@/lib/i18n";
+import { LANGUAGES, type LangCode } from "@/lib/languages";
+import { createLiveDub, type LiveDub } from "@/lib/live-dub";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
 import { listPurchases, purchaseMind } from "@/lib/purchases";
@@ -36,6 +46,44 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
+
+/** Plain wording for the subtitle / voice controls, in the viewer's language. */
+const VOICE_COPY = {
+  en: {
+    subtitleLang: "Subtitle language",
+    original: "Original (as spoken)",
+    voiceLang: "Voice language",
+    speak: "Speak this video",
+    speakNote: "Spoken in the creator's own voice, on their account. The original sound stays quiet underneath.",
+    noVoice: "This creator has not made a voice yet, so this video cannot be spoken.",
+  },
+  mn: {
+    subtitleLang: "Хадмалын хэл",
+    original: "Эх хэлээр нь",
+    voiceLang: "Дуу хоолойн хэл",
+    speak: "Энэ бичлэгийг ярьж уншуулах",
+    speakNote: "Бүтээгчийн өөрийнх нь хоолойгоор, түүний дансаар ярина. Эх дуу нь намуухан үлдэнэ.",
+    noVoice: "Энэ бүтээгч хоолой үүсгээгүй тул уншуулах боломжгүй.",
+  },
+  ko: {
+    subtitleLang: "자막 언어",
+    original: "원래 언어 그대로",
+    voiceLang: "음성 언어",
+    speak: "이 영상 말로 듣기",
+    speakNote: "제작자의 목소리로, 제작자 계정으로 말합니다. 원래 소리는 작게 유지됩니다.",
+    noVoice: "이 제작자는 아직 목소리를 만들지 않아 말로 들을 수 없습니다.",
+  },
+};
+
+/** Small device-saved viewer preferences (subtitle / voice language). */
+function readPref<T extends string>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  return (window.localStorage.getItem(key) as T | null) ?? fallback;
+}
+
+function writePref(key: string, value: string) {
+  if (typeof window !== "undefined") window.localStorage.setItem(key, value);
+}
 
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
@@ -577,6 +625,15 @@ function FeedCard({
   const [subtitlePosition, setSubtitlePosition] = useState(38);
   const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  // Subtitle + voice language are the viewer's own choice for this player and
+  // stay on the device; they are deliberately independent of the app language.
+  const [subtitleLang, setSubtitleLang] = useState<LangCode | "source">(() =>
+    readPref("evermind:subtitle-lang", "source"),
+  );
+  const [voiceLang, setVoiceLang] = useState<LangCode>(() => readPref("evermind:voice-lang", "en"));
+  const [speakOn, setSpeakOn] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceBlocked, setVoiceBlocked] = useState<string | null>(null);
 
   // Subtitles and mined moments are large; fetch them only for the clip on
   // screen (and keep them cached so scrolling back is instant).
@@ -593,6 +650,7 @@ function FeedCard({
 
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
+  const vc = pickCopy(VOICE_COPY, lang);
   const shownTitle = useDisplayText(item.title);
   const shownDescription = useDisplayText(item.description);
   const shownTags = useDisplayTexts(item.tags);
@@ -617,10 +675,55 @@ function FeedCard({
     () => (isActive ? timedCues.map((cue) => cue.speech) : []),
     [isActive, timedCues],
   );
-  const shownCues = useDisplayTexts(cueTexts);
+  // "source" keeps the mined wording; any other choice runs through the same
+  // cached translation path the rest of the app uses (the Translating job in
+  // the API Manager, with its automatic key switching).
+  const shownCues = useDisplayTextsIn(cueTexts, subtitleLang === "source" ? "source" : subtitleLang);
   const activeCueIndex = activeSubtitle ? timedCues.indexOf(activeSubtitle) : -1;
   const shownSubtitle =
     activeCueIndex >= 0 ? (shownCues[activeCueIndex] ?? activeSubtitle?.speech ?? "") : "";
+  // Spoken lines can be in a different language than the written ones.
+  const spokenCues = useDisplayTextsIn(speakOn ? cueTexts : [], voiceLang);
+
+  // One speaker per card. It speaks the line on screen, prepares the next one
+  // while that plays, and stops the moment the picture moves on or pauses.
+  const dubRef = useRef<LiveDub | null>(null);
+  const cueIndexRef = useRef(activeCueIndex);
+  cueIndexRef.current = activeCueIndex;
+  useEffect(() => {
+    if (!speakOn || !item.mindId || !isActive) return;
+    const dub = createLiveDub({
+      mindId: item.mindId,
+      lang: voiceLang,
+      onSpeaking: setSpeaking,
+      onFailure: (failure) => {
+        setSpeakOn(false);
+        setSpeaking(false);
+        setVoiceBlocked(failure.message);
+        toast.error(failure.message);
+      },
+      stillCurrent: (id) => id === String(cueIndexRef.current),
+    });
+    dubRef.current = dub;
+    return () => {
+      dub.dispose();
+      dubRef.current = null;
+      setSpeaking(false);
+    };
+  }, [speakOn, voiceLang, isActive, item.mindId]);
+
+  useEffect(() => {
+    const dub = dubRef.current;
+    if (!dub) return;
+    if (paused || activeCueIndex < 0) {
+      dub.stop();
+      return;
+    }
+    const line = spokenCues[activeCueIndex];
+    if (line) dub.speak(String(activeCueIndex), line);
+    const next = spokenCues[activeCueIndex + 1];
+    if (next) dub.prefetch(next);
+  }, [activeCueIndex, paused, spokenCues]);
 
 
 
@@ -643,6 +746,11 @@ function FeedCard({
     if (isActive && !paused) void v.play().catch(() => undefined);
     else v.pause();
   }, [isActive, paused]);
+
+  // Uploaded clips get the same ducking the YouTube player does.
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.volume = speaking ? 0.18 : 1;
+  }, [speaking]);
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
@@ -671,6 +779,7 @@ function FeedCard({
             active={isActive}
             muted={muted}
             paused={paused}
+            duck={speaking}
             onTime={(seconds, total) => {
               setNow(seconds);
               if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
@@ -743,6 +852,57 @@ function FeedCard({
                 <div>
                   <div className="mb-2 flex items-center justify-between text-xs"><span>Timing</span><span>{subtitleOffset > 0 ? "+" : ""}{subtitleOffset.toFixed(1)}s</span></div>
                   <Slider min={-10} max={10} step={0.5} value={[subtitleOffset]} onValueChange={(value) => setSubtitleOffset(value[0] ?? 0)} aria-label="Subtitle timing" />
+                </div>
+                <div className="space-y-2 border-t pt-3">
+                  <span className="text-xs">{vc.subtitleLang}</span>
+                  <Select
+                    value={subtitleLang}
+                    onValueChange={(value) => {
+                      setSubtitleLang(value as LangCode | "source");
+                      writePref("evermind:subtitle-lang", value);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      <SelectItem value="source">{vc.original}</SelectItem>
+                      {Object.entries(LANGUAGES).map(([code, meta]) => (
+                        <SelectItem key={code} value={code}>{meta.native}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 border-t pt-3">
+                  <span className="text-xs">{vc.voiceLang}</span>
+                  <Select
+                    value={voiceLang}
+                    onValueChange={(value) => {
+                      setVoiceLang(value as LangCode);
+                      writePref("evermind:voice-lang", value);
+                      setVoiceBlocked(null);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {Object.entries(LANGUAGES).map(([code, meta]) => (
+                        <SelectItem key={code} value={code}>{meta.native}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs">{vc.speak}</span>
+                    <Switch
+                      checked={speakOn}
+                      disabled={!item.mindId}
+                      onCheckedChange={(on) => {
+                        setVoiceBlocked(null);
+                        setSpeakOn(on);
+                      }}
+                      aria-label={vc.speak}
+                    />
+                  </div>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {voiceBlocked ?? (item.mindId ? vc.speakNote : vc.noVoice)}
+                  </p>
                 </div>
               </PopoverContent>
             </Popover>

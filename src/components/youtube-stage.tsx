@@ -52,6 +52,7 @@ export function YouTubeStage({
   active,
   muted,
   paused,
+  duck,
   onTime,
   onToggle,
 }: {
@@ -59,6 +60,8 @@ export function YouTubeStage({
   active: boolean;
   muted: boolean;
   paused: boolean;
+  /** Drop the original sound to a quiet background while a translated voice speaks. */
+  duck?: boolean;
   onTime?: (seconds: number, duration: number) => void;
   onToggle?: () => void;
 }) {
@@ -112,9 +115,11 @@ export function YouTubeStage({
     if (muted) p.mute();
     else {
       p.unMute();
-      p.setVolume(100);
+      p.setVolume(duck ? 18 : 100);
     }
-  }, [muted, ready]);
+  }, [muted, duck, ready]);
+  const duckRef = useRef(duck);
+  duckRef.current = duck;
 
   useEffect(() => {
     const p = player.current;
@@ -127,7 +132,7 @@ export function YouTubeStage({
       if (!mutedRef.current) {
         const restore = window.setTimeout(() => {
           p.unMute();
-          p.setVolume(100);
+          p.setVolume(duckRef.current ? 18 : 100);
         }, 400);
         return () => window.clearTimeout(restore);
       }
