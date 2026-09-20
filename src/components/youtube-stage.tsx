@@ -118,6 +118,8 @@ export function YouTubeStage({
       p.setVolume(duck ? 18 : 100);
     }
   }, [muted, duck, ready]);
+  const duckRef = useRef(duck);
+  duckRef.current = duck;
 
   useEffect(() => {
     const p = player.current;
