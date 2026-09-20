@@ -646,10 +646,55 @@ function FeedCard({
     () => (isActive ? timedCues.map((cue) => cue.speech) : []),
     [isActive, timedCues],
   );
-  const shownCues = useDisplayTexts(cueTexts);
+  // "source" keeps the mined wording; any other choice runs through the same
+  // cached translation path the rest of the app uses (the Translating job in
+  // the API Manager, with its automatic key switching).
+  const shownCues = useDisplayTextsIn(cueTexts, subtitleLang === "source" ? "source" : subtitleLang);
   const activeCueIndex = activeSubtitle ? timedCues.indexOf(activeSubtitle) : -1;
   const shownSubtitle =
     activeCueIndex >= 0 ? (shownCues[activeCueIndex] ?? activeSubtitle?.speech ?? "") : "";
+  // Spoken lines can be in a different language than the written ones.
+  const spokenCues = useDisplayTextsIn(speakOn ? cueTexts : [], voiceLang);
+
+  // One speaker per card. It speaks the line on screen, prepares the next one
+  // while that plays, and stops the moment the picture moves on or pauses.
+  const dubRef = useRef<LiveDub | null>(null);
+  const cueIndexRef = useRef(activeCueIndex);
+  cueIndexRef.current = activeCueIndex;
+  useEffect(() => {
+    if (!speakOn || !item.mindId || !isActive) return;
+    const dub = createLiveDub({
+      mindId: item.mindId,
+      lang: voiceLang,
+      onSpeaking: setSpeaking,
+      onFailure: (failure) => {
+        setSpeakOn(false);
+        setSpeaking(false);
+        setVoiceBlocked(failure.message);
+        toast.error(failure.message);
+      },
+      stillCurrent: (id) => id === String(cueIndexRef.current),
+    });
+    dubRef.current = dub;
+    return () => {
+      dub.dispose();
+      dubRef.current = null;
+      setSpeaking(false);
+    };
+  }, [speakOn, voiceLang, isActive, item.mindId]);
+
+  useEffect(() => {
+    const dub = dubRef.current;
+    if (!dub) return;
+    if (paused || activeCueIndex < 0) {
+      dub.stop();
+      return;
+    }
+    const line = spokenCues[activeCueIndex];
+    if (line) dub.speak(String(activeCueIndex), line);
+    const next = spokenCues[activeCueIndex + 1];
+    if (next) dub.prefetch(next);
+  }, [activeCueIndex, paused, spokenCues]);
 
 
 
