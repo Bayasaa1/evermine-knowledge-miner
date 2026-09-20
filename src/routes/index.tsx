@@ -650,6 +650,7 @@ function FeedCard({
 
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
+  const vc = pickCopy(VOICE_COPY, lang);
   const shownTitle = useDisplayText(item.title);
   const shownDescription = useDisplayText(item.description);
   const shownTags = useDisplayTexts(item.tags);
