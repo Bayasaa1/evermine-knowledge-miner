@@ -47,6 +47,16 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 
+/** Small device-saved viewer preferences (subtitle / voice language). */
+function readPref<T extends string>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  return (window.localStorage.getItem(key) as T | null) ?? fallback;
+}
+
+function writePref(key: string, value: string) {
+  if (typeof window !== "undefined") window.localStorage.setItem(key, value);
+}
+
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
