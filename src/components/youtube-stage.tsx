@@ -52,6 +52,7 @@ export function YouTubeStage({
   active,
   muted,
   paused,
+  duck,
   onTime,
   onToggle,
 }: {
@@ -59,6 +60,8 @@ export function YouTubeStage({
   active: boolean;
   muted: boolean;
   paused: boolean;
+  /** Drop the original sound to a quiet background while a translated voice speaks. */
+  duck?: boolean;
   onTime?: (seconds: number, duration: number) => void;
   onToggle?: () => void;
 }) {
