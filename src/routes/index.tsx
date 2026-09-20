@@ -745,6 +745,7 @@ function FeedCard({
             active={isActive}
             muted={muted}
             paused={paused}
+            duck={speaking}
             onTime={(seconds, total) => {
               setNow(seconds);
               if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
