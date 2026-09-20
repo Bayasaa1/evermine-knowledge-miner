@@ -577,6 +577,15 @@ function FeedCard({
   const [subtitlePosition, setSubtitlePosition] = useState(38);
   const [subtitleOffset, setSubtitleOffset] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  // Subtitle + voice language are the viewer's own choice for this player and
+  // stay on the device; they are deliberately independent of the app language.
+  const [subtitleLang, setSubtitleLang] = useState<LangCode | "source">(() =>
+    readPref("evermind:subtitle-lang", "source"),
+  );
+  const [voiceLang, setVoiceLang] = useState<LangCode>(() => readPref("evermind:voice-lang", "en"));
+  const [speakOn, setSpeakOn] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceBlocked, setVoiceBlocked] = useState<string | null>(null);
 
   // Subtitles and mined moments are large; fetch them only for the clip on
   // screen (and keep them cached so scrolling back is instant).
