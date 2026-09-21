@@ -145,6 +145,29 @@ async function flush() {
         },
       });
       const state = (res as { blocked?: string }).blocked;
+      // Say once which engine actually answered when the picked one was resting,
+      // instead of letting another engine's complaint speak for it.
+      const away = (res as { skipped?: { provider: string; tail: string; reason: string; until: string | null } }).skipped;
+      if (away && !skipNoticeShown) {
+        skipNoticeShown = true;
+        const answered = (res as { provider?: string }).provider ?? "another engine";
+        const until = away.until ? new Date(away.until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+        const why =
+          away.reason === "rejected"
+            ? "was refused by its provider"
+            : away.reason === "capped"
+              ? "reached its spending cap"
+              : "is resting after a limit";
+        void import("sonner").then(({ toast }) =>
+          toast.message(
+            `${away.provider} …${away.tail} ${why}${until ? ` until ${until}` : ""}. ${answered} translated instead.`,
+            {
+              duration: 10_000,
+              action: { label: "Open API Manager", onClick: () => { window.location.href = "/keys"; } },
+            },
+          ),
+        );
+      }
       if ((res as { retry?: boolean }).retry) {
         // Re-queue a limited number of times: a broken reply must never be
         // cached as a translation, but it must not loop forever either.
@@ -154,8 +177,10 @@ async function flush() {
           const tries = (attempts.get(key) ?? 0) + 1;
           attempts.set(key, tries);
           // One retry only: more than that just spends the viewer's quota on
-          // an engine that is clearly not answering properly right now.
+          // an engine that is clearly not answering properly right now. The
+          // line is rested, never saved as if it were translated.
           if (tries <= 1) keep.add(t);
+          else missed.add(key);
         }
         if (keep.size) pending.set(lang, keep);
         continue;
