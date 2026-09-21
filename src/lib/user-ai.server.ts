@@ -126,13 +126,18 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   const { data } = await query;
   const rows = data ?? [];
   const unusableReason = (row: (typeof rows)[number]): SkippedAssigned["reason"] | null => {
-    if (row.status === "invalid" && (!row.cooldown_until || row.cooldown_until > now)) return "rejected";
-    if (row.status === "exhausted" && (!row.cooldown_until || row.cooldown_until > now)) return "resting";
-    if (row.cooldown_until && row.cooldown_until > now) return "resting";
+    if (row.cooldown_until && row.cooldown_until > now) return row.status === "invalid" ? "rejected" : "resting";
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return "capped";
     return null;
   };
-  const usable = rows.filter((row) => !skipIds.includes(row.id) && unusableReason(row) === null);
+  const free = rows.filter((row) => !skipIds.includes(row.id) && unusableReason(row) === null);
+  // A key that once failed but has no rest time left is not binned: it simply
+  // goes to the back of the queue, so a good key is always tried first and a
+  // recovered one can still be used instead of nothing.
+  const usable = [
+    ...free.filter((row) => row.status !== "invalid" && row.status !== "exhausted"),
+    ...free.filter((row) => row.status === "invalid" || row.status === "exhausted"),
+  ];
   // The row the user actually picked for this job, usable or not.
   const wanted = (choice?.keyId ? rows.find((row) => row.id === choice.keyId) : null)
     ?? (choice?.keyTail ? rows.find((row) => row.provider === choice.provider && row.api_key.endsWith(choice.keyTail ?? "")) : null)
