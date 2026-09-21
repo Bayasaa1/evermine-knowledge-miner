@@ -232,21 +232,21 @@ async function flush() {
       const skipped = new Set((res as { untranslated?: number[] }).untranslated ?? []);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
-        // A line the engine skipped is not cached, but it is counted: after a
-        // couple of misses it stops being re-sent instead of being asked for
-        // on every single page view.
+        const key = `${lang}:${src}`;
+        // A line the engine skipped is never saved as a translation. After a
+        // couple of misses it simply rests for this session, and is asked for
+        // again after a reload or an engine change.
         if (skipped.has(i)) {
-          const key = `${lang}:${src}`;
           const tries = (attempts.get(key) ?? 0) + 1;
           attempts.set(key, tries);
-          if (tries > 2) cache[src] = src;
+          if (tries > 2) missed.add(key);
+          return;
         }
         // Cache every genuinely returned string, including ones that come back
-        // identical (names, numbers, "OK"), but never cache an item the engine
-        // failed to translate — that would freeze it in English forever.
-        if (skipped.has(i)) return;
+        // identical (names, numbers, "OK").
         cache[src] = out;
-        attempts.delete(`${lang}:${src}`);
+        attempts.delete(key);
+        missed.delete(key);
       });
       persist(lang);
       emit();
