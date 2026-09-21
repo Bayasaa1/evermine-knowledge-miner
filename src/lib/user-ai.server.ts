@@ -394,7 +394,7 @@ export async function generateRoleText(opts: {
   subjectKind?: "video" | "mind" | "project" | "test" | "other";
   subjectId?: string;
   subjectLabel?: string;
-}): Promise<{ text: string; provider: string; tail: string }> {
+}): Promise<{ text: string; provider: string; tail: string; skippedAssigned?: SkippedAssigned }> {
   const { recordAiUsage } = await import("@/lib/ai-usage.server");
   const log = async (key: ResolvedUserKey, run: RoleTextRun) => {
     await recordAiUsage(
