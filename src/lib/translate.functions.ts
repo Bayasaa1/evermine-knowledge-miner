@@ -60,20 +60,22 @@ export const translateTexts = createServerFn({ method: "POST" })
       const { generateRoleText } = await import("@/lib/user-ai.server");
       let provider: string | undefined;
       let tail: string | undefined;
+      let skipped: { provider: string; tail: string; reason: string; until: string | null } | undefined;
 
       /**
        * Translates one batch. A reply that comes back cut in half (the engine
        * ran out of room) or in the wrong shape is not usable, so the batch is
-       * halved and tried again — that is what used to leave whole pages stuck
-       * in the original language forever.
+       * halved and tried again. Whatever half DID come back is kept: a part
+       * that fails no longer throws away the lines that succeeded.
        */
       // Hard ceiling on how many engine calls one request may cost, so a badly
       // behaved engine can never quietly burn a page's worth of quota.
       let calls = 0;
-      const MAX_CALLS = 4;
+      const MAX_CALLS = 6;
+      const blank = (texts: string[]) => texts.map(() => "");
 
-      const run = async (texts: string[], depth = 0): Promise<string[] | null> => {
-        if (calls >= MAX_CALLS) return null;
+      const run = async (texts: string[], depth = 0): Promise<string[]> => {
+        if (calls >= MAX_CALLS) return blank(texts);
         calls += 1;
         const result = await generateRoleText({
           userId: context.userId,
@@ -89,6 +91,7 @@ export const translateTexts = createServerFn({ method: "POST" })
         });
         provider = result.provider;
         tail = result.tail;
+        if (result.skippedAssigned) skipped = result.skippedAssigned;
         const match = result.text.match(/\[[\s\S]*\]/);
         let parsed: unknown = null;
         if (match) {
@@ -105,18 +108,15 @@ export const translateTexts = createServerFn({ method: "POST" })
         // smaller batch, but deeper splitting just multiplies the cost.
         if (texts.length === 1 || depth >= 1) {
           console.error("translate unparsable reply", result.text.slice(0, 300));
-          return null;
+          return blank(texts);
         }
         const mid = Math.ceil(texts.length / 2);
         const left = await run(texts.slice(0, mid), depth + 1);
-        if (!left) return null;
         const right = await run(texts.slice(mid), depth + 1);
-        if (!right) return null;
         return [...left, ...right];
       };
 
       const translated = await run(data.texts);
-      if (!translated) return { texts: data.texts, retry: true };
 
       // Track which items came back empty so the client does not cache the
       // untouched source string for them.
@@ -126,10 +126,22 @@ export const translateTexts = createServerFn({ method: "POST" })
         untranslated.push(i);
         return data.texts[i]!;
       });
+      // Nothing usable at all: ask the client to try again rather than
+      // pretending the original text is a translation.
+      if (untranslated.length === data.texts.length) {
+        return {
+          texts: data.texts,
+          retry: true,
+          ...(provider ? { provider } : {}),
+          ...(tail ? { tail } : {}),
+          ...(skipped ? { skipped } : {}),
+        };
+      }
       return {
         texts: out,
         ...(provider ? { provider } : {}),
         ...(tail ? { tail } : {}),
+        ...(skipped ? { skipped } : {}),
         untranslated,
       };
     } catch (err) {
