@@ -267,6 +267,7 @@ export function requestTranslation(text: string, lang: LangCode): void {
   if (!text) return;
   if (text.length > 3000) return;
   if (loadCache(lang)[text] != null) return;
+  if (missed.has(`${lang}:${text}`)) return;
   if (inflight.has(`${lang}:${text}`)) return;
   const set = pending.get(lang) ?? new Set<string>();
   set.add(text);
