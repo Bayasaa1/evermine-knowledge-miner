@@ -22,7 +22,18 @@ export const translateTexts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => schema.parse(input))
   .handler(
-    async ({ data, context }): Promise<{ texts: string[]; blocked?: "no_key" | "quota"; retry?: boolean; failed?: string; via?: "key"; provider?: string; tail?: string; untranslated?: number[] }> => {
+    async ({ data, context }): Promise<{
+      texts: string[];
+      blocked?: "no_key" | "quota";
+      retry?: boolean;
+      failed?: string;
+      via?: "key";
+      provider?: string;
+      tail?: string;
+      untranslated?: number[];
+      /** The engine the user picked, when another one had to answer instead. */
+      skipped?: { provider: string; tail: string; reason: string; until: string | null };
+    }> => {
     // Abuse guard for repeated translation requests.
     const { getRequestHeader } = await import("@tanstack/react-start/server");
     const { rateLimit } = await import("@/lib/api-guard.server");
