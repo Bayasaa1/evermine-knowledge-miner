@@ -436,7 +436,12 @@ export async function generateRoleText(opts: {
     try {
       const run = await call(resolved);
       await log(resolved, run);
-      return { text: run.text, provider: resolved.provider, tail: resolved.tail };
+      return {
+        text: run.text,
+        provider: resolved.provider,
+        tail: resolved.tail,
+        ...(resolved.skippedAssigned ? { skippedAssigned: resolved.skippedAssigned } : {}),
+      };
     } catch (error) {
       lastError = error;
       const limit = isLimitError(error);
