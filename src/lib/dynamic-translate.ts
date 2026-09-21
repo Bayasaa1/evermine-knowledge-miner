@@ -284,6 +284,8 @@ export function clearTranslationCache(): void {
   memory.clear();
   pending.clear();
   inflight.clear();
+  missed.clear();
+  attempts.clear();
   try {
     for (const code of Object.keys(LANGUAGES)) window.localStorage.removeItem(storageKey(code as LangCode));
   } catch {
