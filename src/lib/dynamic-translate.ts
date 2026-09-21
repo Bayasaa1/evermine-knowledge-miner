@@ -217,7 +217,7 @@ async function flush() {
 /** Queues a string for translation into `lang`. Safe to call in render. */
 export function requestTranslation(text: string, lang: LangCode): void {
   if (typeof window === "undefined") return;
-  if (lang === "en") return;
+  if (lang === "en" && LATIN_ONLY.test(text)) return;
   if (blocked) return;
   if (!text) return;
   if (text.length > 3000) return;
