@@ -61,12 +61,18 @@ export function translationVersion(): number {
   return version;
 }
 
+/**
+ * Plain Latin text is the one genuinely free case: asking the engine to turn
+ * English into English costs money and changes nothing. Everything else —
+ * Mongolian Cyrillic, Korean, Japanese… — is translated like any other pair,
+ * English included, because videos are mined in the language they were spoken.
+ */
+const LATIN_ONLY = /^[\u0000-\u024F\u2000-\u206F\u20A0-\u20BF]*$/u;
+
 /** Returns the cached translation, or null when it has not been fetched yet. */
 export function getCachedTranslation(text: string, lang: LangCode): string | null {
   if (!text) return "";
-  // English is the stored source language. Returning it immediately prevents
-  // an English page from wasting dozens of translation calls on itself.
-  if (lang === "en") return text;
+  if (lang === "en" && LATIN_ONLY.test(text)) return text;
   return loadCache(lang)[text] ?? null;
 }
 
