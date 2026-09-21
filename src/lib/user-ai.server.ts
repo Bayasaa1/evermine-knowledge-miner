@@ -83,6 +83,19 @@ async function savedKeys(userId: string, provider: string): Promise<string[]> {
   }
 }
 
+/**
+ * Why the engine the user picked for a job could not be used this time, so the
+ * app can say so in plain words instead of silently reporting whichever other
+ * key answered last.
+ */
+export type SkippedAssigned = {
+  provider: string;
+  tail: string;
+  /** "resting" = cooling down / limit reached, "rejected" = the provider refused the key. */
+  reason: "resting" | "rejected" | "capped" | "off";
+  until: string | null;
+};
+
 export type ResolvedUserKey = {
   id: string;
   provider: string;
@@ -91,6 +104,8 @@ export type ResolvedUserKey = {
   model: string | null;
   endpoint: string | null;
   autoFallback: boolean;
+  /** Set when this is NOT the key the user picked for the job. */
+  skippedAssigned?: SkippedAssigned;
 };
 
 /** One authoritative resolver used by every AI job. It can only return this user's enabled account keys. */
@@ -109,20 +124,36 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
     .order("rank", { ascending: true })
     .order("updated_at", { ascending: false });
   const { data } = await query;
-  const usable = (data ?? []).filter((row) => {
-    if (skipIds.includes(row.id)) return false;
-    // A rejected key is parked, never binned: once its cooldown passes it is
-    // tried again, so a temporary provider refusal cannot kill a saved key.
-    if (row.status === "invalid" && (!row.cooldown_until || row.cooldown_until > now)) return false;
-    if (row.status === "exhausted" && (!row.cooldown_until || row.cooldown_until > now)) return false;
-    if (row.cooldown_until && row.cooldown_until > now) return false;
-    if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return false;
-    return true;
-  });
-  const selected = (choice?.keyId ? usable.find((row) => row.id === choice.keyId) : null)
-    ?? (choice?.keyTail ? usable.find((row) => row.provider === choice.provider && row.api_key.endsWith(choice.keyTail ?? "")) : null)
+  const rows = data ?? [];
+  const unusableReason = (row: (typeof rows)[number]): SkippedAssigned["reason"] | null => {
+    if (row.cooldown_until && row.cooldown_until > now) return row.status === "invalid" ? "rejected" : "resting";
+    if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return "capped";
+    return null;
+  };
+  const free = rows.filter((row) => !skipIds.includes(row.id) && unusableReason(row) === null);
+  // A key that once failed but has no rest time left is not binned: it simply
+  // goes to the back of the queue, so a good key is always tried first and a
+  // recovered one can still be used instead of nothing.
+  const usable = [
+    ...free.filter((row) => row.status !== "invalid" && row.status !== "exhausted"),
+    ...free.filter((row) => row.status === "invalid" || row.status === "exhausted"),
+  ];
+  // The row the user actually picked for this job, usable or not.
+  const wanted = (choice?.keyId ? rows.find((row) => row.id === choice.keyId) : null)
+    ?? (choice?.keyTail ? rows.find((row) => row.provider === choice.provider && row.api_key.endsWith(choice.keyTail ?? "")) : null)
+    ?? null;
+  const selected = (wanted && usable.some((row) => row.id === wanted.id) ? wanted : null)
     ?? ((!choice || choice.autoFallback) ? usable[0] : null);
   if (!selected) throw new UserAiError("no_credential", NO_CREDENTIAL);
+  const skippedAssigned: SkippedAssigned | null =
+    wanted && wanted.id !== selected.id
+      ? {
+          provider: wanted.provider,
+          tail: wanted.api_key.slice(-4),
+          reason: unusableReason(wanted) ?? "off",
+          until: wanted.cooldown_until ?? null,
+        }
+      : null;
   return {
     id: selected.id,
     provider: selected.provider,
@@ -131,6 +162,7 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
     model: selected.model,
     endpoint: selected.endpoint,
     autoFallback: choice?.autoFallback ?? true,
+    ...(skippedAssigned ? { skippedAssigned } : {}),
   };
 }
 
@@ -367,7 +399,7 @@ export async function generateRoleText(opts: {
   subjectKind?: "video" | "mind" | "project" | "test" | "other";
   subjectId?: string;
   subjectLabel?: string;
-}): Promise<{ text: string; provider: string; tail: string }> {
+}): Promise<{ text: string; provider: string; tail: string; skippedAssigned?: SkippedAssigned }> {
   const { recordAiUsage } = await import("@/lib/ai-usage.server");
   const log = async (key: ResolvedUserKey, run: RoleTextRun) => {
     await recordAiUsage(
@@ -409,7 +441,12 @@ export async function generateRoleText(opts: {
     try {
       const run = await call(resolved);
       await log(resolved, run);
-      return { text: run.text, provider: resolved.provider, tail: resolved.tail };
+      return {
+        text: run.text,
+        provider: resolved.provider,
+        tail: resolved.tail,
+        ...(resolved.skippedAssigned ? { skippedAssigned: resolved.skippedAssigned } : {}),
+      };
     } catch (error) {
       lastError = error;
       const limit = isLimitError(error);

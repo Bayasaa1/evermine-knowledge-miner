@@ -14,14 +14,34 @@ type Cache = Record<string, string>;
 const memory = new Map<LangCode, Cache>();
 const pending = new Map<LangCode, Set<string>>();
 const inflight = new Set<string>();
-/** Retry counter per string so a broken reply is re-tried, then dropped. */
+/** Retry counter per string so a broken reply is re-tried, then rested. */
 const attempts = new Map<string, number>();
+/**
+ * Lines the engine failed on. They are NOT saved as translations: they simply
+ * stop being re-requested for this page session, and come back the moment the
+ * viewer changes an engine or key, or reloads the page.
+ */
+const missed = new Set<string>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let version = 0;
 /** Set when the AI balance is exhausted — no further requests are sent. */
 let blocked = false;
 let noticeShown = false;
+/** Told once per session which engine answered when the picked one was resting. */
+let skipNoticeShown = false;
+
+/** A key or engine change makes every earlier failure worth retrying. */
+if (typeof window !== "undefined") {
+  window.addEventListener("evermind:ai-keys-changed", () => {
+    missed.clear();
+    attempts.clear();
+    blocked = false;
+    noticeShown = false;
+    skipNoticeShown = false;
+    emit();
+  });
+}
 
 const storageKey = (lang: LangCode) => `evermind-i18n-cache:${lang}`;
 
@@ -125,6 +145,29 @@ async function flush() {
         },
       });
       const state = (res as { blocked?: string }).blocked;
+      // Say once which engine actually answered when the picked one was resting,
+      // instead of letting another engine's complaint speak for it.
+      const away = (res as { skipped?: { provider: string; tail: string; reason: string; until: string | null } }).skipped;
+      if (away && !skipNoticeShown) {
+        skipNoticeShown = true;
+        const answered = (res as { provider?: string }).provider ?? "another engine";
+        const until = away.until ? new Date(away.until).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+        const why =
+          away.reason === "rejected"
+            ? "was refused by its provider"
+            : away.reason === "capped"
+              ? "reached its spending cap"
+              : "is resting after a limit";
+        void import("sonner").then(({ toast }) =>
+          toast.message(
+            `${away.provider} …${away.tail} ${why}${until ? ` until ${until}` : ""}. ${answered} translated instead.`,
+            {
+              duration: 10_000,
+              action: { label: "Open API Manager", onClick: () => { window.location.href = "/keys"; } },
+            },
+          ),
+        );
+      }
       if ((res as { retry?: boolean }).retry) {
         // Re-queue a limited number of times: a broken reply must never be
         // cached as a translation, but it must not loop forever either.
@@ -134,8 +177,10 @@ async function flush() {
           const tries = (attempts.get(key) ?? 0) + 1;
           attempts.set(key, tries);
           // One retry only: more than that just spends the viewer's quota on
-          // an engine that is clearly not answering properly right now.
+          // an engine that is clearly not answering properly right now. The
+          // line is rested, never saved as if it were translated.
           if (tries <= 1) keep.add(t);
+          else missed.add(key);
         }
         if (keep.size) pending.set(lang, keep);
         continue;
@@ -157,6 +202,10 @@ async function flush() {
         setTimeout(() => {
           blocked = false;
           noticeShown = false;
+          // Lines missed during the pause are worth asking for again.
+          missed.clear();
+          attempts.clear();
+          emit();
         }, 5 * 60 * 1000);
         pending.clear();
         for (const t of texts) inflight.delete(`${lang}:${t}`);
@@ -187,21 +236,21 @@ async function flush() {
       const skipped = new Set((res as { untranslated?: number[] }).untranslated ?? []);
       res.texts.forEach((out, i) => {
         const src = texts[i]!;
-        // A line the engine skipped is not cached, but it is counted: after a
-        // couple of misses it stops being re-sent instead of being asked for
-        // on every single page view.
+        const key = `${lang}:${src}`;
+        // A line the engine skipped is never saved as a translation. After a
+        // couple of misses it simply rests for this session, and is asked for
+        // again after a reload or an engine change.
         if (skipped.has(i)) {
-          const key = `${lang}:${src}`;
           const tries = (attempts.get(key) ?? 0) + 1;
           attempts.set(key, tries);
-          if (tries > 2) cache[src] = src;
+          if (tries > 2) missed.add(key);
+          return;
         }
         // Cache every genuinely returned string, including ones that come back
-        // identical (names, numbers, "OK"), but never cache an item the engine
-        // failed to translate — that would freeze it in English forever.
-        if (skipped.has(i)) return;
+        // identical (names, numbers, "OK").
         cache[src] = out;
-        attempts.delete(`${lang}:${src}`);
+        attempts.delete(key);
+        missed.delete(key);
       });
       persist(lang);
       emit();
@@ -222,6 +271,7 @@ export function requestTranslation(text: string, lang: LangCode): void {
   if (!text) return;
   if (text.length > 3000) return;
   if (loadCache(lang)[text] != null) return;
+  if (missed.has(`${lang}:${text}`)) return;
   if (inflight.has(`${lang}:${text}`)) return;
   const set = pending.get(lang) ?? new Set<string>();
   set.add(text);
@@ -234,6 +284,8 @@ export function clearTranslationCache(): void {
   memory.clear();
   pending.clear();
   inflight.clear();
+  missed.clear();
+  attempts.clear();
   try {
     for (const code of Object.keys(LANGUAGES)) window.localStorage.removeItem(storageKey(code as LangCode));
   } catch {
