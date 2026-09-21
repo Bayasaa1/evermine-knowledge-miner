@@ -14,14 +14,34 @@ type Cache = Record<string, string>;
 const memory = new Map<LangCode, Cache>();
 const pending = new Map<LangCode, Set<string>>();
 const inflight = new Set<string>();
-/** Retry counter per string so a broken reply is re-tried, then dropped. */
+/** Retry counter per string so a broken reply is re-tried, then rested. */
 const attempts = new Map<string, number>();
+/**
+ * Lines the engine failed on. They are NOT saved as translations: they simply
+ * stop being re-requested for this page session, and come back the moment the
+ * viewer changes an engine or key, or reloads the page.
+ */
+const missed = new Set<string>();
 const listeners = new Set<() => void>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 let version = 0;
 /** Set when the AI balance is exhausted — no further requests are sent. */
 let blocked = false;
 let noticeShown = false;
+/** Told once per session which engine answered when the picked one was resting. */
+let skipNoticeShown = false;
+
+/** A key or engine change makes every earlier failure worth retrying. */
+if (typeof window !== "undefined") {
+  window.addEventListener("evermind:ai-keys-changed", () => {
+    missed.clear();
+    attempts.clear();
+    blocked = false;
+    noticeShown = false;
+    skipNoticeShown = false;
+    emit();
+  });
+}
 
 const storageKey = (lang: LangCode) => `evermind-i18n-cache:${lang}`;
 
