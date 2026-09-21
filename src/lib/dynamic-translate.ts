@@ -202,6 +202,10 @@ async function flush() {
         setTimeout(() => {
           blocked = false;
           noticeShown = false;
+          // Lines missed during the pause are worth asking for again.
+          missed.clear();
+          attempts.clear();
+          emit();
         }, 5 * 60 * 1000);
         pending.clear();
         for (const t of texts) inflight.delete(`${lang}:${t}`);
