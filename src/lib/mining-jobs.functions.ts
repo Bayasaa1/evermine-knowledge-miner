@@ -269,7 +269,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
       });
       const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
       const { value: mined, key } = fast
-        ? { value: fast, key: { apiKey: row.ai_credential ?? "" } }
+        ? { value: fast, key: { apiKey: "" } }
         : await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
             analyzeYoutubeVideo({
               url: job.sourceUrl,
