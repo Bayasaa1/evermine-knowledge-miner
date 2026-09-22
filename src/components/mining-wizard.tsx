@@ -274,7 +274,7 @@ export function MiningWizard({
           </div>
         </fieldset>
 
-        {wantsSpeakerNames(state.videoContext) && (
+        {(wantsSpeakerNames(state.videoContext) || (state.miningMode ?? "auto") === "fast") && (
           <label className="mt-4 block">
             <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.speaker}</span>
             <input
