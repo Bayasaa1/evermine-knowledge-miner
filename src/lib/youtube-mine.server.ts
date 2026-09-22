@@ -144,13 +144,46 @@ export async function analyzeYoutubeVideo(input: {
 }): Promise<ChunkResult> {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
+  const videoId = youtubeId(url);
 
-  // Step 1 — measure the clock before anything is described.
+  // Step 0 — a talking video is read, not watched. YouTube already holds the
+  // words with exact timing, so the whole range costs one cheap text call on
+  // whichever engine the creator assigned, instead of minutes of video quota.
+  if (videoId && input.usage && readsFromSubtitles(input.assessment)) {
+    try {
+      const { analyzeTranscript } = await import("@/lib/transcript-mine.server");
+      const fast = await analyzeTranscript({
+        videoId,
+        startSec: input.startSec,
+        endSec: input.endSec,
+        ...(input.assessment ? { assessment: input.assessment } : {}),
+        usage: input.usage,
+      });
+      if (fast) return fast.result;
+    } catch (err) {
+      // No captions, or the writing engine was unavailable — watch the video
+      // instead, which is slower but always works.
+      if (err instanceof UserAiError) throw err;
+    }
+  }
+
+  // Step 1 — measure the clock before anything is described. Captions are the
+  // measured clock when they exist, and they cost nothing.
   let cues: Cue[] = [];
-  try {
-    cues = await buildTimeline(url, input.startSec, input.endSec, input.credential);
-  } catch (err) {
-    if (err instanceof UserAiError) throw err;
+  if (videoId) {
+    try {
+      const { fetchCaptionCues } = await import("@/lib/youtube-captions.server");
+      cues = tidyCues((await fetchCaptionCues(videoId, input.startSec, input.endSec)).cues);
+    } catch {
+      // Fall through to listening.
+    }
+  }
+  if (!cues.length) {
+    try {
+      cues = await buildTimeline(url, input.startSec, input.endSec, input.credential);
+    } catch (err) {
+      if (err instanceof UserAiError) throw err;
+    }
   }
 
   const usageMeta = input.usage
