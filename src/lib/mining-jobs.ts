@@ -180,6 +180,7 @@ export function packInstructions(a: Assessment): string {
     sourceDurationLabel: a.sourceDurationLabel ?? "",
     sourceChannel: a.sourceChannel ?? "",
     outputLanguage: a.outputLanguage || "en",
+    miningMode: a.miningMode || "auto",
   };
   if (Object.values(meta).some((v) => v)) out = `${out}\n${META_MARKER} ${JSON.stringify(meta)}`.trim();
   return out;
