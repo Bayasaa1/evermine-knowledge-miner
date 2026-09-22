@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
@@ -21,9 +22,18 @@ export type VaultRow = {
   updatedAt: string;
 };
 
+// Ids must be real UUIDs: personaId is interpolated into a raw PostgREST
+// .or() filter string, so an unvalidated value would be parsed as filter
+// syntax instead of a literal id.
+const listInput = z.object({
+  personaId: z.string().uuid().nullable().optional(),
+  projectId: z.string().uuid().nullable().optional(),
+  scoped: z.boolean().optional(),
+});
+
 export const listVaults = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input?: { personaId?: string | null; projectId?: string | null; scoped?: boolean }) => input ?? {})
+  .inputValidator((input: unknown) => listInput.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<VaultRow[]> => {
     // Strict isolation: a saved mind only shows inside the persona / project it
     // belongs to, never in a single shared dump of everything the user mined.
@@ -57,11 +67,15 @@ export const listVaults = createServerFn({ method: "POST" })
 /** Renames a saved mind and/or re-assigns it to another persona / project. */
 export const updateVault = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (input: { id: string; title?: string; personaId?: string | null; projectId?: string | null }) => {
-      if (!input?.id) throw new Error("A vault id is required");
-      return input;
-    },
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        title: z.string().max(200).optional(),
+        personaId: z.string().uuid().nullable().optional(),
+        projectId: z.string().uuid().nullable().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
