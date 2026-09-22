@@ -48,7 +48,33 @@ export type Assessment = {
   sourceChannel?: string;
   /** UI language code — the mined JSON must be written natively in it. */
   outputLanguage?: string;
+  /**
+   * How this video should be read:
+   * "auto"  — use YouTube's subtitles when the video is a talking one, else watch it.
+   * "fast"  — read the subtitles; only watch the video if there are none.
+   * "watch" — always watch the video with Gemini (needed for anything visual).
+   */
+  miningMode?: "auto" | "fast" | "watch";
 };
+
+/** Video types whose value is entirely in the words. */
+const TALKING_CONTEXTS = [
+  "Podcast",
+  "Interview",
+  "Conversation",
+  "Phone call",
+  "Talk / lecture",
+  "Lecture / Tutorial",
+  "Speech",
+  "Sales call",
+];
+
+function readsFromSubtitles(a: Assessment | undefined): boolean {
+  const mode = a?.miningMode ?? "auto";
+  if (mode === "watch") return false;
+  if (mode === "fast") return true;
+  return TALKING_CONTEXTS.includes((a?.videoContext ?? "").trim());
+}
 
 const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
   Object.values(LANGUAGES).map((l) => [l.code, `${l.name} (${l.native})`]),
