@@ -12,7 +12,12 @@
  * answer decides which of those voices actually owns the Mind. Guests stay in
  * the Mind as knowledge, never as identity.
  */
-import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
+import {
+  normalizeChunkResult,
+  speakerIdentityDirective,
+  type ChunkResult,
+  type SpeakerRole,
+} from "@/lib/gemini";
 import { fetchCaptionCues } from "@/lib/youtube-captions.server";
 import { secondsToStamp, tidyCues, type Cue } from "@/lib/timeline.server";
 import { generateRoleText } from "@/lib/user-ai.server";
