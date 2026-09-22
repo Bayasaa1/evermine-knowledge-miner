@@ -165,6 +165,23 @@ function toCues(json: Json3, startSec: number, endSec: number): Cue[] {
   return out;
 }
 
+/** Older subtitle files come back as timed XML instead of JSON. */
+function parseTimedXml(xml: string): Json3 {
+  const events: NonNullable<Json3["events"]> = [];
+  for (const m of xml.matchAll(/<p[^>]*\bt="(\d+)"[^>]*(?:\bd="(\d+)")?[^>]*>([\s\S]*?)<\/p>/g)) {
+    const text = m[3]!
+      .replace(/<[^>]+>/g, "")
+      .replace(/&#(\d+);/g, (_, d: string) => String.fromCharCode(Number(d)))
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">");
+    events.push({ tStartMs: Number(m[1]), dDurationMs: Number(m[2] ?? 2000), segs: [{ utf8: text }] });
+  }
+  return { events };
+}
+
 /**
  * The timed spoken lines of a video for one time range, straight from YouTube.
  * Returns an empty list when the video has no captions at all.
