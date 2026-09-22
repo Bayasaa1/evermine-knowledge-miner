@@ -177,10 +177,17 @@ export async function fetchCaptionCues(
   const tracks = await listCaptionTracks(videoId);
   for (const track of tracks.slice(0, 3)) {
     try {
-      const url = `${track.baseUrl}${track.baseUrl.includes("fmt=") ? "" : "&fmt=json3"}`;
-      const res = await fetch(url, { headers: { "User-Agent": UA } });
+      // The link YouTube hands out already asks for its own subtitle format,
+      // so the machine-readable one has to be requested explicitly.
+      const url = new URL(track.baseUrl);
+      url.searchParams.set("fmt", "json3");
+      const res = await fetch(url.toString(), { headers: { "User-Agent": UA } });
       if (!res.ok) continue;
-      const json = (await res.json()) as Json3;
+      const body = await res.text();
+      if (!body.trim()) continue;
+      const json = body.trimStart().startsWith("{")
+        ? (JSON.parse(body) as Json3)
+        : parseTimedXml(body);
       const cues = toCues(json, startSec, endSec);
       if (cues.length) return { cues, track };
     } catch {
