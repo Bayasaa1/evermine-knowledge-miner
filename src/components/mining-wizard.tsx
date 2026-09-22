@@ -37,6 +37,13 @@ const copy = {
     fDesc: "Description (given to the AI)",
     fDate: "Published",
     fDur: "Length",
+    mode: "How should the AI read this video?",
+    modeAuto: "Decide for me",
+    modeAutoHint: "Talking videos use the subtitles, anything visual gets watched.",
+    modeFast: "Read the subtitles",
+    modeFastHint: "Seconds instead of minutes, and it works with any of your AI keys. Best for podcasts, interviews and talks. If the video has no subtitles it is watched instead.",
+    modeWatch: "Watch the video",
+    modeWatchHint: "Needed when what you see matters — hands, robots, gameplay, cooking. Uses your Gemini key and takes longer.",
   },
   mn: {
     title: "AI юуг хайхыг хэлж өг",
