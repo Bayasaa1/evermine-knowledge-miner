@@ -16,7 +16,15 @@ export type Assessment = {
   sourceChannel: string;
   /** UI language code the mined JSON must be written in ("en" | "mn" | "ko" | ...). */
   outputLanguage: string;
+  /**
+   * How the video is read. "auto" decides from the video type, "fast" reads
+   * YouTube's subtitles (seconds, any text engine), "watch" always uses Gemini
+   * video (needed whenever what you see matters).
+   */
+  miningMode: MiningMode;
 };
+
+export type MiningMode = "auto" | "fast" | "watch";
 
 /** Metadata auto-extracted from a pasted YouTube link. */
 export type VideoMetadata = {
@@ -124,6 +132,7 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   sourceDurationLabel: "",
   sourceChannel: "",
   outputLanguage: "en",
+  miningMode: "auto",
 };
 
 /** Starting answers for a creation category — already sensible, so the
@@ -147,10 +156,12 @@ type MetaFields = Pick<
   | "sourceDurationLabel"
   | "sourceChannel"
   | "outputLanguage"
+  | "miningMode"
 >;
 
 const EMPTY_META: MetaFields = {
   outputLanguage: "en",
+  miningMode: "auto",
   sourceTitle: "",
   sourceDescription: "",
   sourcePublishedAt: "",
@@ -169,6 +180,7 @@ export function packInstructions(a: Assessment): string {
     sourceDurationLabel: a.sourceDurationLabel ?? "",
     sourceChannel: a.sourceChannel ?? "",
     outputLanguage: a.outputLanguage || "en",
+    miningMode: a.miningMode || "auto",
   };
   if (Object.values(meta).some((v) => v)) out = `${out}\n${META_MARKER} ${JSON.stringify(meta)}`.trim();
   return out;

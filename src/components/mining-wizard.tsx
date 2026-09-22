@@ -37,6 +37,13 @@ const copy = {
     fDesc: "Description (given to the AI)",
     fDate: "Published",
     fDur: "Length",
+    mode: "How should the AI read this video?",
+    modeAuto: "Decide for me",
+    modeAutoHint: "Talking videos use the subtitles, anything visual gets watched.",
+    modeFast: "Read the subtitles",
+    modeFastHint: "Seconds instead of minutes, and it works with any of your AI keys. Best for podcasts, interviews and talks. If the video has no subtitles it is watched instead.",
+    modeWatch: "Watch the video",
+    modeWatchHint: "Needed when what you see matters — hands, robots, gameplay, cooking. Uses your Gemini key and takes longer.",
   },
   mn: {
     title: "AI юуг хайхыг хэлж өг",
@@ -56,6 +63,13 @@ const copy = {
     fDesc: "Тайлбар (AI-д өгнө)",
     fDate: "Нийтэлсэн",
     fDur: "Урт",
+    mode: "AI энэ видеог яаж унших вэ?",
+    modeAuto: "Надад тохируулж өг",
+    modeAutoHint: "Ярианы видео хадмалыг ашиглана, харагдах зүйл чухал бол үзнэ.",
+    modeFast: "Хадмалыг унших",
+    modeFastHint: "Минут биш секунд, таны ямар ч түлхүүртэй ажиллана. Подкаст, ярилцлага, лекцэд тохиромжтой. Хадмал байхгүй бол видеог үзнэ.",
+    modeWatch: "Видеог үзэх",
+    modeWatchHint: "Харагдах зүйл чухал үед — гар, робот, тоглоом, хоол. Gemini түлхүүр ашиглах ба удаан.",
   },
   ko: {
     title: "AI가 무엇을 찾을지 알려주세요",
@@ -75,6 +89,13 @@ const copy = {
     fDesc: "설명 (AI에 전달)",
     fDate: "게시일",
     fDur: "길이",
+    mode: "AI가 이 영상을 어떻게 읽을까요?",
+    modeAuto: "알아서 정해주세요",
+    modeAutoHint: "말하는 영상은 자막을 쓰고, 화면이 중요하면 영상을 봅니다.",
+    modeFast: "자막 읽기",
+    modeFastHint: "몇 분이 아니라 몇 초, 어떤 키로도 됩니다. 팟캐스트·인터뷰·강연에 적합합니다. 자막이 없으면 영상을 봅니다.",
+    modeWatch: "영상 보기",
+    modeWatchHint: "손, 로봇, 게임, 요리처럼 화면이 중요할 때 필요합니다. Gemini 키를 쓰고 더 오래 걸립니다.",
   },
 };
 
@@ -166,6 +187,41 @@ export function MiningWizard({
         </div>
       )}
 
+      {/* Reading the subtitles instead of watching is the single biggest
+          difference in speed and cost, so it is asked up front. */}
+      <fieldset className="mt-4">
+        <legend className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.mode}</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(
+            [
+              ["auto", t.modeAuto],
+              ["fast", t.modeFast],
+              ["watch", t.modeWatch],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => update({ miningMode: value })}
+              className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                (state.miningMode ?? "auto") === value
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {(state.miningMode ?? "auto") === "fast"
+            ? t.modeFastHint
+            : (state.miningMode ?? "auto") === "watch"
+              ? t.modeWatchHint
+              : t.modeAutoHint}
+        </p>
+      </fieldset>
+
       {/* Everything below is optional fine-tuning, so it starts closed. */}
       <details className="group mt-4 rounded-xl border border-border bg-background/40 p-3">
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-foreground">
@@ -218,7 +274,7 @@ export function MiningWizard({
           </div>
         </fieldset>
 
-        {wantsSpeakerNames(state.videoContext) && (
+        {(wantsSpeakerNames(state.videoContext) || (state.miningMode ?? "auto") === "fast") && (
           <label className="mt-4 block">
             <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t.speaker}</span>
             <input

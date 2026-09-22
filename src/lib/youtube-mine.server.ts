@@ -1,7 +1,7 @@
 import { LANGUAGES } from "@/lib/languages";
-import { normalizeYoutubeUrl } from "@/lib/import-sources";
+import { normalizeYoutubeUrl, youtubeId } from "@/lib/import-sources";
 import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
-import { buildTimeline, secondsToStamp, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+import { buildTimeline, secondsToStamp, tidyCues, timelineForPrompt, type Cue } from "@/lib/timeline.server";
 import {
   GeminiHttpError,
   UserAiError,
@@ -48,7 +48,33 @@ export type Assessment = {
   sourceChannel?: string;
   /** UI language code — the mined JSON must be written natively in it. */
   outputLanguage?: string;
+  /**
+   * How this video should be read:
+   * "auto"  — use YouTube's subtitles when the video is a talking one, else watch it.
+   * "fast"  — read the subtitles; only watch the video if there are none.
+   * "watch" — always watch the video with Gemini (needed for anything visual).
+   */
+  miningMode?: "auto" | "fast" | "watch";
 };
+
+/** Video types whose value is entirely in the words. */
+const TALKING_CONTEXTS = [
+  "Podcast",
+  "Interview",
+  "Conversation",
+  "Phone call",
+  "Talk / lecture",
+  "Lecture / Tutorial",
+  "Speech",
+  "Sales call",
+];
+
+function readsFromSubtitles(a: Assessment | undefined): boolean {
+  const mode = a?.miningMode ?? "auto";
+  if (mode === "watch") return false;
+  if (mode === "fast") return true;
+  return TALKING_CONTEXTS.includes((a?.videoContext ?? "").trim());
+}
 
 const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
   Object.values(LANGUAGES).map((l) => [l.code, `${l.name} (${l.native})`]),
@@ -106,6 +132,37 @@ function timelineDirective(block: string): string {
   return `\n\nSPOKEN TIMELINE (ground truth — these times were measured, do not change them)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n- For the "subtitle" array, reuse these lines exactly: same words, same times, same speaker.`;
 }
 
+/**
+ * Reading a talking video's subtitles needs no video model at all, so this is
+ * offered on its own: a job can try it before asking for a Gemini key, and only
+ * fall back to watching when there are no usable captions.
+ */
+export async function tryTranscriptMine(input: {
+  url: string;
+  startSec: number;
+  endSec: number;
+  assessment?: Assessment;
+  usage: { userId: string; videoLabel?: string; videoId?: string; jobId?: string };
+}): Promise<ChunkResult | null> {
+  const url = normalizeYoutubeUrl(input.url);
+  const videoId = url ? youtubeId(url) : "";
+  if (!videoId || input.endSec <= input.startSec || !readsFromSubtitles(input.assessment)) return null;
+  try {
+    const { analyzeTranscript } = await import("@/lib/transcript-mine.server");
+    const fast = await analyzeTranscript({
+      videoId,
+      startSec: input.startSec,
+      endSec: input.endSec,
+      ...(input.assessment ? { assessment: input.assessment } : {}),
+      usage: input.usage,
+    });
+    return fast?.result ?? null;
+  } catch (err) {
+    if (err instanceof UserAiError) throw err;
+    return null;
+  }
+}
+
 export async function analyzeYoutubeVideo(input: {
   url: string;
   startSec: number;
@@ -118,13 +175,46 @@ export async function analyzeYoutubeVideo(input: {
 }): Promise<ChunkResult> {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
+  const videoId = youtubeId(url);
 
-  // Step 1 — measure the clock before anything is described.
+  // Step 0 — a talking video is read, not watched. YouTube already holds the
+  // words with exact timing, so the whole range costs one cheap text call on
+  // whichever engine the creator assigned, instead of minutes of video quota.
+  if (videoId && input.usage && readsFromSubtitles(input.assessment)) {
+    try {
+      const { analyzeTranscript } = await import("@/lib/transcript-mine.server");
+      const fast = await analyzeTranscript({
+        videoId,
+        startSec: input.startSec,
+        endSec: input.endSec,
+        ...(input.assessment ? { assessment: input.assessment } : {}),
+        usage: input.usage,
+      });
+      if (fast) return fast.result;
+    } catch (err) {
+      // No captions, or the writing engine was unavailable — watch the video
+      // instead, which is slower but always works.
+      if (err instanceof UserAiError) throw err;
+    }
+  }
+
+  // Step 1 — measure the clock before anything is described. Captions are the
+  // measured clock when they exist, and they cost nothing.
   let cues: Cue[] = [];
-  try {
-    cues = await buildTimeline(url, input.startSec, input.endSec, input.credential);
-  } catch (err) {
-    if (err instanceof UserAiError) throw err;
+  if (videoId) {
+    try {
+      const { fetchCaptionCues } = await import("@/lib/youtube-captions.server");
+      cues = tidyCues((await fetchCaptionCues(videoId, input.startSec, input.endSec)).cues);
+    } catch {
+      // Fall through to listening.
+    }
+  }
+  if (!cues.length) {
+    try {
+      cues = await buildTimeline(url, input.startSec, input.endSec, input.credential);
+    } catch (err) {
+      if (err instanceof UserAiError) throw err;
+    }
   }
 
   const usageMeta = input.usage

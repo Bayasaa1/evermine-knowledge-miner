@@ -18,6 +18,8 @@ const assessmentSchema = z.object({
   sourceDurationLabel: z.string().max(32).default(""),
   sourceChannel: z.string().max(200).default(""),
   outputLanguage: z.string().max(8).default("en"),
+  /** Read the subtitles ("fast"), watch the video ("watch"), or decide from the video type. */
+  miningMode: z.enum(["auto", "fast", "watch"]).default("auto"),
 });
 
 const startSchema = z.object({
@@ -247,20 +249,37 @@ export const runNextChunk = createServerFn({ method: "POST" })
     }
 
     const chunk = job.chunks[job.nextIndex]!;
-    const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
+    const { analyzeYoutubeVideo, tryTranscriptMine } = await import("@/lib/youtube-mine.server");
+    const usage = {
+      userId: context.userId,
+      videoLabel: job.sourceLabel,
+      videoId: job.sourceUrl,
+      jobId: job.id,
+    };
 
     try {
+      // Reading the subtitles needs no video model, so a talking video never
+      // has to own a Gemini key just to be mined.
+      const fast = await tryTranscriptMine({
+        url: job.sourceUrl,
+        startSec: chunk.start,
+        endSec: chunk.end,
+        assessment: job.assessment,
+        usage,
+      });
       const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
-      const { value: mined, key } = await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
-        analyzeYoutubeVideo({
-          url: job.sourceUrl,
-          startSec: chunk.start,
-          endSec: chunk.end,
-          assessment: job.assessment,
-          credential,
-          usage: { userId: context.userId, videoLabel: job.sourceLabel, videoId: job.sourceUrl, jobId: job.id },
-        }),
-      );
+      const { value: mined, key } = fast
+        ? { value: fast, key: { apiKey: "" } }
+        : await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
+            analyzeYoutubeVideo({
+              url: job.sourceUrl,
+              startSec: chunk.start,
+              endSec: chunk.end,
+              assessment: job.assessment,
+              credential,
+              usage,
+            }),
+          );
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;
       const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "running";
@@ -272,7 +291,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
           status,
           last_error: null,
           retry_after: null,
-          ai_credential: key.apiKey,
+          // Subtitle reading uses no video key, so the stored one is left as is.
+          ...(key.apiKey ? { ai_credential: key.apiKey } : {}),
         })
         .eq("id", job.id)
         .eq("user_id", context.userId);
