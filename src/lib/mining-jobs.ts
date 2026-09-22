@@ -16,7 +16,15 @@ export type Assessment = {
   sourceChannel: string;
   /** UI language code the mined JSON must be written in ("en" | "mn" | "ko" | ...). */
   outputLanguage: string;
+  /**
+   * How the video is read. "auto" decides from the video type, "fast" reads
+   * YouTube's subtitles (seconds, any text engine), "watch" always uses Gemini
+   * video (needed whenever what you see matters).
+   */
+  miningMode: MiningMode;
 };
+
+export type MiningMode = "auto" | "fast" | "watch";
 
 /** Metadata auto-extracted from a pasted YouTube link. */
 export type VideoMetadata = {
