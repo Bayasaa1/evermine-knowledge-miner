@@ -291,7 +291,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
           status,
           last_error: null,
           retry_after: null,
-          ai_credential: key.apiKey,
+          // Subtitle reading uses no video key, so the stored one is left as is.
+          ...(key.apiKey ? { ai_credential: key.apiKey } : {}),
         })
         .eq("id", job.id)
         .eq("user_id", context.userId);
