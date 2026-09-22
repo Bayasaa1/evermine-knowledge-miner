@@ -153,6 +153,7 @@ function toCues(json: Json3, startSec: number, endSec: number): Cue[] {
       !split.speaker &&
       previous.speaker === "Speaker" &&
       previous.end >= start - 0.6 &&
+      previous.end - previous.start < 8 &&
       previous.text.length < 180 &&
       !/[.!?…。？！]$/.test(previous.text)
     ) {
