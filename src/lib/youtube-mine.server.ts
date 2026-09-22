@@ -1,7 +1,7 @@
 import { LANGUAGES } from "@/lib/languages";
-import { normalizeYoutubeUrl } from "@/lib/import-sources";
+import { normalizeYoutubeUrl, youtubeId } from "@/lib/import-sources";
 import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
-import { buildTimeline, secondsToStamp, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+import { buildTimeline, secondsToStamp, tidyCues, timelineForPrompt, type Cue } from "@/lib/timeline.server";
 import {
   GeminiHttpError,
   UserAiError,
