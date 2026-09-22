@@ -198,7 +198,12 @@ export async function analyzeTranscript(input: {
   if (cues.length < 3) return null;
 
   const { speakers, labels } = await diarize(cues, input.assessment, input.usage);
-  const roleOf = new Map((speakers ?? []).map((s) => [String(s.label).toLowerCase().trim(), s.role ?? "unknown"]));
+  const roleOf = new Map<string, SpeakerRole>(
+    (speakers ?? []).map((s) => {
+      const role = s.role === "primary" || s.role === "secondary" ? s.role : "unknown";
+      return [String(s.label).toLowerCase().trim(), role satisfies SpeakerRole];
+    }),
+  );
   const labelled: Cue[] = cues.map((cue, i) => ({ ...cue, speaker: labels.get(i) ?? cue.speaker }));
 
   const owner = (speakers ?? []).find((s) => s.role === "primary")?.label ?? "";
