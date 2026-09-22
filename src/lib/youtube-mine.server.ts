@@ -132,6 +132,37 @@ function timelineDirective(block: string): string {
   return `\n\nSPOKEN TIMELINE (ground truth — these times were measured, do not change them)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n- For the "subtitle" array, reuse these lines exactly: same words, same times, same speaker.`;
 }
 
+/**
+ * Reading a talking video's subtitles needs no video model at all, so this is
+ * offered on its own: a job can try it before asking for a Gemini key, and only
+ * fall back to watching when there are no usable captions.
+ */
+export async function tryTranscriptMine(input: {
+  url: string;
+  startSec: number;
+  endSec: number;
+  assessment?: Assessment;
+  usage: { userId: string; videoLabel?: string; videoId?: string; jobId?: string };
+}): Promise<ChunkResult | null> {
+  const url = normalizeYoutubeUrl(input.url);
+  const videoId = url ? youtubeId(url) : "";
+  if (!videoId || input.endSec <= input.startSec || !readsFromSubtitles(input.assessment)) return null;
+  try {
+    const { analyzeTranscript } = await import("@/lib/transcript-mine.server");
+    const fast = await analyzeTranscript({
+      videoId,
+      startSec: input.startSec,
+      endSec: input.endSec,
+      ...(input.assessment ? { assessment: input.assessment } : {}),
+      usage: input.usage,
+    });
+    return fast?.result ?? null;
+  } catch (err) {
+    if (err instanceof UserAiError) throw err;
+    return null;
+  }
+}
+
 export async function analyzeYoutubeVideo(input: {
   url: string;
   startSec: number;
