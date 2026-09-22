@@ -18,6 +18,8 @@ const assessmentSchema = z.object({
   sourceDurationLabel: z.string().max(32).default(""),
   sourceChannel: z.string().max(200).default(""),
   outputLanguage: z.string().max(8).default("en"),
+  /** Read the subtitles ("fast"), watch the video ("watch"), or decide from the video type. */
+  miningMode: z.enum(["auto", "fast", "watch"]).default("auto"),
 });
 
 const startSchema = z.object({
