@@ -132,6 +132,7 @@ export const DEFAULT_ASSESSMENT: Assessment = {
   sourceDurationLabel: "",
   sourceChannel: "",
   outputLanguage: "en",
+  miningMode: "auto",
 };
 
 /** Starting answers for a creation category — already sensible, so the
@@ -155,10 +156,12 @@ type MetaFields = Pick<
   | "sourceDurationLabel"
   | "sourceChannel"
   | "outputLanguage"
+  | "miningMode"
 >;
 
 const EMPTY_META: MetaFields = {
   outputLanguage: "en",
+  miningMode: "auto",
   sourceTitle: "",
   sourceDescription: "",
   sourcePublishedAt: "",
