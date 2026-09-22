@@ -31,16 +31,51 @@ type PlayerCaptions = {
   };
 };
 
-async function playerResponse(videoId: string, client: "WEB" | "ANDROID"): Promise<PlayerCaptions | null> {
+/**
+ * YouTube serves its normal website clients an "unavailable" page to server
+ * addresses, and those replies carry no captions. The player clients below are
+ * the ones that still answer honestly from a datacenter, so they are the ones
+ * asked. Verified live against real videos.
+ */
+const PLAYER_CLIENTS = {
+  vr: {
+    ua: "com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12; GB) gzip",
+    client: {
+      clientName: "ANDROID_VR",
+      clientVersion: "1.60.19",
+      deviceModel: "Quest 3",
+      androidSdkVersion: 32,
+      osName: "Android",
+      osVersion: "12",
+      hl: "en",
+      gl: "US",
+    },
+  },
+  ios: {
+    ua: "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X)",
+    client: {
+      clientName: "IOS",
+      clientVersion: "20.10.4",
+      deviceMake: "Apple",
+      deviceModel: "iPhone16,2",
+      osName: "iPhone",
+      osVersion: "18.3.2.22D82",
+      hl: "en",
+      gl: "US",
+    },
+  },
+} as const;
+
+const PLAYER_URL =
+  "https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+
+async function playerResponse(videoId: string, client: keyof typeof PLAYER_CLIENTS): Promise<PlayerCaptions | null> {
   try {
-    const context =
-      client === "ANDROID"
-        ? { client: { clientName: "ANDROID", clientVersion: "19.09.37", androidSdkVersion: 30, hl: "en", gl: "US" } }
-        : { client: { clientName: "WEB", clientVersion: "2.20240726.00.00", hl: "en", gl: "US" } };
-    const res = await fetch("https://www.youtube.com/youtubei/v1/player", {
+    const pick = PLAYER_CLIENTS[client];
+    const res = await fetch(PLAYER_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
-      body: JSON.stringify({ videoId, contentCheckOk: true, racyCheckOk: true, context }),
+      headers: { "Content-Type": "application/json", "User-Agent": pick.ua },
+      body: JSON.stringify({ videoId, contentCheckOk: true, racyCheckOk: true, context: { client: pick.client } }),
     });
     if (!res.ok) return null;
     return (await res.json()) as PlayerCaptions;
@@ -51,7 +86,7 @@ async function playerResponse(videoId: string, client: "WEB" | "ANDROID"): Promi
 
 /** Every caption track YouTube exposes for a video, human-made ones first. */
 export async function listCaptionTracks(videoId: string): Promise<CaptionTrack[]> {
-  for (const client of ["WEB", "ANDROID"] as const) {
+  for (const client of ["vr", "ios"] as const) {
     const body = await playerResponse(videoId, client);
     const raw = body?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
     const tracks = raw
