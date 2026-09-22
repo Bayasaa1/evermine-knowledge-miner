@@ -249,20 +249,37 @@ export const runNextChunk = createServerFn({ method: "POST" })
     }
 
     const chunk = job.chunks[job.nextIndex]!;
-    const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
+    const { analyzeYoutubeVideo, tryTranscriptMine } = await import("@/lib/youtube-mine.server");
+    const usage = {
+      userId: context.userId,
+      videoLabel: job.sourceLabel,
+      videoId: job.sourceUrl,
+      jobId: job.id,
+    };
 
     try {
+      // Reading the subtitles needs no video model, so a talking video never
+      // has to own a Gemini key just to be mined.
+      const fast = await tryTranscriptMine({
+        url: job.sourceUrl,
+        startSec: chunk.start,
+        endSec: chunk.end,
+        assessment: job.assessment,
+        usage,
+      });
       const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
-      const { value: mined, key } = await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
-        analyzeYoutubeVideo({
-          url: job.sourceUrl,
-          startSec: chunk.start,
-          endSec: chunk.end,
-          assessment: job.assessment,
-          credential,
-          usage: { userId: context.userId, videoLabel: job.sourceLabel, videoId: job.sourceUrl, jobId: job.id },
-        }),
-      );
+      const { value: mined, key } = fast
+        ? { value: fast, key: { apiKey: row.ai_credential ?? "" } }
+        : await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
+            analyzeYoutubeVideo({
+              url: job.sourceUrl,
+              startSec: chunk.start,
+              endSec: chunk.end,
+              assessment: job.assessment,
+              credential,
+              usage,
+            }),
+          );
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;
       const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "running";
