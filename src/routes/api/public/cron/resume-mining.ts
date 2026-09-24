@@ -118,7 +118,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           while (index < chunks.length && Date.now() < deadline) {
             const chunk = chunks[index]!;
             try {
-              const { value: mined, key } = await runGeminiRoleWithFallback(job.user_id, "mine", (credential) =>
+              const { tryTranscriptMine } = await import("@/lib/youtube-mine.server");
+              const fast = await tryTranscriptMine({
+                url: job.source_url,
+                startSec: chunk.start,
+                endSec: chunk.end,
+                assessment,
+                usage: { userId: job.user_id, videoLabel: job.source_label ?? job.source_url, videoId: job.source_url, jobId: job.id },
+              });
+              const { value: mined, key } = fast ? { value: fast, key: { apiKey: "" } } : await runGeminiRoleWithFallback(job.user_id, "mine", (credential) =>
                 analyzeYoutubeVideo({
                   url: job.source_url,
                   startSec: chunk.start,

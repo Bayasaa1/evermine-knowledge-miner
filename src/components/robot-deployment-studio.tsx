@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import QRCode from "qrcode";
 import { Bot, Copy, Download, Link2, QrCode, Radio, RefreshCw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import type { ChunkResult } from "@/lib/gemini";
@@ -144,7 +143,7 @@ export function RobotDeploymentStudio({
       setQr("");
       return;
     }
-    void QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: "#111111", light: "#ffffff" } })
+    void import("qrcode").then((m) => (m.default ?? m).toDataURL(url, { margin: 1, width: 220, color: { dark: "#111111", light: "#ffffff" } }))
       .then(setQr)
       .catch(() => setQr(""));
   }, [url]);

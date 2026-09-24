@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { Bot, Download, X } from "lucide-react";
 
 import { deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
@@ -31,7 +30,7 @@ export function RobotSyncModal({
       setQr("");
       return;
     }
-    void QRCode.toDataURL(url, { margin: 1, width: 220, color: { dark: "#111111", light: "#ffffff" } })
+    void import("qrcode").then((m) => (m.default ?? m).toDataURL(url, { margin: 1, width: 220, color: { dark: "#111111", light: "#ffffff" } }))
       .then(setQr)
       .catch(() => setQr(""));
   }, [url]);

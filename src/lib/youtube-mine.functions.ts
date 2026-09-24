@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { analyzeYoutubeVideo } from "@/lib/youtube-mine.server";
+import { analyzeYoutubeVideo, tryTranscriptMine } from "@/lib/youtube-mine.server";
 import type { ChunkResult } from "@/lib/gemini";
 
 const inputSchema = z.object({
@@ -16,6 +16,8 @@ export const mineYoutubeVideo = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => inputSchema.parse(input))
   .handler(async ({ data, context }): Promise<ChunkResult> => {
+    const fast = await tryTranscriptMine({ ...data, usage: { userId: context.userId, videoLabel: data.url, videoId: data.url } });
+    if (fast) return fast;
     const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
     const credential = await resolveGeminiCredential(context.userId, data, "mine");
     return analyzeYoutubeVideo({ ...data, credential, usage: { userId: context.userId, videoLabel: data.url, videoId: data.url } });
