@@ -671,9 +671,17 @@ function FeedCard({
   const activeSubtitle = cueAt(timedCues, now + subtitleOffset);
   // Subtitles follow the chosen language too. The whole line list of the visible
   // card is translated ahead of time so lines never lag behind the speech.
+  // Only the line on screen and the next few are asked for — queueing every
+  // line of a long video put the current line hundreds of places back, so it
+  // stayed in the original language until the whole video had been translated.
+  const activeIdxForWindow = activeSubtitle ? timedCues.indexOf(activeSubtitle) : 0;
+  const windowStart = Math.max(0, activeIdxForWindow - 1);
   const cueTexts = useMemo(
-    () => (isActive ? timedCues.map((cue) => cue.speech) : []),
-    [isActive, timedCues],
+    () =>
+      isActive
+        ? timedCues.map((cue, i) => (i >= windowStart && i < windowStart + 12 ? cue.speech : null))
+        : [],
+    [isActive, timedCues, windowStart],
   );
   // "source" keeps the mined wording; any other choice runs through the same
   // cached translation path the rest of the app uses (the Translating job in
