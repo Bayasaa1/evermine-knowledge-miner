@@ -228,6 +228,7 @@ export function SavedMinds({
       return (
         youtubeId(typeof video['videoId'] === "string" ? video['videoId'] : null) ??
         youtubeId(typeof video['url'] === "string" ? video['url'] : null) ??
+        youtubeId(typeof source['url'] === "string" ? source['url'] : null) ??
         youtubeId(typeof source['label'] === "string" ? source['label'] : null)
       );
     };
