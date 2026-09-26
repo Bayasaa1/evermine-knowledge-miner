@@ -213,3 +213,120 @@ export const clearUsageHistory = createServerFn({ method: "POST" })
     await context.supabase.from("ai_usage_events").delete().eq("user_id", context.userId);
     return { ok: true };
   });
+
+export type ProviderMeter = {
+  provider: string;
+  free: boolean;
+  calls: number;
+  callsToday: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  todayTokens: number;
+  cost: number;
+};
+
+export type UsageMeters = {
+  totalTokens: number;
+  totalCalls: number;
+  todayTokens: number;
+  todayCalls: number;
+  totalCost: number;
+  todayCost: number;
+  lastCallAt: string | null;
+  providers: ProviderMeter[];
+  /** Today's tokens and calls grouped by what the AI was doing. */
+  byRoleToday: { role: string; calls: number; tokens: number; cost: number }[];
+};
+
+/**
+ * Live meters straight from the account's server-side usage records, so the
+ * headline numbers always match the History list below them.
+ */
+export const getUsageMeters = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<UsageMeters> => {
+    const { data: raw, error } = await context.supabase
+      .from("ai_usage_events")
+      .select("created_at, role, provider, input_tokens, output_tokens, estimated_cost_usd, free_tier")
+      .eq("user_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) throw new Error(error.message);
+
+    type Row = {
+      created_at: string;
+      role: string;
+      provider: string;
+      input_tokens: number;
+      output_tokens: number;
+      estimated_cost_usd: number | string;
+      free_tier: boolean;
+    };
+    const rows = (raw ?? []) as Row[];
+
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+
+    const providers = new Map<string, ProviderMeter>();
+    const roles = new Map<string, { role: string; calls: number; tokens: number; cost: number }>();
+    let totalTokens = 0;
+    let todayTokens = 0;
+    let todayCalls = 0;
+    let totalCost = 0;
+    let todayCost = 0;
+
+    for (const r of rows) {
+      const tokens = (r.input_tokens || 0) + (r.output_tokens || 0);
+      const cost = Number(r.estimated_cost_usd) || 0;
+      const isToday = new Date(r.created_at) >= dayStart;
+      totalTokens += tokens;
+      totalCost += cost;
+      if (isToday) {
+        todayTokens += tokens;
+        todayCalls += 1;
+        todayCost += cost;
+        const rr = roles.get(r.role) ?? { role: r.role, calls: 0, tokens: 0, cost: 0 };
+        rr.calls += 1;
+        rr.tokens += tokens;
+        rr.cost += cost;
+        roles.set(r.role, rr);
+      }
+      const p =
+        providers.get(r.provider) ??
+        ({
+          provider: r.provider,
+          free: r.free_tier,
+          calls: 0,
+          callsToday: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          todayTokens: 0,
+          cost: 0,
+        } satisfies ProviderMeter);
+      p.calls += 1;
+      p.inputTokens += r.input_tokens || 0;
+      p.outputTokens += r.output_tokens || 0;
+      p.totalTokens += tokens;
+      p.cost += cost;
+      if (isToday) {
+        p.callsToday += 1;
+        p.todayTokens += tokens;
+      }
+      providers.set(r.provider, p);
+    }
+
+    return {
+      totalTokens,
+      totalCalls: rows.length,
+      todayTokens,
+      todayCalls,
+      totalCost: Number(totalCost.toFixed(4)),
+      todayCost: Number(todayCost.toFixed(4)),
+      lastCallAt: rows[0]?.created_at ?? null,
+      providers: [...providers.values()].sort((a, b) => b.totalTokens - a.totalTokens),
+      byRoleToday: [...roles.values()].sort((a, b) => b.tokens - a.tokens),
+    };
+  });
+

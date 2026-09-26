@@ -64,7 +64,7 @@ function systemPrompt(lang: Lang, errors: CapturedError[]): string {
     PLATFORM_DOCS,
     ``,
     `When the user asks about a failure, analyse the captured system errors below, say what went wrong in one short paragraph, then give exact numbered steps to fix it.`,
-    `Concrete fixes you can suggest when relevant: test the AI assigned to the affected job in API Manager; wait for its quota reset or enable automatic switching when it reaches a limit; for video mining specifically, check the Gemini key assigned to Mining videos; make sure a YouTube link is Public or Unlisted; make sure a Google Drive file is shared as "Anyone with the link"; keep files under 2GB and videos under 2 hours; check the internet connection on network failures.`,
+    `Concrete fixes you can suggest when relevant: test the AI assigned to the affected job in API Manager; wait for its quota reset or enable automatic switching when it reaches a limit; for video mining specifically, check the Gemini key assigned to Mining videos; make sure a YouTube link is Public or Unlisted; make sure a Google Drive file is shared as "Anyone with the link"; keep files under 2GB (any video length is fine — long videos are mined in 5-minute parts); check the internet connection on network failures.`,
     `If no captured error explains the question, say so and ask for more detail.`,
     `Never invent error logs. Keep answers short: one summary paragraph plus a numbered fix list.`,
     ``,
