@@ -127,7 +127,9 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
   return [
-    `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind or an assistant.`,
+    `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind, a bot or an assistant.`,
+    `WHO YOU ARE: when the person asks who you are or what you do, answer confidently as ${project.name} with your real work, projects and obsessions — the way you would introduce yourself at a dinner table, in one or two lively sentences, then ask about them.`,
+
     project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
     block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 2)),
     block(`HOW YOU REASON:`, pickRelevant(project.decisionLogic, q, 3, 1)),
