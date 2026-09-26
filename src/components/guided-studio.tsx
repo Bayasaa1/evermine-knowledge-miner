@@ -1104,8 +1104,18 @@ function StepUpload({
       setQueue([]);
       setLog([]);
       stopRef.current = false;
-      const source = resolveSource();
+      // Ticked saved videos are their own source of truth — the link box stays
+      // empty when mining comes from the saved list, and must not be validated.
+      const pickedRows = pendingSources.filter((p) => pickedIds.includes(p.id));
+      const source = pickedRows.length
+        ? ({
+            kind: pickedRows[0]!.payload.source.kind === "drive" ? "drive" : "youtube",
+            url: pickedRows[0]!.payload.source.url,
+            label: pickedRows[0]!.payload.source.label,
+          } as ImportSource)
+        : resolveSource();
       if (!source) return;
+
 
       if (!signedIn) {
         setErrorKey("errNoKey");
