@@ -28,8 +28,8 @@ export const BRAIN_PROVIDERS: BrainProvider[] = [
     keyField: "GEMINI_API_KEY",
     keyPlaceholder: "AIza...",
     models: [
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", note: "Fast · free tier" },
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", note: "Deepest reasoning" },
+      { id: "gemini-3.1-flash-lite", label: "Gemini 2.5 Flash", note: "Fast · free tier" },
+      { id: "gemini-3.1-pro-preview", label: "Gemini 2.5 Pro", note: "Deepest reasoning" },
     ],
   },
   {

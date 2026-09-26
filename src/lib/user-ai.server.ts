@@ -762,7 +762,7 @@ export async function geminiGenerate(opts: {
   /** When given, the call is written to the account usage history itself. */
   usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
-  const model = opts.model ?? "gemini-2.5-flash";
+  const model = opts.model ?? "gemini-3.1-flash-lite";
   const { url, headers } = geminiUrl(model, "generateContent", opts.credential);
   let res: Response;
   try {
@@ -841,7 +841,7 @@ export async function geminiStream(opts: {
   /** When given, the call is written to the account usage history. */
   usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
-  const model = opts.model ?? "gemini-2.5-flash";
+  const model = opts.model ?? "gemini-3.1-flash-lite";
   const { url, headers } = geminiUrl(model, "streamGenerateContent?alt=sse", opts.credential);
   // streamGenerateContent puts alt=sse in the query string; with a key both
   // params must live on the URL.

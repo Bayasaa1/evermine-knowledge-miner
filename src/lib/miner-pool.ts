@@ -90,7 +90,7 @@ export const MINERS: MinerOption[] = [
       langs: "Languages: native recognition for English, Mongolian and all global languages.",
     },
     baseUrl: "",
-    testModel: "gemini-2.5-flash",
+    testModel: "gemini-3.1-flash-lite",
   },
   {
     id: "groq",
@@ -382,7 +382,7 @@ export async function testMinerKey(choice: MinerChoice, apiKey: string): Promise
 
   if (choice.id === "gemini") {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(key)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -104,7 +104,7 @@ import { AiKeysCard } from "@/components/ai-keys-card";
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.1-flash-lite";
 
 type Tab = "youtube" | "drive" | "file";
 

@@ -316,7 +316,7 @@ export function estimateHourlyCost(stack: EngineStack): CostEstimate {
 
 /** Maps an LLM engine id to the provider + concrete model it routes to. */
 export const ENGINE_BRAIN_MAP: Record<string, { provider: "gemini" | "openai" | "anthropic" | "deepseek"; model: string }> = {
-  "gemini-flash": { provider: "gemini", model: "gemini-2.5-flash" },
+  "gemini-flash": { provider: "gemini", model: "gemini-3.1-flash-lite" },
   "openai-gpt4o": { provider: "openai", model: "gpt-4o" },
   "openai-gpt4o-mini": { provider: "openai", model: "gpt-4o-mini" },
   "claude-sonnet": { provider: "anthropic", model: "claude-3-5-sonnet-latest" },

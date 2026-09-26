@@ -69,7 +69,7 @@ async function listenWindow(
   const content = (
     await geminiGenerate({
       credential,
-      model: "gemini-2.5-flash",
+      model: "gemini-3.1-flash-lite",
       json: true,
       maxTokens: 4096,
       turns: [

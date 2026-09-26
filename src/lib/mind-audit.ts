@@ -204,7 +204,7 @@ async function chatClaude(key: string, brief: string): Promise<string> {
 
 async function chatGeminiKey(key: string, brief: string): Promise<string> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -216,7 +216,7 @@ async function chatGeminiKey(key: string, brief: string): Promise<string> {
   );
   if (!res.ok) throw new Error(`Gemini refused the audit (HTTP ${res.status}).`);
   const data = await res.json();
-  void recordUsage({ provider: "gemini", model: "gemini-2.5-flash", stage: "audit", ...readTokens(data) });
+  void recordUsage({ provider: "gemini", model: "gemini-3.1-flash-lite", stage: "audit", ...readTokens(data) });
   return data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
 }
 
