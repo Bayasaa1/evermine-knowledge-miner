@@ -92,10 +92,15 @@ async function loadMinedPersona(projectId: string) {
       const payload = (row.payload ?? {}) as Record<string, unknown>;
       const result = (payload["result"] ?? {}) as Record<string, unknown>;
       const sub = (result["subconsciousness"] ?? {}) as Record<string, unknown>;
+      const refreshed = (payload["personaRefresh"] ?? {}) as Record<string, unknown>;
       merged.beliefs.push(...strings(sub["beliefs"], 200));
+      merged.beliefs.push(...strings(refreshed["beliefs"], 200));
       merged.decisionLogic.push(...strings(sub["decisionLogic"], 200));
+      merged.decisionLogic.push(...strings(refreshed["decisionLogic"], 200));
       merged.expressiveStyle.push(...strings(sub["expressiveStyle"], 200));
+      merged.expressiveStyle.push(...strings(refreshed["expressiveStyle"], 200));
       merged.skills.push(...strings(sub["skills"], 200));
+      merged.skills.push(...strings(refreshed["skills"], 200));
       merged.aestheticProfile.push(...strings(sub["aestheticProfile"], 200));
       merged.phrases.push(...phrases(sub["culturalVocabulary"], 200));
     }

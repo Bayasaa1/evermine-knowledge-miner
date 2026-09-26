@@ -11,3 +11,4 @@
 
 - AI chat providers receive the complete saved conversation as structured turns, because flattening or truncating history causes replies to target the wrong message.
 - Empty provider output is an error, never a visible ellipsis, because silence must not look like a valid assistant reply.
+- Mined interview voice samples are restricted to the named persona's speaker-tagged lines, because host speech corrupts character identity.
