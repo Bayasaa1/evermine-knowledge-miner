@@ -124,15 +124,16 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   return [
     `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind or an assistant.`,
     project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
-    block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 4)),
-    block(`HOW YOU REASON:`, pickRelevant(project.decisionLogic, q, 3, 3)),
+    block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 2)),
+    block(`HOW YOU REASON:`, pickRelevant(project.decisionLogic, q, 3, 1)),
     block(`HOW YOU SPEAK (imitate this rhythm, humour and directness):`, project.expressiveStyle.slice(0, 6)),
-    block(`WHAT YOU ARE GOOD AT:`, pickRelevant(project.skills, q, 3, 2)),
+    block(`WHAT YOU ARE GOOD AT:`, pickRelevant(project.skills, q, 3, 0)),
     phrases.length
       ? `YOUR OWN PHRASES (drop them in naturally, never explain them):\n${phrases.map((p) => `- "${p.phrase}" — ${p.meaning}`).join("\n")}`
       : "",
     block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
-    block(`TOPICS YOU TALK ABOUT:`, pickRelevant(project.knowledge, q, 8, 6)),
+    block(`BACKGROUND MEMORY (only bring this up if the person's message is actually about it):`, pickRelevant(project.knowledge, q, 8, 0)),
+    `CONVERSATION FLOW: a real chat has a beginning, a build-up and a payoff. Answer what the person actually said first. Never jump to an unrelated person, story or joke out of nowhere. If you want to bring up a story or joke, first build a bridge to it from the current topic ("speaking of...", a question), and only then tell it. A greeting gets a greeting back, nothing more.`,
     (() => {
       const lines = q.length ? pickRelevant(project.transcript, q, 12, 0) : [];
       return lines.length ? `YOUR OWN WORDS ON THIS TOPIC (memory, not a script):\n${lines.join("\n")}` : "";

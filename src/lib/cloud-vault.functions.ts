@@ -178,6 +178,20 @@ export const appendChatMessages = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Deletes specific chat messages (only the caller's own). */
+export const deleteChatMessages = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("chat_messages")
+      .delete()
+      .in("id", data.ids)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const clearChatHistory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { mindId?: string }) => input ?? {})
