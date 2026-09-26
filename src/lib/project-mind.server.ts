@@ -172,7 +172,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     knowledge: content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean).slice(0, 100),
     transcript: transcript.slice(0, 200),
     sampleLines,
-    selfIntro: strings([...persona.selfIntro, data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
     ...persona,
+    selfIntro: strings([...persona.selfIntro, data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
   };
 }
