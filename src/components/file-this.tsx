@@ -144,7 +144,7 @@ export function FileThis({
           <select
             value={persona}
             onChange={(e) => {
-              setPersona(e.target.value);
+              setPersona(e.target.value); setReview(false);
               setProject("");
             }}
             className={field}
@@ -170,7 +170,7 @@ export function FileThis({
         {persona && persona !== "__new" && (
           <label className="block text-xs text-muted-foreground">
             {c.which}
-            <select value={project} onChange={(e) => setProject(e.target.value)} className={field}>
+            <select value={project} onChange={(e) => { setProject(e.target.value); setReview(false); }} className={field}>
               <option value="">—</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
