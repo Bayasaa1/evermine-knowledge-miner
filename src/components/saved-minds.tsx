@@ -1080,3 +1080,57 @@ function MineSetup({
     </div>
   );
 }
+
+/** Persona + project selects for the Edit box: projects follow the chosen persona. */
+function EditPlacement({
+  userId,
+  personas,
+  initialPersona,
+  initialProject,
+  labels,
+}: {
+  userId: string | null | undefined;
+  personas: Persona[];
+  initialPersona: string;
+  initialProject: string;
+  labels: { persona: string; project: string; none: string };
+}) {
+  const [persona, setPersona] = useState(initialPersona);
+  const [project, setProject] = useState(initialProject);
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["persona-projects", userId, persona || null],
+    queryFn: () => (userId ? listProjectsByPersona(userId, persona || null) : Promise.resolve([])),
+    enabled: Boolean(userId),
+  });
+  // Default to the persona's main project when the current one isn't theirs.
+  useEffect(() => {
+    if (projects.length && !projects.some((p) => p.id === project)) setProject(projects[0]!.id);
+  }, [projects, project]);
+  const field = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground";
+  return (
+    <>
+      <label className="block text-xs text-muted-foreground">
+        {labels.persona}
+        <select name="persona" value={persona} onChange={(e) => setPersona(e.target.value)} className={field}>
+          <option value="">{labels.none}</option>
+          {personas.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-xs text-muted-foreground">
+        {labels.project}
+        <select name="project" value={project} onChange={(e) => setProject(e.target.value)} className={field}>
+          <option value="">{labels.none}</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+}
