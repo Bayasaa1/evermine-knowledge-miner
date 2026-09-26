@@ -85,7 +85,9 @@ async function askBackend(lang: Lang, history: ChatMsg[]): Promise<string> {
   });
   const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
   if (!res.ok) throw new Error(data.error ?? `Diagnostics service error (${res.status}).`);
-  return data.text?.trim() || "…";
+  const text = data.text?.trim();
+  if (!text) throw new Error("The selected Chat AI returned an empty answer.");
+  return text;
 }
 
 async function answer(lang: Lang, history: ChatMsg[]): Promise<string> {

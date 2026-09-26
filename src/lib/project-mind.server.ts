@@ -23,6 +23,8 @@ export type PublicProjectMind = {
   phrases: MindPhrase[];
   /** Real lines the person said, used as voice samples for the clone. */
   sampleLines: string[];
+  /** A compact factual identity card used for introductions. */
+  selfIntro: string[];
 };
 
 function strings(value: unknown, limit: number): string[] {
@@ -74,6 +76,7 @@ async function loadMinedPersona(projectId: string) {
     skills: [] as string[],
     aestheticProfile: [] as string[],
     phrases: [] as MindPhrase[],
+    selfIntro: [] as string[],
   };
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -90,12 +93,19 @@ async function loadMinedPersona(projectId: string) {
       const payload = (row.payload ?? {}) as Record<string, unknown>;
       const result = (payload["result"] ?? {}) as Record<string, unknown>;
       const sub = (result["subconsciousness"] ?? {}) as Record<string, unknown>;
+      const refreshed = (payload["personaRefresh"] ?? {}) as Record<string, unknown>;
       merged.beliefs.push(...strings(sub["beliefs"], 200));
+      merged.beliefs.push(...strings(refreshed["beliefs"], 200));
       merged.decisionLogic.push(...strings(sub["decisionLogic"], 200));
+      merged.decisionLogic.push(...strings(refreshed["decisionLogic"], 200));
       merged.expressiveStyle.push(...strings(sub["expressiveStyle"], 200));
+      merged.expressiveStyle.push(...strings(refreshed["expressiveStyle"], 200));
       merged.skills.push(...strings(sub["skills"], 200));
+      merged.skills.push(...strings(refreshed["skills"], 200));
       merged.aestheticProfile.push(...strings(sub["aestheticProfile"], 200));
       merged.phrases.push(...phrases(sub["culturalVocabulary"], 200));
+      const refreshedIntro = typeof refreshed["selfIntro"] === "string" ? String(refreshed["selfIntro"]).trim() : "";
+      if (refreshedIntro) merged.selfIntro.push(refreshedIntro);
     }
     return {
       beliefs: strings(merged.beliefs, 45),
@@ -104,6 +114,7 @@ async function loadMinedPersona(projectId: string) {
       skills: strings(merged.skills, 20),
       aestheticProfile: strings(merged.aestheticProfile, 10),
       phrases: merged.phrases.slice(0, 30),
+      selfIntro: strings(merged.selfIntro, 4),
     };
   } catch {
     return empty;
@@ -130,15 +141,27 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     .maybeSingle();
   if (error || !data) return null;
   const content = Array.isArray(data.project_content) ? data.project_content : [];
-  const transcript = content.flatMap((item) => {
+  const ownerKey = String(data.creator_name ?? "").toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+  const transcriptRows = content.flatMap((item) => {
     if (!Array.isArray(item.transcript)) return [];
     return item.transcript
       .map((cue) => {
         const value = (cue ?? {}) as Record<string, unknown>;
-        return String(value["speech"] ?? "").trim();
+        return {
+          speech: String(value["speech"] ?? "").trim(),
+          speaker: String(value["speaker"] ?? "").trim(),
+          role: String(value["role"] ?? "").trim(),
+        };
       })
-      .filter(Boolean);
+      .filter((cue) => Boolean(cue.speech));
   });
+  const ownerLines = transcriptRows.filter((cue) => {
+    const speakerKey = cue.speaker.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+    return ownerKey.length > 3 && speakerKey.length > 3 && (speakerKey.includes(ownerKey) || ownerKey.includes(speakerKey));
+  });
+  // Never fall back to mixed host/guest dialogue: that makes the cloned person
+  // claim the host's stories and identity. Empty is safer than a false voice.
+  const transcript = ownerLines.map((cue) => cue.speech);
   const persona = await loadMinedPersona(projectId);
   // Short, punchy real lines make the best speaking samples.
   const sampleLines = transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25);
@@ -150,5 +173,6 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     transcript: transcript.slice(0, 200),
     sampleLines,
     ...persona,
+    selfIntro: strings([...persona.selfIntro, data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
   };
 }

@@ -66,3 +66,11 @@
 - [x] Add a separate text-engine role for organizing mined video notes
 - [x] Let mining switch to another saved Gemini key when the selected key reaches its limit
 - [ ] Verify real translation, Core Brain, chat, video mining and voice behavior through a signed-in customer account
+
+## Chat audit and repair
+- [x] Preserve real conversation turns and complete history when asking the selected AI
+- [x] Reject empty AI replies instead of displaying an ellipsis
+- [x] Use only the persona owner's transcript lines for voice samples
+- [x] Show a Gemini recommendation for chat without changing the user's selection
+- [x] Refresh missing personality data only on explicit user action, with Undo
+- [ ] Pass the Elon chat flow twice on mobile with Cyrillic Mongolian replies

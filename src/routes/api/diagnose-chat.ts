@@ -39,11 +39,21 @@ export const Route = createFileRoute("/api/diagnose-chat")({
             role: "chat",
             system,
             prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
+            messages: history.map((message) => ({
+              role: message.role === "user" ? "user" as const : "assistant" as const,
+              content: message.text,
+            })),
             maxTokens: 1024,
             subjectKind: "test",
             subjectLabel: "Diagnostic assistant",
           });
-          return new Response(JSON.stringify({ text: generated.text || "…" }), {
+          if (!generated.text.trim()) {
+            return new Response(JSON.stringify({ error: "The selected Chat AI returned an empty answer." }), {
+              status: 502,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          return new Response(JSON.stringify({ text: generated.text }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });

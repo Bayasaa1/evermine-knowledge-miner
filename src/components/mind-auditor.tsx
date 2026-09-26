@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, Gavel, Loader2, ShieldCheck, Wrench, X } from "lucide-react";
+import { CheckCircle2, Gavel, Loader2, RefreshCw, ShieldCheck, Undo2, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { MindPayload } from "@/lib/mind-json";
@@ -22,7 +22,7 @@ import {
   runAudit,
   type AuditRecord,
 } from "@/lib/mind-audit";
-import { chooseAudit, saveAudit } from "@/lib/mind-audit.functions";
+import { chooseAudit, refreshPersonality, saveAudit, undoPersonalityRefresh } from "@/lib/mind-audit.functions";
 import { DEFAULT_MINER, loadMinerChoice, minerReadiness, type MinerChoice, type MinerId } from "@/lib/miner-pool";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -50,6 +50,8 @@ export function MindAuditor({
   const queryClient = useQueryClient();
   const store = useServerFn(saveAudit);
   const pick = useServerFn(chooseAudit);
+  const refreshPersona = useServerFn(refreshPersonality);
+  const undoPersona = useServerFn(undoPersonalityRefresh);
   const [choice, setChoice] = useState<MinerChoice>(DEFAULT_MINER);
   const [auditor, setAuditor] = useState<MinerId>("gemini");
   const [openResult, setOpenResult] = useState<string | null>(null);
@@ -95,6 +97,10 @@ export function MindAuditor({
     ),
     close: pickCopy({ en: "Close", mn: "Хаах", ko: "닫기" }, lang),
     saved: pickCopy({ en: "Audit saved", mn: "Аудит хадгалагдлаа", ko: "감사 저장됨" }, lang),
+    refreshPersona: pickCopy({ en: "Refresh personality", mn: "Дүрийн мэдээлэл шинэчлэх", ko: "인물 정보 새로고침" }, lang),
+    refreshingPersona: pickCopy({ en: "Refreshing…", mn: "Шинэчилж байна…", ko: "새로고침 중…" }, lang),
+    undoPersona: pickCopy({ en: "Undo refresh", mn: "Шинэчлэл буцаах", ko: "새로고침 취소" }, lang),
+    refreshedPersona: pickCopy({ en: "Personality refreshed", mn: "Дүрийн мэдээлэл шинэчлэгдлээ", ko: "인물 정보가 새로고침됨" }, lang),
   };
 
   useEffect(() => {
@@ -132,6 +138,18 @@ export function MindAuditor({
   const choose = useMutation({
     mutationFn: (auditId: string | null) => pick({ data: { vaultId, auditId } }),
     onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
+      await onChanged();
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+
+  const personaRefresh = useMutation({
+    mutationFn: () => refreshPersona({ data: { vaultId } }),
+    onSuccess: async () => {
+      toast.success(t.refreshedPersona, {
+        action: { label: t.undoPersona, onClick: () => void undoPersona({ data: { vaultId } }).then(() => onChanged()) },
+      });
       await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       await onChanged();
     },
@@ -212,6 +230,15 @@ export function MindAuditor({
           >
             {audit.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
             {audit.isPending ? t.running : t.run}
+          </button>
+          <button
+            type="button"
+            disabled={personaRefresh.isPending}
+            onClick={() => personaRefresh.mutate()}
+            className="ml-2 mt-3 inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground disabled:opacity-40"
+          >
+            {personaRefresh.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {personaRefresh.isPending ? t.refreshingPersona : t.refreshPersona}
           </button>
         </div>
 
