@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Mic, MicOff, PhoneOff, Send, Sparkles, Video, X } from "lucide-react";
+import { Mic, MicOff, Pencil, PhoneOff, RotateCcw, Send, Sparkles, Trash2, Video, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
 import { MindAvatar } from "@/components/mind-avatar";
 import { mergeSession } from "@/lib/viewer-brain.functions";
-import { listChatHistory, appendChatMessages } from "@/lib/cloud-vault.functions";
+import { listChatHistory, appendChatMessages, deleteChatMessages, clearChatHistory } from "@/lib/cloud-vault.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 
 
-type Msg = { role: "user" | "agent"; text: string };
+type Msg = { role: "user" | "agent"; text: string; id?: string };
 
 /** Instant AI Q&A with the Mind behind a feed video. */
 export function TalkToMindModal({
@@ -57,6 +57,9 @@ export function TalkToMindModal({
   const loadHistory = useServerFn(listChatHistory);
   const saveMessages = useServerFn(appendChatMessages);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const removeMessages = useServerFn(deleteChatMessages);
+  const clearHistory = useServerFn(clearChatHistory);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   // The parent clears mindId at the same moment it closes the window, so the
   // closing merge would otherwise lose the mind it belongs to.
   const lastMindRef = useRef<string | null>(null);
@@ -67,8 +70,18 @@ export function TalkToMindModal({
     const target = mindId ?? lastMindRef.current;
     if (!isAuthenticated || !target || turns.length === 0) return;
     try {
-      await saveMessages({
+      const res = await saveMessages({
         data: { mindId: target, lang, messages: turns.map((t) => ({ role: t.role, body: t.text })) },
+      });
+      const ids = res.ids ?? [];
+      // Attach the saved ids to the newest unsaved messages so they can be edited/deleted.
+      setMessages((cur) => {
+        const copy = [...cur];
+        let j = ids.length - 1;
+        for (let i = copy.length - 1; i >= 0 && j >= 0; i--) {
+          if (!copy[i].id) copy[i] = { ...copy[i], id: ids[j--] };
+        }
+        return copy;
       });
     } catch {
       // best-effort: the conversation still reads fine on screen
@@ -119,7 +132,7 @@ export function TalkToMindModal({
             const rows = await loadHistory({ data: { mindId } });
             if (!cancelled) {
               setMessages(
-                rows.map((r) => ({ role: r.role === "user" ? "user" : "agent", text: r.body }) as Msg),
+                rows.map((r) => ({ id: r.id, role: r.role === "user" ? "user" : "agent", text: r.body }) as Msg),
               );
             }
           } catch {
@@ -177,7 +190,15 @@ export function TalkToMindModal({
   const send = async (spoken?: string) => {
     const text = (spoken ?? input).trim();
     if (!text || busy) return;
-    const next: Msg[] = [...messages, { role: "user", text }];
+    // Editing an earlier message: everything from that point on is replaced.
+    let base = messages;
+    if (editIndex !== null) {
+      base = messages.slice(0, editIndex);
+      const dropped = messages.slice(editIndex).map((m) => m.id).filter((x): x is string => !!x);
+      if (dropped.length) void removeMessages({ data: { ids: dropped } }).catch(() => {});
+      setEditIndex(null);
+    }
+    const next: Msg[] = [...base, { role: "user", text }];
     setMessages(next);
     turnsRef.current = [...turnsRef.current, { role: "user", text }];
     setInput("");
@@ -262,6 +283,24 @@ export function TalkToMindModal({
   };
   sendRef.current = send;
 
+  const deleteMessage = (i: number) => {
+    const m = messages[i];
+    if (!m || !window.confirm("Delete this message?")) return;
+    setMessages((cur) => cur.filter((_, k) => k !== i));
+    if (m.id) void removeMessages({ data: { ids: [m.id] } }).catch(() => {});
+  };
+
+  const resetChat = async () => {
+    const target = mindId ?? lastMindRef.current;
+    if (!window.confirm("Reset this chat? All messages with this mind will be deleted.")) return;
+    setMessages([]);
+    setEditIndex(null);
+    turnsRef.current = [];
+    if (isAuthenticated && target) {
+      try { await clearHistory({ data: { mindId: target } }); } catch { /* ignore */ }
+    }
+  };
+
   return (
     <div className="dark fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
        <div className="flex h-[80vh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card sm:h-[70vh] sm:rounded-2xl">
@@ -276,6 +315,9 @@ export function TalkToMindModal({
           </button>
           <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "video" ? "chat" : "video"); }} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Video className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => void resetChat()} aria-label="Reset chat" title="Reset chat" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <RotateCcw className="h-4 w-4" />
           </button>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
@@ -320,9 +362,9 @@ export function TalkToMindModal({
             </p>
           )}
           {messages.map((m, i) => (
+            <div key={i} className={`group flex items-center gap-1 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
             <div
-              key={i}
-              className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
+              className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${editIndex === i ? "ring-2 ring-ring " : ""}${
                 m.role === "user"
                   ? "ml-auto bg-primary text-primary-foreground"
                   : "bg-muted text-foreground"
@@ -336,11 +378,28 @@ export function TalkToMindModal({
                 m.text
               )}
             </div>
+            <div className="flex shrink-0 gap-0.5 opacity-60 group-hover:opacity-100">
+              {m.role === "user" && (
+                <button type="button" aria-label="Edit" onClick={() => { setEditIndex(i); setInput(m.text); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+              <button type="button" aria-label="Delete" onClick={() => deleteMessage(i)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+            </div>
           ))}
           {busy && <div className="text-xs text-muted-foreground">…</div>}
           <div ref={endRef} />
         </div>
 
+        {editIndex !== null && (
+          <div className="flex items-center justify-between border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+            <span>Editing — messages after this one will be replaced.</span>
+            <button type="button" onClick={() => { setEditIndex(null); setInput(""); }} className="underline">Cancel</button>
+          </div>
+        )}
         <div className="flex items-center gap-2 border-t border-border p-3">
           <input
             value={input}
