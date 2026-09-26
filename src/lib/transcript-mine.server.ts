@@ -172,6 +172,7 @@ Return JSON only with these keys:
 - "story": {"summary","tone","beats":[{"timestamp","event","emotion"}]} — what happens, in order.
 - "knowledge": short strings, one per fact worth remembering.
 - "subconsciousness": {"skills","beliefs","decisionLogic","culturalVocabulary","expressiveStyle","aestheticProfile"} — ONLY the primary speaker. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment and usage.
+  "expressiveStyle" must capture how they SOUND in conversation: humour and sarcasm, what makes them laugh, how they tease the other person, typical sentence length, filler words and verbal tics, how they open and close a topic, how they react when surprised or when they disagree. Short imitable statements.
 - "knowledgeNodes": [{"timestamp_start","timestamp_end","concept_title","detailed_explanation","spatial_action":null,"confidence_score"}] — one per distinct idea, claim, story or piece of advice. confidence_score below 0.8 whenever you are guessing, because those are discarded.
 
 Rules:
