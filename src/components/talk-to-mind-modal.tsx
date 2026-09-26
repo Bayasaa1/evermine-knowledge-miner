@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Mic, MicOff, Pencil, PhoneOff, RotateCcw, Send, Sparkles, Trash2, Video, X } from "lucide-react";
+import { Eraser, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
 import { MindAvatar } from "@/components/mind-avatar";
-import { mergeSession } from "@/lib/viewer-brain.functions";
+import { eraseBrain, mergeSession } from "@/lib/viewer-brain.functions";
 import { listChatHistory, appendChatMessages, deleteChatMessages, clearChatHistory } from "@/lib/cloud-vault.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
