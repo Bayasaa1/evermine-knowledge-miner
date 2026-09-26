@@ -254,3 +254,50 @@ export function jobProgress(job: MiningJob): number {
   if (job.totalChunks <= 0) return 0;
   return Math.round((job.nextIndex / job.totalChunks) * 100);
 }
+
+/**
+ * When a stopped video may try again. A per-minute burst waits ~90s; the free
+ * daily quota waits until Google's reset at midnight US Pacific, so no calls
+ * are wasted while tokens are gone.
+ */
+export function quotaRetryAfter(message: string, now = new Date()): string {
+  if (/one minute|per.?minute|rate_minute|wait a moment/i.test(message)) {
+    return new Date(now.getTime() + 90_000).toISOString();
+  }
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  const elapsed = (get("hour") * 3600 + get("minute") * 60 + get("second")) * 1000;
+  // +2 minutes of margin after the reset.
+  return new Date(now.getTime() + (86_400_000 - elapsed) + 120_000).toISOString();
+}
+
+export function isQuotaMessage(message: string): boolean {
+  return /quota|rate limit|429|too many requests|resource_exhausted|one minute/i.test(message);
+}
+
+export type PartState = "done" | "mining" | "waiting" | "failed";
+
+/** Per-part list shown before and during mining. */
+export function jobParts(job: MiningJob): { index: number; start: number; end: number; state: PartState }[] {
+  return job.chunks.map((c, i) => ({
+    index: i,
+    start: c.start,
+    end: c.end,
+    state:
+      i < job.nextIndex
+        ? "done"
+        : i === job.nextIndex
+          ? job.status === "error"
+            ? "failed"
+            : job.status === "running"
+              ? "mining"
+              : "waiting"
+          : "waiting",
+  }));
+}
