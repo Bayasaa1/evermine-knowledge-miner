@@ -58,7 +58,7 @@ function buildSystemPrompt(mindId: string, lang: LangCode) {
           `- Carry the beliefs, decision logic and emotional tone across the language, not the words: use the equivalent idiom a native ${LANGUAGES[lang].name} speaker would use for the same intent.`,
           `- Keep the owner's cultural phrases in their original language only when a native listener would still understand them; otherwise render their intent naturally.`,
         ]),
-    `- The Core Brain is stored in English. Respond strictly in the user's active UI language while keeping the persona's knowledge base and character style.`,
+    `- The Core Brain is stored in English. Its storage language must never decide the reply language.`,
     `- Keep answers short: 2-5 sentences, or a tight markdown list. Use markdown (bold, lists, links, fenced code) when it genuinely helps.`,
   ].join("\n");
 }
@@ -73,8 +73,25 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode) {
     `Project description: ${project.description}`,
     `Known topics and summaries:\n- ${project.knowledge.join("\n- ")}`,
     `Verbatim source transcript:\n${project.transcript.join("\n")}`,
-    `Answer in first person, in ${LANGUAGES[lang].name}, using only this source knowledge. If it is not present, say that this Mind has not learned it yet. Keep answers concise.`,
+    `Answer in first person using only this source knowledge. If it is not present, say that this Mind has not learned it yet. Keep answers concise.`,
   ].join("\n\n");
+}
+
+/**
+ * Conversation language follows what the person actually writes, not the app
+ * chrome. This also covers romanised Mongolian such as "bi mongoloor yarival"
+ * where there are no Cyrillic characters for a simple script check to find.
+ */
+function replyLanguageRule(history: ChatMsg[], uiLang: LangCode): string {
+  const latestUser = [...history].reverse().find((message) => message.role === "user")?.text.trim() ?? "";
+  return [
+    `REPLY LANGUAGE (highest priority):`,
+    `- Detect the language of the latest user message and answer ONLY in that same language.`,
+    `- Recognise romanised or transliterated language too. In particular, Latin-script Mongolian such as "bi mongoloor bichiheer" is Mongolian and must receive a natural Mongolian Cyrillic reply.`,
+    `- The app interface is currently ${LANGUAGES[uiLang].name}, but that is only a fallback for a message whose language truly cannot be identified. It must never override the language the person wrote.`,
+    `- For a very short or ambiguous message, follow the language of the nearest earlier user message; only then fall back to ${LANGUAGES[uiLang].name}.`,
+    `Latest user message: <latest-user-message>${latestUser.slice(0, 1000)}</latest-user-message>`,
+  ].join("\n");
 }
 
 function createUserSupabase(request: Request) {
@@ -346,7 +363,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         const asked = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? cap.def)) || 0));
         const level = Math.min(asked, cap.max);
         const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
-        const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}`;
+        const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}\n\n${replyLanguageRule(history, lang)}`;
 
         const { generateRoleText, aiErrorResponse } = await import("@/lib/user-ai.server");
 
