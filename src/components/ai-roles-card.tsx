@@ -54,6 +54,11 @@ export function AiRolesCard() {
     unavailable: pickCopy({ en: "currently unavailable", mn: "одоогоор ажиллахгүй", ko: "현재 사용 불가" }, lang),
     fallback: pickCopy({ en: "Switch automatically when this key runs out", mn: "Энэ түлхүүр дуусвал автоматаар солих", ko: "이 키가 소진되면 자동 전환" }, lang),
     checkAll: pickCopy({ en: "Check everything", mn: "Бүгдийг шалгах", ko: "모두 확인" }, lang),
+    geminiChat: pickCopy({
+      en: "Recommended for multilingual character chat: Gemini handles Mongolian and persona consistency better than the default free OpenRouter model.",
+      mn: "Олон хэлтэй дүрийн чатад Gemini-г зөвлөж байна. Монгол хэл болон дүрээ хадгалахдаа OpenRouter-ийн үндсэн үнэгүй загвараас илүү найдвартай.",
+      ko: "다국어 캐릭터 채팅에는 Gemini를 권장합니다. 몽골어와 인물 일관성이 기본 무료 OpenRouter 모델보다 안정적입니다.",
+    }, lang),
   };
 
   const language = (["en", "mn", "ko"] as const).includes(lang as "en") ? (lang as "en" | "mn" | "ko") : "en";
@@ -207,6 +212,9 @@ export function AiRolesCard() {
               const hint = selected ? strengths[selected.provider] : null;
               return hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null;
             })()}
+            {role === "chat" && report?.effectiveProvider !== "gemini" && keys.some((key) => key.provider === "gemini") && (
+              <p className="mt-1 text-[11px] text-amber-500">{t.geminiChat}</p>
+            )}
             {report?.missing && (
               <p className="mt-1 text-[11px] text-amber-500">
                 {pickCopy(

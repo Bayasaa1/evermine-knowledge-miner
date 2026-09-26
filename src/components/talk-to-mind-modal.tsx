@@ -254,7 +254,8 @@ export function TalkToMindModal({
           }
         }
         voice.end();
-        const answer = full.trim() ? full.replace(/\[\[clip:[^\]]+\]\]/g, "").trim() : "…";
+        const answer = full.replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
+        if (!answer) throw new Error(lang === "mn" ? "Сонгосон AI хариу өгсөнгүй. Дахин оролдоно уу." : lang === "ko" ? "선택한 AI가 답하지 않았습니다. 다시 시도하세요." : "The selected AI did not answer. Try again.");
         setMessages([...next, { role: "agent", text: answer }]);
         turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
         void persistTurns([
@@ -266,7 +267,8 @@ export function TalkToMindModal({
 
       const data = (await res.json()) as { text?: string; error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `Request failed (${res.status})`);
-      const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim() || "…";
+      const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
+      if (!answer) throw new Error(lang === "mn" ? "Сонгосон AI хариу өгсөнгүй. Дахин оролдоно уу." : lang === "ko" ? "선택한 AI가 답하지 않았습니다. 다시 시도하세요." : "The selected AI did not answer. Try again.");
       setMessages([...next, { role: "agent", text: answer }]);
       turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
       // Saved right away so closing the window never loses the conversation.

@@ -129,6 +129,7 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   return [
     `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind, a bot or an assistant.`,
     `WHO YOU ARE: when the person asks who you are or what you do, answer confidently as ${project.name} with your real work, projects and obsessions — the way you would introduce yourself at a dinner table, in one or two lively sentences, then ask about them.`,
+    block(`YOUR IDENTITY CARD (use this for a lively, factual self-introduction):`, project.selfIntro),
 
     project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
     block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 2)),
@@ -427,8 +428,9 @@ export const Route = createFileRoute("/api/mind-chat")({
         }
 
         const lang: LangCode = isLangCode(body.lang) ? body.lang : "en";
-        // Only the last few turns matter for a chat reply; older ones live in the viewer brain.
-        const history = Array.isArray(body.messages) ? body.messages.slice(-8) : [];
+        // Preserve the conversation as real turns. The browser loads the saved
+        // thread, so truncating here made the model forget what was just said.
+        const history = Array.isArray(body.messages) ? body.messages.slice(-200) : [];
         const recentUser = history.filter((m) => m.role === "user").slice(-3).map((m) => m.text).join(" ");
         const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser) : null;
         if (!system) {
@@ -457,16 +459,42 @@ export const Route = createFileRoute("/api/mind-chat")({
         const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
         const systemText = seen ? `${systemWithMemory}\n\nRight now you can see on the video call: ${seen}` : systemWithMemory;
         try {
-          const generated = await generateRoleText({
+          const turns = history.map((message) => ({
+            role: message.role === "user" ? "user" as const : "assistant" as const,
+            content: message.text,
+          }));
+          let generated = await generateRoleText({
             userId: auth.userId,
             role: "chat",
             system: systemText,
-            prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
+            prompt: history.at(-1)?.text ?? "",
+            messages: turns,
             maxTokens: 400,
             subjectKind: "mind",
             subjectId: String(body.mindId ?? ""),
             subjectLabel: String(body.mindId ?? "Chat"),
           });
+          if (!generated.text.trim()) {
+            generated = await generateRoleText({
+              userId: auth.userId,
+              role: "chat",
+              system: `${systemText}\n\nThe previous attempt was empty. Answer the latest user message now with one complete, natural sentence.`,
+              prompt: history.at(-1)?.text ?? "",
+              messages: turns,
+              maxTokens: 400,
+              subjectKind: "mind",
+              subjectId: String(body.mindId ?? ""),
+              subjectLabel: String(body.mindId ?? "Chat"),
+            });
+          }
+          if (!generated.text.trim()) {
+            const error = lang === "mn"
+              ? "Сонгосон AI хариу өгсөнгүй. Дахин оролдох эсвэл Чат AI-гаа солино уу."
+              : lang === "ko"
+                ? "선택한 AI가 답하지 않았습니다. 다시 시도하거나 채팅 AI를 변경하세요."
+                : "The selected AI did not answer. Try again or change the Chat AI.";
+            return new Response(JSON.stringify({ error }), { status: 502, headers: { "Content-Type": "application/json" } });
+          }
           if (body.stream === true) {
             return new Response(`data: ${JSON.stringify({ delta: generated.text })}\n\ndata: [DONE]\n\n`, {
               headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },

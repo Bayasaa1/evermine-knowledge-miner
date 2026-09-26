@@ -23,6 +23,8 @@ export type PublicProjectMind = {
   phrases: MindPhrase[];
   /** Real lines the person said, used as voice samples for the clone. */
   sampleLines: string[];
+  /** A compact factual identity card used for introductions. */
+  selfIntro: string[];
 };
 
 function strings(value: unknown, limit: number): string[] {
@@ -130,15 +132,21 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     .maybeSingle();
   if (error || !data) return null;
   const content = Array.isArray(data.project_content) ? data.project_content : [];
-  const transcript = content.flatMap((item) => {
+  const ownerKey = String(data.creator_name ?? "").toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+  const transcriptRows = content.flatMap((item) => {
     if (!Array.isArray(item.transcript)) return [];
     return item.transcript
       .map((cue) => {
         const value = (cue ?? {}) as Record<string, unknown>;
-        return String(value["speech"] ?? "").trim();
+        return { speech: String(value["speech"] ?? "").trim(), role: String(value["role"] ?? value["speaker"] ?? "").trim() };
       })
-      .filter(Boolean);
+      .filter((cue) => Boolean(cue.speech));
   });
+  const ownerLines = transcriptRows.filter((cue) => {
+    const roleKey = cue.role.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+    return ownerKey.length > 3 && (roleKey.includes(ownerKey) || ownerKey.includes(roleKey.replace(/primaryspeaker|secondaryspeaker/g, "")));
+  });
+  const transcript = (ownerLines.length >= 10 ? ownerLines : transcriptRows).map((cue) => cue.speech);
   const persona = await loadMinedPersona(projectId);
   // Short, punchy real lines make the best speaking samples.
   const sampleLines = transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25);
@@ -149,6 +157,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     knowledge: content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean).slice(0, 100),
     transcript: transcript.slice(0, 200),
     sampleLines,
+    selfIntro: strings([data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
     ...persona,
   };
 }

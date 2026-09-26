@@ -251,6 +251,7 @@ function isLimitError(error: unknown): boolean {
 }
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
+export type RoleTextMessage = { role: "user" | "assistant"; content: string };
 
 type ProviderModelList = { data?: { id?: string }[]; models?: { id?: string; name?: string }[] };
 
@@ -315,6 +316,7 @@ async function generateRoleTextOnce(opts: {
   resolved: ResolvedUserKey;
   system: string;
   prompt: string;
+  messages?: RoleTextMessage[];
   json?: boolean;
   maxTokens?: number;
   model?: string;
@@ -328,7 +330,10 @@ async function generateRoleTextOnce(opts: {
       credential: { kind: "gemini_key", value: resolved.apiKey },
       ...(opts.model ? { model: opts.model } : {}),
       system: opts.system,
-      turns: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      turns: (opts.messages?.length ? opts.messages : [{ role: "user" as const, content: opts.prompt }]).map((message) => ({
+        role: message.role === "assistant" ? "model" as const : "user" as const,
+        parts: [{ text: message.content }],
+      })),
       onTokens: (t) => { tokens = t; },
       ...(opts.json != null ? { json: opts.json } : {}),
       ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
@@ -340,7 +345,7 @@ async function generateRoleTextOnce(opts: {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": resolved.apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: [{ role: "user", content: opts.prompt }] }),
+      body: JSON.stringify({ model: resolved.model || "claude-3-5-haiku-latest", max_tokens: opts.maxTokens ?? 2048, system: opts.system, messages: opts.messages?.length ? opts.messages : [{ role: "user", content: opts.prompt }] }),
     });
     if (!res.ok) throw new GeminiHttpError(res.status, `Claude: ${await errorDetail(res)}`);
     const body = await res.json() as { content?: { text?: string }[] };
@@ -360,7 +365,7 @@ async function generateRoleTextOnce(opts: {
     // Some real jobs return a JSON array (translation), while OpenAI-compatible
     // json_object mode only permits an object. The system prompt still demands
     // JSON; omitting response_format keeps every compatible provider usable.
-    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, { role: "user", content: opts.prompt }] }),
+    body: JSON.stringify({ model, max_tokens: cap, messages: [{ role: "system", content: opts.system }, ...(opts.messages?.length ? opts.messages : [{ role: "user" as const, content: opts.prompt }])] }),
   });
   if (!res.ok) throw new GeminiHttpError(res.status, `${resolved.provider}: ${await errorDetail(res)}`);
   const body = await res.json() as {
@@ -394,6 +399,8 @@ export async function generateRoleText(opts: {
   role: "translate" | "mine_write" | "core_brain" | "chat";
   system: string;
   prompt: string;
+  /** Real chat turns. When present, providers receive these as separate messages. */
+  messages?: RoleTextMessage[];
   json?: boolean;
   maxTokens?: number;
   /** What this call was for, so the usage history can name it. */
@@ -423,6 +430,7 @@ export async function generateRoleText(opts: {
       resolved: key,
       system: opts.system,
       prompt: opts.prompt,
+      ...(opts.messages?.length ? { messages: opts.messages } : {}),
       ...(opts.json != null ? { json: opts.json } : {}),
       ...(opts.maxTokens != null ? { maxTokens: opts.maxTokens } : {}),
       // Translation does not need long internal reasoning. Flash-Lite plus a
