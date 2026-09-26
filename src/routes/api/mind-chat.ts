@@ -85,30 +85,58 @@ function conversationStyleRules(name: string): string {
   ].join("\n");
 }
 
-async function resolveSystemPrompt(mindId: string, lang: LangCode) {
+const STOP = new Set("the a an and or but is are was were be to of in on at for with it this that you i me my we he she they what how why do does did not no yes so just like".split(" "));
+
+function words(text: string): string[] {
+  return (text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []).filter((w) => !STOP.has(w));
+}
+
+/**
+ * Selective retrieval: only the pieces of the Core Brain that relate to what
+ * the person is talking about right now go to the AI, plus a small fixed core
+ * of personality. Sending the whole brain every message burned ~25k tokens.
+ */
+function pickRelevant(items: string[], query: string[], relevant: number, always: number): string[] {
+  if (!items.length) return [];
+  const q = new Set(query);
+  const scored = items.map((text, i) => {
+    let score = 0;
+    if (q.size) for (const w of words(text)) if (q.has(w) || [...q].some((k) => k.length > 4 && w.startsWith(k.slice(0, 5)))) score++;
+    return { text, i, score };
+  });
+  const hits = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, relevant);
+  const chosen = new Set(hits.map((h) => h.i));
+  for (const s of scored) {
+    if (chosen.size >= hits.length + always) break;
+    chosen.add(s.i);
+  }
+  return scored.filter((s) => chosen.has(s.i)).map((s) => s.text);
+}
+
+async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "") {
   const builtIn = buildSystemPrompt(mindId, lang);
   if (builtIn) return builtIn;
   const project = await getPublicProjectMind(mindId);
   if (!project) return null;
+  const q = words(queryText);
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
+  const phrases = project.phrases.slice(0, 8);
   return [
     `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind or an assistant.`,
-    project.description ? `What you are known for here: ${project.title} — ${project.description}` : `Context: ${project.title}`,
-    block(`WHAT YOU BELIEVE (these are your actual opinions, speak them with conviction):`, project.beliefs),
-    block(`HOW YOU REASON (your thinking habits — use them out loud):`, project.decisionLogic),
-    block(`HOW YOU SPEAK (imitate this rhythm, humour and directness):`, project.expressiveStyle),
-    block(`WHAT YOU ARE GOOD AT:`, project.skills),
-    block(`YOUR TASTE:`, project.aestheticProfile),
-    project.phrases.length
-      ? `YOUR OWN PHRASES (drop them in naturally, never explain them):\n${project.phrases
-          .map((p) => `- "${p.phrase}" — ${p.meaning}${p.usage ? ` | use when: ${p.usage}` : ""}`)
-          .join("\n")}`
+    project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
+    block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 4)),
+    block(`HOW YOU REASON:`, pickRelevant(project.decisionLogic, q, 3, 3)),
+    block(`HOW YOU SPEAK (imitate this rhythm, humour and directness):`, project.expressiveStyle.slice(0, 6)),
+    block(`WHAT YOU ARE GOOD AT:`, pickRelevant(project.skills, q, 3, 2)),
+    phrases.length
+      ? `YOUR OWN PHRASES (drop them in naturally, never explain them):\n${phrases.map((p) => `- "${p.phrase}" — ${p.meaning}`).join("\n")}`
       : "",
-    block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines),
-    block(`THINGS YOU KNOW AND TALK ABOUT:`, project.knowledge),
-    project.transcript.length
-      ? `BACKGROUND OF YOUR OWN WORDS (memory, not a script to read out):\n${project.transcript.join("\n")}`
-      : "",
+    block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
+    block(`TOPICS YOU TALK ABOUT:`, pickRelevant(project.knowledge, q, 8, 6)),
+    (() => {
+      const lines = q.length ? pickRelevant(project.transcript, q, 12, 0) : [];
+      return lines.length ? `YOUR OWN WORDS ON THIS TOPIC (memory, not a script):\n${lines.join("\n")}` : "";
+    })(),
     conversationStyleRules(project.name),
     `TRUTH RULE: do not invent hard facts, numbers or events you never spoke about. But you are always free to react, joke, give your opinion, ask questions and make small talk — that is not inventing, that is being yourself.`,
   ]
@@ -388,11 +416,13 @@ export const Route = createFileRoute("/api/mind-chat")({
         }
 
         const lang: LangCode = isLangCode(body.lang) ? body.lang : "en";
-        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang) : null;
+        // Only the last few turns matter for a chat reply; older ones live in the viewer brain.
+        const history = Array.isArray(body.messages) ? body.messages.slice(-8) : [];
+        const recentUser = history.filter((m) => m.role === "user").slice(-3).map((m) => m.text).join(" ");
+        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }
-        const history = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
         if (history.length === 0) {
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
