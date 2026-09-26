@@ -8,6 +8,7 @@
  */
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
+import { MiningAutoResume } from "@/components/mining-auto-resume";
 import { Link } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
@@ -37,7 +38,7 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
   });
 
   const live = jobs.filter((j) => LIVE.includes(j.status));
-  if (live.length === 0) return null;
+  if (live.length === 0) return <MiningAutoResume />;
   const partsDone = live.reduce((s, j) => s + j.nextIndex, 0);
   const partsTotal = live.reduce((s, j) => s + j.totalChunks, 0);
 
@@ -49,6 +50,7 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
 
   return (
     <>
+    <MiningAutoResume />
     <Link
       to="/mining"
       style={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }}
