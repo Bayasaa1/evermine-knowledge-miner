@@ -354,7 +354,7 @@ function GraphCanvas({
           let dy = b.y - a.y;
           let dist = Math.hypot(dx, dy) || 0.01;
           if (dist > 420) continue;
-          const force = Math.min(2200 / (dist * dist), 4);
+          const force = Math.min(4200 / (dist * dist), 5);
           dx /= dist;
           dy /= dist;
           a.vx -= dx * force;
@@ -370,7 +370,7 @@ function GraphCanvas({
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.hypot(dx, dy) || 0.01;
-        const target = 130;
+        const target = 170;
         const force = (dist - target) * 0.012;
         const ux = dx / dist;
         const uy = dy / dist;
@@ -432,13 +432,14 @@ function GraphCanvas({
         ctx.fill();
         ctx.globalAlpha = 1;
 
-        // Labels only where they can be read: hubs always, the rest on zoom or hover.
-        const readable = node.kind === "project" || node.kind === "cluster" || view.scale > 0.9 || hover === node.key;
+        // Labels only where they can be read: the hub, small views, hover or zoom.
+        const readable = node.kind === "project" || sims.length <= 14 || view.scale > 1.2 || hover === node.key;
         if (!readable) continue;
         ctx.fillStyle = "rgba(226,232,240,0.92)";
         ctx.font = `${node.kind === "project" ? 14 : 11}px system-ui, sans-serif`;
         ctx.textAlign = "center";
-        const label = node.label.length > 30 ? `${node.label.slice(0, 29)}…` : node.label;
+        const max = hover === node.key ? 60 : 22;
+        const label = node.label.length > max ? `${node.label.slice(0, max - 1)}…` : node.label;
         ctx.fillText(label, node.x, node.y + radius + 12);
       }
       ctx.restore();
