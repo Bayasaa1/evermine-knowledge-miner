@@ -82,12 +82,12 @@ export function FileThis({
       : projects.find((p) => p.id === project)?.title ?? "";
 
   /** First press: validate the user's own choices and show the summary. Nothing is saved yet. */
-  const toReview = () => {
-    if (!persona) return toast.error(c.pickPersona);
-    if (persona === "__new" && !newPersonaName.trim()) return toast.error(c.needName);
+  const toReview = (): void => {
+    if (!persona) { toast.error(c.pickPersona); return; }
+    if (persona === "__new" && !newPersonaName.trim()) { toast.error(c.needName); return; }
     const needsNewProject = persona === "__new" || project === "__new";
-    if (!needsNewProject && !project) return toast.error(c.pickProject);
-    if (needsNewProject && !newProjectName.trim()) return toast.error(c.needName);
+    if (!needsNewProject && !project) { toast.error(c.pickProject); return; }
+    if (needsNewProject && !newProjectName.trim()) { toast.error(c.needName); return; }
     setReview(true);
   };
 
