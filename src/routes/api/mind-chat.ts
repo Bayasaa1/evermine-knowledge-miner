@@ -176,7 +176,7 @@ async function loadBrainContext(
 
 type ProviderId = "gemini" | "openai" | "anthropic" | "deepseek";
 const DEFAULT_MODEL: Record<ProviderId, string> = {
-  gemini: "gemini-2.5-flash",
+  gemini: "gemini-3.1-flash-lite",
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-sonnet-latest",
   deepseek: "deepseek-chat",

@@ -961,8 +961,8 @@ function formatBytes(bytes: number) {
 }
 
 const MODELS = [
-  { value: "gemini-2.5-flash", label: "gemini-2.5-flash (recommended)" },
-  { value: "gemini-2.5-pro", label: "gemini-2.5-pro" },
+  { value: "gemini-3.1-flash-lite", label: "gemini-3.1-flash-lite (free tier · recommended)" },
+  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (paid)" },
 ];
 
 /** Thrown when every API key in the rotation pool is out of quota. */
@@ -979,7 +979,7 @@ function Index() {
   const [view, setView] = useState<"guided" | "advanced">("guided");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
-  const [model, setModel] = useState("gemini-2.5-flash");
+  const [model, setModel] = useState("gemini-3.1-flash-lite");
   const [apiKey, setApiKey] = useState("");
   const [keyState, setKeyState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [status, setStatus] = useState<Status>("ready");

@@ -70,7 +70,7 @@ export const PROVIDERS: ProviderInfo[] = [
     placeholder: "AIza…",
     keyUrl: "https://aistudio.google.com/apikey",
     baseUrl: "",
-    testModel: "gemini-2.5-flash",
+    testModel: "gemini-3.1-flash-lite",
     costPer1k: 0,
     good: "The only one that watches and hears the video itself. Required.",
   },

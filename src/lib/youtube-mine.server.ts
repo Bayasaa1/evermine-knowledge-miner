@@ -215,7 +215,7 @@ export async function analyzeYoutubeVideo(input: {
   try {
     text = await geminiGenerate({
       credential: input.credential,
-      model: "gemini-2.5-flash",
+      model: "gemini-3.1-flash-lite",
       json: true,
       maxTokens: 65536,
       ...(usageMeta ? { usage: usageMeta } : {}),

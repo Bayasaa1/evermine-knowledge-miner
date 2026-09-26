@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/mind-vision")({
           const credential = await resolveGeminiCredential(auth.userId, body, "face_clone");
           const seen = await geminiGenerate({
             credential,
-            model: "gemini-2.5-flash",
+            model: "gemini-3.1-flash-lite",
             maxTokens: 256,
             usage: { userId: auth.userId, role: "face_clone", subjectKind: "mind", subjectLabel: "Seeing on video calls" },
             system: [

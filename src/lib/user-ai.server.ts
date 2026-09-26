@@ -15,7 +15,7 @@ import type { AiRole } from "@/lib/ai-roles";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
-export type AiErrorCode = "no_credential" | "quota" | "rate_minute" | "unsupported_task";
+export type AiErrorCode = "no_credential" | "quota" | "rate_minute" | "unsupported_task" | "model_unavailable";
 
 export class UserAiError extends Error {
   code: AiErrorCode;
@@ -712,6 +712,14 @@ async function raiseForGemini(res: Response): Promise<never> {
     /* keep the bounded raw text */
   }
   if (res.status === 429) throw classifyGemini429(raw);
+  // A retired model is permanent — never retry it, never mark the key bad.
+  if (res.status === 404 || /no longer available|is not found for api version/i.test(detail)) {
+    throw new UserAiError(
+      "model_unavailable",
+      `Gemini no longer serves this model (${detail.slice(0, 160)}). Evermind has switched to the free-tier gemini-3.1-flash-lite — try again.`,
+      404,
+    );
+  }
   if (res.status === 400 && /api key|key not valid|permission/i.test(detail)) {
     throw new UserAiError("no_credential", "That Gemini key was rejected. Add or replace it in API Manager.", 401);
   }
@@ -762,7 +770,7 @@ export async function geminiGenerate(opts: {
   /** When given, the call is written to the account usage history itself. */
   usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
-  const model = opts.model ?? "gemini-2.5-flash";
+  const model = opts.model ?? "gemini-3.1-flash-lite";
   const { url, headers } = geminiUrl(model, "generateContent", opts.credential);
   let res: Response;
   try {
@@ -841,7 +849,7 @@ export async function geminiStream(opts: {
   /** When given, the call is written to the account usage history. */
   usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
-  const model = opts.model ?? "gemini-2.5-flash";
+  const model = opts.model ?? "gemini-3.1-flash-lite";
   const { url, headers } = geminiUrl(model, "streamGenerateContent?alt=sse", opts.credential);
   // streamGenerateContent puts alt=sse in the query string; with a key both
   // params must live on the URL.

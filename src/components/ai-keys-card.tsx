@@ -247,7 +247,7 @@ async function testKey(
         // requests would only deepen the throttle, so stop immediately.
         return { ok: false, status: list.status, detail: (await list.text().catch(() => "")).slice(0, 200) };
       }
-      const preferred = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+      const preferred = ["gemini-3.1-flash-lite", "gemini-3.1-flash-lite", "gemini-3.1-flash-lite"];
       const ordered = [
         ...preferred.filter((m) => models.includes(m)),
         ...models.filter((m) => /flash|pro/.test(m) && !preferred.includes(m)),
