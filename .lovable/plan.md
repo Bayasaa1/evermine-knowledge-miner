@@ -12,6 +12,10 @@
 4. **Order across many videos.** Queue videos in the order you added them; one video at a time per user, parts in order.
 5. **Clear status for you.** Each video shows: parts done / total, "Waiting for free tokens — continues at 15:00", and a "Continue now" button (e.g. after you add another key). Your Pause / Stop always wins.
 6. **Other keys first.** Before waiting, try your other saved keys for the Mining role (only if auto-switch is on), as today.
+7. **Parts shown before mining starts.** When you add a video, it's split right away and you see its list: "Part 1 · 0:00–5:00, Part 2 · 5:00–10:00 …", each marked Waiting / Mining / Done / Failed, plus "12 / 36 parts mined" on the video and a total across your queue.
+8. **Continues like a playlist when you open the app.** Opening Evermind picks up where it stopped: the next unmined part of the current video, then the next video in your queue, in the order you added them. Background mining still continues while the app is closed. Pause always wins.
+9. **Miner model updates itself.** The app no longer relies on one fixed Gemini model name. It asks Google which free models your key can use, picks the best free Flash model, and remembers it. If Google retires a model, the app switches to the newest free one on its own and retries that part once — no error shown to you. It never picks a paid model by itself.
+
 
 Nothing is auto-created, merged or deleted beyond the Mind for the video you chose to mine, filed into the persona/project you picked. No Lovable credits — only your own keys.
 
@@ -20,4 +24,7 @@ Nothing is auto-created, merged or deleted beyond the Mind for the video you cho
 - `src/lib/mining-jobs.ts` / `finalizeMiningJob`: split into partial upsert (writes `mind_vaults` payload with `result` built from mined parts + `progress {done,total}`, stores `vault_id` on the job) and final save reusing the same vault.
 - `mining-jobs.functions.ts`: same partial save in the in-tab mining path; add `continueNow(jobId)` clearing `retry_after` (owner-checked).
 - Mining queue UI: progress, resume time in local time, Continue now; EN/MN/KO copy.
+- Parts list: render `mining_jobs.chunks` with status from `next_index` / `results` / `last_error`; queue total = sum over jobs.
+- Playlist resume: on app mount (signed in), a client hook picks the owner's oldest unfinished job by `queue_position` and continues it if no worker holds the lease (updated_at < 3 min), then advances to the next job.
+- Self-updating model: `src/lib/gemini-models.ts` gets `resolveFreeGeminiModel(apiKey)` calling Google's models list (cached per key ~24h), filtering to free Flash / Flash-Lite models that support generateContent, excluding paid models; on a `model_retired` error, clear cache, re-resolve, retry the part once.
 - Verify: mine a long video until quota stops it, confirm the partial Mind appears with mined parts, and that it resumes from the next part after the wait.
