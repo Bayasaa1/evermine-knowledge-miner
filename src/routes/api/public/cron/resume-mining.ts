@@ -64,7 +64,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           .lt("attempts", MAX_ATTEMPTS)
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
-          .order("updated_at", { ascending: true })
+          // Playlist order: oldest added first, then its place in the playlist.
+          .order("created_at", { ascending: true })
+          .order("queue_position", { ascending: true })
           .limit(MAX_JOBS_PER_RUN);
         if (error) return json({ error: error.message }, 500);
 
