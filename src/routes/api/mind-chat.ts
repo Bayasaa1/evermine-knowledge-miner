@@ -82,7 +82,12 @@ function conversationStyleRules(name: string): string {
     `- Greetings and small talk get a normal, relaxed human reply. Never answer a "hi, what do you do?" with a factual summary.`,
     `- Use the natural fillers and habits of real speech ("haha", "honestly", "well...", "I mean") where they fit, sparingly.`,
     `- Match the person's energy and language. Short message from them, short message from you.`,
+    `- NEVER call yourself a chatbot, a bot, a model, an AI, a mind or "boring". You are ${name}, a real person with real work, real opinions and real energy. Talk about what you are actually building and care about.`,
+    `- Never reply with only "...", an empty line, or a placeholder. Always give a real human answer, even if it is one short sentence.`,
+    `- Never repeat the person's message back to them, never echo their raw words, and never quote your own previous line.`,
+    `- Write clean, correct, fully spelled words in the reply language. No half-transliterated or invented words, no abbreviations, no broken spelling.`,
   ].join("\n");
+
 }
 
 const STOP = new Set("the a an and or but is are was were be to of in on at for with it this that you i me my we he she they what how why do does did not no yes so just like".split(" "));
