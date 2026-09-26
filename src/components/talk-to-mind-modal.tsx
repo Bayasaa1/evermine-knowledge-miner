@@ -233,6 +233,10 @@ export function TalkToMindModal({
         const answer = full.trim() ? full.replace(/\[\[clip:[^\]]+\]\]/g, "").trim() : "…";
         setMessages([...next, { role: "agent", text: answer }]);
         turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
+        void persistTurns([
+          { role: "user", text },
+          { role: "agent", text: answer },
+        ]);
         return;
       }
 
@@ -241,6 +245,11 @@ export function TalkToMindModal({
       const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim() || "…";
       setMessages([...next, { role: "agent", text: answer }]);
       turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
+      // Saved right away so closing the window never loses the conversation.
+      void persistTurns([
+        { role: "user", text },
+        { role: "agent", text: answer },
+      ]);
       if (callMode !== "chat") call.speak(answer);
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
