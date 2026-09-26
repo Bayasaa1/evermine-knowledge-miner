@@ -1516,13 +1516,13 @@ function StepUpload({
             <button
               type="button"
               onClick={() => void run(assessment)}
-              disabled={busy || !url.trim()}
+              disabled={busy || (pickedIds.length === 0 && !url.trim())}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {pickCopy({ en: "Start mining", mn: "Шинжилгээ эхлүүлэх", ko: "분석 시작" }, lang)}
             </button>
-            {!url.trim() && (
+            {pickedIds.length === 0 && !url.trim() && (
               <p className="text-xs text-amber-500">
                 {pickCopy(
                   {
