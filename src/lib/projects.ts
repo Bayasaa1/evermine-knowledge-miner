@@ -394,7 +394,10 @@ export async function listUnfiledProjects(userId: string): Promise<Project[]> {
     .eq("user_id", userId)
     .is("persona_id", null)
     .order("created_at", { ascending: false });
-  return (data as Project[] | null) ?? [];
+  const all = (data as Project[] | null) ?? [];
+  // Empty folders have nothing to file — hide them (display only, nothing deleted).
+  const empty = await Promise.all(all.map((p) => projectIsEmpty(p.id)));
+  return all.filter((_, i) => !empty[i]);
 }
 
 /** True when a project holds no videos and no saved minds (shown as "Empty"; never auto-deleted). */
