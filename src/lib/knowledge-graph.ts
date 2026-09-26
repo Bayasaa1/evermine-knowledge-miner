@@ -130,29 +130,8 @@ export function buildProjectGraph(input: {
   });
 
   if (input.level === "project") {
-    const shown = input.clusters.slice(0, budget);
-    const rest = input.clusters.slice(budget);
-    const max = Math.max(1, ...shown.map((c) => c.count));
-    for (const c of shown) {
-      const key = clusterKey(c.kind, c.concept);
-      nodes.push({
-        key,
-        kind: "cluster",
-        label: `${c.label} (${c.count})`,
-        weight: 0.5 + c.count / max,
-        topic: c.kind,
-        meta: { concept: c.concept, conceptKind: c.kind, count: c.count, detail: c.kind },
-      });
-      links.push({ source: root.key, target: key });
-    }
-    if (rest.length > 0) {
-      const node = overflowNode(
-        rest.map((c) => ({ key: clusterKey(c.kind, c.concept), label: `${c.label} (${c.count})` })),
-        "clusters",
-      );
-      nodes.push(node);
-      links.push({ source: root.key, target: node.key });
-    }
+    // Project → its videos. Topics only appear after a video is opened.
+    pushVideos(input.videos, root.key, 30);
     return { nodes, links };
   }
 
@@ -191,8 +170,8 @@ export function buildProjectGraph(input: {
     nodes.push(hub);
     links.push({ source: root.key, target: hub.key });
 
-    const shown = input.concepts.slice(0, budget - 1);
-    const rest = input.concepts.slice(budget - 1);
+    const shown = input.concepts.slice(0, 30);
+    const rest = input.concepts.slice(30);
     for (const c of shown) {
       const key = conceptNodeKey(c.kind, `${c.concept}:${v.id}`);
       nodes.push({
