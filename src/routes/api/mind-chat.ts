@@ -451,7 +451,7 @@ export const Route = createFileRoute("/api/mind-chat")({
             role: "chat",
             system: systemText,
             prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
-            maxTokens: 1024,
+            maxTokens: 400,
             subjectKind: "mind",
             subjectId: String(body.mindId ?? ""),
             subjectLabel: String(body.mindId ?? "Chat"),
