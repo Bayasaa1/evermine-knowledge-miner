@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Eraser, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
+import { Eraser, Loader2, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
@@ -398,7 +398,7 @@ export function TalkToMindModal({
             </div>
             </div>
           ))}
-          {busy && <div className="text-xs text-muted-foreground">…</div>}
+          {busy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Replying" />}
           <div ref={endRef} />
         </div>
 
@@ -411,6 +411,7 @@ export function TalkToMindModal({
         <div className="flex items-center gap-2 border-t border-border p-3">
           <input
             value={input}
+            disabled={busy}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void send();
