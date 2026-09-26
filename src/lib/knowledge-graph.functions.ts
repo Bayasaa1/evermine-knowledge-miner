@@ -254,3 +254,93 @@ export const rebuildProjectConcepts = createServerFn({ method: "POST" })
 
     return { concepts: payload.length };
   });
+
+export type VideoPart = {
+  title: string;
+  /** Seconds; null when the mined record has no timing for this part. */
+  start: number | null;
+  end: number | null;
+  explanation: string;
+};
+
+export type VideoPartsResult = {
+  mindId: string | null;
+  youtubeId: string;
+  personaId: string | null;
+  parts: VideoPart[];
+  lines: Array<{ start: number; end: number; speech: string; speaker: string }>;
+};
+
+/** "00:02:18", "02:18" or "12" → seconds. */
+function toSeconds(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw !== "string") return null;
+  const bits = raw.trim().split(":").map((b) => Number(b));
+  if (bits.length === 0 || bits.some((b) => !Number.isFinite(b))) return null;
+  return bits.reduce((acc, b) => acc * 60 + b, 0);
+}
+
+/**
+ * The well-explained parts of one mined video: each knowledge node with its
+ * start/end time and explanation, plus the timed transcript for subtitles.
+ * Read-only — nothing is re-mined or rewritten.
+ */
+export const videoParts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ contentId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<VideoPartsResult> => {
+    const { data: row, error } = await context.supabase
+      .from("project_content")
+      .select("mind_id,youtube_id,project_id,tags,transcript")
+      .eq("user_id", context.userId)
+      .eq("id", data.contentId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) return { mindId: null, youtubeId: "", personaId: null, parts: [], lines: [] };
+
+    const [{ data: project }, vaultRes] = await Promise.all([
+      context.supabase.from("projects").select("persona_id").eq("id", row.project_id).eq("user_id", context.userId).maybeSingle(),
+      /^[0-9a-f-]{36}$/i.test(row.mind_id ?? "")
+        ? context.supabase.from("mind_vaults").select("payload").eq("id", row.mind_id).eq("user_id", context.userId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const result = (((vaultRes.data as { payload?: unknown } | null)?.payload ?? {}) as Record<string, unknown>)["result"] as
+      | Record<string, unknown>
+      | undefined;
+    const nodes = Array.isArray(result?.["knowledgeNodes"]) ? (result!["knowledgeNodes"] as Record<string, unknown>[]) : [];
+
+    let parts: VideoPart[] = nodes
+      .map((n) => ({
+        title: String(n["concept_title"] ?? n["title"] ?? "").trim(),
+        start: toSeconds(n["timestamp_start"]),
+        end: toSeconds(n["timestamp_end"]),
+        explanation: String(n["detailed_explanation"] ?? n["explanation"] ?? n["summary"] ?? "").trim(),
+      }))
+      .filter((p) => p.title)
+      .slice(0, 40);
+    if (parts.length === 0) {
+      parts = (Array.isArray(row.tags) ? (row.tags as string[]) : []).slice(0, 20).map((t) => ({
+        title: t,
+        start: null,
+        end: null,
+        explanation: "",
+      }));
+    }
+
+    const rawLines = Array.isArray(row.transcript) ? (row.transcript as Record<string, unknown>[]) : [];
+    const lines = rawLines.slice(0, 2000).flatMap((l) => {
+      const [a, b] = String(l["timestamp"] ?? "").split("-");
+      const start = toSeconds(a);
+      if (start == null) return [];
+      return [{ start, end: toSeconds(b) ?? start + 3, speech: String(l["speech"] ?? ""), speaker: String(l["speaker"] ?? "") }];
+    });
+
+    return {
+      mindId: row.mind_id || null,
+      youtubeId: row.youtube_id,
+      personaId: (project?.persona_id as string | null) ?? null,
+      parts,
+      lines,
+    };
+  });
