@@ -499,6 +499,39 @@ export async function mergeProjects(sourceId: string, targetId: string): Promise
   return deleteProject(sourceId);
 }
 
+/**
+ * Files a whole unfiled project into a chosen persona + project: every video,
+ * saved mind and mining job moves over, then the emptied project is removed.
+ * Unlike mergeProjects this works across personas — that is the point.
+ */
+export async function fileProjectInto(
+  sourceId: string,
+  target: { personaId: string; projectId: string },
+): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  if (sourceId === target.projectId) return "Pick a different project";
+  const { error: contentError } = await supabase
+    .from("project_content")
+    .update({ project_id: target.projectId })
+    .eq("project_id", sourceId)
+    .eq("user_id", owner);
+  if (contentError) return contentError.message;
+  const { error: vaultError } = await supabase
+    .from("mind_vaults")
+    .update({ project_id: target.projectId, persona_id: target.personaId })
+    .eq("project_id", sourceId)
+    .eq("user_id", owner);
+  if (vaultError) return vaultError.message;
+  const { error: jobError } = await supabase
+    .from("mining_jobs")
+    .update({ project_id: target.projectId, persona_id: target.personaId })
+    .eq("project_id", sourceId)
+    .eq("user_id", owner);
+  if (jobError) return jobError.message;
+  return deleteProject(sourceId);
+}
+
 /** Peels the selected videos off into a brand-new project of the same persona. */
 export async function splitProject(
   sourceId: string,

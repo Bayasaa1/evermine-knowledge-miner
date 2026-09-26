@@ -12,7 +12,7 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Settings2, Trash2, Wrench } from "lucide-react";
+import { CloudCheck, Columns3, Eye, FolderInput, Gavel, Loader2, Pencil, Send, Settings2, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
@@ -30,7 +30,18 @@ import { ACTIVE_CATEGORIES, CATEGORY_LABELS } from "@/lib/creation-category";
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
-import { createProject, listProjectsByPersona, type Project } from "@/lib/projects";
+import {
+  createProject,
+  fileProjectInto,
+  findContentByVideo,
+  listProjectContent,
+  listProjectsByPersona,
+  listUnfiledProjects,
+  moveProjectContent,
+  type Project,
+} from "@/lib/projects";
+import { rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
+import { FileThis, type FileTarget } from "@/components/file-this";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -128,8 +139,19 @@ export function SavedMinds({
       },
       lang,
     ),
-
-
+    needsFiling: pickCopy({ en: "Needs filing", mn: "Бүртгэх хэрэгтэй", ko: "분류 필요" }, lang),
+    needsFilingDesc: pickCopy(
+      {
+        en: "These were mined before a persona was picked. Tell me where each one belongs — nothing here is hidden, it just has no home yet.",
+        mn: "Эдгээр нь дүр сонгогдохоос өмнө олборлогдсон. Аль нь хаана хамаарахыг хэлээд өг — энд байгаа зүйл нуагдаагүй, зүгээр нэг гэргүй байна.",
+        ko: "페르소나를 고르기 전에 마이닝된 항목입니다. 각각 어디에 속하는지 알려주세요 — 숨겨진 것이 아니라 아직 자리가 없을 뿐입니다.",
+      },
+      lang,
+    ),
+    fileThis: pickCopy({ en: "File this…", mn: "Бүртгэх…", ko: "파일하기…" }, lang),
+    sendTo: pickCopy({ en: "Send to…", mn: "Илгээх…", ko: "보내기…" }, lang),
+    filed: pickCopy({ en: "Filed", mn: "Бүртгэлээ", ko: "분류 완료" }, lang),
+    undo: pickCopy({ en: "Undo", mn: "Буцаах", ko: "되돌리기" }, lang),
   };
 
   const { data: personas = [] } = useQuery<Persona[]>({
@@ -177,6 +199,16 @@ export function SavedMinds({
     }
     return map;
   }, [jobs]);
+
+  /** Whole projects with no persona — shown in "Needs filing" until placed. */
+  const { data: unfiledProjects = [] } = useQuery<Project[]>({
+    queryKey: ["unfiled-projects", userId],
+    queryFn: () => (userId ? listUnfiledProjects(userId) : Promise.resolve([])),
+    enabled: isAuthenticated && Boolean(userId),
+    refetchOnMount: "always",
+  });
+
+  const rebuild = useServerFn(rebuildProjectConcepts);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
 
@@ -305,6 +337,98 @@ export function SavedMinds({
   const pendingGroups = useMemo(() => groups.filter((g) => !g.isMined), [groups]);
   const minedGroups = useMemo(() => groups.filter((g) => g.isMined), [groups]);
 
+  /** Videos with no persona yet — the "Needs filing" list asks where they go. */
+  const unfiledGroups = useMemo(() => groups.filter((g) => g.unfiled), [groups]);
+
+  /** The video group or whole project currently being filed. */
+  const [filing, setFiling] = useState<(typeof groups)[number] | null>(null);
+  const [filingProject, setFilingProject] = useState<Project | null>(null);
+
+  const refreshAll = async () => {
+    await refresh();
+    await queryClient.invalidateQueries({ queryKey: ["unfiled-projects", userId] });
+    await queryClient.invalidateQueries({ queryKey: ["persona-projects"] });
+    await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-vaults"] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
+  const rebuildMaps = async (projectIds: (string | null)[]) => {
+    for (const pid of new Set(projectIds.filter((p): p is string => Boolean(p)))) {
+      try {
+        await rebuild({ data: { projectId: pid } });
+      } catch {
+        // The map rebuilds lazily on next open — never block filing on it.
+      }
+    }
+  };
+
+  /** Files one video group (every saved row + its feed card) into a persona + project. */
+  const fileGroup = async (g: (typeof groups)[number], target: FileTarget) => {
+    const originals = g.rows.map((r) => ({ id: r.id, personaId: r.personaId, projectId: r.projectId }));
+    const content = g.youtubeId && userId ? await findContentByVideo(userId, g.youtubeId) : null;
+    const sourceProjectId = content?.project_id ?? null;
+    for (const r of g.rows) {
+      await saveVault({ data: { id: r.id, personaId: target.personaId, projectId: target.projectId } });
+    }
+    if (content) await moveProjectContent(content.id, target.projectId);
+    await rebuildMaps([target.projectId, sourceProjectId, ...originals.map((o) => o.projectId)]);
+    toast.success(t.filed, {
+      duration: 10000,
+      action: {
+        label: t.undo,
+        onClick: () => {
+          void (async () => {
+            for (const o of originals) {
+              await saveVault({ data: { id: o.id, personaId: o.personaId, projectId: o.projectId } });
+            }
+            if (content && sourceProjectId) await moveProjectContent(content.id, sourceProjectId);
+            await rebuildMaps([target.projectId, sourceProjectId]);
+            await refreshAll();
+          })();
+        },
+      },
+    });
+    await refreshAll();
+  };
+
+  /** Files a whole unfiled project; Undo recreates an unfiled holder and moves everything back. */
+  const fileProject = async (p: Project, target: FileTarget) => {
+    const movedContent = await listProjectContent(p.id);
+    const movedVaults = await fetchVaults({ data: { scoped: true, projectId: p.id } });
+    const error = await fileProjectInto(p.id, target);
+    if (error) {
+      toast.error(error);
+      throw new Error(error);
+    }
+    await rebuildMaps([target.projectId]);
+    toast.success(t.filed, {
+      duration: 10000,
+      action: {
+        label: t.undo,
+        onClick: () => {
+          void (async () => {
+            if (!userId) return;
+            const { project: holder } = await createProject(userId, {
+              title: p.title,
+              personaId: null,
+              creatorName: p.creator_name,
+            });
+            if (!holder) return;
+            for (const c of movedContent) await moveProjectContent(c.id, holder.id);
+            for (const v of movedVaults) {
+              await saveVault({ data: { id: v.id, personaId: null, projectId: holder.id } });
+            }
+            await rebuildMaps([target.projectId, holder.id]);
+            await refreshAll();
+          })();
+        },
+      },
+    });
+    await refreshAll();
+  };
+
   if (!isAuthenticated) return null;
 
 
@@ -334,6 +458,45 @@ export function SavedMinds({
           </select>
         )}
       </div>
+
+      {(unfiledGroups.length > 0 || unfiledProjects.length > 0) && (
+        <div className="mt-3 space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+          <p className="text-xs font-semibold text-foreground">
+            {t.needsFiling} ({unfiledGroups.length + unfiledProjects.length})
+          </p>
+          <p className="text-[11px] text-muted-foreground">{t.needsFilingDesc}</p>
+          <ul className="space-y-1.5">
+            {unfiledProjects.map((p) => (
+              <li key={p.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
+                <FolderInput className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{p.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setFilingProject(p)}
+                  className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                >
+                  {t.fileThis}
+                </button>
+              </li>
+            ))}
+            {unfiledGroups.map((g) => (
+              <li key={g.primary.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
+                {g.thumb ? (
+                  <img src={g.thumb} alt="" loading="lazy" className="h-8 w-14 shrink-0 rounded bg-muted object-cover" />
+                ) : null}
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{g.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setFiling(g)}
+                  className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                >
+                  {t.fileThis}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {mineable.length > 0 && (
         <div className="mt-3 space-y-2 rounded-lg border border-border bg-background p-2.5">
@@ -448,7 +611,7 @@ export function SavedMinds({
                                 {mined ? t.mined : busy ? jobLabel : t.pending}
                               </span>
                               {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
-                              {g.unfiled && personaId ? (
+                              {g.unfiled ? (
                                 <span className="text-amber-500"> · {t.notFiled}</span>
                               ) : null}
                             </p>
@@ -519,6 +682,16 @@ export function SavedMinds({
                               >
                                 <Columns3 className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">{t.compare}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setFiling(g)}
+                                title={t.sendTo}
+                                aria-label={t.sendTo}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{t.sendTo}</span>
                               </button>
                             </>
                           )}
@@ -631,6 +804,30 @@ export function SavedMinds({
         </Dialog>
       )}
 
+
+      {filing && (
+        <FileThis
+          lang={lang}
+          userId={userId ?? ""}
+          title={filing.title}
+          onClose={() => setFiling(null)}
+          onFile={async (target) => {
+            await fileGroup(filing, target);
+          }}
+        />
+      )}
+
+      {filingProject && (
+        <FileThis
+          lang={lang}
+          userId={userId ?? ""}
+          title={filingProject.title}
+          onClose={() => setFilingProject(null)}
+          onFile={async (target) => {
+            await fileProject(filingProject, target);
+          }}
+        />
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
