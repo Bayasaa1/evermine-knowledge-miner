@@ -143,8 +143,12 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   const wanted = (choice?.keyId ? rows.find((row) => row.id === choice.keyId) : null)
     ?? (choice?.keyTail ? rows.find((row) => row.provider === choice.provider && row.api_key.endsWith(choice.keyTail ?? "")) : null)
     ?? null;
-  const selected = (wanted && usable.some((row) => row.id === wanted.id) ? wanted : null)
-    ?? ((!choice || choice.autoFallback) ? usable[0] : null);
+  const wantedHealthy = wanted && wanted.status !== "invalid" && wanted.status !== "exhausted" && unusableReason(wanted) === null;
+  // Respect the user's exact assignment while it is healthy. When they have
+  // explicitly enabled automatic fallback, do not keep calling a key already
+  // marked rejected/exhausted if another healthy compatible key is available.
+  const selected = (wantedHealthy ? wanted : null)
+    ?? ((!choice || choice.autoFallback) ? usable[0] : wanted);
   if (!selected) throw new UserAiError("no_credential", NO_CREDENTIAL);
   const skippedAssigned: SkippedAssigned | null =
     wanted && wanted.id !== selected.id

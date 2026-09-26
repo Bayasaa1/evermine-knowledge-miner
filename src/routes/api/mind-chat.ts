@@ -463,7 +463,7 @@ export const Route = createFileRoute("/api/mind-chat")({
             role: message.role === "user" ? "user" as const : "assistant" as const,
             content: message.text,
           }));
-          let generated = await generateRoleText({
+          const generated = await generateRoleText({
             userId: auth.userId,
             role: "chat",
             system: systemText,
@@ -474,19 +474,6 @@ export const Route = createFileRoute("/api/mind-chat")({
             subjectId: String(body.mindId ?? ""),
             subjectLabel: String(body.mindId ?? "Chat"),
           });
-          if (!generated.text.trim()) {
-            generated = await generateRoleText({
-              userId: auth.userId,
-              role: "chat",
-              system: `${systemText}\n\nThe previous attempt was empty. Answer the latest user message now with one complete, natural sentence.`,
-              prompt: history.at(-1)?.text ?? "",
-              messages: turns,
-              maxTokens: 400,
-              subjectKind: "mind",
-              subjectId: String(body.mindId ?? ""),
-              subjectLabel: String(body.mindId ?? "Chat"),
-            });
-          }
           if (!generated.text.trim()) {
             const error = lang === "mn"
               ? "Сонгосон AI хариу өгсөнгүй. Дахин оролдох эсвэл Чат AI-гаа солино уу."
