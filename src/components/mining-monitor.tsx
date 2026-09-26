@@ -3,8 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2 } from "lucide-react";
 
-import { clearMiningHistory, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
-import { jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
+import { clearMiningHistory, continueMiningNow, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
+import { formatDuration, jobParts, jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -22,6 +22,11 @@ const COPY = {
     stop: "Stop",
     refreshing: "Live",
     retry: "Waiting for AI quota to reset",
+    parts: "parts mined",
+    part: "Part",
+    continuesAt: "Waiting for free tokens — continues at",
+    continueNow: "Continue now",
+    showParts: "Show parts",
     clear: "Clear history",
     kept: "Finished runs are only history — clearing them never deletes your mined Minds.",
   },
@@ -38,6 +43,11 @@ const COPY = {
     stop: "Зогсоох",
     refreshing: "Шууд",
     retry: "AI-н квот сэргэхийг хүлээж байна",
+    parts: "хэсэг олборлосон",
+    part: "Хэсэг",
+    continuesAt: "Үнэгүй токен хүлээж байна — үргэлжлэх цаг",
+    continueNow: "Одоо үргэлжлүүлэх",
+    showParts: "Хэсгүүдийг харах",
     clear: "Түүх цэвэрлэх",
     kept: "Дууссан бичлэгүүд зөвхөн түүх — цэвэрлэсэн ч олборлосон Mind устахгүй.",
   },
@@ -54,6 +64,11 @@ const COPY = {
     stop: "중지",
     refreshing: "실시간",
     retry: "AI 사용량 초기화를 기다리는 중",
+    parts: "파트 완료",
+    part: "파트",
+    continuesAt: "무료 토큰 대기 중 — 재개 시각",
+    continueNow: "지금 계속",
+    showParts: "파트 보기",
     clear: "기록 지우기",
     kept: "완료된 작업은 기록일 뿐이며, 지워도 채굴된 Mind는 삭제되지 않습니다.",
   },
@@ -68,6 +83,13 @@ const STATUS_LABEL: Record<MiningJobStatus, { en: string; mn: string; ko: string
   error: { en: "Error", mn: "Алдаа", ko: "오류" },
   done: { en: "Done", mn: "Дууссан", ko: "완료" },
 };
+
+const PART_LABEL = {
+  done: { en: "Done", mn: "Дууссан", ko: "완료" },
+  mining: { en: "Mining", mn: "Олборлож байна", ko: "마이닝 중" },
+  waiting: { en: "Waiting", mn: "Хүлээж байна", ko: "대기" },
+  failed: { en: "Failed", mn: "Алдаа", ko: "실패" },
+} as const;
 
 const LIVE: MiningJobStatus[] = ["queued", "running", "paused_quota", "paused_user"];
 
@@ -108,6 +130,12 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
+  const continueNowFn = useServerFn(continueMiningNow);
+  const kick = useMutation({
+    mutationFn: (jobId: string) => continueNowFn({ data: { jobId } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
+  });
+
   const control = useMutation({
     mutationFn: (input: { jobId: string; action: "pause" | "stop" | "resume" }) => setState({ data: input }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
@@ -135,7 +163,7 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{job.sourceLabel || job.sourceUrl}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {pickCopy(STATUS_LABEL[job.status], lang)} · {t.chunk} {job.nextIndex} {t.of} {job.totalChunks}
+              {pickCopy(STATUS_LABEL[job.status], lang)} · {job.nextIndex} / {job.totalChunks} {t.parts}
             </p>
           </div>
           <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{pct}%</span>
@@ -151,7 +179,50 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
         </div>
 
         {job.status === "paused_quota" ? (
-          <p className="mt-2 text-xs text-amber-500">{t.retry}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <p className="text-xs text-amber-500">
+              {job.retryAfter && mounted
+                ? `${t.continuesAt} ${new Date(job.retryAfter).toLocaleString(lang === "mn" ? "mn-MN" : lang === "ko" ? "ko-KR" : "en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`
+                : t.retry}
+            </p>
+            {controls ? (
+              <button
+                type="button"
+                disabled={kick.isPending}
+                onClick={() => kick.mutate(job.id)}
+                className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium hover:bg-muted"
+              >
+                {t.continueNow}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {job.chunks.length > 0 ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground">{t.showParts} ({job.chunks.length})</summary>
+            <ul className="mt-2 grid max-h-56 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
+              {jobParts(job).map((p) => (
+                <li key={p.index} className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1 text-xs">
+                  <span className="tabular-nums">
+                    {t.part} {p.index + 1} · {formatDuration(p.start)}–{formatDuration(p.end)}
+                  </span>
+                  <span
+                    className={
+                      p.state === "done"
+                        ? "text-emerald-500"
+                        : p.state === "failed"
+                          ? "text-destructive"
+                          : p.state === "mining"
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                    }
+                  >
+                    {pickCopy(PART_LABEL[p.state], lang)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
         ) : null}
         {job.status === "error" && job.lastError ? (
           <p className="mt-2 line-clamp-2 text-xs text-destructive">{job.lastError}</p>
