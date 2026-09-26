@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Mic, MicOff, Pencil, PhoneOff, RotateCcw, Send, Sparkles, Trash2, Video, X } from "lucide-react";
+import { Eraser, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
 import { MindAvatar } from "@/components/mind-avatar";
-import { mergeSession } from "@/lib/viewer-brain.functions";
+import { eraseBrain, mergeSession } from "@/lib/viewer-brain.functions";
 import { listChatHistory, appendChatMessages, deleteChatMessages, clearChatHistory } from "@/lib/cloud-vault.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
@@ -32,10 +32,12 @@ export function TalkToMindModal({
 }) {
   const { lang: activeLang } = useLang();
   const lang: Lang = langProp ?? activeLang;
-  const [heading, empty, placeholder] = useDisplayTexts([
+  const [heading, empty, placeholder, newChatLabel, resetConfirm] = useDisplayTexts([
     "Talk to",
     "Ask anything about this video — the Mind answers from its own mined brain.",
     "Ask this mind…",
+    "New chat",
+    "Fully reset this chat? All messages and this Mind's memory of you will be deleted. This cannot be undone.",
   ]);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -56,6 +58,7 @@ export function TalkToMindModal({
   const mergeSessionFn = useServerFn(mergeSession);
   const loadHistory = useServerFn(listChatHistory);
   const saveMessages = useServerFn(appendChatMessages);
+  const eraseBrainFn = useServerFn(eraseBrain);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const removeMessages = useServerFn(deleteChatMessages);
   const clearHistory = useServerFn(clearChatHistory);
@@ -292,12 +295,14 @@ export function TalkToMindModal({
 
   const resetChat = async () => {
     const target = mindId ?? lastMindRef.current;
-    if (!window.confirm("Reset this chat? All messages with this mind will be deleted.")) return;
+    if (!window.confirm(resetConfirm)) return;
     setMessages([]);
     setEditIndex(null);
     turnsRef.current = [];
     if (isAuthenticated && target) {
       try { await clearHistory({ data: { mindId: target } }); } catch { /* ignore */ }
+      // The Mind's memory of the viewer goes too — a full fresh start.
+      try { await eraseBrainFn({ data: { mindId: target } }); } catch { /* ignore */ }
     }
   };
 
@@ -316,8 +321,9 @@ export function TalkToMindModal({
           <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "video" ? "chat" : "video"); }} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Video className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => void resetChat()} aria-label="Reset chat" title="Reset chat" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <RotateCcw className="h-4 w-4" />
+          <button type="button" onClick={() => void resetChat()} aria-label={newChatLabel} title={newChatLabel} className="flex items-center gap-1 rounded-full px-2 py-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <Eraser className="h-4 w-4" />
+            <span className="hidden text-[11px] sm:inline">{newChatLabel}</span>
           </button>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
