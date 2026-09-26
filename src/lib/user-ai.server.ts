@@ -752,7 +752,10 @@ export async function withMinuteRetry<T>(fn: () => Promise<T>): Promise<T> {
 export type GeminiPart =
   | { text: string }
   | { inline_data: { mime_type: string; data: string } }
-  | { file_data: { file_uri: string } };
+  | {
+      file_data: { file_uri: string };
+      video_metadata?: { start_offset?: string; end_offset?: string };
+    };
 
 export type GeminiTurn = { role: "user" | "model"; parts: GeminiPart[] };
 
@@ -890,15 +893,16 @@ export function youtubeIdFromUrl(url: string): string | null {
 export function youtubeVideoPart(url: string, credential: AiCredential, startSec: number, endSec: number): GeminiPart {
   const id = youtubeIdFromUrl(url);
   if (!id) throw new GeminiHttpError(400, "Invalid YouTube link.");
-  return {
-    file_data: {
-      file_uri: `https://www.youtube.com/watch?v=${id}${
-        startSec > 0 || endSec > 0
-          ? `#t=${Math.max(0, Math.floor(startSec))}${endSec > 0 ? `,${Math.ceil(endSec)}` : ""}`
-          : ""
-      }`,
-    },
-  };
+  // Gemini rejects "#t=" links ("Request contains an invalid argument"); the
+  // time range goes in video_metadata instead, on a plain watch link.
+  const part: GeminiPart = { file_data: { file_uri: `https://www.youtube.com/watch?v=${id}` } };
+  if (startSec > 0 || endSec > 0) {
+    part.video_metadata = {
+      start_offset: `${Math.max(0, Math.floor(startSec))}s`,
+      ...(endSec > 0 ? { end_offset: `${Math.ceil(endSec)}s` } : {}),
+    };
+  }
+  return part;
 }
 
 /**

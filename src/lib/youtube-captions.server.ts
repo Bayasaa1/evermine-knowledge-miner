@@ -187,30 +187,51 @@ function parseTimedXml(xml: string): Json3 {
  * The timed spoken lines of a video for one time range, straight from YouTube.
  * Returns an empty list when the video has no captions at all.
  */
-export async function fetchCaptionCues(
-  videoId: string,
-  startSec: number,
-  endSec: number,
-): Promise<{ cues: Cue[]; track: CaptionTrack | null }> {
+/**
+ * Whole-video subtitles, downloaded once and reused for every 5-minute part.
+ * Asking YouTube 40 times for the same file gets the server rate-limited.
+ */
+const WHOLE_CACHE = new Map<string, { at: number; json: Json3 | null; track: CaptionTrack | null }>();
+const CACHE_MS = 6 * 60 * 60_000;
+
+async function wholeCaptions(videoId: string): Promise<{ json: Json3 | null; track: CaptionTrack | null }> {
+  const hit = WHOLE_CACHE.get(videoId);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit;
   const tracks = await listCaptionTracks(videoId);
   for (const track of tracks.slice(0, 3)) {
     try {
-      // The link YouTube hands out already asks for its own subtitle format,
-      // so the machine-readable one has to be requested explicitly.
       const url = new URL(track.baseUrl);
       url.searchParams.set("fmt", "json3");
       const res = await fetch(url.toString(), { headers: { "User-Agent": UA } });
       if (!res.ok) continue;
       const body = await res.text();
       if (!body.trim()) continue;
-      const json = body.trimStart().startsWith("{")
-        ? (JSON.parse(body) as Json3)
-        : parseTimedXml(body);
-      const cues = toCues(json, startSec, endSec);
-      if (cues.length) return { cues, track };
+      const json = body.trimStart().startsWith("{") ? (JSON.parse(body) as Json3) : parseTimedXml(body);
+      if (!json.events?.length) continue;
+      const entry = { at: Date.now(), json, track };
+      WHOLE_CACHE.set(videoId, entry);
+      if (WHOLE_CACHE.size > 50) WHOLE_CACHE.delete(WHOLE_CACHE.keys().next().value!);
+      return entry;
     } catch {
-      // Try the next track — a single unreadable file is not a failure.
+      // Try the next track.
     }
   }
-  return { cues: [], track: null };
+  // Only remember "no captions" when YouTube actually listed none; a
+  // temporary failure is retried on the next part.
+  if (!tracks.length) WHOLE_CACHE.set(videoId, { at: Date.now(), json: null, track: null });
+  return { json: null, track: null };
+}
+
+/**
+ * The timed spoken lines of a video for one time range, straight from YouTube.
+ * Returns an empty list when the video has no captions at all.
+ */
+export async function fetchCaptionCues(
+  videoId: string,
+  startSec: number,
+  endSec: number,
+): Promise<{ cues: Cue[]; track: CaptionTrack | null }> {
+  const { json, track } = await wholeCaptions(videoId);
+  if (!json) return { cues: [], track: null };
+  return { cues: toCues(json, startSec, endSec), track };
 }
