@@ -713,10 +713,11 @@ async function raiseForGemini(res: Response): Promise<never> {
   }
   if (res.status === 429) throw classifyGemini429(raw);
   // A retired model is permanent — never retry it, never mark the key bad.
+  // geminiGenerate catches this code and moves to the newest free model itself.
   if (res.status === 404 || /no longer available|is not found for api version/i.test(detail)) {
     throw new UserAiError(
       "model_unavailable",
-      `Gemini no longer serves this model (${detail.slice(0, 160)}). Evermind has switched to the free-tier gemini-3.1-flash-lite — try again.`,
+      "Google changed its free Gemini models and no free model answered for this key right now.",
       404,
     );
   }
@@ -754,8 +755,50 @@ export type GeminiPart =
 
 export type GeminiTurn = { role: "user" | "model"; parts: GeminiPart[] };
 
-/** One non-streaming Gemini call on the caller's own credential. */
-export async function geminiGenerate(opts: {
+// ---------- Self-updating free model ----------
+// Google retires model names over time. Instead of breaking, the app asks
+// Google which models this key can use and picks the newest free Flash-Lite /
+// Flash model. Paid models are never picked automatically.
+const FREE_MODEL_CACHE = new Map<string, { model: string; at: number }>();
+const FREE_MODEL_TTL = 24 * 60 * 60_000;
+
+function isAutoModel(model: string | undefined): boolean {
+  return !model || model === GEMINI_DEFAULT_MODEL;
+}
+
+function versionOf(name: string): number {
+  const m = /gemini-(\d+(?:\.\d+)?)/.exec(name);
+  return m ? Number(m[1]) : 0;
+}
+
+export async function resolveFreeGeminiModel(apiKey: string, refresh = false): Promise<string> {
+  const cached = FREE_MODEL_CACHE.get(apiKey);
+  if (!refresh && cached && Date.now() - cached.at < FREE_MODEL_TTL) return cached.model;
+  try {
+    const res = await fetch(`${GEMINI_BASE}/models?pageSize=200&key=${encodeURIComponent(apiKey)}`);
+    if (!res.ok) return cached?.model ?? GEMINI_DEFAULT_MODEL;
+    const data = (await res.json()) as { models?: { name?: string; supportedGenerationMethods?: string[] }[] };
+    const names = (data.models ?? [])
+      .filter((m) => (m.supportedGenerationMethods ?? []).includes("generateContent"))
+      .map((m) => (m.name ?? "").replace(/^models\//, ""))
+      .filter((n) => /^gemini-[\d.]+-flash/.test(n))
+      .filter((n) => !/(tts|image|live|audio|embedding|thinking-exp|native)/i.test(n))
+      .filter((n) => n !== GEMINI_PAID_MODEL);
+    const failed = refresh ? cached?.model : undefined;
+    const usable = names.filter((n) => n !== failed);
+    const lite = usable.filter((n) => n.includes("flash-lite"));
+    const pool = lite.length ? lite : usable;
+    const stable = pool.filter((n) => !/preview|exp/i.test(n));
+    const pick = (stable.length ? stable : pool).sort((a, b) => versionOf(b) - versionOf(a))[0];
+    const model = !refresh && usable.includes(GEMINI_DEFAULT_MODEL) ? GEMINI_DEFAULT_MODEL : pick ?? GEMINI_DEFAULT_MODEL;
+    FREE_MODEL_CACHE.set(apiKey, { model, at: Date.now() });
+    return model;
+  } catch {
+    return cached?.model ?? GEMINI_DEFAULT_MODEL;
+  }
+}
+
+type GeminiGenerateOpts = {
   credential: AiCredential;
   model?: string;
   system?: string;
@@ -769,8 +812,30 @@ export async function geminiGenerate(opts: {
   onTokens?: (tokens: { inputTokens: number; outputTokens: number }) => void;
   /** When given, the call is written to the account usage history itself. */
   usage?: import("@/lib/ai-usage.server").UsageMeta;
-}): Promise<string> {
-  const model = opts.model ?? "gemini-3.1-flash-lite";
+};
+
+/**
+ * One non-streaming Gemini call on the caller's own credential. When the free
+ * model was retired by Google, it switches to the newest free model and tries
+ * that once — the user never sees an "update your model" error.
+ */
+export async function geminiGenerate(opts: GeminiGenerateOpts): Promise<string> {
+  if (!isAutoModel(opts.model)) return geminiGenerateOnce(opts);
+  const key = opts.credential.value;
+  const model = FREE_MODEL_CACHE.get(key)?.model ?? GEMINI_DEFAULT_MODEL;
+  try {
+    return await geminiGenerateOnce({ ...opts, model });
+  } catch (err) {
+    if (!(err instanceof UserAiError && err.code === "model_unavailable")) throw err;
+    FREE_MODEL_CACHE.set(key, { model, at: Date.now() });
+    const next = await resolveFreeGeminiModel(key, true);
+    if (next === model) throw err;
+    return geminiGenerateOnce({ ...opts, model: next });
+  }
+}
+
+async function geminiGenerateOnce(opts: GeminiGenerateOpts): Promise<string> {
+  const model = opts.model ?? GEMINI_DEFAULT_MODEL;
   const { url, headers } = geminiUrl(model, "generateContent", opts.credential);
   let res: Response;
   try {
