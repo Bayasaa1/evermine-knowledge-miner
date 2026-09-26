@@ -23,13 +23,11 @@ export function TopicDetail({
   part,
   info,
   videoTitle,
-  alsoIn,
 }: {
   lang: Lang;
   part: VideoPart;
   info: VideoPartsResult;
   videoTitle: string;
-  alsoIn: string[];
 }) {
   const c = {
     explain: pickCopy({ en: "What he explains", mn: "Юу тайлбарласан", ko: "설명 내용" }, lang),
@@ -43,7 +41,6 @@ export function TopicDetail({
     ask: pickCopy({ en: "Ask about this", mn: "Энэ талаар асуух", ko: "이것에 대해 묻기" }, lang),
     setupVoice: pickCopy({ en: "Set up voice clone in Clone studio to hear his voice.", mn: "Дуу хоолойг сонсохын тулд Clone studio-д дуу хуулбар тохируулна уу.", ko: "목소리를 들으려면 Clone studio에서 음성 복제를 설정하세요." }, lang),
     setupFace: pickCopy({ en: "Set up face clone in Clone studio to see him explain it.", mn: "Нүүрийг харахын тулд Clone studio-д нүүр хуулбар тохируулна уу.", ko: "얼굴을 보려면 Clone studio에서 얼굴 복제를 설정하세요." }, lang),
-    alsoIn: pickCopy({ en: "Also in", mn: "Мөн эдгээрт", ko: "다른 영상" }, lang),
   };
 
   const { data: clones = [] } = useQuery({
@@ -153,15 +150,6 @@ export function TopicDetail({
       </section>
       {!voiceLive ? <p className="text-xs text-muted-foreground">{c.setupVoice}</p> : null}
       {!faceLive ? <p className="text-xs text-muted-foreground">{c.setupFace}</p> : null}
-
-      {alsoIn.length > 0 ? (
-        <section>
-          <p className="text-xs font-semibold text-muted-foreground">{c.alsoIn}</p>
-          <ul className="mt-1 space-y-0.5 text-xs text-foreground">
-            {alsoIn.slice(0, 8).map((t) => <li key={t} className="truncate">• {t}</li>)}
-          </ul>
-        </section>
-      ) : null}
 
       <TalkToMindModal open={chat} onClose={() => setChat(false)} mindId={info.mindId} mindName={part.title} lang={lang} />
     </div>

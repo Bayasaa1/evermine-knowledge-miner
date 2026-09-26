@@ -20,11 +20,11 @@ import {
   listProjectVideos,
   projectGraphSummary,
   rebuildProjectConcepts,
-  videoConcepts,
+  videoParts,
 } from "@/lib/knowledge-graph.functions";
+import { TopicDetail } from "@/components/topic-detail";
 import {
   buildProjectGraph,
-  MAX_NODES,
   NODE_RADIUS,
   type ConceptRow,
   type GraphLevel,
@@ -36,9 +36,9 @@ import { pickCopy, type Lang } from "@/lib/i18n";
 const C = {
   title: { en: "Knowledge map", mn: "Мэдлэгийн зураглал", ko: "지식 지도" },
   desc: {
-    en: "Start at the project, open a topic, then open a video. Only what you open is loaded.",
-    mn: "Төслөөс эхэлж, сэдэв нээгээд, дараа нь видео нээнэ. Зөвхөн нээсэн зүйл ачаална.",
-    ko: "프로젝트에서 시작해 주제를 열고 영상을 엽니다. 연 것만 불러옵니다.",
+    en: "Start at the project, open a video, then open a topic to see the explained part.",
+    mn: "Төслөөс эхэлж, видео нээгээд, дараа нь сэдэв нээж тайлбарыг харна.",
+    ko: "프로젝트에서 시작해 영상을 열고, 주제를 열어 설명을 봅니다.",
   },
   search: { en: "Search videos", mn: "Видео хайх", ko: "영상 검색" },
   back: { en: "Back", mn: "Буцах", ko: "뒤로" },
@@ -90,12 +90,12 @@ export function ProjectKnowledgeGraph({
 
   const fetchSummary = useServerFn(projectGraphSummary);
   const fetchVideos = useServerFn(listProjectVideos);
-  const fetchConcepts = useServerFn(videoConcepts);
+  const fetchParts = useServerFn(videoParts);
   const rebuild = useServerFn(rebuildProjectConcepts);
 
   const [level, setLevel] = useState<GraphLevel>("project");
-  const [cluster, setCluster] = useState<ConceptRow | null>(null);
   const [video, setVideo] = useState<VideoRow | null>(null);
+  const [partIndex, setPartIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [inspect, setInspect] = useState<GraphNode | null>(null);
   const [busy, setBusy] = useState(false);
@@ -106,76 +106,77 @@ export function ProjectKnowledgeGraph({
     enabled: Boolean(userId),
   });
 
-  // Videos load only for the level that needs them, newest first, one page.
-  const wantVideos = level === "cluster" || Boolean(search.trim());
+  // Project level: the project's videos (newest first, one page).
   const { data: videoPage } = useQuery({
-    queryKey: ["graph-videos", userId, project.id, cluster?.concept ?? "", cluster?.kind ?? "", search.trim()],
+    queryKey: ["graph-videos", userId, project.id, search.trim()],
     queryFn: () =>
       fetchVideos({
         data: {
           projectId: project.id,
-          ...(cluster && !search.trim() ? { concept: cluster.concept, conceptKind: cluster.kind } : {}),
           ...(search.trim() ? { search: search.trim() } : {}),
           offset: 0,
-          limit: 120,
+          limit: 200,
         },
       }),
-    enabled: Boolean(userId) && wantVideos,
+    enabled: Boolean(userId),
   });
 
-  const { data: openConcepts = [] } = useQuery({
-    queryKey: ["graph-video-concepts", userId, video?.id ?? ""],
-    queryFn: () => fetchConcepts({ data: { contentId: video!.id } }),
+  // Video level: the well-explained parts of the open video.
+  const { data: parts } = useQuery({
+    queryKey: ["graph-video-parts", userId, video?.id ?? ""],
+    queryFn: () => fetchParts({ data: { contentId: video!.id } }),
     enabled: Boolean(userId && video),
   });
+
+  const partConcepts: ConceptRow[] = useMemo(
+    () => (parts?.parts ?? []).map((p, i) => ({ concept: String(i), label: p.title, kind: "topic", count: 1 })),
+    [parts],
+  );
 
   const graph = useMemo(
     () =>
       buildProjectGraph({
         project,
-        level: search.trim() && level === "project" ? "cluster" : level,
-        clusters: summary?.clusters ?? [],
+        level: level === "video" && video ? "video" : "project",
+        clusters: [],
         videos: (videoPage?.rows ?? []) as VideoRow[],
-        concepts: openConcepts as ConceptRow[],
-        openCluster: search.trim() ? null : cluster,
+        concepts: partConcepts,
+        openCluster: null,
         openVideo: video,
         totals: { videos: summary?.videos ?? 0, concepts: summary?.concepts ?? 0 },
       }),
-    [project, level, summary, videoPage, openConcepts, cluster, video, search],
+    [project, level, summary, videoPage, partConcepts, video],
   );
 
+  const openVideoRow = (id: string) => {
+    const row = (videoPage?.rows ?? []).find((r) => r.id === id);
+    if (!row) return false;
+    setVideo(row as VideoRow);
+    setPartIndex(null);
+    setLevel("video");
+    setInspect(null);
+    return true;
+  };
+
   const goBack = () => {
-    if (level === "video") {
-      setVideo(null);
-      setLevel(cluster ? "cluster" : "project");
-      return;
-    }
-    setCluster(null);
+    if (partIndex !== null) { setPartIndex(null); return; }
+    setVideo(null);
     setLevel("project");
   };
 
   const openNode = (node: GraphNode) => {
-    if (node.kind === "cluster" && node.meta.concept) {
-      setCluster({
-        concept: node.meta.concept,
-        label: node.label.replace(/\s*\(\d+\)$/, ""),
-        kind: node.meta.conceptKind ?? "topic",
-        count: node.meta.count ?? 0,
-      });
-      setVideo(null);
-      setLevel("cluster");
-      return;
-    }
     if (node.kind === "content" && node.meta.contentId) {
-      const row = (videoPage?.rows ?? []).find((r) => r.id === node.meta.contentId);
-      if (row) {
-        setVideo(row as VideoRow);
-        setLevel("video");
-        return;
-      }
+      if (level === "video") return; // the hub itself
+      if (openVideoRow(node.meta.contentId)) return;
+    }
+    if (node.kind === "concept" && node.topic !== "overflow" && node.meta.concept && video) {
+      const idx = Number(node.meta.concept.split(":")[0]);
+      if (Number.isFinite(idx)) { setPartIndex(idx); return; }
     }
     setInspect(node);
   };
+
+  const part = partIndex !== null ? parts?.parts[partIndex] ?? null : null;
 
   const doRebuild = async () => {
     setBusy(true);
@@ -201,7 +202,7 @@ export function ProjectKnowledgeGraph({
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setVideo(null); setLevel("project"); }}
             placeholder={t("search")}
             className="w-44 rounded-lg border border-border bg-background py-1.5 pl-8 pr-2 text-xs text-foreground outline-none focus:border-primary"
           />
@@ -218,26 +219,22 @@ export function ProjectKnowledgeGraph({
       </header>
 
       <nav className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        {level !== "project" || search.trim() ? (
-          <button
-            type="button"
-            onClick={() => { setSearch(""); goBack(); }}
-            className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1"
-          >
+        {level !== "project" ? (
+          <button type="button" onClick={goBack} className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1">
             <ArrowLeft className="h-3 w-3" /> {t("back")}
           </button>
         ) : null}
-        <span className="truncate font-semibold text-foreground">{project.title}</span>
-        {cluster && !search.trim() ? <span>/ {cluster.label}</span> : null}
-        {video ? <span className="truncate">/ {video.title}</span> : null}
+        <button type="button" onClick={() => { setVideo(null); setPartIndex(null); setLevel("project"); }} className="truncate font-semibold text-foreground">
+          {project.title}
+        </button>
+        {video ? (
+          <button type="button" onClick={() => setPartIndex(null)} className="max-w-[16rem] truncate">› {video.title}</button>
+        ) : null}
+        {part ? <span className="max-w-[14rem] truncate">› {part.title}</span> : null}
         <span className="ml-auto">
           {summary?.videos ?? 0} {t("videos")} · {summary?.concepts ?? 0} {t("concepts")}
         </span>
       </nav>
-
-      {summary?.needsRebuild ? (
-        <p className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">{t("needsRebuild")}</p>
-      ) : null}
 
       {isLoading ? (
         <div className="flex h-64 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground">
@@ -249,9 +246,16 @@ export function ProjectKnowledgeGraph({
         <GraphCanvas nodes={graph.nodes} links={graph.links} onOpen={openNode} />
       )}
 
-      {graph.nodes.length >= MAX_NODES ? (
-        <p className="text-xs text-muted-foreground">{t("capped").replace("{n}", String(MAX_NODES))}</p>
-      ) : null}
+      <Sheet open={Boolean(part && parts)} onOpenChange={(o) => !o && setPartIndex(null)}>
+        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t("inspector")}</SheetTitle>
+          </SheetHeader>
+          {part && parts && video ? (
+            <TopicDetail lang={lang} part={part} info={parts} videoTitle={video.title} />
+          ) : null}
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={Boolean(inspect)} onOpenChange={(o) => !o && setInspect(null)}>
         <SheetContent side="right" className="w-full max-w-sm overflow-y-auto">
@@ -261,21 +265,26 @@ export function ProjectKnowledgeGraph({
           {inspect ? (
             <div className="mt-4 space-y-3 text-sm">
               <p className="font-semibold text-foreground">{inspect.label}</p>
-              {inspect.meta.detail ? <p className="text-xs text-muted-foreground">{inspect.meta.detail}</p> : null}
               {inspect.meta.overflow ? (
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {inspect.meta.overflow.slice(0, 200).map((o) => (
-                    <li key={o.key} className="truncate">• {o.label}</li>
+                <ul className="space-y-1 text-xs">
+                  {inspect.meta.overflow.slice(0, 300).map((o) => (
+                    <li key={o.key}>
+                      <button
+                        type="button"
+                        className="w-full truncate text-left text-foreground hover:text-primary"
+                        onClick={() => {
+                          if (o.key.startsWith("content:")) openVideoRow(o.key.slice(8));
+                          else if (video) { const i = Number(o.key.split(":").pop()?.split(":")[0]); if (Number.isFinite(i)) { setPartIndex(i); setInspect(null); } }
+                        }}
+                      >
+                        • {o.label}
+                      </button>
+                    </li>
                   ))}
                 </ul>
               ) : null}
               {inspect.meta.sourceUrl ? (
-                <a
-                  href={inspect.meta.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-primary"
-                >
+                <a href={inspect.meta.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary">
                   <ExternalLink className="h-3.5 w-3.5" /> {t("openVideo")}
                 </a>
               ) : null}
