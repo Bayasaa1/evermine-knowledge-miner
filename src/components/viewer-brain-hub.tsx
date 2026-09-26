@@ -5,6 +5,7 @@ import { listViewerBrains, setBrainSharing, eraseBrain } from "@/lib/viewer-brai
 import { useDisplayTexts } from "@/lib/i18n";
 import { stageLabel } from "@/lib/viewer-brain";
 import { useAuth } from "@/hooks/use-auth";
+import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { toast } from "sonner";
 
 export function ViewerBrainHub() {
@@ -17,6 +18,11 @@ export function ViewerBrainHub() {
     privateText,
     erasedText,
     confirmText,
+    continueChat,
+    projectLabel,
+    unknownMind,
+    showMore,
+    showLess,
   ] = useDisplayTexts([
     "Your Core Brains",
     "Refresh",
@@ -26,6 +32,11 @@ export function ViewerBrainHub() {
     "Private again",
     "Core Brain erased",
     "Erase this Core Brain? This cannot be undone.",
+    "Continue chat",
+    "Project",
+    "Unnamed Mind",
+    "Show more",
+    "Show less",
   ]);
   const { isAuthenticated } = useAuth();
   const load = useServerFn(listViewerBrains);
@@ -34,6 +45,7 @@ export function ViewerBrainHub() {
   const [brains, setBrains] = useState<Awaited<ReturnType<typeof load>>>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [chat, setChat] = useState<{ mindId: string; name: string } | null>(null);
 
   useEffect(() => {
     void refresh();
@@ -110,7 +122,10 @@ export function ViewerBrainHub() {
             <div key={brain.id} className="rounded-xl border border-border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-medium">{brain.mindId}</h3>
+                  <h3 className="truncate text-sm font-medium">{brain.creatorName || brain.projectTitle || unknownMind}</h3>
+                  {brain.projectTitle && (
+                    <p className="truncate text-xs text-muted-foreground">{projectLabel}: {brain.projectTitle}</p>
+                  )}
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{stageLabel(brain.stats.stage)}</span>
                     <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {brain.stats.sessions}</span>
@@ -176,17 +191,32 @@ export function ViewerBrainHub() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setExpanded(isOpen ? null : brain.id)}
-                className="mt-2 text-xs text-primary hover:underline"
-              >
-                {isOpen ? "Show less" : "Show more"}
-              </button>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExpanded(isOpen ? null : brain.id)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {isOpen ? showLess : showMore}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChat({ mindId: brain.mindId, name: brain.creatorName || brain.projectTitle || unknownMind || "Mind" })}
+                  className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" /> {continueChat}
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
+      <TalkToMindModal
+        open={!!chat}
+        onClose={() => { setChat(null); void refresh(); }}
+        mindId={chat?.mindId ?? null}
+        mindName={chat?.name ?? ""}
+      />
     </div>
   );
 }
