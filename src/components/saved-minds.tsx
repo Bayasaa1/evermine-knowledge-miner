@@ -150,6 +150,11 @@ export function SavedMinds({
       },
       lang,
     ),
+    fileSelected: pickCopy({ en: "File selected", mn: "Сонгосныг бүртгэх", ko: "선택 항목 분류" }, lang),
+    selectAll: pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "모두 선택" }, lang),
+    sameVideo: pickCopy({ en: "Same video", mn: "Ижил бичлэг", ko: "같은 영상" }, lang),
+    empty: pickCopy({ en: "Empty", mn: "Хоосон", ko: "비어 있음" }, lang),
+    videos: pickCopy({ en: "videos", mn: "бичлэг", ko: "개 영상" }, lang),
     fileThis: pickCopy({ en: "File this…", mn: "Бүртгэх…", ko: "파일하기…" }, lang),
     sendTo: pickCopy({ en: "Send to…", mn: "Илгээх…", ko: "보내기…" }, lang),
     filed: pickCopy({ en: "Filed", mn: "Бүртгэлээ", ko: "분류 완료" }, lang),
@@ -355,6 +360,24 @@ export function SavedMinds({
   /** The video group or whole project currently being filed. */
   const [filing, setFiling] = useState<(typeof groups)[number] | null>(null);
   const [filingProject, setFilingProject] = useState<Project | null>(null);
+  const [fileTicks, setFileTicks] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  /** A one-video project and its video are one thing — show the video row only. */
+  const loneProjects = useMemo(() => {
+    const held = new Set(unfiledGroups.flatMap((g) => g.rows.map((r) => r.projectId)).filter(Boolean));
+    return unfiledProjects.filter((p) => !held.has(p.id));
+  }, [unfiledProjects, unfiledGroups]);
+
+  const { data: emptyIds = [] } = useQuery<string[]>({
+    queryKey: ["unfiled-empty", userId, loneProjects.map((p) => p.id).join(",")],
+    queryFn: async () => {
+      const out: string[] = [];
+      for (const p of loneProjects) if (await isProjectEmpty(p.id)) out.push(p.id);
+      return out;
+    },
+    enabled: loneProjects.length > 0,
+  });
 
   const refreshAll = async () => {
     await refresh();
@@ -505,17 +528,41 @@ export function SavedMinds({
         )}
       </div>
 
-      {(unfiledGroups.length > 0 || unfiledProjects.length > 0) && (
+      {(unfiledGroups.length > 0 || loneProjects.length > 0) && (
         <div className="mt-3 space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
           <p className="text-xs font-semibold text-foreground">
-            {t.needsFiling} ({unfiledGroups.length + unfiledProjects.length})
+            {t.needsFiling} ({unfiledGroups.length + loneProjects.length})
           </p>
           <p className="text-[11px] text-muted-foreground">{t.needsFilingDesc}</p>
+          {unfiledGroups.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setFileTicks(fileTicks.length === unfiledGroups.length ? [] : unfiledGroups.map((g) => g.primary.id))
+                }
+                className="rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                {t.selectAll}
+              </button>
+              <button
+                type="button"
+                disabled={fileTicks.length === 0}
+                onClick={() => setBulkOpen(true)}
+                className="rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+              >
+                {t.fileSelected} ({fileTicks.length})
+              </button>
+            </div>
+          )}
           <ul className="space-y-1.5">
-            {unfiledProjects.map((p) => (
+            {loneProjects.map((p) => (
               <li key={p.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
                 <FolderInput className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{p.title}</span>
+                {emptyIds.includes(p.id) && (
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{t.empty}</span>
+                )}
                 <button
                   type="button"
                   onClick={() => setFilingProject(p)}
@@ -525,21 +572,38 @@ export function SavedMinds({
                 </button>
               </li>
             ))}
-            {unfiledGroups.map((g) => (
-              <li key={g.primary.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
-                {g.thumb ? (
-                  <img src={g.thumb} alt="" loading="lazy" className="h-8 w-14 shrink-0 rounded bg-muted object-cover" />
-                ) : null}
-                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{g.title}</span>
-                <button
-                  type="button"
-                  onClick={() => setFiling(g)}
-                  className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
-                >
-                  {t.fileThis}
-                </button>
-              </li>
-            ))}
+            {unfiledGroups.map((g) => {
+              const copies = g.rows.filter((r) => r.kind !== "source").length;
+              const ticked = fileTicks.includes(g.primary.id);
+              return (
+                <li key={g.primary.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
+                  <input
+                    type="checkbox"
+                    checked={ticked}
+                    onChange={() =>
+                      setFileTicks(ticked ? fileTicks.filter((x) => x !== g.primary.id) : [...fileTicks, g.primary.id])
+                    }
+                    className="h-3.5 w-3.5 shrink-0 accent-primary"
+                  />
+                  {g.thumb ? (
+                    <img src={g.thumb} alt="" loading="lazy" className="h-8 w-14 shrink-0 rounded bg-muted object-cover" />
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{g.title}</span>
+                  {copies > 1 && (
+                    <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-500">
+                      {t.sameVideo} ×{copies}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFiling(g)}
+                    className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                  >
+                    {t.fileThis}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
@@ -859,6 +923,19 @@ export function SavedMinds({
           onClose={() => setFiling(null)}
           onFile={async (target) => {
             await fileGroup(filing, target);
+          }}
+        />
+      )}
+
+      {bulkOpen && (
+        <FileThis
+          lang={lang}
+          userId={userId ?? ""}
+          title={`${fileTicks.length} ${t.videos}`}
+          count={fileTicks.length}
+          onClose={() => setBulkOpen(false)}
+          onFile={async (target) => {
+            await fileMany(unfiledGroups.filter((g) => fileTicks.includes(g.primary.id)), target);
           }}
         />
       )}
