@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { splitIntoChunks, type Chunk } from "@/lib/chunking";
 import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
-import { packInstructions, unpackInstructions } from "@/lib/mining-jobs";
+import { isQuotaMessage, packInstructions, quotaRetryAfter, unpackInstructions } from "@/lib/mining-jobs";
 import type { ChunkStepResult, MiningJob, MiningJobStatus } from "@/lib/mining-jobs";
 
 const assessmentSchema = z.object({
@@ -64,10 +64,11 @@ type JobRow = {
   last_error: string | null;
   retry_after: string | null;
   updated_at: string;
+  created_at: string;
 };
 
 const SELECT =
-  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at";
+  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at";
 
 function toJob(row: JobRow): MiningJob {
   return {
@@ -89,6 +90,7 @@ function toJob(row: JobRow): MiningJob {
     lastError: row.last_error,
     retryAfter: row.retry_after,
     updatedAt: row.updated_at,
+    createdAt: row.created_at,
   };
 }
 
@@ -222,7 +224,15 @@ export const startMiningJobs = createServerFn({ method: "POST" })
 export const runNextChunk = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({ jobId: z.string().uuid(), apiKey: z.string().max(200).optional() }).parse(input),
+    z
+      .object({
+        jobId: z.string().uuid(),
+        apiKey: z.string().max(200).optional(),
+        // Playlist auto-resume: skip a job another tab or the background
+        // worker touched in the last 3 minutes.
+        respectLease: z.boolean().optional(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }): Promise<ChunkStepResult> => {
     const { assertNotBanned } = await import("@/lib/api-guard.server");
@@ -247,6 +257,21 @@ export const runNextChunk = createServerFn({ method: "POST" })
     if (job.nextIndex >= job.chunks.length) {
       return { job: { ...job, status: "done" }, chunk: null, merged: mergeChunkResults(results), done: true };
     }
+
+    if (data.respectLease && job.status === "running" && Date.now() - new Date(job.updatedAt).getTime() < 3 * 60_000) {
+      return { job, chunk: null, merged: null, done: false, busy: true };
+    }
+    if (job.retryAfter && new Date(job.retryAfter).getTime() > Date.now()) {
+      // Still waiting for tokens — no call is made.
+      return { job: { ...job, status: "paused_quota" }, chunk: null, merged: null, done: false };
+    }
+
+    // Claim the part so the background worker leaves it alone meanwhile.
+    await context.supabase
+      .from("mining_jobs")
+      .update({ status: "running" })
+      .eq("id", job.id)
+      .eq("user_id", context.userId);
 
     const chunk = job.chunks[job.nextIndex]!;
     const { analyzeYoutubeVideo, tryTranscriptMine } = await import("@/lib/youtube-mine.server");
@@ -283,7 +308,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;
       const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "running";
-      const { error: upErr } = await context.supabase
+      const { data: savedRow, error: upErr } = await context.supabase
         .from("mining_jobs")
         .update({
           results: nextResults as never,
@@ -295,8 +320,28 @@ export const runNextChunk = createServerFn({ method: "POST" })
           ...(key.apiKey ? { ai_credential: key.apiKey } : {}),
         })
         .eq("id", job.id)
-        .eq("user_id", context.userId);
+        .eq("user_id", context.userId)
+        // Another runner already saved this part: never append it twice.
+        .eq("next_index", job.nextIndex)
+        .select("id");
       if (upErr) throw new Error(upErr.message);
+      if (!savedRow || savedRow.length === 0) {
+        const { data: fresh } = await context.supabase.from("mining_jobs").select(SELECT).eq("id", job.id).maybeSingle();
+        const fj = fresh ? toJob(fresh as JobRow) : job;
+        return { job: fj, chunk: null, merged: mergeChunkResults(fresh ? storedResults(fresh as JobRow) : results), done: fj.status === "done" };
+      }
+
+      // Save what is mined so far (or the finished Mind) right away, so a
+      // stop never hides mined parts.
+      const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
+      const { data: full } = await context.supabase.from("mining_jobs").select("*").eq("id", job.id).maybeSingle();
+      if (full) {
+        await finalizeMiningJob(
+          context.supabase,
+          full as never,
+          status === "done" ? {} : { partial: { done: nextIndex, total: job.totalChunks } },
+        ).catch(() => null);
+      }
 
       void context.supabase.from("activity_logs").insert({
         user_id: context.userId,
@@ -313,9 +358,9 @@ export const runNextChunk = createServerFn({ method: "POST" })
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      const quota = /quota|rate limit|429|too many requests|resource_exhausted/i.test(message);
+      const quota = isQuotaMessage(message);
       const status: MiningJobStatus = quota ? "paused_quota" : "error";
-      const retryAfter = quota ? new Date(Date.now() + 15 * 60_000).toISOString() : null;
+      const retryAfter = quota ? quotaRetryAfter(message) : null;
       await context.supabase
         .from("mining_jobs")
         .update({ status, last_error: message.slice(0, 500), retry_after: retryAfter })
@@ -328,6 +373,21 @@ export const runNextChunk = createServerFn({ method: "POST" })
         done: false,
       };
     }
+  });
+
+/** "Continue now" — e.g. after adding another key. Owner only. */
+export const continueMiningNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<{ ok: true }> => {
+    const { error } = await context.supabase
+      .from("mining_jobs")
+      .update({ status: "queued", retry_after: null, last_error: null, attempts: 0 })
+      .eq("id", data.jobId)
+      .eq("user_id", context.userId)
+      .in("status", ["paused_quota", "error", "queued"]);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const listMiningJobs = createServerFn({ method: "GET" })

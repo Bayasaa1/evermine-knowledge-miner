@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scopedKey } from "@/lib/user-scope";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { miningDriver } from "@/lib/mining-driver";
 import {
   AlertCircle,
   CheckCircle2,
@@ -926,6 +927,8 @@ function StepUpload({
    */
   const driveJobs = useCallback(
     async (jobs: MiningJob[]) => {
+      miningDriver.active = true;
+      try {
       setQueueTotal(jobs.length);
       setQueue(jobs.map((j) => ({ id: j.id, label: j.sourceLabel, total: j.totalChunks })));
       say(`$ evermind mine --videos ${jobs.length}`);
@@ -1012,6 +1015,9 @@ function StepUpload({
         lastMerged = null;
       }
       activeJobId.current = null;
+      } finally {
+        miningDriver.active = false;
+      }
     },
     [lang, term, finishMined, say],
   );
@@ -1065,10 +1071,15 @@ function StepUpload({
         }).catch(() => null);
         if (vaultId) await attachMiningJobVault({ data: { jobId: job.id, vaultId } }).catch(() => undefined);
       }
-      const live = jobs.filter(
-        (j) => j.status === "queued" || j.status === "running" || j.status === "paused_quota",
-      );
-      if (live.length === 0) return;
+      const live = jobs
+        .filter((j) => j.status === "queued" || j.status === "running" || j.status === "paused_quota")
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt ?? a.updatedAt).getTime() - new Date(b.createdAt ?? b.updatedAt).getTime() ||
+            a.queuePosition - b.queuePosition,
+        );
+      // The app-wide auto-resume is already continuing these.
+      if (live.length === 0 || miningDriver.active) return;
       stopRef.current = false;
       setBusy(true);
       try {

@@ -43,11 +43,15 @@ export async function finalizeMiningJob(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: any,
   job: JobRow,
+  opts: { partial?: { done: number; total: number } } = {},
 ): Promise<string | null> {
+  // A partial save never marks the job finished, so the final save still runs.
   if (job.vault_id) return job.vault_id;
+  const partial = opts.partial;
   const results = (Array.isArray(job.results) ? job.results : []) as ChunkResult[];
-  const mined = mergeChunkResults(results);
-  if (!mined) return null;
+  const merged = mergeChunkResults(results);
+  if (!merged) return null;
+  const mined = merged;
 
   const meta = unpackInstructions(job.custom_instructions ?? "");
   // The wizard's sourceTitle belongs to the batch, not to this video, so a
@@ -67,7 +71,8 @@ export async function finalizeMiningJob(
     category,
     source: { kind: "youtube", label: job.source_label, url: job.source_url },
     minedAt: new Date().toISOString(),
-    status: "mined",
+    status: partial ? "partial" : "mined",
+    ...(partial ? { progress: partial } : {}),
     result: mined,
   };
 
@@ -173,26 +178,7 @@ export async function finalizeMiningJob(
   const savedVault: { id: string } = vault;
 
 
-  const { data: last } = await admin
-    .from("mind_versions")
-    .select("version_num")
-    .eq("vault_id", savedVault.id)
-    .order("version_num", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const versionNum = (last?.version_num ?? 0) + 1;
-  await admin.from("mind_versions").insert({
-    user_id: job.user_id,
-    vault_id: savedVault.id,
-    mind_id: savedVault.id,
-    title,
-    version: `v1.${versionNum - 1}`,
-    version_num: versionNum,
-    release_notes: `Mined from ${job.source_label}`,
-    payload: payload as never,
-    is_active: true,
-  });
-
+  async function upsertContent(full: boolean) {
   // 4. Project card so the video shows up in the feed / project view.
   const kind = job.content_kind || "VISUAL_CONTENT";
   const description = (meta.sourceDescription || mined.story?.summary || "").slice(0, 500);
@@ -239,17 +225,48 @@ export async function finalizeMiningJob(
     // Keep the project's knowledge map current without rebuilding the whole
     // index: only this video's concepts are touched.
     if (contentId) {
-      await indexVideoConcepts(admin, job.user_id, projectId, contentId, {
+      if (full) await indexVideoConcepts(admin, job.user_id, projectId, contentId, {
         tags,
         emotion_timeline: mined.emotionTimeline ?? [],
       });
     }
 
     // Only an explicit creator choice makes a project public.
-    if (job.publish_to_feed === true && kind === "VISUAL_CONTENT") {
+    if (full && job.publish_to_feed === true && kind === "VISUAL_CONTENT") {
       await admin.from("projects").update({ published: true }).eq("id", projectId).eq("user_id", job.user_id);
     }
   }
+
+  }
+
+  // Mined-so-far saves only refresh the Mind; version history, knowledge map
+  // and publishing happen once, when every part is done.
+  if (partial) {
+    await upsertContent(false);
+    return savedVault.id as string;
+  }
+
+  const { data: last } = await admin
+    .from("mind_versions")
+    .select("version_num")
+    .eq("vault_id", savedVault.id)
+    .order("version_num", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const versionNum = (last?.version_num ?? 0) + 1;
+  await admin.from("mind_versions").insert({
+    user_id: job.user_id,
+    vault_id: savedVault.id,
+    mind_id: savedVault.id,
+    title,
+    version: `v1.${versionNum - 1}`,
+    version_num: versionNum,
+    release_notes: `Mined from ${job.source_label}`,
+    payload: payload as never,
+    is_active: true,
+  });
+
+  await upsertContent(true);
 
   await admin
     .from("mining_jobs")

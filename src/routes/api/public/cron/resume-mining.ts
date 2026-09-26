@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
-        const { unpackInstructions } = await import("@/lib/mining-jobs");
+        const { unpackInstructions, isQuotaMessage, quotaRetryAfter } = await import("@/lib/mining-jobs");
         const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
 
         // Rescue pass: jobs that finished earlier but were never written into a
@@ -64,17 +64,21 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           .lt("attempts", MAX_ATTEMPTS)
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
-          .order("updated_at", { ascending: true })
+          // Playlist order: oldest added first, then its place in the playlist.
+          .order("created_at", { ascending: true })
+          .order("queue_position", { ascending: true })
           .limit(MAX_JOBS_PER_RUN);
         if (error) return json({ error: error.message }, 500);
 
         let resumed = 0;
         let paused = 0;
 
-        let quotaHit = false;
+        // Quota belongs to one person's keys: only that person's videos wait.
+        const quotaUsers = new Set<string>();
 
         for (const job of jobs ?? []) {
-          if (quotaHit || Date.now() > deadline) break;
+          if (Date.now() > deadline) break;
+          if (quotaUsers.has(job.user_id)) continue;
           const chunks = (Array.isArray(job.chunks) ? job.chunks : []) as {
             start: number;
             end: number;
@@ -117,6 +121,8 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // chunk every five minutes.
           while (index < chunks.length && Date.now() < deadline) {
             const chunk = chunks[index]!;
+            // Claim the part (fresh updated_at) so an open tab leaves it alone.
+            await supabaseAdmin.from("mining_jobs").update({ status: "running" }).eq("id", job.id);
             try {
               const { tryTranscriptMine } = await import("@/lib/youtube-mine.server");
               const fast = await tryTranscriptMine({
@@ -141,25 +147,35 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
                   },
                 }),
               );
-              results = [...results, mined];
-              index += 1;
-              await supabaseAdmin
+              const nextResults = [...results, mined];
+              const { data: savedRow } = await supabaseAdmin
                 .from("mining_jobs")
                 .update({
-                  results: results as never,
-                  next_index: index,
-                  status: index >= chunks.length ? "done" : "running",
+                  results: nextResults as never,
+                  next_index: index + 1,
+                  status: index + 1 >= chunks.length ? "done" : "running",
                   last_error: null,
                   retry_after: null,
                   // Real progress clears the failure budget.
                   attempts: 0,
-                  ai_credential: key.apiKey,
+                  ...(key.apiKey ? { ai_credential: key.apiKey } : {}),
                 })
-                .eq("id", job.id);
+                .eq("id", job.id)
+                // An open tab already saved this part: never append it twice.
+                .eq("next_index", index)
+                .select("id");
+              if (!savedRow || savedRow.length === 0) break;
+              results = nextResults;
+              index += 1;
               resumed += 1;
+              if (index < chunks.length) {
+                await finalizeMiningJob(supabaseAdmin, { ...job, results, vault_id: null } as never, {
+                  partial: { done: index, total: chunks.length },
+                }).catch(() => null);
+              }
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
-              const quota = /quota|rate limit|429|too many requests|resource_exhausted/i.test(message);
+              const quota = isQuotaMessage(message);
               // Quota is transient and does not count against the budget;
               // every other failure does, with growing backoff between tries.
               const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
@@ -170,12 +186,13 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
                   status: quota ? "paused_quota" : "error",
                   last_error: message.slice(0, 500),
                   attempts: tries,
-                  retry_after: new Date(Date.now() + backoffMin * 60_000).toISOString(),
+                  retry_after: quota
+                    ? quotaRetryAfter(message)
+                    : new Date(Date.now() + backoffMin * 60_000).toISOString(),
                 })
                 .eq("id", job.id);
               paused += 1;
-              // Quota is global — stop the whole run and wait for the reset.
-              if (quota) quotaHit = true;
+              if (quota) quotaUsers.add(job.user_id);
               break;
             }
           }
