@@ -201,7 +201,7 @@ export function ViewerBrainHub() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setChat({ mindId: brain.mindId, name: brain.creatorName || brain.projectTitle || unknownMind })}
+                  onClick={() => setChat({ mindId: brain.mindId, name: brain.creatorName || brain.projectTitle || unknownMind || "Mind" })}
                   className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
                 >
                   <MessageSquare className="h-3.5 w-3.5" /> {continueChat}
