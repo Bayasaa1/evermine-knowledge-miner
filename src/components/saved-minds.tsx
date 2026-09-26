@@ -719,9 +719,24 @@ export function SavedMinds({
           ]
             .map((section) => (
               <div key={section.key} className={`rounded-[10px] border p-3 ${section.key === "mined" ? "border-primary/40 bg-primary/5" : "border-border bg-background/40"}`}>
-                <p className="mb-2 text-sm font-semibold text-foreground">
-                  {section.label} ({section.list.length})
-                </p>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">
+                    {section.label} ({section.list.length})
+                  </p>
+                  {/* "Mine all" sits right on the pending list, where the videos are. */}
+                  {section.key === "pending" && mineable.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(mineable);
+                        setSetupId("batch");
+                      }}
+                      className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      {t.mineAll} ({mineable.length})
+                    </button>
+                  )}
+                </div>
                 {section.list.length === 0 && (
                   <p className="text-xs text-muted-foreground">{t.emptySection}</p>
                 )}
