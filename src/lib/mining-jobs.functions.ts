@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { splitIntoChunks, type Chunk } from "@/lib/chunking";
 import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
-import { packInstructions, unpackInstructions } from "@/lib/mining-jobs";
+import { isQuotaMessage, packInstructions, quotaRetryAfter, unpackInstructions } from "@/lib/mining-jobs";
 import type { ChunkStepResult, MiningJob, MiningJobStatus } from "@/lib/mining-jobs";
 
 const assessmentSchema = z.object({

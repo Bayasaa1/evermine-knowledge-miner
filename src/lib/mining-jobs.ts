@@ -248,6 +248,8 @@ export type ChunkStepResult = {
   /** Every checkpoint stored so far, merged and ready to display/persist. */
   merged: ChunkResult | null;
   done: boolean;
+  /** Another runner holds this job right now. */
+  busy?: boolean;
 };
 
 export function jobProgress(job: MiningJob): number {
