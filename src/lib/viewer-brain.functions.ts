@@ -100,7 +100,23 @@ export const listViewerBrains = createServerFn({ method: "GET" })
       .eq("user_id", userId)
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return (data ?? []).map((r) => toBrain(r as BrainRow));
+    const brains = (data ?? []).map((r) => toBrain(r as BrainRow));
+    const ids = brains
+      .map((b) => (b.mindId.startsWith("project:") ? b.mindId.slice(8) : b.projectId))
+      .filter((v): v is string => !!v && /^[0-9a-f-]{36}$/i.test(v));
+    const names = new Map<string, { title: string; creator: string }>();
+    if (ids.length) {
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id,title,creator_name")
+        .in("id", ids);
+      for (const p of projects ?? []) names.set(p.id, { title: p.title, creator: p.creator_name });
+    }
+    return brains.map((b) => {
+      const pid = b.mindId.startsWith("project:") ? b.mindId.slice(8) : b.projectId;
+      const n = pid ? names.get(pid) : undefined;
+      return { ...b, projectTitle: n?.title ?? null, creatorName: n?.creator ?? null };
+    });
   });
 
 const MergeSessionInput = z.object({
