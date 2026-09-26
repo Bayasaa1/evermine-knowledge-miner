@@ -394,14 +394,23 @@ export async function listUnfiledProjects(userId: string): Promise<Project[]> {
     .eq("user_id", userId)
     .is("persona_id", null)
     .order("created_at", { ascending: false });
-  const rows = (data as Project[] | null) ?? [];
-  // Empty leftovers (no videos, no saved minds) are noise, not something to file.
-  const kept: Project[] = [];
-  for (const p of rows) {
-    if (await projectIsEmpty(p.id)) void deleteProject(p.id);
-    else kept.push(p);
-  }
-  return kept;
+  return (data as Project[] | null) ?? [];
+}
+
+/** True when a project holds no videos and no saved minds (shown as "Empty"; never auto-deleted). */
+export async function isProjectEmpty(projectId: string): Promise<boolean> {
+  return projectIsEmpty(projectId);
+}
+
+/** Every feed card of one YouTube video owned by the user (repeat minings included). */
+export async function listContentByVideo(userId: string, youtubeId: string): Promise<ProjectContent[]> {
+  if (!youtubeId) return [];
+  const { data } = await supabase
+    .from("project_content")
+    .select(CONTENT_COLS)
+    .eq("user_id", userId)
+    .eq("youtube_id", youtubeId);
+  return normalizeMany(data);
 }
 
 async function projectIsEmpty(projectId: string): Promise<boolean> {

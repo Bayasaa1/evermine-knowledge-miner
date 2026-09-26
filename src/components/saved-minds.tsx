@@ -32,7 +32,8 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import {
   createProject,
-  deleteProjectIfEmpty,
+  isProjectEmpty,
+  listContentByVideo,
   fileProjectInto,
   findContentByVideo,
   listProjectContent,
@@ -224,7 +225,6 @@ export function SavedMinds({
         const content = await findContentByVideo(userId, yt);
         if (content && content.project_id !== input.projectId) await moveProjectContent(content.id, input.projectId);
       }
-      if (before && before !== input.projectId) await deleteProjectIfEmpty(before);
     },
     onSuccess: async () => {
       toast.success(t.saved);
@@ -376,37 +376,66 @@ export function SavedMinds({
     }
   };
 
-  /** Files one video group (every saved row + its feed card) into a persona + project. */
-  const fileGroup = async (g: (typeof groups)[number], target: FileTarget) => {
+  /**
+   * Files one video group (every saved row + every feed card of that video)
+   * into the persona + project the user picked. Returns an undo function.
+   * Nothing is created or deleted here — only moved where the user said.
+   */
+  const moveGroup = async (g: (typeof groups)[number], target: FileTarget) => {
     const originals = g.rows.map((r) => ({ id: r.id, personaId: r.personaId, projectId: r.projectId }));
-    const content = g.youtubeId && userId ? await findContentByVideo(userId, g.youtubeId) : null;
-    const sourceProjectId = content?.project_id ?? null;
+    const contents = g.youtubeId && userId ? await listContentByVideo(userId, g.youtubeId) : [];
+    const contentOrig = contents.map((c) => ({ id: c.id, projectId: c.project_id }));
     for (const r of g.rows) {
       await saveVault({ data: { id: r.id, personaId: target.personaId, projectId: target.projectId } });
     }
-    if (content) await moveProjectContent(content.id, target.projectId);
-    await rebuildMaps([target.projectId, sourceProjectId, ...originals.map((o) => o.projectId)]);
-    const leftovers = new Set([sourceProjectId, ...originals.map((o) => o.projectId)]);
-    leftovers.delete(target.projectId);
-    for (const pid of leftovers) await deleteProjectIfEmpty(pid);
+    for (const c of contents) {
+      if (c.project_id !== target.projectId) await moveProjectContent(c.id, target.projectId);
+    }
+    const touched = [target.projectId, ...contentOrig.map((c) => c.projectId), ...originals.map((o) => o.projectId)];
+    const undo = async () => {
+      for (const o of originals) {
+        await saveVault({ data: { id: o.id, personaId: o.personaId, projectId: o.projectId } });
+      }
+      for (const c of contentOrig) await moveProjectContent(c.id, c.projectId);
+    };
+    return { touched, undo };
+  };
+
+  const withUndo = (touched: (string | null)[], undos: Array<() => Promise<void>>) => {
     toast.success(t.filed, {
       duration: 10000,
       action: {
         label: t.undo,
         onClick: () => {
           void (async () => {
-            for (const o of originals) {
-              await saveVault({ data: { id: o.id, personaId: o.personaId, projectId: o.projectId } });
-            }
-            if (content && sourceProjectId) await moveProjectContent(content.id, sourceProjectId);
-            // A project filing created (now empty again) must not linger.
-            await deleteProjectIfEmpty(target.projectId);
-            await rebuildMaps([sourceProjectId]);
+            for (const u of undos) await u();
+            await rebuildMaps(touched);
             await refreshAll();
           })();
         },
       },
     });
+  };
+
+  const fileGroup = async (g: (typeof groups)[number], target: FileTarget) => {
+    const { touched, undo } = await moveGroup(g, target);
+    await rebuildMaps(touched);
+    withUndo(touched, [undo]);
+    await refreshAll();
+  };
+
+  /** Bulk filing: every ticked video goes to the one place the user confirmed. */
+  const fileMany = async (list: (typeof groups)[number][], target: FileTarget) => {
+    const touched: (string | null)[] = [];
+    const undos: Array<() => Promise<void>> = [];
+    for (const g of list) {
+      const r = await moveGroup(g, target);
+      touched.push(...r.touched);
+      undos.push(r.undo);
+    }
+    await rebuildMaps(touched);
+    withUndo(touched, undos);
+    setFileTicks([]);
     await refreshAll();
   };
 
