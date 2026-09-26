@@ -459,6 +459,45 @@ export function SavedMinds({
         )}
       </div>
 
+      {(unfiledGroups.length > 0 || unfiledProjects.length > 0) && (
+        <div className="mt-3 space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+          <p className="text-xs font-semibold text-foreground">
+            {t.needsFiling} ({unfiledGroups.length + unfiledProjects.length})
+          </p>
+          <p className="text-[11px] text-muted-foreground">{t.needsFilingDesc}</p>
+          <ul className="space-y-1.5">
+            {unfiledProjects.map((p) => (
+              <li key={p.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
+                <FolderInput className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{p.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setFilingProject(p)}
+                  className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                >
+                  {t.fileThis}
+                </button>
+              </li>
+            ))}
+            {unfiledGroups.map((g) => (
+              <li key={g.primary.id} className="flex items-center gap-2 rounded-md border border-border bg-card p-2">
+                {g.thumb ? (
+                  <img src={g.thumb} alt="" loading="lazy" className="h-8 w-14 shrink-0 rounded bg-muted object-cover" />
+                ) : null}
+                <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{g.title}</span>
+                <button
+                  type="button"
+                  onClick={() => setFiling(g)}
+                  className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                >
+                  {t.fileThis}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {mineable.length > 0 && (
         <div className="mt-3 space-y-2 rounded-lg border border-border bg-background p-2.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -572,7 +611,7 @@ export function SavedMinds({
                                 {mined ? t.mined : busy ? jobLabel : t.pending}
                               </span>
                               {g.rows.length > 1 ? ` · ${g.rows.length} ${t.saves}` : ""}
-                              {g.unfiled && personaId ? (
+                              {g.unfiled ? (
                                 <span className="text-amber-500"> · {t.notFiled}</span>
                               ) : null}
                             </p>
