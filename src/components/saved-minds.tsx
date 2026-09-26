@@ -6,7 +6,7 @@
  * view. Every entry supports full CRUD: inspect the Core Brain JSON, rename or
  * re-assign it, and delete it together with its version history.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -32,6 +32,7 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import {
   createProject,
+  deleteProjectIfEmpty,
   fileProjectInto,
   findContentByVideo,
   listProjectContent,
@@ -213,12 +214,23 @@ export function SavedMinds({
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
 
   const patch = useMutation({
-    mutationFn: (input: { id: string; title?: string; personaId?: string | null; projectId?: string | null }) =>
-      saveVault({ data: input }),
+    mutationFn: async (input: { id: string; title?: string; personaId?: string | null; projectId?: string | null }) => {
+      const before = editing?.projectId ?? null;
+      await saveVault({ data: input });
+      // Keep the feed card in the same project as its saved mind.
+      const row = editing;
+      const yt = row ? groups.find((g) => g.rows.some((r) => r.id === row.id))?.youtubeId : null;
+      if (yt && userId && input.projectId && input.projectId !== before) {
+        const content = await findContentByVideo(userId, yt);
+        if (content && content.project_id !== input.projectId) await moveProjectContent(content.id, input.projectId);
+      }
+      if (before && before !== input.projectId) await deleteProjectIfEmpty(before);
+    },
     onSuccess: async () => {
       toast.success(t.saved);
       setEditing(null);
       await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["unfiled-projects"] });
     },
     onError: (e: unknown) => toast.error(String(e)),
   });
@@ -374,6 +386,9 @@ export function SavedMinds({
     }
     if (content) await moveProjectContent(content.id, target.projectId);
     await rebuildMaps([target.projectId, sourceProjectId, ...originals.map((o) => o.projectId)]);
+    const leftovers = new Set([sourceProjectId, ...originals.map((o) => o.projectId)]);
+    leftovers.delete(target.projectId);
+    for (const pid of leftovers) await deleteProjectIfEmpty(pid);
     toast.success(t.filed, {
       duration: 10000,
       action: {
@@ -384,7 +399,9 @@ export function SavedMinds({
               await saveVault({ data: { id: o.id, personaId: o.personaId, projectId: o.projectId } });
             }
             if (content && sourceProjectId) await moveProjectContent(content.id, sourceProjectId);
-            await rebuildMaps([target.projectId, sourceProjectId]);
+            // A project filing created (now empty again) must not linger.
+            await deleteProjectIfEmpty(target.projectId);
+            await rebuildMaps([sourceProjectId]);
             await refreshAll();
           })();
         },
@@ -853,36 +870,14 @@ export function SavedMinds({
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
               />
             </label>
-            <label className="block text-xs text-muted-foreground">
-              {t.persona}
-              <select
-                name="persona"
-                defaultValue={editing.personaId ?? ""}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">{t.none}</option>
-                {personas.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-xs text-muted-foreground">
-              {t.project}
-              <select
-                name="project"
-                defaultValue={editing.projectId ?? ""}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">{t.none}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <EditPlacement
+              key={editing.id}
+              userId={userId}
+              personas={personas}
+              initialPersona={editing.personaId ?? ""}
+              initialProject={editing.projectId ?? ""}
+              labels={{ persona: t.persona, project: t.project, none: t.none }}
+            />
             <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
@@ -1083,5 +1078,59 @@ function MineSetup({
         {c.start} {sources.length > 1 ? `(${sources.length})` : ""}
       </button>
     </div>
+  );
+}
+
+/** Persona + project selects for the Edit box: projects follow the chosen persona. */
+function EditPlacement({
+  userId,
+  personas,
+  initialPersona,
+  initialProject,
+  labels,
+}: {
+  userId: string | null | undefined;
+  personas: Persona[];
+  initialPersona: string;
+  initialProject: string;
+  labels: { persona: string; project: string; none: string };
+}) {
+  const [persona, setPersona] = useState(initialPersona);
+  const [project, setProject] = useState(initialProject);
+  const { data: projects = [] } = useQuery<Project[]>({
+    queryKey: ["persona-projects", userId, persona || null],
+    queryFn: () => (userId ? listProjectsByPersona(userId, persona || null) : Promise.resolve([])),
+    enabled: Boolean(userId),
+  });
+  // Default to the persona's main project when the current one isn't theirs.
+  useEffect(() => {
+    if (projects.length && !projects.some((p) => p.id === project)) setProject(projects[0]!.id);
+  }, [projects, project]);
+  const field = "mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground";
+  return (
+    <>
+      <label className="block text-xs text-muted-foreground">
+        {labels.persona}
+        <select name="persona" value={persona} onChange={(e) => setPersona(e.target.value)} className={field}>
+          <option value="">{labels.none}</option>
+          {personas.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block text-xs text-muted-foreground">
+        {labels.project}
+        <select name="project" value={project} onChange={(e) => setProject(e.target.value)} className={field}>
+          <option value="">{labels.none}</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.title}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
   );
 }

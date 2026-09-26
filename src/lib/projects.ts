@@ -394,7 +394,28 @@ export async function listUnfiledProjects(userId: string): Promise<Project[]> {
     .eq("user_id", userId)
     .is("persona_id", null)
     .order("created_at", { ascending: false });
-  return (data as Project[] | null) ?? [];
+  const rows = (data as Project[] | null) ?? [];
+  // Empty leftovers (no videos, no saved minds) are noise, not something to file.
+  const kept: Project[] = [];
+  for (const p of rows) {
+    if (await projectIsEmpty(p.id)) void deleteProject(p.id);
+    else kept.push(p);
+  }
+  return kept;
+}
+
+async function projectIsEmpty(projectId: string): Promise<boolean> {
+  const [{ count: c }, { count: v }] = await Promise.all([
+    supabase.from("project_content").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+    supabase.from("mind_vaults").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+  ]);
+  return (c ?? 0) === 0 && (v ?? 0) === 0;
+}
+
+/** Removes a project only when nothing (no video, no saved mind) is left in it. */
+export async function deleteProjectIfEmpty(projectId: string | null | undefined): Promise<void> {
+  if (!projectId) return;
+  if (await projectIsEmpty(projectId)) await deleteProject(projectId);
 }
 
 /**
