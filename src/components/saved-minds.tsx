@@ -32,6 +32,7 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import {
   createProject,
+  deleteProject,
   isProjectEmpty,
   listContentByVideo,
   fileProjectInto,
