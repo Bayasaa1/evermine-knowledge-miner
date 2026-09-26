@@ -122,8 +122,8 @@ export const refreshPersonality = createServerFn({ method: "POST" })
     const ownLines = transcript
       .map((item) => item as Record<string, unknown>)
       .filter((item) => {
-        const role = String(item["role"] ?? item["speaker"] ?? "").toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
-        return personKey.length > 3 && role.includes(personKey);
+        const speaker = String(item["speaker"] ?? "").toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+        return personKey.length > 3 && speaker.length > 3 && (speaker.includes(personKey) || personKey.includes(speaker));
       })
       .map((item) => String(item["speech"] ?? "").trim())
       .filter(Boolean)

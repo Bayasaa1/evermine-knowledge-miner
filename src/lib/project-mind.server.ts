@@ -76,6 +76,7 @@ async function loadMinedPersona(projectId: string) {
     skills: [] as string[],
     aestheticProfile: [] as string[],
     phrases: [] as MindPhrase[],
+    selfIntro: [] as string[],
   };
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -103,6 +104,8 @@ async function loadMinedPersona(projectId: string) {
       merged.skills.push(...strings(refreshed["skills"], 200));
       merged.aestheticProfile.push(...strings(sub["aestheticProfile"], 200));
       merged.phrases.push(...phrases(sub["culturalVocabulary"], 200));
+      const refreshedIntro = typeof refreshed["selfIntro"] === "string" ? String(refreshed["selfIntro"]).trim() : "";
+      if (refreshedIntro) merged.selfIntro.push(refreshedIntro);
     }
     return {
       beliefs: strings(merged.beliefs, 45),
@@ -111,6 +114,7 @@ async function loadMinedPersona(projectId: string) {
       skills: strings(merged.skills, 20),
       aestheticProfile: strings(merged.aestheticProfile, 10),
       phrases: merged.phrases.slice(0, 30),
+      selfIntro: strings(merged.selfIntro, 4),
     };
   } catch {
     return empty;
@@ -143,15 +147,21 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     return item.transcript
       .map((cue) => {
         const value = (cue ?? {}) as Record<string, unknown>;
-        return { speech: String(value["speech"] ?? "").trim(), role: String(value["role"] ?? value["speaker"] ?? "").trim() };
+        return {
+          speech: String(value["speech"] ?? "").trim(),
+          speaker: String(value["speaker"] ?? "").trim(),
+          role: String(value["role"] ?? "").trim(),
+        };
       })
       .filter((cue) => Boolean(cue.speech));
   });
   const ownerLines = transcriptRows.filter((cue) => {
-    const roleKey = cue.role.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
-    return ownerKey.length > 3 && (roleKey.includes(ownerKey) || ownerKey.includes(roleKey.replace(/primaryspeaker|secondaryspeaker/g, "")));
+    const speakerKey = cue.speaker.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+    return ownerKey.length > 3 && speakerKey.length > 3 && (speakerKey.includes(ownerKey) || ownerKey.includes(speakerKey));
   });
-  const transcript = (ownerLines.length >= 10 ? ownerLines : transcriptRows).map((cue) => cue.speech);
+  // Never fall back to mixed host/guest dialogue: that makes the cloned person
+  // claim the host's stories and identity. Empty is safer than a false voice.
+  const transcript = ownerLines.map((cue) => cue.speech);
   const persona = await loadMinedPersona(projectId);
   // Short, punchy real lines make the best speaking samples.
   const sampleLines = transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25);
@@ -162,7 +172,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     knowledge: content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean).slice(0, 100),
     transcript: transcript.slice(0, 200),
     sampleLines,
-    selfIntro: strings([data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
+    selfIntro: strings([...persona.selfIntro, data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
     ...persona,
   };
 }
