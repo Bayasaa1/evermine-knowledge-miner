@@ -135,6 +135,7 @@ export function SavedMinds({
     clear: pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang),
     picked: pickCopy({ en: "picked", mn: "сонгосон", ko: "선택됨" }, lang),
     mineSelected: pickCopy({ en: "Mine selected", mn: "Сонгосныг олборлох", ko: "선택 항목 마이닝" }, lang),
+    mineAll: pickCopy({ en: "Mine all", mn: "Бүгдийг олборлох", ko: "전체 마이닝" }, lang),
     batchHint: pickCopy(
       {
         en: "They mine one after another. In the next step you can give each video its own AI — for example Groq on three and Gemini on five.",
