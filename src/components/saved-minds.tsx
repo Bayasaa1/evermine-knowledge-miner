@@ -113,6 +113,7 @@ export function SavedMinds({
     name: pickCopy({ en: "Name", mn: "Нэр", ko: "이름" }, lang),
     persona: pickCopy({ en: "Persona", mn: "Дүр", ko: "페르소나" }, lang),
     project: pickCopy({ en: "Project", mn: "Төсөл", ko: "프로젝트" }, lang),
+    emptySection: pickCopy({ en: "Nothing here yet.", mn: "Одоохондоо хоосон.", ko: "아직 없습니다." }, lang),
     minedSection: pickCopy({ en: "Mined videos", mn: "Олборлосон видео", ko: "마이닝된 영상" }, lang),
     pendingSection: pickCopy(
       { en: "Saved, not mined yet", mn: "Хадгалсан, хараахан олборлоогүй", ko: "저장됨, 아직 마이닝 안 함" },
@@ -701,15 +702,17 @@ export function SavedMinds({
       {groups.length > 0 ? (
         <div className="mt-3 space-y-5">
           {[
-            { key: "pending", label: t.pendingSection, list: pendingGroups },
             { key: "mined", label: t.minedSection, list: minedGroups },
+            { key: "pending", label: t.pendingSection, list: pendingGroups },
           ]
-            .filter((s) => s.list.length > 0)
             .map((section) => (
-              <div key={section.key}>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <div key={section.key} className={`rounded-[10px] border p-3 ${section.key === "mined" ? "border-primary/40 bg-primary/5" : "border-border bg-background/40"}`}>
+                <p className="mb-2 text-sm font-semibold text-foreground">
                   {section.label} ({section.list.length})
                 </p>
+                {section.list.length === 0 && (
+                  <p className="text-xs text-muted-foreground">{t.emptySection}</p>
+                )}
                 <ul className="space-y-2">
                   {section.list.map((g) => {
                     const v = g.primary;
