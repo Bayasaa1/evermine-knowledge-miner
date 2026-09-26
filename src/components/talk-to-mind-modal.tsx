@@ -32,10 +32,12 @@ export function TalkToMindModal({
 }) {
   const { lang: activeLang } = useLang();
   const lang: Lang = langProp ?? activeLang;
-  const [heading, empty, placeholder] = useDisplayTexts([
+  const [heading, empty, placeholder, newChatLabel, resetConfirm] = useDisplayTexts([
     "Talk to",
     "Ask anything about this video — the Mind answers from its own mined brain.",
     "Ask this mind…",
+    "New chat",
+    "Fully reset this chat? All messages and this Mind's memory of you will be deleted. This cannot be undone.",
   ]);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -56,6 +58,7 @@ export function TalkToMindModal({
   const mergeSessionFn = useServerFn(mergeSession);
   const loadHistory = useServerFn(listChatHistory);
   const saveMessages = useServerFn(appendChatMessages);
+  const eraseBrainFn = useServerFn(eraseBrain);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const removeMessages = useServerFn(deleteChatMessages);
   const clearHistory = useServerFn(clearChatHistory);
