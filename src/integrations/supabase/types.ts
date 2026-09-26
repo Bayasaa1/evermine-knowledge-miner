@@ -1256,6 +1256,11 @@ export type Database = {
         Returns: boolean
       }
       is_banned: { Args: { _user_id: string }; Returns: boolean }
+      my_duplicate_persona_ids: { Args: never; Returns: string[] }
+      persona_handle_taken: {
+        Args: { _exclude_id?: string; _handle: string }
+        Returns: boolean
+      }
       rollback_mind_version: {
         Args: { _version_id: string }
         Returns: {
