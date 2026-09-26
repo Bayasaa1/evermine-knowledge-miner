@@ -670,9 +670,20 @@ export function SavedMinds({
               type="button"
               disabled={selected.length === 0}
               onClick={() => setSetupId(setupId === "batch" ? null : "batch")}
-              className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              className="ml-auto rounded-lg border border-primary/50 px-3 py-1.5 text-xs font-semibold text-primary disabled:opacity-40"
             >
               {t.mineSelected}
+            </button>
+            {/* One tap: tick every mineable video and open the shared setup. */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelected(mineable);
+                setSetupId("batch");
+              }}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            >
+              {t.mineAll} ({mineable.length})
             </button>
           </div>
           <p className="hidden text-[11px] text-muted-foreground sm:block">{t.batchHint}</p>
