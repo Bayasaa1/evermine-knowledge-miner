@@ -79,7 +79,7 @@ export function TalkToMindModal({
         const copy = [...cur];
         let j = ids.length - 1;
         for (let i = copy.length - 1; i >= 0 && j >= 0; i--) {
-          if (!copy[i].id) copy[i] = { ...copy[i], id: ids[j--] };
+          const m = copy[i]; const nid = ids[j]; if (m && !m.id && nid) { copy[i] = { ...m, id: nid }; j--; }
         }
         return copy;
       });
