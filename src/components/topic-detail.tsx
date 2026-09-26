@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, MessageCircle, Square, Video, Volume2 } from "lucide-react";
+import { MessageCircle, Square, Video, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
@@ -163,7 +163,6 @@ export function TopicDetail({
         </section>
       ) : null}
 
-      {dub === null ? null : <Loader2 className="hidden" />}
       <TalkToMindModal open={chat} onClose={() => setChat(false)} mindId={info.mindId} mindName={part.title} lang={lang} />
     </div>
   );
