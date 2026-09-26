@@ -59,6 +59,7 @@ type JobRow = {
   results: unknown;
   next_index: number;
   total_chunks: number;
+  persona_id?: string | null;
   status: string;
   vault_id: string | null;
   last_error: string | null;
@@ -68,7 +69,7 @@ type JobRow = {
 };
 
 const SELECT =
-  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at";
+  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at, persona_id";
 
 function toJob(row: JobRow): MiningJob {
   return {
@@ -91,6 +92,7 @@ function toJob(row: JobRow): MiningJob {
     retryAfter: row.retry_after,
     updatedAt: row.updated_at,
     createdAt: row.created_at,
+    personaId: row.persona_id ?? null,
   };
 }
 

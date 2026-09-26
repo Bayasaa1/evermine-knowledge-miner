@@ -240,6 +240,7 @@ export type MiningJob = {
   retryAfter: string | null;
   updatedAt: string;
   createdAt?: string;
+  personaId?: string | null;
 };
 
 export type ChunkStepResult = {
