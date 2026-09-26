@@ -6,7 +6,6 @@
  */
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
-export const MAX_DURATION_SEC = 2 * 60 * 60; // 2 hours
 export const ALLOWED_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 export const ALLOWED_EXT = [".mp4", ".mov", ".webm"];
 

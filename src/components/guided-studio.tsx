@@ -40,7 +40,6 @@ import {
   checkFile,
   checkYoutube,
   errorKeyFor,
-  MAX_DURATION_SEC,
   normalizeYoutubeUrl,
   type ImportSource,
 } from "@/lib/import-sources";
