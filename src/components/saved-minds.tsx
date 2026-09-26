@@ -12,7 +12,7 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Columns3, Eye, Gavel, Loader2, Pencil, Settings2, Trash2, Wrench } from "lucide-react";
+import { CloudCheck, Columns3, Eye, FolderInput, Gavel, Loader2, Pencil, Send, Settings2, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
@@ -30,7 +30,18 @@ import { ACTIVE_CATEGORIES, CATEGORY_LABELS } from "@/lib/creation-category";
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
-import { createProject, listProjectsByPersona, type Project } from "@/lib/projects";
+import {
+  createProject,
+  fileProjectInto,
+  findContentByVideo,
+  listProjectContent,
+  listProjectsByPersona,
+  listUnfiledProjects,
+  moveProjectContent,
+  type Project,
+} from "@/lib/projects";
+import { rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
+import { FileThis, type FileTarget } from "@/components/file-this";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
