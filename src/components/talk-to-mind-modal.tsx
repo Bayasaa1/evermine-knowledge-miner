@@ -8,6 +8,7 @@ import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
 import { useMindCall } from "@/hooks/use-mind-call";
 import { MindAvatar } from "@/components/mind-avatar";
 import { mergeSession } from "@/lib/viewer-brain.functions";
+import { listChatHistory, appendChatMessages } from "@/lib/cloud-vault.functions";
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
@@ -53,9 +54,30 @@ export function TalkToMindModal({
   const sessionStartRef = useRef<string | null>(null);
   const turnsRef = useRef<Msg[]>([]);
   const mergeSessionFn = useServerFn(mergeSession);
+  const loadHistory = useServerFn(listChatHistory);
+  const saveMessages = useServerFn(appendChatMessages);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  // The parent clears mindId at the same moment it closes the window, so the
+  // closing merge would otherwise lose the mind it belongs to.
+  const lastMindRef = useRef<string | null>(null);
+  if (mindId) lastMindRef.current = mindId;
+
+  /** Writes one stretch of turns to the cloud so it survives closing the window. */
+  const persistTurns = async (turns: Msg[]) => {
+    const target = mindId ?? lastMindRef.current;
+    if (!isAuthenticated || !target || turns.length === 0) return;
+    try {
+      await saveMessages({
+        data: { mindId: target, lang, messages: turns.map((t) => ({ role: t.role, body: t.text })) },
+      });
+    } catch {
+      // best-effort: the conversation still reads fine on screen
+    }
+  };
 
   const mergeCurrentSession = async () => {
-    if (!isAuthenticated || !mindId || !sessionStartRef.current) return;
+    const target = mindId ?? lastMindRef.current;
+    if (!isAuthenticated || !target || !sessionStartRef.current) return;
     const turns = turnsRef.current;
     if (turns.length === 0) return;
     const startedAt = sessionStartRef.current;
@@ -69,7 +91,7 @@ export function TalkToMindModal({
     try {
       await mergeSessionFn({
         data: {
-          mindId,
+          mindId: target,
           startedAt,
           endedAt,
           mode: callMode,
@@ -88,11 +110,34 @@ export function TalkToMindModal({
       setMessages([]);
       sessionStartRef.current = new Date().toISOString();
       turnsRef.current = [];
+      // Bring back everything already said with this mind.
+      if (isAuthenticated && mindId) {
+        let cancelled = false;
+        setLoadingHistory(true);
+        void (async () => {
+          try {
+            const rows = await loadHistory({ data: { mindId } });
+            if (!cancelled) {
+              setMessages(
+                rows.map((r) => ({ role: r.role === "user" ? "user" : "agent", text: r.body }) as Msg),
+              );
+            }
+          } catch {
+            // no saved history yet
+          } finally {
+            if (!cancelled) setLoadingHistory(false);
+          }
+        })();
+        return () => {
+          cancelled = true;
+        };
+      }
     } else {
       void mergeCurrentSession();
       call.stop();
     }
-  }, [open, mindId]);
+    return undefined;
+  }, [open, mindId, isAuthenticated]);
 
   // The creator's own face, only when they built and consented to a face clone.
   useEffect(() => {
@@ -188,6 +233,10 @@ export function TalkToMindModal({
         const answer = full.trim() ? full.replace(/\[\[clip:[^\]]+\]\]/g, "").trim() : "…";
         setMessages([...next, { role: "agent", text: answer }]);
         turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
+        void persistTurns([
+          { role: "user", text },
+          { role: "agent", text: answer },
+        ]);
         return;
       }
 
@@ -196,6 +245,11 @@ export function TalkToMindModal({
       const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim() || "…";
       setMessages([...next, { role: "agent", text: answer }]);
       turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
+      // Saved right away so closing the window never loses the conversation.
+      void persistTurns([
+        { role: "user", text },
+        { role: "agent", text: answer },
+      ]);
       if (callMode !== "chat") call.speak(answer);
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
@@ -262,7 +316,7 @@ export function TalkToMindModal({
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {messages.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              {empty}
+              {loadingHistory ? "…" : empty}
             </p>
           )}
           {messages.map((m, i) => (
