@@ -99,6 +99,13 @@
       "when": 1789627836148,
       "tag": "0013_create_ai_usage_events",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790430716538,
+      "tag": "0014_grant_chat_messages_access",
+      "breakpoints": true
     }
   ]
 }
