@@ -135,6 +135,7 @@ export function SavedMinds({
     clear: pickCopy({ en: "Clear", mn: "Цэвэрлэх", ko: "해제" }, lang),
     picked: pickCopy({ en: "picked", mn: "сонгосон", ko: "선택됨" }, lang),
     mineSelected: pickCopy({ en: "Mine selected", mn: "Сонгосныг олборлох", ko: "선택 항목 마이닝" }, lang),
+    mineAll: pickCopy({ en: "Mine all", mn: "Бүгдийг олборлох", ko: "전체 마이닝" }, lang),
     batchHint: pickCopy(
       {
         en: "They mine one after another. In the next step you can give each video its own AI — for example Groq on three and Gemini on five.",
@@ -669,9 +670,20 @@ export function SavedMinds({
               type="button"
               disabled={selected.length === 0}
               onClick={() => setSetupId(setupId === "batch" ? null : "batch")}
-              className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-40"
+              className="ml-auto rounded-lg border border-primary/50 px-3 py-1.5 text-xs font-semibold text-primary disabled:opacity-40"
             >
               {t.mineSelected}
+            </button>
+            {/* One tap: tick every mineable video and open the shared setup. */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelected(mineable);
+                setSetupId("batch");
+              }}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            >
+              {t.mineAll} ({mineable.length})
             </button>
           </div>
           <p className="hidden text-[11px] text-muted-foreground sm:block">{t.batchHint}</p>
@@ -707,9 +719,24 @@ export function SavedMinds({
           ]
             .map((section) => (
               <div key={section.key} className={`rounded-[10px] border p-3 ${section.key === "mined" ? "border-primary/40 bg-primary/5" : "border-border bg-background/40"}`}>
-                <p className="mb-2 text-sm font-semibold text-foreground">
-                  {section.label} ({section.list.length})
-                </p>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-foreground">
+                    {section.label} ({section.list.length})
+                  </p>
+                  {/* "Mine all" sits right on the pending list, where the videos are. */}
+                  {section.key === "pending" && mineable.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelected(mineable);
+                        setSetupId("batch");
+                      }}
+                      className="ml-auto rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      {t.mineAll} ({mineable.length})
+                    </button>
+                  )}
+                </div>
                 {section.list.length === 0 && (
                   <p className="text-xs text-muted-foreground">{t.emptySection}</p>
                 )}
