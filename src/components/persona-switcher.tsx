@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Plus, Trash2, UserSquare2, X } from "lucide-react";
+import { AlertTriangle, Check, Pencil, Plus, Trash2, UserSquare2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
+import { pickCopy, useLang } from "@/lib/i18n";
+
+const COPY = {
+  en: { taken: "It's not available", dup: "This name was registered first by another creator. Please change your persona name." },
+  mn: { taken: "Энэ нэр боломжгүй байна", dup: "Энэ нэрийг өөр бүтээгч өмнө нь бүртгүүлсэн байна. Перснагийнхаа нэрийг өөрчилнө үү." },
+  ko: { taken: "사용할 수 없는 이름입니다", dup: "다른 크리에이터가 먼저 등록한 이름입니다. 페르소나 이름을 변경해 주세요." },
+};
 import {
   createPersona,
   deletePersona,
+  isHandleTaken,
   listPersonas,
+  myDuplicatePersonaIds,
   personaHandle,
   switchPersona,
   updatePersona,
@@ -54,6 +63,25 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
   };
 
   const active = personas.find((p) => p.is_active) ?? null;
+  const { lang } = useLang();
+  const c = pickCopy(COPY, lang);
+  const { data: dupIds = [] } = useQuery({
+    queryKey: ["persona-dupes", userId, personas.map((p) => p.handle).join(",")],
+    queryFn: myDuplicatePersonaIds,
+    enabled: !!userId,
+  });
+  const newHandle = personaHandle(draft);
+  const { data: newTaken = false } = useQuery({
+    queryKey: ["handle-taken", newHandle],
+    queryFn: () => isHandleTaken(newHandle),
+    enabled: !!userId && draft.trim().length > 0,
+  });
+  const editHandleFull = editHandle || personaHandle(editName);
+  const { data: editTaken = false } = useQuery({
+    queryKey: ["handle-taken", editHandleFull, editingId],
+    queryFn: () => isHandleTaken(editHandleFull, editingId ?? undefined),
+    enabled: !!userId && !!editingId,
+  });
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["creator-personas", userId] });
@@ -154,6 +182,11 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
         <DropdownMenuLabel className="text-xs uppercase tracking-wide text-muted-foreground">
           Switch active persona
         </DropdownMenuLabel>
+        {dupIds.length > 0 && (
+          <div className="mx-2 mb-2 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-2 text-xs text-destructive">
+            {c.dup}
+          </div>
+        )}
         <DropdownMenuItem onSelect={() => switching.mutate(null)}>
           <UserSquare2 className="mr-2 h-4 w-4" />
           <span className="truncate">Master account</span>
@@ -184,6 +217,7 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
                 placeholder="Avatar image URL"
                 className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary"
               />
+              {editTaken && <p className="text-xs font-medium text-destructive">{c.taken}</p>}
               <textarea
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
@@ -193,7 +227,7 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
               />
               <div className="flex gap-2">
                 <button
-                  disabled={!editName.trim() || saving.isPending}
+                  disabled={!editName.trim() || editTaken || saving.isPending}
                   onClick={() => saving.mutate()}
                   className="flex-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
                 >
@@ -221,6 +255,9 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
                 {p.name}
                 <span className="ml-1 text-xs text-muted-foreground">{p.handle}</span>
               </span>
+              {dupIds.includes(p.id) && (
+                <AlertTriangle className="h-4 w-4 text-destructive" aria-label={c.dup} />
+              )}
               {p.is_active && <Check className="h-4 w-4 text-primary" />}
               <button
                 aria-label={`Edit ${p.name}`}
@@ -256,6 +293,7 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
             placeholder="Persona name (e.g. Gremix)"
             className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary"
           />
+          {newTaken && <p className="text-xs font-medium text-destructive">{c.taken} ({newHandle})</p>}
           <input
             value={avatar}
             onChange={(e) => setAvatar(e.target.value)}
@@ -263,7 +301,7 @@ export function PersonaSwitcher({ compact = false }: { compact?: boolean }) {
             className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary"
           />
           <button
-            disabled={!draft.trim() || adding.isPending}
+            disabled={!draft.trim() || newTaken || adding.isPending}
             onClick={() => adding.mutate()}
             className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
