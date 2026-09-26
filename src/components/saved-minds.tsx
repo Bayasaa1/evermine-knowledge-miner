@@ -487,7 +487,7 @@ export function SavedMinds({
         onClick: () => {
           void (async () => {
             if (!userId) return;
-            await createProject(userId, { title: p.title, personaId: null, creatorName: p.creatorName ?? "" });
+            await createProject(userId, { title: p.title, personaId: null, creatorName: p.creator_name ?? "" });
             await refreshAll();
           })();
         },
