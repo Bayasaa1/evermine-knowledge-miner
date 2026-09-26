@@ -28,10 +28,22 @@ It is not a token limit or quota error. The AI sent back an empty answer (one re
 5. **A strong self-introduction.** A short "who I am" card (companies, current obsessions, signature attitude) is built from the mined beliefs and knowledge and always included. When you ask "who are you?", Elon introduces himself with energy and asks you something back.
 6. **Filling the gaps in the mined files.** A "Refresh personality" button on the project re-reads the saved transcripts with your Gemini key, only when you tap it, and fills in the missing "how he speaks" and "who I am" parts. Existing data is not deleted, and it can be undone.
 
+## Test before calling it fixed
+
+I will test this as a real conversation, not stop after the code passes:
+
+- Run the same four messages through the currently selected OpenRouter AI and through your free Gemini AI, recording language, relevance, empty replies, and character quality. This identifies the failing AI from actual responses rather than guessing.
+- Open a fresh Elon chat on mobile and send: “Hi”, “Chi hen be, uuriiguu taniltsuulaach”, “Chi yund durtai ve”, and an unrelated casual follow-up.
+- Confirm every answer is Mongolian Cyrillic, answers the latest message, contains no “...”, does not copy Joe, and stays within 1–3 natural sentences.
+- Test a ten-turn conversation to ensure the beginning, topic development, joke setup, and ending remain connected.
+- Test edit, delete, and New chat; confirm New chat also clears that Mind’s memory only after its warning.
+- Inspect the exact API response and saved usage/error row for every failed test. Fix the cause, then rerun the same test. Do not substitute a different AI silently.
+- Only report completion after the live mobile flow passes twice from a new chat.
+
 ## Technical details
 - `src/routes/api/mind-chat.ts`: send `messages[]` turns instead of a flattened prompt (extend `generateRoleText` in `user-ai.server.ts` to accept `messages`); on an empty result, retry once, then return a 502 with a localized message; build the intro card; filter transcript and sample lines by primary speaker.
 - `src/lib/project-mind.server.ts`: compute primary speaker per vault (most-frequent `speaker` that isn't the host), derive a fallback expressiveStyle from speaker lines, and assemble `selfIntro`.
 - `src/components/talk-to-mind-modal.tsx`: show the server error text instead of "…".
 - `src/components/ai-roles-card.tsx`: a recommendation badge only, no auto change.
 - New `refreshPersona` server fn (user-triggered, own Gemini key) that writes `persona` into the project's latest vault payload, keeping the previous value for Undo.
-- Verify: live chat test on the Elon project with "Хэн бэ? Өөрийгөө танилцуулаач" and "Юунд дуртай вэ".
+- Verification records which provider/model answered each turn, so another provider cannot be mistaken for Gemini again.
