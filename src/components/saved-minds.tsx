@@ -337,6 +337,98 @@ export function SavedMinds({
   const pendingGroups = useMemo(() => groups.filter((g) => !g.isMined), [groups]);
   const minedGroups = useMemo(() => groups.filter((g) => g.isMined), [groups]);
 
+  /** Videos with no persona yet — the "Needs filing" list asks where they go. */
+  const unfiledGroups = useMemo(() => groups.filter((g) => g.unfiled), [groups]);
+
+  /** The video group or whole project currently being filed. */
+  const [filing, setFiling] = useState<(typeof groups)[number] | null>(null);
+  const [filingProject, setFilingProject] = useState<Project | null>(null);
+
+  const refreshAll = async () => {
+    await refresh();
+    await queryClient.invalidateQueries({ queryKey: ["unfiled-projects", userId] });
+    await queryClient.invalidateQueries({ queryKey: ["persona-projects"] });
+    await queryClient.invalidateQueries({ queryKey: ["project-overviews"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-content"] });
+    await queryClient.invalidateQueries({ queryKey: ["graph-vaults"] });
+    await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
+  };
+
+  const rebuildMaps = async (projectIds: (string | null)[]) => {
+    for (const pid of new Set(projectIds.filter((p): p is string => Boolean(p)))) {
+      try {
+        await rebuild({ data: { projectId: pid } });
+      } catch {
+        // The map rebuilds lazily on next open — never block filing on it.
+      }
+    }
+  };
+
+  /** Files one video group (every saved row + its feed card) into a persona + project. */
+  const fileGroup = async (g: (typeof groups)[number], target: FileTarget) => {
+    const originals = g.rows.map((r) => ({ id: r.id, personaId: r.personaId, projectId: r.projectId }));
+    const content = g.youtubeId && userId ? await findContentByVideo(userId, g.youtubeId) : null;
+    const sourceProjectId = content?.project_id ?? null;
+    for (const r of g.rows) {
+      await saveVault({ data: { id: r.id, personaId: target.personaId, projectId: target.projectId } });
+    }
+    if (content) await moveProjectContent(content.id, target.projectId);
+    await rebuildMaps([target.projectId, sourceProjectId, ...originals.map((o) => o.projectId)]);
+    toast.success(t.filed, {
+      duration: 10000,
+      action: {
+        label: t.undo,
+        onClick: () => {
+          void (async () => {
+            for (const o of originals) {
+              await saveVault({ data: { id: o.id, personaId: o.personaId, projectId: o.projectId } });
+            }
+            if (content && sourceProjectId) await moveProjectContent(content.id, sourceProjectId);
+            await rebuildMaps([target.projectId, sourceProjectId]);
+            await refreshAll();
+          })();
+        },
+      },
+    });
+    await refreshAll();
+  };
+
+  /** Files a whole unfiled project; Undo recreates an unfiled holder and moves everything back. */
+  const fileProject = async (p: Project, target: FileTarget) => {
+    const movedContent = await listProjectContent(p.id);
+    const movedVaults = await fetchVaults({ data: { scoped: true, projectId: p.id } });
+    const error = await fileProjectInto(p.id, target);
+    if (error) {
+      toast.error(error);
+      throw new Error(error);
+    }
+    await rebuildMaps([target.projectId]);
+    toast.success(t.filed, {
+      duration: 10000,
+      action: {
+        label: t.undo,
+        onClick: () => {
+          void (async () => {
+            if (!userId) return;
+            const { project: holder } = await createProject(userId, {
+              title: p.title,
+              personaId: null,
+              creatorName: p.creator_name,
+            });
+            if (!holder) return;
+            for (const c of movedContent) await moveProjectContent(c.id, holder.id);
+            for (const v of movedVaults) {
+              await saveVault({ data: { id: v.id, personaId: null, projectId: holder.id } });
+            }
+            await rebuildMaps([target.projectId, holder.id]);
+            await refreshAll();
+          })();
+        },
+      },
+    });
+    await refreshAll();
+  };
+
   if (!isAuthenticated) return null;
 
 
