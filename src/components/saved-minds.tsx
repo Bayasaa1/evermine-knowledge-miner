@@ -32,6 +32,7 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { listPersonas, type Persona } from "@/lib/personas";
 import {
   createProject,
+  deleteProject,
   isProjectEmpty,
   listContentByVideo,
   fileProjectInto,
@@ -152,6 +153,9 @@ export function SavedMinds({
     ),
     fileSelected: pickCopy({ en: "File selected", mn: "Сонгосныг бүртгэх", ko: "선택 항목 분류" }, lang),
     sameVideo: pickCopy({ en: "Same video", mn: "Ижил бичлэг", ko: "같은 영상" }, lang),
+    deleteEmpty: pickCopy({ en: "Delete", mn: "Устгах", ko: "삭제" }, lang),
+    deleteEmptyAsk: pickCopy({ en: "Delete this empty folder? No videos are inside.", mn: "Энэ хоосон хавтсыг устгах уу? Дотор нь бичлэг байхгүй.", ko: "이 빈 폴더를 삭제할까요? 안에 영상이 없습니다." }, lang),
+    deletedEmpty: pickCopy({ en: "Empty folder deleted", mn: "Хоосон хавтас устлаа", ko: "빈 폴더가 삭제되었습니다" }, lang),
     emptyTag: pickCopy({ en: "Empty", mn: "Хоосон", ko: "비어 있음" }, lang),
     videos: pickCopy({ en: "videos", mn: "бичлэг", ko: "개 영상" }, lang),
     fileThis: pickCopy({ en: "File this…", mn: "Бүртгэх…", ko: "파일하기…" }, lang),
@@ -450,14 +454,45 @@ export function SavedMinds({
   const fileMany = async (list: (typeof groups)[number][], target: FileTarget) => {
     const touched: (string | null)[] = [];
     const undos: Array<() => Promise<void>> = [];
-    for (const g of list) {
-      const r = await moveGroup(g, target);
-      touched.push(...r.touched);
-      undos.push(r.undo);
-    }
+    // Move several at once instead of one by one, and show one progress note.
+    const tid = toast.loading(`0 / ${list.length}`);
+    let done = 0;
+    const queue = [...list];
+    const worker = async () => {
+      for (let g = queue.shift(); g; g = queue.shift()) {
+        const r = await moveGroup(g, target);
+        touched.push(...r.touched);
+        undos.push(r.undo);
+        done += 1;
+        toast.loading(`${done} / ${list.length}`, { id: tid });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(6, list.length) }, worker));
+    toast.dismiss(tid);
     await rebuildMaps(touched);
     withUndo(touched, undos);
     setFileTicks([]);
+    await refreshAll();
+  };
+
+  /** The user removes an empty leftover folder themselves; Undo brings it back. */
+  const removeEmpty = async (p: Project) => {
+    if (!window.confirm(`${t.deleteEmptyAsk} "${p.title}"`)) return;
+    const err = await deleteProject(p.id);
+    if (err) return void toast.error(err);
+    toast.success(t.deletedEmpty, {
+      duration: 10000,
+      action: {
+        label: t.undo,
+        onClick: () => {
+          void (async () => {
+            if (!userId) return;
+            await createProject(userId, { title: p.title, personaId: null, creatorName: p.creator_name ?? "" });
+            await refreshAll();
+          })();
+        },
+      },
+    });
     await refreshAll();
   };
 
@@ -561,6 +596,15 @@ export function SavedMinds({
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{p.title}</span>
                 {emptyIds.includes(p.id) && (
                   <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{t.emptyTag}</span>
+                )}
+                {emptyIds.includes(p.id) && (
+                  <button
+                    type="button"
+                    onClick={() => void removeEmpty(p)}
+                    className="shrink-0 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-destructive"
+                  >
+                    {t.deleteEmpty}
+                  </button>
                 )}
                 <button
                   type="button"
