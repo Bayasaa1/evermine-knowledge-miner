@@ -173,7 +173,7 @@ export const appendChatMessages = createServerFn({ method: "POST" })
         body: m.body.slice(0, 8000),
         lang: data.lang ?? "en",
       })),
-    ).select("id, created_at").order("created_at", { ascending: true });
+    ).select("id");
     if (error) throw new Error(error.message);
     return { ok: true, ids: (saved ?? []).map((r) => r.id) };
   });
