@@ -164,8 +164,8 @@ export const appendChatMessages = createServerFn({ method: "POST" })
     },
   )
   .handler(async ({ data, context }) => {
-    if (data.messages.length === 0) return { ok: true };
-    const { error } = await context.supabase.from("chat_messages").insert(
+    if (data.messages.length === 0) return { ok: true, ids: [] as string[] };
+    const { data: saved, error } = await context.supabase.from("chat_messages").insert(
       data.messages.map((m) => ({
         user_id: context.userId,
         mind_id: data.mindId,
@@ -173,7 +173,21 @@ export const appendChatMessages = createServerFn({ method: "POST" })
         body: m.body.slice(0, 8000),
         lang: data.lang ?? "en",
       })),
-    );
+    ).select("id");
+    if (error) throw new Error(error.message);
+    return { ok: true, ids: (saved ?? []).map((r) => r.id) };
+  });
+
+/** Deletes specific chat messages (only the caller's own). */
+export const deleteChatMessages = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("chat_messages")
+      .delete()
+      .in("id", data.ids)
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
