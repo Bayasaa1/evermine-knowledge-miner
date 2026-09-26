@@ -683,6 +683,16 @@ export function SavedMinds({
                                 <Columns3 className="h-3.5 w-3.5" />
                                 <span className="hidden sm:inline">{t.compare}</span>
                               </button>
+                              <button
+                                type="button"
+                                onClick={() => setFiling(g)}
+                                title={t.sendTo}
+                                aria-label={t.sendTo}
+                                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">{t.sendTo}</span>
+                              </button>
                             </>
                           )}
 
@@ -794,6 +804,30 @@ export function SavedMinds({
         </Dialog>
       )}
 
+
+      {filing && (
+        <FileThis
+          lang={lang}
+          userId={userId ?? ""}
+          title={filing.title}
+          onClose={() => setFiling(null)}
+          onFile={async (target) => {
+            await fileGroup(filing, target);
+          }}
+        />
+      )}
+
+      {filingProject && (
+        <FileThis
+          lang={lang}
+          userId={userId ?? ""}
+          title={filingProject.title}
+          onClose={() => setFilingProject(null)}
+          onFile={async (target) => {
+            await fileProject(filingProject, target);
+          }}
+        />
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
