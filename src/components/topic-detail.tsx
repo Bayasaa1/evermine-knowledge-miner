@@ -76,8 +76,8 @@ export function TopicDetail({
       mindId: info.mindId,
       text,
       lang: lang as LangCode,
-      voiceId: voice?.remote_id ?? undefined,
-      onError: (m) => toast.error(m),
+      ...(voice?.remote_id ? { voiceId: voice.remote_id } : {}),
+      onError: (m) => { toast.error(m); },
     });
     setDub(h);
     void h.done.finally(() => setDub((cur) => (cur === h ? null : cur)));
