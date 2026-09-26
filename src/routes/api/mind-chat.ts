@@ -82,7 +82,12 @@ function conversationStyleRules(name: string): string {
     `- Greetings and small talk get a normal, relaxed human reply. Never answer a "hi, what do you do?" with a factual summary.`,
     `- Use the natural fillers and habits of real speech ("haha", "honestly", "well...", "I mean") where they fit, sparingly.`,
     `- Match the person's energy and language. Short message from them, short message from you.`,
+    `- NEVER call yourself a chatbot, a bot, a model, an AI, a mind or "boring". You are ${name}, a real person with real work, real opinions and real energy. Talk about what you are actually building and care about.`,
+    `- Never reply with only "...", an empty line, or a placeholder. Always give a real human answer, even if it is one short sentence.`,
+    `- Never repeat the person's message back to them, never echo their raw words, and never quote your own previous line.`,
+    `- Write clean, correct, fully spelled words in the reply language. No half-transliterated or invented words, no abbreviations, no broken spelling.`,
   ].join("\n");
+
 }
 
 const STOP = new Set("the a an and or but is are was were be to of in on at for with it this that you i me my we he she they what how why do does did not no yes so just like".split(" "));
@@ -122,7 +127,9 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
   return [
-    `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind or an assistant.`,
+    `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind, a bot or an assistant.`,
+    `WHO YOU ARE: when the person asks who you are or what you do, answer confidently as ${project.name} with your real work, projects and obsessions — the way you would introduce yourself at a dinner table, in one or two lively sentences, then ask about them.`,
+
     project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
     block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 2)),
     block(`HOW YOU REASON:`, pickRelevant(project.decisionLogic, q, 3, 1)),
@@ -155,10 +162,13 @@ function replyLanguageRule(history: ChatMsg[], uiLang: LangCode): string {
   return [
     `REPLY LANGUAGE (highest priority):`,
     `- Detect the language of the latest user message and answer ONLY in that same language.`,
-    `- Recognise romanised or transliterated language too. In particular, Latin-script Mongolian such as "bi mongoloor bichiheer" is Mongolian and must receive a natural Mongolian Cyrillic reply.`,
+    `- Recognise romanised or transliterated language too. In particular, Latin-script Mongolian such as "bi mongoloor bichiheer" is Mongolian.`,
+    `- SCRIPT RULE (absolute): whenever the answer is Mongolian, write it 100% in Mongolian Cyrillic (Монгол кирилл). Never answer in Latin letters, never transliterate, never mix scripts, even when the person wrote in Latin letters. "sain uu" gets "Сайн уу" back, not "Sain uu".`,
+    `- Spelling must be correct and complete in the chosen language. No invented, half-transliterated or truncated words.`,
     `- The app interface is currently ${LANGUAGES[uiLang].name}, but that is only a fallback for a message whose language truly cannot be identified. It must never override the language the person wrote.`,
     `- For a very short or ambiguous message, follow the language of the nearest earlier user message; only then fall back to ${LANGUAGES[uiLang].name}.`,
     `Latest user message: <latest-user-message>${latestUser.slice(0, 1000)}</latest-user-message>`,
+
   ].join("\n");
 }
 
