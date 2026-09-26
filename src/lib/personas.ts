@@ -63,7 +63,7 @@ export async function createPersona(
     })
     .select(COLS)
     .single();
-  return { persona: (data as Persona | null) ?? null, error: error?.message ?? null };
+  return { persona: (data as Persona | null) ?? null, error: friendlyPersonaError(error?.message ?? null) };
 }
 
 export async function updatePersona(
@@ -82,7 +82,7 @@ export async function updatePersona(
     })
     .eq("id", id)
     .eq("user_id", owner);
-  return error?.message ?? null;
+  return friendlyPersonaError(error?.message ?? null);
 }
 
 export async function deletePersona(id: string): Promise<string | null> {
@@ -113,6 +113,27 @@ export async function switchPersona(userId: string, id: string | null): Promise<
     .eq("id", id)
     .eq("user_id", userId);
   return error?.message ?? null;
+}
+
+export const HANDLE_TAKEN = "It's not available";
+
+/** True when another account already owns this @handle. */
+export async function isHandleTaken(handle: string, excludeId?: string): Promise<boolean> {
+  const h = handle.trim().replace(/^@?/, "@");
+  if (h.length < 2) return false;
+  const { data } = await supabase.rpc("persona_handle_taken", { _handle: h, _exclude_id: excludeId ?? undefined });
+  return data === true;
+}
+
+/** Ids of my personas that copied a handle another account registered first. */
+export async function myDuplicatePersonaIds(): Promise<string[]> {
+  const { data } = await supabase.rpc("my_duplicate_persona_ids");
+  return ((data as unknown as string[] | null) ?? []).map(String);
+}
+
+export function friendlyPersonaError(msg: string | null): string | null {
+  if (msg && msg.includes("handle_not_available")) return HANDLE_TAKEN;
+  return msg;
 }
 
 /** Loads a single persona by id (used when the wizard targets a specific identity). */
