@@ -114,6 +114,17 @@ export async function fetchVideoMeta(videoId: string): Promise<VideoMeta> {
       const n = Number(len[1]);
       if (Number.isFinite(n) && n > 0) durationSec = n;
     }
+    // YouTube often hides lengthSeconds from servers but still ships the
+    // stream's approxDurationMs — without it a 3-hour video became 20 minutes.
+    if (durationSec <= 0) {
+      const ms = html.match(/"approxDurationMs":"(\d+)"/);
+      const n = ms?.[1] ? Math.round(Number(ms[1]) / 1000) : 0;
+      if (Number.isFinite(n) && n > 0) durationSec = n;
+    }
+    if (durationSec <= 0) {
+      const iso = html.match(/itemprop="duration" content="PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/);
+      if (iso) durationSec = Number(iso[1] ?? 0) * 3600 + Number(iso[2] ?? 0) * 60 + Number(iso[3] ?? 0);
+    }
     const t = html.match(/<meta name="title" content="([^"]{1,200})"/);
     if (t?.[1]) title = t[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
   } catch {

@@ -246,8 +246,28 @@ export const runNextChunk = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!row) throw new Error("Mining job not found.");
 
-    const job = toJob(row as JobRow);
+    let job = toJob(row as JobRow);
     const results = storedResults(row as JobRow);
+
+    // Jobs planned with the old 20-minute guess: re-read the real length and
+    // add the missing parts. Mined parts stay exactly as they are.
+    const lastEnd = job.chunks[job.chunks.length - 1]?.end ?? 0;
+    if (job.chunks.length > 0 && Math.abs(lastEnd - 1200) < 1) {
+      const vid = /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(job.sourceUrl ?? "")?.[1];
+      if (vid) {
+        const { fetchVideoMeta } = await import("@/lib/youtube-meta.server");
+        const meta = await fetchVideoMeta(vid).catch(() => null);
+        if (meta && meta.durationSec > lastEnd + 10) {
+          const chunks = splitIntoChunks(meta.durationSec);
+          const { error: planErr } = await context.supabase
+            .from("mining_jobs")
+            .update({ chunks: chunks as never, total_chunks: chunks.length })
+            .eq("id", job.id)
+            .eq("user_id", context.userId);
+          if (!planErr) job = { ...job, chunks, totalChunks: chunks.length };
+        }
+      }
+    }
 
     // A creator stop/pause wins over any tab still driving the job.
     if (job.status === "stopped" || job.status === "paused_user") {

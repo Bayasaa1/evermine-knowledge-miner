@@ -27,6 +27,10 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           if (!projectKey || !token || token !== projectKey) return denied;
         }
 
+        // Mining runs only while the creator has the vault open, where every
+        // part is visible. The hidden background worker is switched off.
+        if (Date.now() > 0) return Response.json({ ok: true, disabled: true });
+
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
         const { unpackInstructions, isQuotaMessage, quotaRetryAfter } = await import("@/lib/mining-jobs");

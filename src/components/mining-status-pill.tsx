@@ -15,7 +15,6 @@ import { listMiningJobs } from "@/lib/mining-jobs.functions";
 import { jobProgress, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
-import { MiningAutoResume } from "@/components/mining-auto-resume";
 
 const LIVE: MiningJobStatus[] = ["queued", "running", "paused_quota", "paused_user"];
 
@@ -38,7 +37,7 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
   });
 
   const live = jobs.filter((j) => LIVE.includes(j.status));
-  if (live.length === 0) return <MiningAutoResume />;
+  if (live.length === 0) return null;
   const partsDone = live.reduce((s, j) => s + j.nextIndex, 0);
   const partsTotal = live.reduce((s, j) => s + j.totalChunks, 0);
 
@@ -50,7 +49,6 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
 
   return (
     <>
-    <MiningAutoResume />
     <Link
       to="/mining"
       style={{ bottom: "calc(76px + env(safe-area-inset-bottom))" }}
