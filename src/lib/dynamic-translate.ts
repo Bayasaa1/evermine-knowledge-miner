@@ -206,7 +206,7 @@ async function flush() {
           missed.clear();
           attempts.clear();
           emit();
-        }, 5 * 60 * 1000);
+        }, 30 * 1000);
         pending.clear();
         for (const t of texts) inflight.delete(`${lang}:${t}`);
         if (!noticeShown) {

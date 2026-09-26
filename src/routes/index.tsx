@@ -627,8 +627,10 @@ function FeedCard({
   const [expanded, setExpanded] = useState(false);
   // Subtitle + voice language are the viewer's own choice for this player and
   // stay on the device; they are deliberately independent of the app language.
-  const [subtitleLang, setSubtitleLang] = useState<LangCode | "source">(() =>
-    readPref("evermind:subtitle-lang", "source"),
+  // "app" (default) follows the top language button; the viewer can still pin
+  // another language or the original wording for this device.
+  const [subtitleLang, setSubtitleLang] = useState<LangCode | "source" | "app">(() =>
+    readPref("evermind:subtitle-lang2", "app"),
   );
   const [voiceLang, setVoiceLang] = useState<LangCode>(() => readPref("evermind:voice-lang", "en"));
   const [speakOn, setSpeakOn] = useState(false);
@@ -686,7 +688,7 @@ function FeedCard({
   // "source" keeps the mined wording; any other choice runs through the same
   // cached translation path the rest of the app uses (the Translating job in
   // the API Manager, with its automatic key switching).
-  const shownCues = useDisplayTextsIn(cueTexts, subtitleLang === "source" ? "source" : subtitleLang);
+  const shownCues = useDisplayTextsIn(cueTexts, subtitleLang === "app" ? lang : subtitleLang);
   const activeCueIndex = activeSubtitle ? timedCues.indexOf(activeSubtitle) : -1;
   const shownSubtitle =
     activeCueIndex >= 0 ? (shownCues[activeCueIndex] ?? activeSubtitle?.speech ?? "") : "";
@@ -877,12 +879,13 @@ function FeedCard({
                   <Select
                     value={subtitleLang}
                     onValueChange={(value) => {
-                      setSubtitleLang(value as LangCode | "source");
-                      writePref("evermind:subtitle-lang", value);
+                      setSubtitleLang(value as LangCode | "source" | "app");
+                      writePref("evermind:subtitle-lang2", value);
                     }}
                   >
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent className="max-h-64">
+                      <SelectItem value="app">{lang === "mn" ? "Апп-ын хэлээр" : lang === "ko" ? "앱 언어 따르기" : "Follow app language"}</SelectItem>
                       <SelectItem value="source">{vc.original}</SelectItem>
                       {Object.entries(LANGUAGES).map(([code, meta]) => (
                         <SelectItem key={code} value={code}>{meta.native}</SelectItem>
