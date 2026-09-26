@@ -819,12 +819,23 @@ function FeedCard({
           <img src={item.poster} alt={item.title} className="h-full w-full object-cover md:object-contain md:bg-black" />
         )}
 
+        {/* YouTube adds share/recommendation controls whenever its iframe is
+            paused. Replace that surface with the clean poster while keeping
+            Evermind's own controls, subtitles, and actions above it. */}
+        {paused && item.youtubeId && (
+          <img
+            src={item.poster}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-10 h-full w-full bg-neutral-950 object-contain"
+          />
+        )}
         {paused && (item.src || item.youtubeId) && (
           <button
             type="button"
             onClick={toggle}
             aria-label="Play"
-            className="absolute inset-0 flex items-center justify-center bg-black/20"
+            className="absolute inset-0 z-20 flex items-center justify-center bg-black/20"
           >
             <Play className="h-14 w-14 opacity-80" />
           </button>

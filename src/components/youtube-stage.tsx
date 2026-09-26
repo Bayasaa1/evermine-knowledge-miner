@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 type YTPlayer = {
   playVideo: () => void;
   pauseVideo: () => void;
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
   mute: () => void;
   unMute: () => void;
   setVolume: (volume: number) => void;
@@ -67,7 +68,12 @@ export function YouTubeStage({
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
+  const activeRef = useRef(active);
+  const pausedRef = useRef(paused);
   const [ready, setReady] = useState(false);
+
+  activeRef.current = active;
+  pausedRef.current = paused;
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +87,9 @@ export function YouTubeStage({
             autoplay: 1,
             mute: 1,
             controls: 0,
+            disablekb: 1,
+            fs: 0,
+            iv_load_policy: 3,
             modestbranding: 1,
             rel: 0,
             playsinline: 1,
@@ -92,6 +101,13 @@ export function YouTubeStage({
               if (cancelled) return;
               e.target.mute();
               setReady(true);
+            },
+            onStateChange: (e: { data: number; target: YTPlayer }) => {
+              // YouTube shows recommendation cards when playback ends. Restart
+              // immediately so the feed remains an Evermind-controlled loop.
+              if (cancelled || e.data !== 0) return;
+              e.target.seekTo(0, true);
+              if (activeRef.current && !pausedRef.current) e.target.playVideo();
             },
           },
         });
