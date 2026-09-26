@@ -248,7 +248,7 @@ export async function listPublicVisualContent(limit = 60): Promise<
   const { data, error } = await supabase
     .from("project_content")
     // Only clips whose parent project is published reach the public feed.
-    .select(`${CONTENT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
+    .select(`${CONTENT_COLS},projects!inner(id,user_id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
     .order("created_at", { ascending: false })
@@ -273,10 +273,10 @@ export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline"
   project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency" | "plan_tiers"> | null;
 };
 
-export async function listPublicVisualContentLight(limit = 30): Promise<PublicFeedRow[]> {
+export async function listPublicVisualContentLight(limit = 200): Promise<PublicFeedRow[]> {
   const { data, error } = await supabase
     .from("project_content")
-    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
+    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,user_id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
     .order("created_at", { ascending: false })
