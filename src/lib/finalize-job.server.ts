@@ -49,8 +49,9 @@ export async function finalizeMiningJob(
   if (job.vault_id) return job.vault_id;
   const partial = opts.partial;
   const results = (Array.isArray(job.results) ? job.results : []) as ChunkResult[];
-  const mined = mergeChunkResults(results);
-  if (!mined) return null;
+  const merged = mergeChunkResults(results);
+  if (!merged) return null;
+  const mined = merged;
 
   const meta = unpackInstructions(job.custom_instructions ?? "");
   // The wizard's sourceTitle belongs to the batch, not to this video, so a
