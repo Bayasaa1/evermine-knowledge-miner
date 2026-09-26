@@ -961,8 +961,8 @@ function formatBytes(bytes: number) {
 }
 
 const MODELS = [
-  { value: "gemini-3.1-flash-lite", label: "gemini-3.1-flash-lite (recommended)" },
-  { value: "gemini-3.1-pro-preview", label: "gemini-3.1-pro-preview" },
+  { value: "gemini-3.1-flash-lite", label: "gemini-3.1-flash-lite (free tier · recommended)" },
+  { value: "gemini-3.8-flash", label: "gemini-3.8-flash (paid)" },
 ];
 
 /** Thrown when every API key in the rotation pool is out of quota. */
