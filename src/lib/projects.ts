@@ -248,7 +248,7 @@ export async function listPublicVisualContent(limit = 60): Promise<
   const { data, error } = await supabase
     .from("project_content")
     // Only clips whose parent project is published reach the public feed.
-    .select(`${CONTENT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
+    .select(`${CONTENT_COLS},projects!inner(id,user_id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
     .order("created_at", { ascending: false })
@@ -273,10 +273,10 @@ export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline"
   project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency" | "plan_tiers"> | null;
 };
 
-export async function listPublicVisualContentLight(limit = 30): Promise<PublicFeedRow[]> {
+export async function listPublicVisualContentLight(limit = 200): Promise<PublicFeedRow[]> {
   const { data, error } = await supabase
     .from("project_content")
-    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
+    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,user_id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
     .order("created_at", { ascending: false })
@@ -394,14 +394,23 @@ export async function listUnfiledProjects(userId: string): Promise<Project[]> {
     .eq("user_id", userId)
     .is("persona_id", null)
     .order("created_at", { ascending: false });
-  const rows = (data as Project[] | null) ?? [];
-  // Empty leftovers (no videos, no saved minds) are noise, not something to file.
-  const kept: Project[] = [];
-  for (const p of rows) {
-    if (await projectIsEmpty(p.id)) void deleteProject(p.id);
-    else kept.push(p);
-  }
-  return kept;
+  return (data as Project[] | null) ?? [];
+}
+
+/** True when a project holds no videos and no saved minds (shown as "Empty"; never auto-deleted). */
+export async function isProjectEmpty(projectId: string): Promise<boolean> {
+  return projectIsEmpty(projectId);
+}
+
+/** Every feed card of one YouTube video owned by the user (repeat minings included). */
+export async function listContentByVideo(userId: string, youtubeId: string): Promise<ProjectContent[]> {
+  if (!youtubeId) return [];
+  const { data } = await supabase
+    .from("project_content")
+    .select(CONTENT_COLS)
+    .eq("user_id", userId)
+    .eq("youtube_id", youtubeId);
+  return normalizeMany(data);
 }
 
 async function projectIsEmpty(projectId: string): Promise<boolean> {

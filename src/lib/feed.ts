@@ -51,6 +51,8 @@ export type FeedItem = {
   /** Robot deployment token, when a Robot Brain package was published. */
   deployToken?: string;
   publishedAt: string;
+  /** Account that owns the clip — used only to mix creators in the feed. */
+  ownerId?: string | null;
 };
 
 const FEED_KEY = () => scopedKey("publishedFeed");
@@ -125,6 +127,7 @@ export async function projectFeed(): Promise<FeedItem[]> {
       currency: (raw?.['currency'] as string | undefined) || row.project?.currency || "USD",
       tiers,
       publishedAt: row.created_at,
+      ownerId: (row.project as { user_id?: string } | null)?.user_id ?? null,
       };
     });
 }
@@ -144,12 +147,30 @@ export async function loadFeed(): Promise<FeedItem[]> {
   // One card per video: repeated minings of the same source collapse into the
   // newest one instead of stacking duplicates in the feed.
   const seen = new Set<string>();
-  return rows.filter((item) => {
+  const unique = rows.filter((item) => {
     const key = item.youtubeId ?? item.id;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+  // Mix creators: take one newest card from each creator in turn, so one
+  // account's big batch can never push everyone else out of the feed.
+  const byOwner = new Map<string, FeedItem[]>();
+  for (const item of unique) {
+    const owner = item.ownerId ?? item.creator;
+    const list = byOwner.get(owner);
+    if (list) list.push(item);
+    else byOwner.set(owner, [item]);
+  }
+  const queues = [...byOwner.values()];
+  const mixed: FeedItem[] = [];
+  while (queues.some((q) => q.length)) {
+    for (const q of queues) {
+      const next = q.shift();
+      if (next) mixed.push(next);
+    }
+  }
+  return mixed;
 }
 
 
