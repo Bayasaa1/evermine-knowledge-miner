@@ -64,10 +64,11 @@ type JobRow = {
   last_error: string | null;
   retry_after: string | null;
   updated_at: string;
+  created_at: string;
 };
 
 const SELECT =
-  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at";
+  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at";
 
 function toJob(row: JobRow): MiningJob {
   return {
@@ -89,6 +90,7 @@ function toJob(row: JobRow): MiningJob {
     lastError: row.last_error,
     retryAfter: row.retry_after,
     updatedAt: row.updated_at,
+    createdAt: row.created_at,
   };
 }
 

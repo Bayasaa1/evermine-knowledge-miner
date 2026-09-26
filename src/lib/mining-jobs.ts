@@ -239,6 +239,7 @@ export type MiningJob = {
   lastError: string | null;
   retryAfter: string | null;
   updatedAt: string;
+  createdAt?: string;
 };
 
 export type ChunkStepResult = {
