@@ -295,12 +295,14 @@ export function TalkToMindModal({
 
   const resetChat = async () => {
     const target = mindId ?? lastMindRef.current;
-    if (!window.confirm("Reset this chat? All messages with this mind will be deleted.")) return;
+    if (!window.confirm(resetConfirm)) return;
     setMessages([]);
     setEditIndex(null);
     turnsRef.current = [];
     if (isAuthenticated && target) {
       try { await clearHistory({ data: { mindId: target } }); } catch { /* ignore */ }
+      // The Mind's memory of the viewer goes too — a full fresh start.
+      try { await eraseBrainFn({ data: { mindId: target } }); } catch { /* ignore */ }
     }
   };
 
@@ -319,8 +321,9 @@ export function TalkToMindModal({
           <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "video" ? "chat" : "video"); }} aria-label="Video call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Video className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => void resetChat()} aria-label="Reset chat" title="Reset chat" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <RotateCcw className="h-4 w-4" />
+          <button type="button" onClick={() => void resetChat()} aria-label={newChatLabel} title={newChatLabel} className="flex items-center gap-1 rounded-full px-2 py-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <Eraser className="h-4 w-4" />
+            <span className="hidden text-[11px] sm:inline">{newChatLabel}</span>
           </button>
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
