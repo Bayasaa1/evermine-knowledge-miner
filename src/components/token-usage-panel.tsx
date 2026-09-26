@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react";
+/**
+ * Live token & spend meters for the signed-in account.
+ *
+ * Every number here comes from the account's own server-side usage records, the
+ * same source the History list below it reads, so the headline figures can
+ * never disagree with the detailed list.
+ */
+import { useCallback, useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useVisibleInterval } from "@/hooks/use-visible-interval";
-import { Cpu, Gauge, Wallet, RotateCcw } from "lucide-react";
-import {
-  clearUsage,
-  costOf,
-  loadUsage,
-  rateFor,
-  summarizeUsage,
-  type ProviderUsage,
-  type UsageLedger,
-  type UsageSummary,
-} from "@/lib/token-usage";
+import { Cpu, Gauge, Wallet } from "lucide-react";
+import { getUsageMeters, type UsageMeters } from "@/lib/ai-usage.functions";
+import { rateFor } from "@/lib/token-usage";
+import { rateOf } from "@/lib/ai-rates";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 const copy = {
@@ -29,7 +30,6 @@ const copy = {
     left: "Free left today",
     cost: "Cost",
     none: "No AI calls yet. Mine a video and this fills up automatically.",
-    reset: "Clear history",
     free: "Free",
     paid: "Paid",
     note: "Costs are estimated from each provider's own token counts and public prices — not a bill.",
@@ -45,6 +45,17 @@ const copy = {
     geminiTokens: "Free tokens left today",
     resetIn: "Resets in",
     resetAt: "at",
+    byJob: "Today, by job",
+    signIn: "Sign in to see your tokens and spend.",
+    roles: {
+      translate: "Translation",
+      mine: "Mining videos",
+      mine_write: "Mining write-up",
+      chat: "Chat",
+      core_brain: "Core Brain",
+      face_clone: "Seeing on video calls",
+      voice_clone: "Voice clone",
+    } as Record<string, string>,
   },
   mn: {
     title: "AI токен ба зарлага",
@@ -61,7 +72,6 @@ const copy = {
     left: "Өнөөдөр үлдсэн",
     cost: "Зардал",
     none: "Одоогоор AI дуудлага алга. Видео олборловол автоматаар бөглөгдөнө.",
-    reset: "Түүх цэвэрлэх",
     free: "Үнэгүй",
     paid: "Төлбөртэй",
     note: "Зардлыг тухайн AI-ийн токен тоо, нийтэлсэн үнээр тооцсон тооцоолол — албан ёсны нэхэмжлэх биш.",
@@ -77,6 +87,17 @@ const copy = {
     geminiTokens: "Өнөөдөр үлдсэн үнэгүй токен",
     resetIn: "Шинэчлэгдэх хугацаа",
     resetAt: "цагт",
+    byJob: "Өнөөдөр, ажлаар",
+    signIn: "Токен, зарлагаа харахын тулд нэвтэрнэ үү.",
+    roles: {
+      translate: "Орчуулга",
+      mine: "Видео олборлолт",
+      mine_write: "Олборлолтын бичилт",
+      chat: "Чат",
+      core_brain: "Core Brain",
+      face_clone: "Видео дуудлагын хараа",
+      voice_clone: "Дуу хуулбар",
+    } as Record<string, string>,
   },
   ko: {
     title: "AI 토큰 및 지출",
@@ -93,7 +114,6 @@ const copy = {
     left: "오늘 남은 무료",
     cost: "비용",
     none: "아직 AI 호출이 없습니다. 영상을 채굴하면 자동으로 채워집니다.",
-    reset: "기록 지우기",
     free: "무료",
     paid: "유료",
     note: "비용은 각 제공사의 토큰 수와 공개 단가로 추정한 값이며 청구서가 아닙니다.",
@@ -109,6 +129,17 @@ const copy = {
     geminiTokens: "오늘 남은 무료 토큰",
     resetIn: "초기화까지",
     resetAt: "시각",
+    byJob: "오늘, 작업별",
+    signIn: "로그인하면 토큰과 비용을 볼 수 있습니다.",
+    roles: {
+      translate: "번역",
+      mine: "영상 마이닝",
+      mine_write: "마이닝 정리",
+      chat: "채팅",
+      core_brain: "코어 브레인",
+      face_clone: "영상 통화 시각",
+      voice_clone: "음성 복제",
+    } as Record<string, string>,
   },
 };
 
@@ -122,76 +153,84 @@ function usd(n: number): string {
   return n > 0 && n < 0.01 ? "<$0.01" : `$${n.toFixed(2)}`;
 }
 
+const EMPTY: UsageMeters = {
+  totalTokens: 0,
+  totalCalls: 0,
+  todayTokens: 0,
+  todayCalls: 0,
+  totalCost: 0,
+  todayCost: 0,
+  lastCallAt: null,
+  providers: [],
+  byRoleToday: [],
+};
+
 export function TokenUsagePanel({ lang }: { lang: Lang }) {
   const t = pickCopy(copy, lang);
-  const [ledger, setLedger] = useState<UsageLedger>({ entries: [] });
+  const load = useServerFn(getUsageMeters);
+  const [meters, setMeters] = useState<UsageMeters>(EMPTY);
+  const [signedOut, setSignedOut] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
-  useVisibleInterval(() => setNow(Date.now()), 30_000);
+  const refresh = useCallback(async () => {
+    try {
+      const m = await load({});
+      setMeters(m);
+      setSignedOut(false);
+    } catch {
+      // Not signed in, or the network blinked — keep the last numbers shown.
+      setSignedOut((was) => was || meters.totalCalls === 0);
+    }
+  }, [load, meters.totalCalls]);
 
   useEffect(() => {
-    let alive = true;
-    void (async () => {
-      const l = await loadUsage();
-      if (alive) setLedger(l);
-    })();
-    return () => {
-      alive = false;
-    };
+    void refresh();
+    // Loading once on mount; the interval below keeps it fresh afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useVisibleInterval(() => void loadUsage().then(setLedger), 5000);
+  useVisibleInterval(() => {
+    setNow(Date.now());
+    void refresh();
+  }, 15_000);
 
-  const s: UsageSummary = summarizeUsage(ledger);
+  // Free daily allowances live in the local price list; how much of them is
+  // already spent comes from the server records.
+  const providers = meters.providers.map((p) => {
+    const limits = rateFor(p.provider);
+    const label = rateOf(p.provider).label || p.provider;
+    const dailyFreeCalls = p.free ? limits.dailyFreeCalls : 0;
+    const dailyFreeTokens = p.free ? limits.dailyFreeTokens : 0;
+    return {
+      ...p,
+      label,
+      dailyFreeCalls,
+      dailyFreeTokens,
+      callsLeftToday: dailyFreeCalls > 0 ? Math.max(0, dailyFreeCalls - p.callsToday) : null,
+      remainingToday: dailyFreeTokens > 0 ? Math.max(0, dailyFreeTokens - p.todayTokens) : 0,
+    };
+  });
 
-  // Today's calls and cost grouped by the job that made them, so a creator can
-  // see which job burns their free quota.
-  const dayStart = new Date(now).setHours(0, 0, 0, 0);
-  const jobLabels: Record<string, { en: string; mn: string; ko: string }> = {
-    mine: { en: "Mining videos", mn: "Видео олборлолт", ko: "영상 마이닝" },
-    chat: { en: "Chatting", mn: "Чат", ko: "채팅" },
-    core_brain: { en: "Core brain", mn: "Үндсэн тархи", ko: "코어 브레인" },
-  };
-  const jobOf = (stage: string) => (stage === "chat" ? "chat" : stage === "audit" ? "core_brain" : "mine");
-  const byJob = new Map<string, { calls: number; tokens: number; cost: number }>();
-  for (const e of ledger.entries) {
-    if (e.at < dayStart) continue;
-    const job = jobOf(e.stage);
-    const row = byJob.get(job) ?? { calls: 0, tokens: 0, cost: 0 };
-    row.calls += 1;
-    row.tokens += e.inputTokens + e.outputTokens;
-    row.cost += costOf(e);
-    byJob.set(job, row);
-  }
-  const jobRows = [...byJob.entries()].sort((a, b) => b[1].tokens - a[1].tokens);
+  const freeLeftToday = providers.reduce((n, p) => n + p.remainingToday, 0);
+  const callsLeftToday = providers.reduce((n, p) => n + (p.callsLeftToday ?? 0), 0);
 
   const cards = [
-    { key: "total", icon: Cpu, label: t.totalTokens, value: fmt(s.totalTokens), note: `${s.totalCalls} ${t.calls}` },
-    { key: "today", icon: Gauge, label: t.todayTokens, value: fmt(s.todayTokens), note: `${t.freeLeft}: ${fmt(s.remainingFreeToday)}` },
-    { key: "spend", icon: Wallet, label: t.spend, value: usd(s.totalCost), note: `${usd(s.todayCost)} ${t.todaySpend}` },
+    { key: "total", icon: Cpu, label: t.totalTokens, value: fmt(meters.totalTokens), note: `${meters.totalCalls} ${t.calls}` },
+    { key: "today", icon: Gauge, label: t.todayTokens, value: fmt(meters.todayTokens), note: `${t.freeLeft}: ${fmt(freeLeftToday)}` },
+    { key: "spend", icon: Wallet, label: t.spend, value: usd(meters.totalCost), note: `${usd(meters.todayCost)} ${t.todaySpend}` },
   ];
 
-  // Gemini is the default miner, so its remaining free allowance and the exact
+  // Gemini is the default engine, so its remaining free allowance and the exact
   // moment it refills get their own headline card.
-  const geminiRows = s.providers.filter((p) => p.provider.startsWith("gemini") && p.free);
-  const geminiRate = rateFor("gemini-builtin");
-  const gemini: Pick<ProviderUsage, "callsToday" | "dailyFreeCalls" | "todayTokens" | "dailyFreeTokens"> =
-    geminiRows.length > 0
-      ? {
-          callsToday: geminiRows.reduce((n, p) => n + p.callsToday, 0),
-          dailyFreeCalls: Math.max(...geminiRows.map((p) => p.dailyFreeCalls)),
-          todayTokens: geminiRows.reduce((n, p) => n + p.todayTokens, 0),
-          dailyFreeTokens: Math.max(...geminiRows.map((p) => p.dailyFreeTokens)),
-        }
-      : {
-          callsToday: 0,
-          dailyFreeCalls: geminiRate.dailyFreeCalls,
-          todayTokens: 0,
-          dailyFreeTokens: geminiRate.dailyFreeTokens,
-        };
-  const geminiCallsLeft = Math.max(0, gemini.dailyFreeCalls - gemini.callsToday);
-  const geminiTokensLeft = Math.max(0, gemini.dailyFreeTokens - gemini.todayTokens);
-  const geminiPct = gemini.dailyFreeCalls > 0 ? Math.min(100, (gemini.callsToday / gemini.dailyFreeCalls) * 100) : 0;
+  const geminiRows = providers.filter((p) => p.provider.startsWith("gemini") && p.free);
+  const geminiRate = rateFor("gemini");
+  const geminiCallsUsed = geminiRows.reduce((n, p) => n + p.callsToday, 0);
+  const geminiTokensUsed = geminiRows.reduce((n, p) => n + p.todayTokens, 0);
+  const geminiFreeCalls = geminiRate.dailyFreeCalls;
+  const geminiFreeTokens = geminiRate.dailyFreeTokens;
+  const geminiCallsLeft = Math.max(0, geminiFreeCalls - geminiCallsUsed);
+  const geminiTokensLeft = Math.max(0, geminiFreeTokens - geminiTokensUsed);
+  const geminiPct = geminiFreeCalls > 0 ? Math.min(100, (geminiCallsUsed / geminiFreeCalls) * 100) : 0;
 
   const nextReset = new Date(now);
   nextReset.setHours(24, 0, 0, 0);
@@ -212,7 +251,7 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
           <p className="text-xs text-muted-foreground">{t.geminiCalls}</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
             {geminiCallsLeft}
-            <span className="ml-1 text-sm font-normal text-muted-foreground">/ {gemini.dailyFreeCalls}</span>
+            <span className="ml-1 text-sm font-normal text-muted-foreground">/ {geminiFreeCalls}</span>
           </p>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-background">
             <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${geminiPct}%` }} />
@@ -222,29 +261,27 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
           <p className="text-xs text-muted-foreground">{t.geminiTokens}</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">
             {fmt(geminiTokensLeft)}
-            <span className="ml-1 text-sm font-normal text-muted-foreground">/ {fmt(gemini.dailyFreeTokens)}</span>
+            <span className="ml-1 text-sm font-normal text-muted-foreground">/ {fmt(geminiFreeTokens)}</span>
           </p>
         </div>
       </div>
     </div>
   );
 
-  // Per-AI credit counters: how many calls each AI has burned today and how
-  // many of its free daily calls are still available.
   const credits = (
     <div className="mt-5 min-w-0 rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-baseline gap-2">
         <h4 className="text-sm font-semibold text-foreground">{t.creditsTitle}</h4>
         <p className="text-xs text-muted-foreground">{t.creditsSub}</p>
         <p className="ml-auto text-xs tabular-nums text-muted-foreground">
-          {s.callsToday} {t.callsUsed} · {s.remainingCallsToday} {t.callsLeft}
+          {meters.todayCalls} {t.callsUsed} · {callsLeftToday} {t.callsLeft}
         </p>
       </div>
-      {s.providers.length === 0 ? (
+      {providers.length === 0 ? (
         <p className="mt-3 text-xs text-muted-foreground">{t.creditsNone}</p>
       ) : (
         <ul className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
-          {s.providers.map((p) => {
+          {providers.map((p) => {
             const capped = p.dailyFreeCalls > 0;
             const left = p.callsLeftToday ?? 0;
             const pct = capped ? Math.min(100, Math.round((p.callsToday / p.dailyFreeCalls) * 100)) : 0;
@@ -291,107 +328,99 @@ export function TokenUsagePanel({ lang }: { lang: Lang }) {
           <h3 className="text-lg font-semibold text-foreground">{t.title}</h3>
           <p className="text-xs text-muted-foreground">{t.sub}</p>
         </div>
-        {s.totalCalls > 0 && (
-          <button
-            type="button"
-            onClick={() => void clearUsage().then(() => setLedger({ entries: [] }))}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            {t.reset}
-          </button>
-        )}
       </div>
 
-      <div className="grid min-w-0 gap-3 sm:grid-cols-3">
-        {cards.map((c) => {
-          const Icon = c.icon;
-          return (
-            <div key={c.key} className="min-w-0 rounded-xl border border-border bg-muted p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Icon className="h-4 w-4" />
-                <p className="truncate text-xs font-medium uppercase tracking-wider">{c.label}</p>
-              </div>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{c.value}</p>
-              <p className="mt-1 truncate text-xs text-muted-foreground">{c.note}</p>
+      {signedOut && meters.totalCalls === 0 ? (
+        <p className="text-sm text-muted-foreground">{t.signIn}</p>
+      ) : (
+        <>
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+            {cards.map((c) => {
+              const Icon = c.icon;
+              return (
+                <div key={c.key} className="min-w-0 rounded-xl border border-border bg-muted p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Icon className="h-4 w-4" />
+                    <p className="truncate text-xs font-medium uppercase tracking-wider">{c.label}</p>
+                  </div>
+                  <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{c.value}</p>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{c.note}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {geminiCard}
+          {credits}
+
+          {meters.byRoleToday.length > 0 && (
+            <div className="mt-4 rounded-xl border border-border p-3">
+              <p className="text-xs font-medium text-foreground">{t.byJob}</p>
+              <ul className="mt-2 space-y-1">
+                {meters.byRoleToday.map((row) => (
+                  <li key={row.role} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{t.roles[row.role] ?? row.role}</span>
+                    <span className="tabular-nums text-foreground">
+                      {row.calls}× · {fmt(row.tokens)} · {usd(row.cost)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          );
-        })}
-      </div>
+          )}
 
-      {geminiCard}
-      {credits}
+          <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">{t.provider}</th>
+                  <th className="px-3 py-2 font-medium">{t.used}</th>
+                  <th className="px-3 py-2 font-medium">{t.inOut}</th>
+                  <th className="px-3 py-2 font-medium">{t.left}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t.cost}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providers.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      {t.none}
+                    </td>
+                  </tr>
+                )}
+                {providers.map((p) => (
+                  <tr key={p.provider} className="border-t border-border">
+                    <td className="px-3 py-2">
+                      <span className="font-medium text-foreground">{p.label}</span>
+                      <span
+                        className={`ml-2 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                          p.free ? "border-emerald-500/40 text-emerald-400" : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {p.free ? t.free : t.paid}
+                      </span>
+                      <span className="ml-2 text-xs text-muted-foreground">{p.calls}×</span>
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-foreground">{fmt(p.totalTokens)}</td>
+                    <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
+                      {fmt(p.inputTokens)} / {fmt(p.outputTokens)}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
+                      {p.dailyFreeTokens > 0 ? fmt(p.remainingToday) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium text-foreground">{usd(p.cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {jobRows.length > 0 && (
-        <div className="mt-4 rounded-xl border border-border p-3">
-          <p className="text-xs font-medium text-foreground">
-            {pickCopy({ en: "Today, by job", mn: "Өнөөдөр, ажлаар", ko: "오늘, 작업별" }, lang)}
+          <p className="mt-3 text-xs text-muted-foreground">
+            {t.note}
+            {meters.lastCallAt ? ` · ${t.lastCall}: ${new Date(meters.lastCallAt).toLocaleString()}` : ""}
           </p>
-          <ul className="mt-2 space-y-1">
-            {jobRows.map(([job, row]) => (
-              <li key={job} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{pickCopy(jobLabels[job]!, lang)}</span>
-                <span className="tabular-nums text-foreground">
-                  {row.calls}× · {fmt(row.tokens)} · {usd(row.cost)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        </>
       )}
-
-      <div className="mt-4 min-w-0 overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[520px] text-left text-sm">
-          <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">{t.provider}</th>
-              <th className="px-3 py-2 font-medium">{t.used}</th>
-              <th className="px-3 py-2 font-medium">{t.inOut}</th>
-              <th className="px-3 py-2 font-medium">{t.left}</th>
-              <th className="px-3 py-2 text-right font-medium">{t.cost}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {s.providers.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-xs text-muted-foreground">
-                  {t.none}
-                </td>
-              </tr>
-            )}
-            {s.providers.map((p) => (
-              <tr key={p.provider} className="border-t border-border">
-                <td className="px-3 py-2">
-                  <span className="font-medium text-foreground">{p.label}</span>
-                  <span
-                    className={`ml-2 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                      p.free
-                        ? "border-emerald-500/40 text-emerald-400"
-                        : "border-border text-muted-foreground"
-                    }`}
-                  >
-                    {p.free ? t.free : t.paid}
-                  </span>
-                  <span className="ml-2 text-xs text-muted-foreground">{p.calls}×</span>
-                </td>
-                <td className="px-3 py-2 tabular-nums text-foreground">{fmt(p.totalTokens)}</td>
-                <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
-                  {fmt(p.inputTokens)} / {fmt(p.outputTokens)}
-                </td>
-                <td className="px-3 py-2 tabular-nums text-xs text-muted-foreground">
-                  {p.dailyFreeTokens > 0 ? fmt(p.remainingToday) : "—"}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium text-foreground">{usd(p.cost)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="mt-3 text-xs text-muted-foreground">
-        {t.note}
-        {s.lastCallAt ? ` · ${t.lastCall}: ${new Date(s.lastCallAt).toLocaleString()}` : ""}
-      </p>
     </section>
   );
 }
