@@ -907,7 +907,9 @@ export function speakerIdentityDirective(identity: string | undefined): string {
 Known participants: ${who}.
 Map every diarized voice onto these names in "speakers". The Mind Owner / Host is the ONLY "primary" role; every guest, interviewer or caller is "secondary".
 - "subconsciousness" (skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, aestheticProfile) must contain ONLY what the Mind Owner personally says. Never absorb a guest's opinions, expertise or phrasing into the owner's identity.
-- Guest statements are still valuable: record them as "knowledgeNodes" whose "concept_title" is prefixed with "Guest context: " and whose explanation names the guest. They are contextual knowledge, not owner identity.
+- QUESTION → ANSWER PAIRING (keeps meaning intact): never cut the owner's words away from what prompted them. Whenever the owner answers or reacts to a guest's question, statement or challenge, the owner's "knowledgeNodes" entry must be self-contained: begin "detailed_explanation" with "Asked by <guest>: <the question or prompt, briefly paraphrased>" and then give the owner's full answer in the owner's own reasoning, so the answer reads as a complete, meaningful thought on its own. Resolve pronouns and fragments ("yes", "that one", "because it's cheaper") into the concrete subject from the question.
+- Guest questions and statements stay as context only: record them as "knowledgeNodes" whose "concept_title" is prefixed with "Guest context: " and whose explanation names the guest. They never shape the owner's identity, tone or beliefs.
+- Keep every line (owner and guests) in "subtitle" so the full conversation remains readable.
 - If you cannot tell who is speaking, mark the speaker "unknown" and keep the line out of the owner's core identity.\n`;
 }
 
