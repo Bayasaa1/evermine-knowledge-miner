@@ -160,10 +160,13 @@ function replyLanguageRule(history: ChatMsg[], uiLang: LangCode): string {
   return [
     `REPLY LANGUAGE (highest priority):`,
     `- Detect the language of the latest user message and answer ONLY in that same language.`,
-    `- Recognise romanised or transliterated language too. In particular, Latin-script Mongolian such as "bi mongoloor bichiheer" is Mongolian and must receive a natural Mongolian Cyrillic reply.`,
+    `- Recognise romanised or transliterated language too. In particular, Latin-script Mongolian such as "bi mongoloor bichiheer" is Mongolian.`,
+    `- SCRIPT RULE (absolute): whenever the answer is Mongolian, write it 100% in Mongolian Cyrillic (Монгол кирилл). Never answer in Latin letters, never transliterate, never mix scripts, even when the person wrote in Latin letters. "sain uu" gets "Сайн уу" back, not "Sain uu".`,
+    `- Spelling must be correct and complete in the chosen language. No invented, half-transliterated or truncated words.`,
     `- The app interface is currently ${LANGUAGES[uiLang].name}, but that is only a fallback for a message whose language truly cannot be identified. It must never override the language the person wrote.`,
     `- For a very short or ambiguous message, follow the language of the nearest earlier user message; only then fall back to ${LANGUAGES[uiLang].name}.`,
     `Latest user message: <latest-user-message>${latestUser.slice(0, 1000)}</latest-user-message>`,
+
   ].join("\n");
 }
 
