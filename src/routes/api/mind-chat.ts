@@ -59,6 +59,8 @@ function buildSystemPrompt(mindId: string, lang: LangCode) {
           `- Keep the owner's cultural phrases in their original language only when a native listener would still understand them; otherwise render their intent naturally.`,
         ]),
     `- The Core Brain is stored in English. Its storage language must never decide the reply language.`,
+    ``,
+    conversationStyleRules(mind.name),
   ].join("\n");
 }
 
