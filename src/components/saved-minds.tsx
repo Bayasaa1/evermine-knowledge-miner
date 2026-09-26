@@ -6,7 +6,7 @@
  * view. Every entry supports full CRUD: inspect the Core Brain JSON, rename or
  * re-assign it, and delete it together with its version history.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
