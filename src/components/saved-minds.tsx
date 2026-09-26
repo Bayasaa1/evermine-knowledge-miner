@@ -139,8 +139,19 @@ export function SavedMinds({
       },
       lang,
     ),
-
-
+    needsFiling: pickCopy({ en: "Needs filing", mn: "Бүртгэх хэрэгтэй", ko: "분류 필요" }, lang),
+    needsFilingDesc: pickCopy(
+      {
+        en: "These were mined before a persona was picked. Tell me where each one belongs — nothing here is hidden, it just has no home yet.",
+        mn: "Эдгээр нь дүр сонгогдохоос өмнө олборлогдсон. Аль нь хаана хамаарахыг хэлээд өг — энд байгаа зүйл нуагдаагүй, зүгээр нэг гэргүй байна.",
+        ko: "페르소나를 고르기 전에 마이닝된 항목입니다. 각각 어디에 속하는지 알려주세요 — 숨겨진 것이 아니라 아직 자리가 없을 뿐입니다.",
+      },
+      lang,
+    ),
+    fileThis: pickCopy({ en: "File this…", mn: "Бүртгэх…", ko: "파일하기…" }, lang),
+    sendTo: pickCopy({ en: "Send to…", mn: "Илгээх…", ko: "보내기…" }, lang),
+    filed: pickCopy({ en: "Filed", mn: "Бүртгэлээ", ko: "분류 완료" }, lang),
+    undo: pickCopy({ en: "Undo", mn: "Буцаах", ko: "되돌리기" }, lang),
   };
 
   const { data: personas = [] } = useQuery<Persona[]>({
@@ -188,6 +199,16 @@ export function SavedMinds({
     }
     return map;
   }, [jobs]);
+
+  /** Whole projects with no persona — shown in "Needs filing" until placed. */
+  const { data: unfiledProjects = [] } = useQuery<Project[]>({
+    queryKey: ["unfiled-projects", userId],
+    queryFn: () => (userId ? listUnfiledProjects(userId) : Promise.resolve([])),
+    enabled: isAuthenticated && Boolean(userId),
+    refetchOnMount: "always",
+  });
+
+  const rebuild = useServerFn(rebuildProjectConcepts);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
 
