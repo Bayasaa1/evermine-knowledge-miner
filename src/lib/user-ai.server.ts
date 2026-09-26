@@ -712,6 +712,14 @@ async function raiseForGemini(res: Response): Promise<never> {
     /* keep the bounded raw text */
   }
   if (res.status === 429) throw classifyGemini429(raw);
+  // A retired model is permanent — never retry it, never mark the key bad.
+  if (res.status === 404 || /no longer available|is not found for api version/i.test(detail)) {
+    throw new UserAiError(
+      "model_unavailable",
+      `Gemini no longer serves this model (${detail.slice(0, 160)}). Evermind has switched to the free-tier gemini-3.1-flash-lite — try again.`,
+      404,
+    );
+  }
   if (res.status === 400 && /api key|key not valid|permission/i.test(detail)) {
     throw new UserAiError("no_credential", "That Gemini key was rejected. Add or replace it in API Manager.", 401);
   }
