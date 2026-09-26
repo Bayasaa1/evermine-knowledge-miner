@@ -12,6 +12,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AiRole } from "@/lib/ai-roles";
+import { GEMINI_DEFAULT_MODEL, GEMINI_PAID_MODEL } from "@/lib/gemini-models";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
@@ -914,7 +915,9 @@ export async function geminiStream(opts: {
   /** When given, the call is written to the account usage history. */
   usage?: import("@/lib/ai-usage.server").UsageMeta;
 }): Promise<string> {
-  const model = opts.model ?? "gemini-3.1-flash-lite";
+  const model = isAutoModel(opts.model)
+    ? (FREE_MODEL_CACHE.get(opts.credential.value)?.model ?? GEMINI_DEFAULT_MODEL)
+    : opts.model!;
   const { url, headers } = geminiUrl(model, "streamGenerateContent?alt=sse", opts.credential);
   // streamGenerateContent puts alt=sse in the query string; with a key both
   // params must live on the URL.
