@@ -121,7 +121,7 @@ export const HANDLE_TAKEN = "It's not available";
 export async function isHandleTaken(handle: string, excludeId?: string): Promise<boolean> {
   const h = handle.trim().replace(/^@?/, "@");
   if (h.length < 2) return false;
-  const { data } = await supabase.rpc("persona_handle_taken", { _handle: h, _exclude_id: excludeId ?? undefined });
+  const { data } = await supabase.rpc("persona_handle_taken", excludeId ? { _handle: h, _exclude_id: excludeId } : { _handle: h });
   return data === true;
 }
 
