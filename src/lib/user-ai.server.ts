@@ -15,7 +15,7 @@ import type { AiRole } from "@/lib/ai-roles";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
-export type AiErrorCode = "no_credential" | "quota" | "rate_minute" | "unsupported_task";
+export type AiErrorCode = "no_credential" | "quota" | "rate_minute" | "unsupported_task" | "model_unavailable";
 
 export class UserAiError extends Error {
   code: AiErrorCode;
