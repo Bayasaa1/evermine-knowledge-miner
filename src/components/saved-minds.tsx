@@ -151,9 +151,8 @@ export function SavedMinds({
       lang,
     ),
     fileSelected: pickCopy({ en: "File selected", mn: "Сонгосныг бүртгэх", ko: "선택 항목 분류" }, lang),
-    selectAll: pickCopy({ en: "Select all", mn: "Бүгдийг сонгох", ko: "모두 선택" }, lang),
     sameVideo: pickCopy({ en: "Same video", mn: "Ижил бичлэг", ko: "같은 영상" }, lang),
-    empty: pickCopy({ en: "Empty", mn: "Хоосон", ko: "비어 있음" }, lang),
+    emptyTag: pickCopy({ en: "Empty", mn: "Хоосон", ko: "비어 있음" }, lang),
     videos: pickCopy({ en: "videos", mn: "бичлэг", ko: "개 영상" }, lang),
     fileThis: pickCopy({ en: "File this…", mn: "Бүртгэх…", ko: "파일하기…" }, lang),
     sendTo: pickCopy({ en: "Send to…", mn: "Илгээх…", ko: "보내기…" }, lang),
@@ -561,7 +560,7 @@ export function SavedMinds({
                 <FolderInput className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">{p.title}</span>
                 {emptyIds.includes(p.id) && (
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{t.empty}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{t.emptyTag}</span>
                 )}
                 <button
                   type="button"
