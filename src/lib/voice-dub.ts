@@ -58,15 +58,37 @@ export function startDub(opts: {
         } catch {
           /* non-JSON error body */
         }
-        // No cloned voice yet — speak with the device's own voice for free,
-        // with a simple simulated mouth so the avatar still moves.
-        if (code === "no_clone" && typeof window !== "undefined" && "speechSynthesis" in window) {
+        // Free path: whatever went wrong above (no cloned voice, no voice
+        // credit, a busy AI key), the reply must still be heard — the phone's
+        // own built-in voice speaks it, at no cost to anyone.
+        void code;
+        if (typeof window !== "undefined" && "speechSynthesis" in window) {
           const utter = new SpeechSynthesisUtterance(opts.text);
           const bcp47 = opts.lang === "mn" ? "mn-MN" : opts.lang === "ko" ? "ko-KR" : "en-US";
-          utter.lang = bcp47;
-          const voices = window.speechSynthesis.getVoices();
+          let voices = window.speechSynthesis.getVoices();
+          if (voices.length === 0) {
+            // Voices load lazily on first use, especially on phones.
+            await new Promise<void>((resolve) => {
+              const t = setTimeout(resolve, 1200);
+              window.speechSynthesis.onvoiceschanged = () => { clearTimeout(t); resolve(); };
+            });
+            voices = window.speechSynthesis.getVoices();
+          }
           const match = voices.find((v) => v.lang.toLowerCase().startsWith(opts.lang));
-          if (match) utter.voice = match;
+          if (match) {
+            utter.voice = match;
+            utter.lang = match.lang;
+          } else {
+            // No voice for this language on the device: speak with the
+            // default voice rather than staying silent.
+            const fallback = voices.find((v) => v.default) ?? voices[0];
+            if (fallback) {
+              utter.voice = fallback;
+              utter.lang = fallback.lang;
+            } else {
+              utter.lang = bcp47;
+            }
+          }
           let mouth = 0;
           opts.onStart?.();
           const animate = () => {

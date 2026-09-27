@@ -7,7 +7,9 @@ const TTS_MODELS = ["gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tt
 const LANG_NAME: Record<string, string> = { mn: "Mongolian (Khalkha, fluent native speaker)", ko: "Korean", en: "English" };
 
 export async function geminiSpeak(apiKey: string, text: string, lang: string, voice = "Puck"): Promise<string> {
-  const style = `Read this aloud in ${LANG_NAME[lang] ?? "the text's own language"}, with natural native pronunciation, warm and conversational:`;
+  // The reply may mix languages in one sentence (e.g. Mongolian with English
+  // game words), so never force a single pronunciation on the whole text.
+  const style = `Read this aloud exactly as written, warm and conversational. Pronounce every word natively in whatever language it is written in — the text may mix ${LANG_NAME[lang] ?? "several languages"} with other languages inside one sentence, and each word must keep its own native pronunciation:`;
   let last = "";
   for (const model of TTS_MODELS) {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -43,7 +45,14 @@ export async function geminiHear(apiKey: string, audioB64: string, mime: string,
       contents: [{
         parts: [
           { inlineData: { mimeType: mime, data: audioB64 } },
-          { text: `Transcribe exactly what the speaker says. The speaker most likely speaks ${LANG_NAME[lang] ?? "any language"}; write Mongolian in Cyrillic. Output only the words spoken, nothing else. If there is no speech, output nothing.` },
+          { text: [
+            `Listen and transcribe exactly what the speaker says, word for word.`,
+            `Do NOT assume a language. First detect which language each part of the speech is in, then write each part in that language's own script and spelling.`,
+            `The speaker often code-switches: one sentence can mix Mongolian, English, Korean and other languages. Keep every word in the language it was actually spoken in — never translate, never force everything into one language.`,
+            `Write Mongolian in Cyrillic, Korean in Hangul, English in normal Latin spelling.`,
+            `The app language is ${LANG_NAME[lang] ?? "unknown"}, which is only a weak hint — trust what you actually hear over this hint.`,
+            `Output only the words spoken, nothing else. If there is no speech, output nothing.`,
+          ].join("\n") },
         ],
       }],
       generationConfig: { temperature: 0 },
