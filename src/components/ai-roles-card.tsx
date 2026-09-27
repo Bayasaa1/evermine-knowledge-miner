@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Loader2, RefreshCw, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Loader2, Plus, RefreshCw, X } from "lucide-react";
 
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 import { describeAiRoles, listAiRoles, setAiRole, testAiRoleKey, testAllAiRoles } from "@/lib/ai-roles.functions";
@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { pickCopy, useLang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
-type KeyRow = { id: string; provider: string; tail: string; enabled: boolean; status?: string };
+type KeyRow = { id: string; provider: string; tail: string; enabled: boolean; status?: string; costKind?: string; label?: string | null };
 type Report = { role: string; provider: string; assignedProvider: string | null; assignedTail: string | null; assignedKeyId: string | null; effectiveProvider: string | null; effectiveTail: string | null; missing: boolean };
 type TestState = { ok: boolean; message: string } | "running";
 
@@ -36,6 +36,8 @@ export function AiRolesCard() {
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [reports, setReports] = useState<Record<string, Report>>({});
   const [fallback, setFallback] = useState<Record<string, boolean>>({});
+  const [teams, setTeams] = useState<Record<string, string[]>>({});
+  const [exclusive, setExclusive] = useState<Record<string, boolean>>({});
   const [tests, setTests] = useState<Record<string, TestState>>({});
   const [busy, setBusy] = useState<AiRole | null>(null);
   const [note, setNote] = useState("");
@@ -53,6 +55,12 @@ export function AiRolesCard() {
     noKey: pickCopy({ en: "Add a key first", mn: "Эхлээд түлхүүр нэм", ko: "먼저 키를 추가하세요" }, lang),
     unavailable: pickCopy({ en: "currently unavailable", mn: "одоогоор ажиллахгүй", ko: "현재 사용 불가" }, lang),
     fallback: pickCopy({ en: "Switch automatically when this key runs out", mn: "Энэ түлхүүр дуусвал автоматаар солих", ko: "이 키가 소진되면 자동 전환" }, lang),
+    team: pickCopy({ en: "Keys for this job, in order — #1 runs it, the next takes over when it runs out", mn: "Энэ ажлын түлхүүрүүд дарааллаар — #1 ажиллана, дуусвал дараагийнх нь орно", ko: "이 작업의 키 순서 — 1번이 실행하고 소진되면 다음 키로 넘어갑니다" }, lang),
+    add: pickCopy({ en: "Add a key to this job", mn: "Энэ ажилд түлхүүр нэмэх", ko: "이 작업에 키 추가" }, lang),
+    only: pickCopy({ en: "Only this job may use these keys", mn: "Эдгээр түлхүүрийг зөвхөн энэ ажил ашиглана", ko: "이 키들은 이 작업만 사용" }, lang),
+    usedBy: pickCopy({ en: "kept for", mn: "зориулсан:", ko: "전용:" }, lang),
+    free: pickCopy({ en: "free", mn: "үнэгүй", ko: "무료" }, lang),
+    paid: pickCopy({ en: "paid", mn: "төлбөртэй", ko: "유료" }, lang),
     checkAll: pickCopy({ en: "Check everything", mn: "Бүгдийг шалгах", ko: "모두 확인" }, lang),
     geminiChat: pickCopy({
       en: "Recommended for multilingual character chat: Gemini handles Mongolian and persona consistency better than the default free OpenRouter model.",
@@ -72,12 +80,18 @@ export function AiRolesCard() {
     setKeys((k as KeyRow[]).filter((row) => row.enabled));
     const next: Record<string, string> = {};
     const nextFallback: Record<string, boolean> = {};
+    const nextTeams: Record<string, string[]> = {};
+    const nextOnly: Record<string, boolean> = {};
     for (const row of r) {
       next[row.role] = row.keyId ?? AUTO;
       nextFallback[row.role] = row.autoFallback;
+      nextTeams[row.role] = row.teamKeyIds?.length ? row.teamKeyIds : row.keyId ? [row.keyId] : [];
+      nextOnly[row.role] = row.exclusive;
     }
     setChoice(next);
     setFallback(nextFallback);
+    setTeams(nextTeams);
+    setExclusive(nextOnly);
     const byRole: Record<string, Report> = {};
     for (const row of d as Report[]) byRole[row.role] = row;
     setReports(byRole);
@@ -124,10 +138,40 @@ export function AiRolesCard() {
     }
   };
 
+  const saveTeam = async (role: AiRole, team: string[], only = exclusive[role] ?? false) => {
+    setTeams((c) => ({ ...c, [role]: team }));
+    setExclusive((c) => ({ ...c, [role]: only }));
+    setBusy(role);
+    setNote("");
+    try {
+      const first = keys.find((key) => key.id === team[0]);
+      if (!first) {
+        await saveRole({ data: { role, provider: null, keyTail: null } });
+      } else {
+        await saveRole({ data: { role, provider: first.provider, keyTail: first.tail, keyId: first.id, autoFallback: team.length > 1 || (fallback[role] ?? true), teamKeyIds: team, exclusive: only } });
+      }
+      clearRoleCache();
+      setNote(t.saved);
+      await refresh();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const move = (list: string[], i: number, d: number) => {
+    const next = [...list];
+    const j = i + d;
+    if (j < 0 || j >= next.length) return next;
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    return next;
+  };
+
   const toggleFallback = async (role: AiRole, enabled: boolean) => {
     setFallback((current) => ({ ...current, [role]: enabled }));
     const selected = keys.find((key) => key.id === choice[role]);
-    if (selected) await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: enabled } });
+    if (selected) await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: enabled, teamKeyIds: teams[role] ?? [selected.id], exclusive: exclusive[role] ?? false } });
   };
 
   const testAll = async () => {
@@ -169,22 +213,6 @@ export function AiRolesCard() {
                 <p className="text-xs text-muted-foreground">{copy[role].hint}</p>
               </div>
 
-                <select
-                  value={choice[role] ?? AUTO}
-                  disabled={busy === role}
-                  onChange={(e) => void pick(role, e.target.value)}
-                  aria-label={copy[role].name}
-                  className="rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground"
-                >
-                  <option value={AUTO}>{options.length ? t.auto : t.none}</option>
-                  {options.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {PROVIDER_LABEL[k.provider] ?? k.provider} ···{k.tail}
-                      {k.status === "exhausted" || k.status === "invalid" ? ` — ${t.unavailable}` : ""}
-                    </option>
-                  ))}
-                </select>
-
               {report?.effectiveTail && (
                 <button
                   type="button"
@@ -195,10 +223,68 @@ export function AiRolesCard() {
                 </button>
               )}
             </div>
-            <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            {(() => {
+              const team = teams[role] ?? [];
+              const ownerOf = (id: string) => AI_ROLES.find((r) => r !== role && exclusive[r] && (teams[r] ?? []).includes(id));
+              const addable = options.filter((k) => !team.includes(k.id));
+              const label = (k: KeyRow) => `${PROVIDER_LABEL[k.provider] ?? k.provider}${k.label ? ` · ${k.label}` : ""} ···${k.tail}`;
+              return (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[11px] text-muted-foreground">{t.team}</p>
+                  {team.length === 0 && <p className="text-[11px] text-muted-foreground">— {options.length ? t.auto : t.none}</p>}
+                  {team.map((id, i) => {
+                    const k = keys.find((key) => key.id === id);
+                    if (!k) return null;
+                    const out = k.status === "exhausted" || k.status === "invalid";
+                    return (
+                      <div key={id} className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 px-2 py-1 text-xs">
+                        <span className="w-5 font-semibold text-foreground">#{i + 1}</span>
+                        <span className="min-w-0 flex-1 truncate text-foreground">{label(k)}</span>
+                        <span className={`rounded px-1 text-[10px] ${k.costKind === "paid" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                          {k.costKind === "paid" ? t.paid : t.free}
+                        </span>
+                        {out && <span className="text-[10px] text-amber-500">{t.unavailable}</span>}
+                        <button type="button" aria-label="up" disabled={busy === role || i === 0} onClick={() => void saveTeam(role, move(team, i, -1))} className="p-1 text-muted-foreground disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
+                        <button type="button" aria-label="down" disabled={busy === role || i === team.length - 1} onClick={() => void saveTeam(role, move(team, i, 1))} className="p-1 text-muted-foreground disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
+                        <button type="button" aria-label="remove" disabled={busy === role} onClick={() => void saveTeam(role, team.filter((x) => x !== id))} className="p-1 text-muted-foreground"><X className="h-3 w-3" /></button>
+                      </div>
+                    );
+                  })}
+                  {addable.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Plus className="h-3 w-3 text-muted-foreground" />
+                      <select
+                        value=""
+                        disabled={busy === role}
+                        onChange={(e) => e.target.value && void saveTeam(role, [...team, e.target.value])}
+                        aria-label={`${copy[role].name} — ${t.add}`}
+                        className="flex-1 rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground"
+                      >
+                        <option value="">{t.add}</option>
+                        {addable.map((k) => {
+                          const owner = ownerOf(k.id);
+                          return (
+                            <option key={k.id} value={k.id} disabled={!!owner}>
+                              {label(k)} ({k.costKind === "paid" ? t.paid : t.free}){owner ? ` — ${t.usedBy} ${copy[owner].name}` : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+                  {team.length > 0 && (
+                    <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <input type="checkbox" checked={exclusive[role] ?? false} disabled={busy === role} onChange={(e) => void saveTeam(role, team, e.target.checked)} />
+                      {t.only}
+                    </label>
+                  )}
+                </div>
+              );
+            })()}
+            {(teams[role]?.length ?? 0) <= 1 && <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
               <input type="checkbox" checked={fallback[role] ?? true} onChange={(event) => void toggleFallback(role, event.target.checked)} />
               {t.fallback}
-            </label>
+            </label>}
 
             {report && (
               <p className="mt-1 text-[11px] text-muted-foreground">
