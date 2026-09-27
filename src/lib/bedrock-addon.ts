@@ -109,7 +109,7 @@ export function buildBedrockAddon(mindName: string, gaming: GamingExtraction, op
         'world.afterEvents.entitySpawn.subscribe(({ entity }) => {',
         `  if (entity.typeId !== ${JSON.stringify(id)}) return;`,
         "  entity.nameTag = NAME;",
-        '  say(" + JSON.stringify(opts.greeting || "Reporting in. Give me " + tameItem + " and I fight beside you.") + ");',
+        "  say(" + JSON.stringify(opts.greeting || "Reporting in. Give me " + tameItem + " and I fight beside you.") + ");",
         "});",
         "world.afterEvents.entityDie.subscribe(({ deadEntity, damageSource }) => {",
         `  if (deadEntity.typeId === ${JSON.stringify(id)}) say(MISTAKES.length ? "Classic mistake — " + pick(MISTAKES) : "That went badly. Regrouping.");`,
