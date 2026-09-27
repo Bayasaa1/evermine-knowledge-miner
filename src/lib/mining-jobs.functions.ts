@@ -233,6 +233,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
         // Playlist auto-resume: skip a job another tab or the background
         // worker touched in the last 3 minutes.
         respectLease: z.boolean().optional(),
+        /** Parallel lane: each lane starts on a different Gemini key. */
+        lane: z.number().int().min(0).max(20).optional(),
       })
       .parse(input),
   )

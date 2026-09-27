@@ -196,13 +196,71 @@ async function markKeyUnavailable(keyId: string, status: "ok" | "exhausted" | "i
  * the next saved Gemini key when the provider reports a real limit. The role's
  * automatic-switch setting remains authoritative.
  */
+/**
+ * The Gemini keys that can take a parallel mining lane, in the creator's order:
+ * the Mining team when one is set, else every healthy Gemini key not kept for
+ * another job.
+ */
+export async function geminiLaneKeyIds(userId: string, role: AiRole = "mine"): Promise<string[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const now = new Date().toISOString();
+  const { data: keys } = await supabaseAdmin
+    .from("user_ai_keys")
+    .select("id, status, cooldown_until, rank, updated_at")
+    .eq("user_id", userId)
+    .eq("enabled", true)
+    .eq("provider", "gemini")
+    .order("rank", { ascending: true })
+    .order("updated_at", { ascending: false });
+  const healthy = (keys ?? []).filter(
+    (k) => k.status !== "invalid" && !(k.cooldown_until && k.cooldown_until > now),
+  );
+  const { data: roleRows } = await supabaseAdmin
+    .from("user_ai_roles")
+    .select("role, team_key_ids, exclusive")
+    .eq("user_id", userId);
+  const team = ((roleRows ?? []).find((r) => r.role === role)?.team_key_ids ?? []) as string[];
+  if (team.length) return team.filter((id) => healthy.some((k) => k.id === id));
+  const reserved = new Set(
+    (roleRows ?? []).filter((r) => r.role !== role && r.exclusive).flatMap((r) => (r.team_key_ids ?? []) as string[]),
+  );
+  return healthy.filter((k) => !reserved.has(k.id)).map((k) => k.id);
+}
+
 export async function runGeminiRoleWithFallback<T>(
   userId: string,
   role: "mine" | "face_clone",
   run: (credential: AiCredential, key: ResolvedUserKey) => Promise<T>,
+  /** Parallel mining lane: lane N starts on the Nth Gemini key, then falls back as usual. */
+  lane?: number,
 ): Promise<{ value: T; key: ResolvedUserKey }> {
   const skipped: string[] = [];
   let lastError: unknown = new UserAiError("no_credential", NO_CREDENTIAL);
+  if (lane !== undefined && lane > 0) {
+    const ids = await geminiLaneKeyIds(userId, role).catch(() => [] as string[]);
+    const preferred = ids.length > 1 ? ids[lane % ids.length] : undefined;
+    if (preferred) {
+      try {
+        const key = await resolveUserAiKey(userId, role, ids.filter((id) => id !== preferred));
+        if (key.id === preferred && key.provider === "gemini") {
+          try {
+            const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+            await markKeyUnavailable(key.id, "ok", null);
+            return { value, key };
+          } catch (error) {
+            if (!isLimitError(error)) throw error;
+            lastError = error;
+            const minute = error instanceof UserAiError && error.code === "rate_minute";
+            const cooldown = new Date(Date.now() + (minute ? Math.max(20, error.retryAfterSec) * 1000 : 60 * 60 * 1000)).toISOString();
+            await markKeyUnavailable(key.id, minute ? "ok" : "exhausted", cooldown);
+            skipped.push(key.id);
+          }
+        }
+      } catch (error) {
+        if (!(error instanceof UserAiError && error.code === "no_credential")) throw error;
+      }
+    }
+  }
   for (;;) {
     let key: ResolvedUserKey;
     try {
