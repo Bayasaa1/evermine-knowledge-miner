@@ -1050,31 +1050,37 @@ export type Database = {
       user_ai_roles: {
         Row: {
           auto_fallback: boolean
+          exclusive: boolean
           id: string
           key_id: string | null
           key_tail: string | null
           provider: string
           role: string
+          team_key_ids: string[]
           updated_at: string
           user_id: string
         }
         Insert: {
           auto_fallback?: boolean
+          exclusive?: boolean
           id?: string
           key_id?: string | null
           key_tail?: string | null
           provider: string
           role: string
+          team_key_ids?: string[]
           updated_at?: string
           user_id: string
         }
         Update: {
           auto_fallback?: boolean
+          exclusive?: boolean
           id?: string
           key_id?: string | null
           key_tail?: string | null
           provider?: string
           role?: string
+          team_key_ids?: string[]
           updated_at?: string
           user_id?: string
         }
