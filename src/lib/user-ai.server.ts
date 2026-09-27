@@ -223,12 +223,19 @@ export async function geminiLaneKeyIds(userId: string, role: AiRole = "mine"): P
     .from("user_ai_roles")
     .select("role, team_key_ids, exclusive")
     .eq("user_id", userId);
-  const team = ((roleRows ?? []).find((r) => r.role === role)?.team_key_ids ?? []) as string[];
-  if (team.length) return team.filter((id) => healthy.some((k) => k.id === id));
+  const roleRow = (roleRows ?? []).find((r) => r.role === role);
+  const team = (roleRow?.team_key_ids ?? []) as string[];
   const reserved = new Set(
     (roleRows ?? []).filter((r) => r.role !== role && r.exclusive).flatMap((r) => (r.team_key_ids ?? []) as string[]),
   );
-  return healthy.filter((k) => !reserved.has(k.id)).map((k) => k.id);
+  const spares = healthy.filter((k) => !reserved.has(k.id) && !team.includes(k.id)).map((k) => k.id);
+  if (team.length) {
+    const teamHealthy = team.filter((id) => healthy.some((k) => k.id === id));
+    // An exclusive team keeps its lanes to itself; otherwise spare healthy
+    // keys can take a lane too, so a one-key team never means one lane.
+    return roleRow?.exclusive ? teamHealthy : [...teamHealthy, ...spares];
+  }
+  return spares;
 }
 
 export async function runGeminiRoleWithFallback<T>(
