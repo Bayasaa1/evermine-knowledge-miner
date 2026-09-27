@@ -27,6 +27,7 @@ import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindCoachRouteImport } from './routes/api/mind-coach'
 import { Route as ApiMindFaceRouteImport } from './routes/api/mind-face'
+import { Route as ApiMindHearRouteImport } from './routes/api/mind-hear'
 import { Route as ApiMindLevelRouteImport } from './routes/api/mind-level'
 import { Route as ApiMindVisionRouteImport } from './routes/api/mind-vision'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
@@ -128,6 +129,11 @@ const ApiMindFaceRoute = ApiMindFaceRouteImport.update({
   path: '/api/mind-face',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMindHearRoute = ApiMindHearRouteImport.update({
+  id: '/api/mind-hear',
+  path: '/api/mind-hear',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMindLevelRoute = ApiMindLevelRouteImport.update({
   id: '/api/mind-level',
   path: '/api/mind-level',
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-hear': typeof ApiMindHearRoute
   '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-hear': typeof ApiMindHearRoute
   '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
   '/api/mind-face': typeof ApiMindFaceRoute
+  '/api/mind-hear': typeof ApiMindHearRoute
   '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
@@ -285,6 +294,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-coach'
     | '/api/mind-face'
+    | '/api/mind-hear'
     | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
@@ -314,6 +324,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-coach'
     | '/api/mind-face'
+    | '/api/mind-hear'
     | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
@@ -343,6 +354,7 @@ export interface FileRouteTypes {
     | '/api/mind-chat'
     | '/api/mind-coach'
     | '/api/mind-face'
+    | '/api/mind-hear'
     | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
@@ -373,6 +385,7 @@ export interface RootRouteChildren {
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindCoachRoute: typeof ApiMindCoachRoute
   ApiMindFaceRoute: typeof ApiMindFaceRoute
+  ApiMindHearRoute: typeof ApiMindHearRoute
   ApiMindLevelRoute: typeof ApiMindLevelRoute
   ApiMindVisionRoute: typeof ApiMindVisionRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
@@ -512,6 +525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMindFaceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mind-hear': {
+      id: '/api/mind-hear'
+      path: '/api/mind-hear'
+      fullPath: '/api/mind-hear'
+      preLoaderRoute: typeof ApiMindHearRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/mind-level': {
       id: '/api/mind-level'
       path: '/api/mind-level'
@@ -598,6 +618,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindCoachRoute: ApiMindCoachRoute,
   ApiMindFaceRoute: ApiMindFaceRoute,
+  ApiMindHearRoute: ApiMindHearRoute,
   ApiMindLevelRoute: ApiMindLevelRoute,
   ApiMindVisionRoute: ApiMindVisionRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
