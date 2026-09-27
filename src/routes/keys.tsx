@@ -17,6 +17,16 @@ const copy = {
     rolesHint: "Choose which key does the translating, mining, chatting, voice and more.",
     usage: "Tokens and cost",
     usageHint: "How much you used today, what is left free, and when it refills.",
+    guide: "What $10 actually gets you",
+    guideRows: [
+      ["Gemini (paid)", "60–70 hours of video mining, or thousands of chat replies"],
+      ["DeepSeek", "Lively chat + translation + Core Brain — months of normal use"],
+      ["OpenAI (GPT-4o mini)", "The most reliable — never stalls, slightly pricier"],
+      ["Claude", "Best writing quality, but $10 runs out the fastest"],
+      ["ElevenLabs", "Real voice cloning — roughly 60–70 minutes of speech"],
+    ],
+    guideNote:
+      "Free keys (Gemini free tier) cover light use. Dead keys with errors can be removed below — they are never used automatically.",
   },
   mn: {
     title: "API удирдлага",
@@ -27,6 +37,16 @@ const copy = {
     rolesHint: "Орчуулга, олборлолт, чат, дуу зэргийг аль түлхүүр ажиллуулахыг сонго.",
     usage: "Токен ба зардал",
     usageHint: "Өнөөдөр хэр зарцуулсан, үнэгүй хэр үлдсэн, хэзээ шинэчлэгдэх.",
+    guide: "$10-аар юу амжуулах вэ",
+    guideRows: [
+      ["Gemini (төлбөртэй)", "60–70 цагийн видео олборлолт, эсвэл мянга мянган чат хариу"],
+      ["DeepSeek", "Амьд чат + орчуулга + Core Brain — хэвийн хэрэглээнд хэдэн сар"],
+      ["OpenAI (GPT-4o mini)", "Хамгийн найдвартай — хэзээ ч гацдаггүй, бага зэрэг үнэтэй"],
+      ["Claude", "Хамгийн сайн бичвэр, гэхдээ $10 хамгийн хурдан дуусна"],
+      ["ElevenLabs", "Жинхэнэ дуу хуулбар — ойролцоогоор 60–70 минутын яриа"],
+    ],
+    guideNote:
+      "Үнэгүй түлхүүр (Gemini free tier) хөнгөн хэрэглээг хангана. Алдаа заасан түлхүүрүүдийг доороос устгаж болно — тэдгээр хэзээ ч автоматаар ашиглагдахгүй.",
   },
   ko: {
     title: "API 관리",
@@ -37,6 +57,16 @@ const copy = {
     rolesHint: "번역, 마이닝, 채팅, 음성을 어떤 키가 맡을지 고르세요.",
     usage: "토큰과 비용",
     usageHint: "오늘 사용량, 남은 무료 한도, 초기화 시각.",
+    guide: "$10로 실제로 할 수 있는 것",
+    guideRows: [
+      ["Gemini (유료)", "60–70시간 영상 마이닝, 또는 수천 개의 채팅 답변"],
+      ["DeepSeek", "생생한 채팅 + 번역 + Core Brain — 일반 사용으로 몇 달"],
+      ["OpenAI (GPT-4o mini)", "가장 안정적 — 멈춤 없음, 약간 더 비쌈"],
+      ["Claude", "최고의 글쓰기 품질, 하지만 $10이 가장 빨리 소진"],
+      ["ElevenLabs", "실제 음성 복제 — 약 60–70분 분량의 음성"],
+    ],
+    guideNote:
+      "무료 키(Gemini 무료 등급)는 가벼운 사용을 커버합니다. 오류가 표시된 키는 아래에서 삭제할 수 있습니다 — 자동으로 사용되지 않습니다.",
   },
 } as const;
 
