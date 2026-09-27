@@ -240,7 +240,7 @@ export async function analyzeYoutubeVideo(input: {
 
   let result: ChunkResult;
   try {
-    result = normalizeChunkResult(JSON.parse(text));
+    result = normalizeChunkResult(parseLooseJson(text));
   } catch {
     throw new Error("AI returned an unreadable video analysis.");
   }
@@ -262,7 +262,7 @@ export async function analyzeYoutubeVideo(input: {
         subjectId: input.usage.videoId ?? url,
         subjectLabel: input.usage.videoLabel ?? url,
       });
-      result = normalizeChunkResult(JSON.parse(written.text));
+      result = normalizeChunkResult(parseLooseJson(written.text));
     } catch {
       // The watched result is complete and remains usable when the optional
       // writing engine is unavailable.
@@ -282,4 +282,64 @@ export async function analyzeYoutubeVideo(input: {
     }));
   }
   return result;
+}
+/**
+ * Reads the JSON an engine returned even when it wrapped it in ``` fences, a
+ * sentence, or stopped mid-way (a cut-off answer is closed and kept).
+ */
+export function parseLooseJson(text: string): unknown {
+  const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  try {
+    return JSON.parse(t);
+  } catch {
+    /* rescue below */
+  }
+  const start = t.search(/[[{]/);
+  if (start < 0) throw new Error("no JSON");
+  const body = t.slice(start);
+  const end = Math.max(body.lastIndexOf("}"), body.lastIndexOf("]"));
+  if (end > 0) {
+    try {
+      return JSON.parse(body.slice(0, end + 1));
+    } catch {
+      /* try repairing a cut-off answer */
+    }
+  }
+  // Close a truncated answer: drop the unfinished tail, then close open brackets.
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  let lastSafe = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i]!;
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{" || c === "[") stack.push(c === "{" ? "}" : "]");
+    else if (c === "}" || c === "]") stack.pop();
+    if (!inStr && (c === "," || c === "}" || c === "]" || c === "{" || c === "[")) lastSafe = i;
+  }
+  for (let cut = lastSafe; cut > 0; cut--) {
+    const head = body.slice(0, cut + 1).replace(/,\s*$/, "");
+    const open: string[] = [];
+    let s2 = false, e2 = false;
+    for (const c of head) {
+      if (s2) { if (e2) e2 = false; else if (c === "\\") e2 = true; else if (c === '"') s2 = false; continue; }
+      if (c === '"') s2 = true;
+      else if (c === "{" || c === "[") open.push(c === "{" ? "}" : "]");
+      else if (c === "}" || c === "]") open.pop();
+    }
+    if (s2) continue;
+    try {
+      return JSON.parse(head + open.reverse().join(""));
+    } catch {
+      const prev = Math.max(head.lastIndexOf(",", cut - 1), 0);
+      cut = prev + 1;
+    }
+  }
+  throw new Error("unreadable JSON");
 }
