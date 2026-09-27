@@ -527,18 +527,22 @@ export function AiKeysCard({
       );
       if (!result.ok) {
         const s = result.status ?? 0;
+        // A voice engine has no chat models, so the "models" wording would be
+        // wrong and confusing there.
+        const notFound = provider === "elevenlabs" ? t.errVoiceAccess : t.errModel;
         const reason =
           s === 401 || s === 403
             ? t.errKey
             : s === 402
               ? t.errCredit
               : s === 404 || s === 400
-                ? t.errModel
+                ? notFound
                 : s === 429
                   ? t.errLimit
                   : s === 0
                     ? t.errNet
                     : t.invalid;
+
         toast.error(`${info.label}: ${reason}`);
         return;
       }
