@@ -31,6 +31,7 @@ export type ProviderId =
   | "xai"
   | "perplexity"
   | "cohere"
+  | "elevenlabs"
   | "custom";
 
 export type ProviderInfo = {
@@ -239,6 +240,18 @@ export const PROVIDERS: ProviderInfo[] = [
     testModel: "command-r7b-12-2024",
     costPer1k: 0.00015,
     good: "Strong at search, tagging and multilingual notes.",
+  },
+  {
+    id: "elevenlabs",
+    label: "ElevenLabs",
+    paid: true,
+    keyField: "ELEVENLABS_API_KEY",
+    placeholder: "sk_…",
+    keyUrl: "https://elevenlabs.io/app/settings/api-keys",
+    baseUrl: "https://api.elevenlabs.io",
+    testModel: "",
+    costPer1k: 0.00015,
+    good: "Clones a real voice for calls and dubs. The only voice engine.",
   },
   {
     id: "custom",
