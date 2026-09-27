@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Wallet } from "lucide-react";
 
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { AiRolesCard } from "@/components/ai-roles-card";
