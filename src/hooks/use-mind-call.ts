@@ -67,6 +67,7 @@ export function useMindCall(
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     dubRef.current?.stop();
     dubRef.current = null;
     queueRef.current = [];
@@ -79,27 +80,77 @@ export function useMindCall(
 
   useEffect(() => stop, [stop]);
 
+  /**
+   * Records the caller and transcribes with their own Gemini key — phone
+   * browsers can't recognise Mongolian speech. Stops on a second tap or after
+   * ~1.4s of silence once the caller has spoken.
+   */
+  const recorderRef = useRef<MediaRecorder | null>(null);
   const listen = useCallback(() => {
     if (listening) {
-      recognitionRef.current?.stop();
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
       return;
     }
-    const scope = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
-    const Ctor = scope.SpeechRecognition ?? scope.webkitSpeechRecognition;
-    if (!Ctor) throw new Error("Voice input is not supported by this browser.");
-    const recognition = new Ctor();
-    recognition.lang = lang;
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onresult = (event) => {
-      const text = Array.from(event.results).map((result) => result[0]?.transcript ?? "").join(" ").trim();
-      if (text) onTranscript(text);
-    };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
-    recognitionRef.current = recognition;
+    if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Voice input is not supported by this browser.");
+    }
     setListening(true);
-    recognition.start();
+    void (async () => {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      } catch {
+        setListening(false);
+        return;
+      }
+      const mime = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recorderRef.current = rec;
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      const ctx = new AudioContext();
+      const analyser = ctx.createAnalyser();
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      let spoke = false;
+      let quietSince = Date.now();
+      const began = Date.now();
+      const timer = window.setInterval(() => {
+        analyser.getByteTimeDomainData(buf);
+        let peak = 0;
+        for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
+        if (peak > 14) { spoke = true; quietSince = Date.now(); }
+        const quiet = Date.now() - quietSince;
+        if ((spoke && quiet > 1400) || (!spoke && Date.now() - began > 8000) || Date.now() - began > 60000) {
+          if (rec.state === "recording") rec.stop();
+        }
+      }, 120);
+      rec.onstop = async () => {
+        window.clearInterval(timer);
+        stream.getTracks().forEach((t) => t.stop());
+        void ctx.close();
+        recorderRef.current = null;
+        if (!spoke || chunks.length === 0) { setListening(false); return; }
+        const blob = new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" });
+        const b64 = await new Promise<string>((resolve) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+          r.readAsDataURL(blob);
+        });
+        try {
+          const res = await apiFetch("/api/mind-hear", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: b64, mime: blob.type.split(";")[0], lang }),
+          });
+          const json = (await res.json().catch(() => ({}))) as { text?: string };
+          if (json.text) onTranscript(json.text);
+        } finally {
+          setListening(false);
+        }
+      };
+      rec.start(250);
+    })();
   }, [lang, listening, onTranscript]);
 
   const drain = useCallback(async () => {
