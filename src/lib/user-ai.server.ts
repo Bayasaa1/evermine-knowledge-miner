@@ -131,20 +131,24 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return "capped";
     return null;
   };
-  // Teams: a job with its own ordered team only ever uses those keys, in that
-  // order (e.g. free Gemini first, then the paid account). Keys that another
-  // job keeps "only for itself" are never borrowed by automatic picks.
+  // Teams: a job with its own ordered team tries those keys first, in that
+  // order (e.g. free Gemini first, then the paid account). When every team key
+  // is resting or out of quota, the job still falls back to the account's other
+  // compatible keys instead of stopping — unless the user marked the team
+  // "only these keys" (exclusive). Keys that another job keeps for itself are
+  // never borrowed by automatic picks.
   const { data: roleRows } = await supabaseAdmin
     .from("user_ai_roles")
     .select("role, team_key_ids, exclusive")
     .eq("user_id", userId);
-  const team = ((roleRows ?? []).find((r) => r.role === role)?.team_key_ids ?? []) as string[];
+  const roleRow = (roleRows ?? []).find((r) => r.role === role);
+  const team = (roleRow?.team_key_ids ?? []) as string[];
   const reserved = new Set(
     (roleRows ?? []).filter((r) => r.role !== role && r.exclusive).flatMap((r) => (r.team_key_ids ?? []) as string[]),
   );
-  const pool = team.length
-    ? team.map((id) => rows.find((row) => row.id === id)).filter((row): row is (typeof rows)[number] => !!row)
-    : rows.filter((row) => !reserved.has(row.id));
+  const teamKeys = team.map((id) => rows.find((row) => row.id === id)).filter((row): row is (typeof rows)[number] => !!row);
+  const spareKeys = rows.filter((row) => !reserved.has(row.id) && !team.includes(row.id));
+  const pool = team.length ? (roleRow?.exclusive ? teamKeys : [...teamKeys, ...spareKeys]) : spareKeys;
   const free = pool.filter((row) => !skipIds.includes(row.id) && unusableReason(row) === null);
   // A key that once failed but has no rest time left is not binned: it simply
   // goes to the back of the queue, so a good key is always tried first and a
@@ -219,12 +223,19 @@ export async function geminiLaneKeyIds(userId: string, role: AiRole = "mine"): P
     .from("user_ai_roles")
     .select("role, team_key_ids, exclusive")
     .eq("user_id", userId);
-  const team = ((roleRows ?? []).find((r) => r.role === role)?.team_key_ids ?? []) as string[];
-  if (team.length) return team.filter((id) => healthy.some((k) => k.id === id));
+  const roleRow = (roleRows ?? []).find((r) => r.role === role);
+  const team = (roleRow?.team_key_ids ?? []) as string[];
   const reserved = new Set(
     (roleRows ?? []).filter((r) => r.role !== role && r.exclusive).flatMap((r) => (r.team_key_ids ?? []) as string[]),
   );
-  return healthy.filter((k) => !reserved.has(k.id)).map((k) => k.id);
+  const spares = healthy.filter((k) => !reserved.has(k.id) && !team.includes(k.id)).map((k) => k.id);
+  if (team.length) {
+    const teamHealthy = team.filter((id) => healthy.some((k) => k.id === id));
+    // An exclusive team keeps its lanes to itself; otherwise spare healthy
+    // keys can take a lane too, so a one-key team never means one lane.
+    return roleRow?.exclusive ? teamHealthy : [...teamHealthy, ...spares];
+  }
+  return spares;
 }
 
 export async function runGeminiRoleWithFallback<T>(
