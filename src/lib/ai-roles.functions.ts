@@ -14,11 +14,11 @@ export const listAiRoles = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<RoleChoice[]> => {
     const { data } = await context.supabase
       .from("user_ai_roles")
-      .select("role, provider, key_tail, key_id, auto_fallback")
+      .select("role, provider, key_tail, key_id, auto_fallback, team_key_ids, exclusive")
       .eq("user_id", context.userId);
-    return ((data ?? []) as { role: string; provider: string; key_tail: string | null; key_id: string | null; auto_fallback: boolean }[])
+    return ((data ?? []) as { role: string; provider: string; key_tail: string | null; key_id: string | null; auto_fallback: boolean; team_key_ids: string[] | null; exclusive: boolean }[])
       .filter((r) => (AI_ROLES as string[]).includes(r.role))
-      .map((r) => ({ role: r.role as AiRole, provider: r.provider, keyTail: r.key_tail, keyId: r.key_id, autoFallback: r.auto_fallback }));
+      .map((r) => ({ role: r.role as AiRole, provider: r.provider, keyTail: r.key_tail, keyId: r.key_id, autoFallback: r.auto_fallback, teamKeyIds: r.team_key_ids ?? [], exclusive: !!r.exclusive }));
   });
 
 export const setAiRole = createServerFn({ method: "POST" })
@@ -32,6 +32,10 @@ export const setAiRole = createServerFn({ method: "POST" })
         keyTail: z.string().max(8).nullable().optional(),
         keyId: z.string().uuid().nullable().optional(),
         autoFallback: z.boolean().optional(),
+        /** Ordered team for this job: #1 runs it, the rest take over in order. */
+        teamKeyIds: z.array(z.string().uuid()).max(50).optional(),
+        /** Only this job may use the team's keys. */
+        exclusive: z.boolean().optional(),
       })
       .parse(input),
   )
@@ -56,6 +60,16 @@ export const setAiRole = createServerFn({ method: "POST" })
       .eq("id", data.keyId ?? "00000000-0000-0000-0000-000000000000")
       .maybeSingle();
     if (data.keyId && (!ownedKey || ownedKey.provider !== provider)) throw new Error("That key does not belong to this account.");
+    const team = [...new Set(data.teamKeyIds ?? (data.keyId ? [data.keyId] : []))];
+    if (team.length) {
+      const { data: owned } = await context.supabase
+        .from("user_ai_keys")
+        .select("id, provider")
+        .eq("user_id", context.userId)
+        .in("id", team);
+      const ok = (owned ?? []).filter((k) => ROLE_PROVIDERS[data.role].includes(k.provider));
+      if (ok.length !== team.length) throw new Error("A key in this team cannot do this job or does not belong to this account.");
+    }
     const { error } = await context.supabase.from("user_ai_roles").upsert(
       {
         user_id: context.userId,
@@ -64,6 +78,8 @@ export const setAiRole = createServerFn({ method: "POST" })
         key_tail: (data.keyTail ?? "").trim() || null,
         key_id: data.keyId ?? null,
         auto_fallback: data.autoFallback ?? true,
+        team_key_ids: team,
+        exclusive: data.exclusive ?? false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,role" },

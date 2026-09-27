@@ -112,7 +112,7 @@ export const ROLE_STRENGTH: Record<"en" | "mn" | "ko", Partial<Record<string, st
   },
 };
 
-export type RoleChoice = { role: AiRole; provider: string; keyTail: string | null; keyId: string | null; autoFallback: boolean };
+export type RoleChoice = { role: AiRole; provider: string; keyTail: string | null; keyId: string | null; autoFallback: boolean; teamKeyIds: string[]; exclusive: boolean };
 
 export function isAiRole(v: unknown): v is AiRole {
   return typeof v === "string" && (AI_ROLES as string[]).includes(v);
