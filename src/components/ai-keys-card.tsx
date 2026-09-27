@@ -276,13 +276,18 @@ async function testKey(
     }
 
     if (provider.id === "elevenlabs") {
-      // Voice API: no chat endpoint, so list the voices this key can see.
-      const res = await fetch("https://api.elevenlabs.io/v1/voices", {
-        headers: { "xi-api-key": key },
-      });
-      if (res.ok) return { ok: true };
-      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      // Voice engine: no chat models at all. Ask the account about itself, and
+      // fall back to the voice list when the key is scoped to voices only.
+      const me = await fetch("https://api.elevenlabs.io/v1/user", { headers: { "xi-api-key": key } });
+      if (me.ok) return { ok: true };
+      if (me.status === 401 || me.status === 403) {
+        const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
+        if (res.ok) return { ok: true };
+        return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      }
+      return { ok: false, status: me.status, detail: (await me.text().catch(() => "")).slice(0, 200) };
     }
+
 
     if (provider.id === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
