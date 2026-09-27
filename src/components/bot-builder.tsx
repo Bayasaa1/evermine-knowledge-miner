@@ -80,7 +80,7 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
       tameItem,
       fightMobs,
       guardOwner,
-      greeting: greeting.trim() || undefined,
+      ...(greeting.trim() ? { greeting: greeting.trim() } : {}),
       lines: lineList,
       chatEverySec: clamp(every, 20, 3600),
       baseColor,
