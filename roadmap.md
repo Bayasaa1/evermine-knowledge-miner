@@ -79,3 +79,8 @@
 - [x] Persona rename must reach the project, chat self-intro and every mined file automatically
 - [x] Fix the stale "Technobkade" name on the Technoblade project
 - [x] Voice call + Game Coach usable right now for the gaming mind
+
+## Voice calls that anyone can use
+- [x] Understand any language the caller speaks, including mixed sentences
+- [x] Reply in the same language the caller just used
+- [x] Free voice reply with the phone's own voice when no paid voice is set up
