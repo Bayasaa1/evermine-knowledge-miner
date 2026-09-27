@@ -142,7 +142,11 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
   if (error || !data) return null;
   const content = Array.isArray(data.project_content) ? data.project_content : [];
   const ownerKey = String(data.creator_name ?? "").toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
-  const transcriptRows = content.flatMap((item) => {
+  // A gameplay or solo video labels the creator generically ("Host", "Speaker",
+  // "Commentator") while every named speaker is a game character. An interview
+  // labels the guest by name, and there "Host" is somebody else entirely.
+  const COMMENTARY = new Set(["host", "speaker", "commentator", "narrator", "me", "creator"]);
+  const cuesOf = (item: { transcript: unknown }) => {
     if (!Array.isArray(item.transcript)) return [];
     return item.transcript
       .map((cue) => {
@@ -154,14 +158,21 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
         };
       })
       .filter((cue) => Boolean(cue.speech));
+  };
+  // Never mix host and guest dialogue: that makes the cloned person claim
+  // somebody else's stories. Empty is safer than a false voice.
+  const transcript = content.flatMap((item) => {
+    const cues = cuesOf(item);
+    const named = cues.filter((cue) => {
+      const speakerKey = cue.speaker.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
+      return ownerKey.length > 3 && speakerKey.length > 3 && (speakerKey.includes(ownerKey) || ownerKey.includes(speakerKey));
+    });
+    if (named.length >= 20) return named.map((cue) => cue.speech);
+    // Too few lines carry the creator's name here, so this is their own solo
+    // video: the generic commentary voice is them talking over the footage.
+    const commentary = cues.filter((cue) => COMMENTARY.has(cue.speaker.toLowerCase()));
+    return [...named, ...commentary].map((cue) => cue.speech);
   });
-  const ownerLines = transcriptRows.filter((cue) => {
-    const speakerKey = cue.speaker.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
-    return ownerKey.length > 3 && speakerKey.length > 3 && (speakerKey.includes(ownerKey) || ownerKey.includes(speakerKey));
-  });
-  // Never fall back to mixed host/guest dialogue: that makes the cloned person
-  // claim the host's stories and identity. Empty is safer than a false voice.
-  const transcript = ownerLines.map((cue) => cue.speech);
   const persona = await loadMinedPersona(projectId);
   // Short, punchy real lines make the best speaking samples.
   const sampleLines = transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25);

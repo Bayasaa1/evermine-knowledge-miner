@@ -74,3 +74,8 @@
 - [x] Show a Gemini recommendation for chat without changing the user's selection
 - [x] Refresh missing personality data only on explicit user action, with Undo
 - [ ] Pass the Elon chat flow twice on mobile with Cyrillic Mongolian replies
+
+## Talk and play with Technoblade now
+- [x] Persona rename must reach the project, chat self-intro and every mined file automatically
+- [x] Fix the stale "Technobkade" name on the Technoblade project
+- [x] Voice call + Game Coach usable right now for the gaming mind
