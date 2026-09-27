@@ -86,6 +86,8 @@ const COPY = {
     errKey: "That service says the key is wrong or not active yet.",
     errCredit: "The key is valid but the account has no free allowance or credit left.",
     errModel: "The key is valid but the models tried are not available on this account.",
+    errVoiceAccess: "This voice key has no voice access yet. Create a key with Voices and Text-to-Speech permission.",
+
     errLimit: "Too many requests right now. Wait a moment and try again.",
     errNet: "Could not reach that service from your browser.",
     moveHint: "Recommended for what you picked — move it up to #2.",
@@ -142,6 +144,8 @@ const COPY = {
     errKey: "Тухайн үйлчилгээ түлхүүрийг буруу эсвэл идэвхгүй гэж байна.",
     errCredit: "Түлхүүр зөв ч бүртгэлд үнэгүй эрх эсвэл кредит үлдээгүй байна.",
     errModel: "Түлхүүр зөв ч туршсан загварууд энэ бүртгэлд байхгүй байна.",
+    errVoiceAccess: "Энэ дуут түлхүүрт дуу хоолойн эрх алга. Voices болон Text-to-Speech эрхтэй түлхүүр үүсгэнэ үү.",
+
     errLimit: "Хэт олон хүсэлт. Түр хүлээгээд дахин оролдоно уу.",
     errNet: "Танай хөтчөөс энэ үйлчилгээ рүү холбогдож чадсангүй.",
     moveHint: "Таны сонгосонд тохирно — #2 болгож дээш зөөгөөрэй.",
@@ -198,6 +202,8 @@ const COPY = {
     errKey: "해당 서비스가 키가 잘못되었거나 아직 활성화되지 않았다고 합니다.",
     errCredit: "키는 유효하지만 계정에 남은 무료 한도나 크레딧이 없습니다.",
     errModel: "키는 유효하지만 시도한 모델을 이 계정에서 사용할 수 없습니다.",
+    errVoiceAccess: "이 음성 키에는 음성 권한이 없습니다. Voices 및 Text-to-Speech 권한이 있는 키를 만드세요.",
+
     errLimit: "요청이 너무 많습니다. 잠시 후 다시 시도하세요.",
     errNet: "브라우저에서 해당 서비스에 연결하지 못했습니다.",
     moveHint: "선택한 유형에 추천됩니다 — #2로 올리세요.",
@@ -276,13 +282,18 @@ async function testKey(
     }
 
     if (provider.id === "elevenlabs") {
-      // Voice API: no chat endpoint, so list the voices this key can see.
-      const res = await fetch("https://api.elevenlabs.io/v1/voices", {
-        headers: { "xi-api-key": key },
-      });
-      if (res.ok) return { ok: true };
-      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      // Voice engine: no chat models at all. Ask the account about itself, and
+      // fall back to the voice list when the key is scoped to voices only.
+      const me = await fetch("https://api.elevenlabs.io/v1/user", { headers: { "xi-api-key": key } });
+      if (me.ok) return { ok: true };
+      if (me.status === 401 || me.status === 403) {
+        const res = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } });
+        if (res.ok) return { ok: true };
+        return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+      }
+      return { ok: false, status: me.status, detail: (await me.text().catch(() => "")).slice(0, 200) };
     }
+
 
     if (provider.id === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -522,18 +533,22 @@ export function AiKeysCard({
       );
       if (!result.ok) {
         const s = result.status ?? 0;
+        // A voice engine has no chat models, so the "models" wording would be
+        // wrong and confusing there.
+        const notFound = provider === "elevenlabs" ? t.errVoiceAccess : t.errModel;
         const reason =
           s === 401 || s === 403
             ? t.errKey
             : s === 402
               ? t.errCredit
               : s === 404 || s === 400
-                ? t.errModel
+                ? notFound
                 : s === 429
                   ? t.errLimit
                   : s === 0
                     ? t.errNet
                     : t.invalid;
+
         toast.error(`${info.label}: ${reason}`);
         return;
       }
