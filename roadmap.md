@@ -76,6 +76,6 @@
 - [ ] Pass the Elon chat flow twice on mobile with Cyrillic Mongolian replies
 
 ## Talk and play with Technoblade now
-- [ ] Persona rename must reach the project, chat self-intro and every mined file automatically
-- [ ] Fix the stale "Technobkade" name on the Technoblade project
-- [ ] Voice call + Game Coach usable right now for the gaming mind
+- [x] Persona rename must reach the project, chat self-intro and every mined file automatically
+- [x] Fix the stale "Technobkade" name on the Technoblade project
+- [x] Voice call + Game Coach usable right now for the gaming mind
