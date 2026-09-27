@@ -131,12 +131,8 @@ export function buildBedrockAddon(mindName: string, gaming: GamingExtraction): U
     "texts/languages.json": j(["en_US"]),
   };
 
-  const prefix = (dir: string, files: Record<string, Uint8Array>) =>
-    Object.fromEntries(Object.entries(files).map(([k, v]) => [`${dir}/${k}`, v]));
-  const bpZip = zipSync(prefix("bp", bp));
-  const rpZip = zipSync(prefix("rp", rp));
   // .mcaddon = zip containing one .mcpack per pack
-  return zipSync({ "teammate_bp.mcpack": zipSync(bp), "teammate_rp.mcpack": zipSync(rp) }, { level: 0 }) ?? (bpZip && rpZip);
+  return zipSync({ "teammate_bp.mcpack": zipSync(bp), "teammate_rp.mcpack": zipSync(rp) }, { level: 0 });
 }
 
 export function downloadBedrockAddon(mindName: string, gaming: GamingExtraction): void {

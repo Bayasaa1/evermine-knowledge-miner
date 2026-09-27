@@ -34,6 +34,7 @@ import type { MindPayload } from "@/lib/mind-json";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { GameCoach } from "@/components/game-coach";
 import { downloadTeammateBot } from "@/lib/game-bot";
+import { downloadBedrockAddon } from "@/lib/bedrock-addon";
 
 const C = {
   title: { en: "Mind Explorer", mn: "Оюун Судлаач", ko: "마인드 탐색기" },
@@ -65,6 +66,12 @@ const C = {
   gameWhen: { en: "When", mn: "Хэзээ", ko: "상황" },
   gameCounter: { en: "Counter", mn: "Эсрэг арга", ko: "카운터" },
   gameOutcome: { en: "Outcome", mn: "Үр дүн", ko: "결과" },
+  bedrock: { en: "Phone Minecraft add-on", mn: "Утасны Minecraft нэмэлт", ko: "모바일 Minecraft 애드온" },
+  bedrockHint: {
+    en: "Phone/tablet (Bedrock): tap the file to open it in Minecraft, turn on both packs in your world, use the spawn egg, then give it an emerald — it follows you, fights mobs and talks in chat.",
+    mn: "Утас/таблет (Bedrock): файлыг дарж Minecraft-д нээнэ, ертөнцийнхөө тохиргоонд хоёр багцыг асаана, spawn egg-ээр гаргаад эмерал өгнө — таныг дагаж, мангастай тулалдаж, чатаар ярина.",
+    ko: "휴대폰/태블릿(Bedrock): 파일을 눌러 Minecraft에서 열고, 월드에서 두 팩을 켠 뒤 스폰 알을 쓰고 에메랄드를 주세요. 따라다니며 몹과 싸우고 채팅으로 말합니다.",
+  },
   teammate: { en: "Download Teammate bot", mn: "Хамтрагч бот татах", ko: "팀메이트 봇 다운로드" },
   teammateHint: {
     en: "A Mineflayer bot for Minecraft Java that plays beside you, seeded with this Mind's skills and tactics.",
@@ -446,6 +453,11 @@ export function MindExplorer({
                   <Download className="mr-1.5 h-3.5 w-3.5" />
                   {t("teammate")}
                 </Button>
+                <Button size="sm" onClick={() => downloadBedrockAddon(title, view.gaming)}>
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  {t("bedrock")}
+                </Button>
+                <p className="w-full text-xs text-muted-foreground">{t("bedrockHint")}</p>
                 <p className="w-full text-xs text-muted-foreground">{t("teammateHint")}</p>
               </div>
               <section className="space-y-2">
