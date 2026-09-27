@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Eraser, Loader2, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
@@ -12,6 +12,7 @@ import { listChatHistory, appendChatMessages, deleteChatMessages, clearChatHisto
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
+import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
 
 
 type Msg = { role: "user" | "agent"; text: string; id?: string };
@@ -49,6 +50,10 @@ export function TalkToMindModal({
   const [showLevel, setShowLevel] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<{ name: string; block: string }[]>([]);
+  const [attaching, setAttaching] = useState(0);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
   const call = useMindCall(mindId, lang, (text) => void sendRef.current(text));
   const [faceUrl, setFaceUrl] = useState<string | null>(null);
@@ -190,9 +195,28 @@ export function TalkToMindModal({
 
   if (!open) return null;
 
+  const pickFiles = async (list: FileList | null) => {
+    if (!list?.length) return;
+    setAttachError(null);
+    for (const file of Array.from(list).slice(0, 5)) {
+      setAttaching((n) => n + 1);
+      try {
+        const block = await readAttachment(file);
+        setAttachments((a) => [...a, { name: file.name, block }]);
+      } catch (e) {
+        setAttachError(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        setAttaching((n) => n - 1);
+      }
+    }
+  };
+
   const send = async (spoken?: string) => {
-    const text = (spoken ?? input).trim();
-    if (!text || busy) return;
+    const typed = (spoken ?? input).trim();
+    const files = spoken ? "" : attachments.map((a) => a.block).join("");
+    const text = `${typed || (files ? (lang === "mn" ? "Энэ файлыг хараарай." : lang === "ko" ? "이 파일을 봐 주세요." : "Take a look at this file.") : "")}${files}`;
+    if (!text || busy || attaching > 0) return;
+    if (!spoken) setAttachments([]);
     // Editing an earlier message: everything from that point on is replaced.
     let base = messages;
     if (editIndex !== null) {
@@ -383,12 +407,24 @@ export function TalkToMindModal({
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
                 </div>
               ) : (
-                m.text
+                (() => {
+                  const { body, files } = splitAttachments(m.text);
+                  return (
+                    <>
+                      {files.map((f, k) => (
+                        <span key={k} className="mb-1 flex items-center gap-1 rounded bg-primary-foreground/15 px-2 py-1 text-xs">
+                          <FileText className="h-3 w-3 shrink-0" /> <span className="truncate">{f.name}</span>
+                        </span>
+                      ))}
+                      {body}
+                    </>
+                  );
+                })()
               )}
             </div>
             <div className="flex shrink-0 gap-0.5 opacity-60 group-hover:opacity-100">
               {m.role === "user" && (
-                <button type="button" aria-label="Edit" onClick={() => { setEditIndex(i); setInput(m.text); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <button type="button" aria-label="Edit" onClick={() => { setEditIndex(i); setInput(splitAttachments(m.text).body); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
                   <Pencil className="h-3 w-3" />
                 </button>
               )}
@@ -408,7 +444,36 @@ export function TalkToMindModal({
             <button type="button" onClick={() => { setEditIndex(null); setInput(""); }} className="underline">Cancel</button>
           </div>
         )}
+        {(attachments.length > 0 || attaching > 0 || attachError) && (
+          <div className="flex flex-wrap items-center gap-1.5 border-t border-border px-3 pt-2 text-xs">
+            {attachments.map((a, k) => (
+              <span key={k} className="flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                <FileText className="h-3 w-3" /> <span className="max-w-[140px] truncate">{a.name}</span>
+                <button type="button" aria-label="Remove file" onClick={() => setAttachments((x) => x.filter((_, j) => j !== k))}>
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            {attaching > 0 && (
+              <span className="flex items-center gap-1 text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> {lang === "mn" ? "Файл уншиж байна…" : lang === "ko" ? "파일 읽는 중…" : "Reading file…"}
+              </span>
+            )}
+            {attachError && <span className="text-destructive">{attachError}</span>}
+          </div>
+        )}
         <div className="flex items-center gap-2 border-t border-border p-3">
+          <input ref={fileRef} type="file" multiple accept={ATTACH_ACCEPT} className="hidden" onChange={(e) => { void pickFiles(e.target.files); e.target.value = ""; }} />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={busy}
+            aria-label={lang === "mn" ? "Файл хавсаргах" : lang === "ko" ? "파일 첨부" : "Attach file"}
+            title={lang === "mn" ? "Зураг, дуу, видео, Word, PDF, Excel" : lang === "ko" ? "사진, 음성, 영상, Word, PDF, Excel" : "Photo, voice, video, Word, PDF, Excel"}
+            className="rounded-lg p-2.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
           <input
             value={input}
             disabled={busy}

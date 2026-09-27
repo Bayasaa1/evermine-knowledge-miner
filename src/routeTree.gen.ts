@@ -22,6 +22,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as VaultsRouteImport } from './routes/vaults'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as AdminControlSessionRouteImport } from './routes/admin/control-session'
+import { Route as ApiChatAttachRouteImport } from './routes/api/chat-attach'
 import { Route as ApiDiagnoseChatRouteImport } from './routes/api/diagnose-chat'
 import { Route as ApiMindChatRouteImport } from './routes/api/mind-chat'
 import { Route as ApiMindCoachRouteImport } from './routes/api/mind-coach'
@@ -100,6 +101,11 @@ const Char91DotwellKnownChar93OauthProtectedResourceRoute =
 const AdminControlSessionRoute = AdminControlSessionRouteImport.update({
   id: '/admin/control-session',
   path: '/admin/control-session',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatAttachRoute = ApiChatAttachRouteImport.update({
+  id: '/api/chat-attach',
+  path: '/api/chat-attach',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDiagnoseChatRoute = ApiDiagnoseChatRouteImport.update({
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/vaults': typeof VaultsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/control-session': typeof AdminControlSessionRoute
+  '/api/chat-attach': typeof ApiChatAttachRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/vaults': typeof VaultsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/control-session': typeof AdminControlSessionRoute
+  '/api/chat-attach': typeof ApiChatAttachRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/vaults': typeof VaultsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/control-session': typeof AdminControlSessionRoute
+  '/api/chat-attach': typeof ApiChatAttachRoute
   '/api/diagnose-chat': typeof ApiDiagnoseChatRoute
   '/api/mind-chat': typeof ApiMindChatRoute
   '/api/mind-coach': typeof ApiMindCoachRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/vaults'
     | '/.well-known/oauth-protected-resource'
     | '/admin/control-session'
+    | '/api/chat-attach'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-coach'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/vaults'
     | '/.well-known/oauth-protected-resource'
     | '/admin/control-session'
+    | '/api/chat-attach'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-coach'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/vaults'
     | '/.well-known/oauth-protected-resource'
     | '/admin/control-session'
+    | '/api/chat-attach'
     | '/api/diagnose-chat'
     | '/api/mind-chat'
     | '/api/mind-coach'
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   VaultsRoute: typeof VaultsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AdminControlSessionRoute: typeof AdminControlSessionRoute
+  ApiChatAttachRoute: typeof ApiChatAttachRoute
   ApiDiagnoseChatRoute: typeof ApiDiagnoseChatRoute
   ApiMindChatRoute: typeof ApiMindChatRoute
   ApiMindCoachRoute: typeof ApiMindCoachRoute
@@ -462,6 +475,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/control-session'
       fullPath: '/admin/control-session'
       preLoaderRoute: typeof AdminControlSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat-attach': {
+      id: '/api/chat-attach'
+      path: '/api/chat-attach'
+      fullPath: '/api/chat-attach'
+      preLoaderRoute: typeof ApiChatAttachRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/diagnose-chat': {
@@ -573,6 +593,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AdminControlSessionRoute: AdminControlSessionRoute,
+  ApiChatAttachRoute: ApiChatAttachRoute,
   ApiDiagnoseChatRoute: ApiDiagnoseChatRoute,
   ApiMindChatRoute: ApiMindChatRoute,
   ApiMindCoachRoute: ApiMindCoachRoute,
