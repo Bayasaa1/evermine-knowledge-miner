@@ -328,6 +328,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
               credential,
               usage,
             }),
+            data.lane,
           );
       const nextResults = [...results, mined];
       const nextIndex = job.nextIndex + 1;
@@ -412,6 +413,15 @@ export const continueMiningNow = createServerFn({ method: "POST" })
       .in("status", ["paused_quota", "error", "queued"]);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/** How many mining lanes can run at once: one per healthy Gemini key (max 5). */
+export const miningLaneCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<number> => {
+    const { geminiLaneKeyIds } = await import("@/lib/user-ai.server");
+    const ids = await geminiLaneKeyIds(context.userId).catch(() => [] as string[]);
+    return Math.max(1, Math.min(5, ids.length));
   });
 
 export const listMiningJobs = createServerFn({ method: "GET" })
