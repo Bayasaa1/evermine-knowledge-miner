@@ -171,7 +171,7 @@ export function AiRolesCard() {
   const toggleFallback = async (role: AiRole, enabled: boolean) => {
     setFallback((current) => ({ ...current, [role]: enabled }));
     const selected = keys.find((key) => key.id === choice[role]);
-    if (selected) await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: enabled } });
+    if (selected) await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: enabled, teamKeyIds: teams[role] ?? [selected.id], exclusive: exclusive[role] ?? false } });
   };
 
   const testAll = async () => {
