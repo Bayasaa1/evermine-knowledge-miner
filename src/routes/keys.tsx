@@ -109,6 +109,24 @@ function KeysPage() {
         </section>
 
         <section className="mt-8">
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">{t.guide}</h2>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {t.guideRows.map(([name, what]) => (
+                <li key={name} className="text-xs">
+                  <span className="font-medium text-foreground">{name}</span>
+                  <span className="text-muted-foreground"> — {what}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-[11px] text-muted-foreground">{t.guideNote}</p>
+          </div>
+        </section>
+
+        <section className="mt-8">
           <h2 className="text-sm font-semibold text-foreground">{t.roles}</h2>
           <p className="mb-3 mt-1 text-xs text-muted-foreground">{t.rolesHint}</p>
           <AiRolesCard />
