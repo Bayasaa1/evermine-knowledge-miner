@@ -175,6 +175,28 @@ export const Route = createFileRoute("/api/mind-voice")({
         // clone (or the clone service is not configured), the client speaks
         // the reply with the device's own speech voice instead. The `no_clone`
         // code tells the player to take that free local path.
+        // Stand-in voice from the LISTENER's own Gemini key (free tier works).
+        // Phones rarely have a Mongolian voice, so the device voice stays silent.
+        try {
+          const { resolveGeminiCredential } = await import("@/lib/user-ai.server");
+          const cred = await resolveGeminiCredential(auth.userId);
+          const { geminiSpeak } = await import("@/lib/gemini-voice.server");
+          const pcm = await geminiSpeak(cred.value, text, lang);
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              const step = 64_000; // base64 chars, multiple of 4
+              for (let i = 0; i < pcm.length; i += step) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "speech.audio.delta", audio: pcm.slice(i, i + step) })}\n\n`));
+              }
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            },
+          });
+          return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } });
+        } catch (e) {
+          console.error("mind-voice gemini", e);
+        }
         void vp;
         void language;
         void speed;
