@@ -275,6 +275,15 @@ async function testKey(
       return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
     }
 
+    if (provider.id === "elevenlabs") {
+      // Voice API: no chat endpoint, so list the voices this key can see.
+      const res = await fetch("https://api.elevenlabs.io/v1/voices", {
+        headers: { "xi-api-key": key },
+      });
+      if (res.ok) return { ok: true };
+      return { ok: false, status: res.status, detail: (await res.text().catch(() => "")).slice(0, 200) };
+    }
+
     if (provider.id === "anthropic") {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
