@@ -450,7 +450,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         const asked = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? cap.def)) || 0));
         const level = Math.min(asked, cap.max);
         const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
-        const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}\n\n${replyLanguageRule(history, lang)}`;
+        const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}\n\n${replyLanguageRule(history, lang)}\n\nWhen a user message contains [[file:NAME|KIND]] … [[/file]], that is a file they just shared with you (its text, transcript or description). React to it naturally, like a friend who opened it — refer to what is actually in it, never quote the markers.`;
 
         const { generateRoleText, aiErrorResponse } = await import("@/lib/user-ai.server");
 
