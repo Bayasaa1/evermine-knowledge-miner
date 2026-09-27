@@ -132,3 +132,49 @@ export function errorKeyFor(err: unknown): string {
   if (/failed to fetch|network|offline|ECONN|timeout|aborted/i.test(msg) || status === 0) return "errNetwork";
   return "errGeneric";
 }
+
+/**
+ * Non-YouTube video sites used where YouTube is blocked or slow (China, Russia)
+ * plus plain video file links. Returns the official embed player for playback.
+ */
+export type OtherPlatform = "bilibili" | "vk" | "rutube" | "direct";
+export type OtherVideo = { platform: OtherPlatform; url: string; embedUrl: string | null };
+
+export function otherVideo(raw: string | null | undefined): OtherVideo | null {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return null;
+  let u: URL;
+  try {
+    u = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+  if (/(^|\.)bilibili\.com$/.test(host) || host === "b23.tv") {
+    const bv = u.pathname.match(/(BV[\w]{10})/)?.[1];
+    if (bv) return { platform: "bilibili", url: u.href, embedUrl: `https://player.bilibili.com/player.html?bvid=${bv}&autoplay=0&high_quality=1` };
+    const av = u.pathname.match(/\/av(\d+)/)?.[1];
+    if (av) return { platform: "bilibili", url: u.href, embedUrl: `https://player.bilibili.com/player.html?aid=${av}&autoplay=0&high_quality=1` };
+    return null;
+  }
+  if (/(^|\.)(vk\.com|vkvideo\.ru|vk\.ru)$/.test(host)) {
+    const m = (u.pathname + "?" + u.search).match(/video(-?\d+)_(\d+)/);
+    if (m) return { platform: "vk", url: u.href, embedUrl: `https://vk.com/video_ext.php?oid=${m[1]}&id=${m[2]}&hd=2` };
+    return null;
+  }
+  if (/(^|\.)rutube\.ru$/.test(host)) {
+    const id = u.pathname.match(/\/(?:video|play\/embed|shorts)\/([a-f0-9]{32})/i)?.[1];
+    if (id) return { platform: "rutube", url: u.href, embedUrl: `https://rutube.ru/play/embed/${id}` };
+    return null;
+  }
+  if (/\.(mp4|webm|mov|m4v)$/i.test(u.pathname)) return { platform: "direct", url: u.href, embedUrl: null };
+  return null;
+}
+
+/** Other-sites tab: direct video links can be mined straight from the link. */
+export function checkLink(url: string): ImportCheck {
+  const v = otherVideo(url);
+  if (!v) return { ok: false, error: { errorKey: "errUrlInvalid" } };
+  if (v.platform !== "direct") return { ok: false, error: { errorKey: "errPlatformUpload" } };
+  return { ok: true, source: { kind: "drive", url: v.url, label: url.trim() } };
+}

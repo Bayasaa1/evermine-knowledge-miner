@@ -22,6 +22,7 @@ import {
   Upload,
   Youtube,
   HardDrive,
+  Globe2,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -37,6 +38,8 @@ import { CategoryList } from "@/components/create-wizard";
 import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
   checkDrive,
+  checkLink,
+  otherVideo,
   checkFile,
   checkYoutube,
   errorKeyFor,
@@ -106,7 +109,7 @@ import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
 
 const MODEL = "gemini-3.1-flash-lite";
 
-type Tab = "youtube" | "drive" | "file";
+type Tab = "youtube" | "drive" | "link" | "file";
 
 
 export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
@@ -397,6 +400,7 @@ function StepUpload({
   const [tab, setTab] = useState<Tab>("youtube");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [postedUrl, setPostedUrl] = useState("");
   const [hasAuth, setHasAuth] = useState(true);
   const { isAuthenticated: signedIn, userId } = useAuth();
   const loadAccountKeys = useServerFn(getUserAiKeyStatus);
@@ -698,7 +702,7 @@ function StepUpload({
   }, [lang]);
 
   const resolveSource = useCallback((): ImportSource | null => {
-    const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : file ? checkFile(file) : null;
+    const check = tab === "youtube" ? checkYoutube(url) : tab === "drive" ? checkDrive(url) : tab === "link" ? checkLink(url) : file ? checkFile(file) : null;
     if (!check) {
       setErrorKey("errUrlInvalid");
       return null;
@@ -791,7 +795,7 @@ function StepUpload({
             projectId,
             kind: target.contentKind,
             youtubeId: videoId,
-            sourceUrl: source.kind === "youtube" ? source.url : source.label,
+            sourceUrl: source.kind === "youtube" ? source.url : source.kind === "file" ? (otherVideo(postedUrl)?.url ?? source.label) : source.url,
             title,
             description,
             tags,
@@ -841,7 +845,7 @@ function StepUpload({
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
       return saved.vaultId;
     },
-    [lang, queryClient, target, userId, assessment],
+    [lang, queryClient, target, userId, assessment, postedUrl],
   );
 
 
@@ -1377,6 +1381,7 @@ function StepUpload({
             [
               ["youtube", t("sourceYoutube"), Youtube],
               ["drive", t("sourceDrive"), HardDrive],
+              ["link", t("sourceLink"), Globe2],
               ...(saveMode ? [] : [["file", t("sourceFile"), Upload] as const]),
             ] as const
           ).map(([id, label, Icon]) => (
@@ -1417,6 +1422,15 @@ function StepUpload({
               <Upload className="h-5 w-5" />
               {file ? file.name : t("chooseFile")}
             </button>
+            <label className="mt-3 block text-xs text-muted-foreground">
+              {t("postedAtLabel")}
+              <input
+                value={postedUrl}
+                onChange={(e) => setPostedUrl(e.target.value)}
+                placeholder={t("linkPlaceholder")}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+            </label>
           </div>
         ) : (
           <label className="flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
@@ -1432,7 +1446,7 @@ function StepUpload({
                 const fixed = normalizeYoutubeUrl(url);
                 if (fixed && fixed !== url.trim()) setUrl(fixed);
               }}
-              placeholder={tab === "youtube" ? t("urlPlaceholder") : t("drivePlaceholder")}
+              placeholder={tab === "youtube" ? t("urlPlaceholder") : tab === "link" ? t("linkPlaceholder") : t("drivePlaceholder")}
               className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
             />
           </label>

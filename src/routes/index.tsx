@@ -784,12 +784,24 @@ function FeedCard({
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
       <div
         className={
-          item.youtubeId
+          item.youtubeId || item.embedUrl
             ? "relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*16/9),94vw)] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:16/9]"
             : "relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*9/16),92vw)] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:9/16] 2xl:w-[min(calc((100dvh-3rem)*9/16),92vw)]"
         }
       >
-        {item.youtubeId && near ? (
+        {item.embedUrl && !item.youtubeId ? (
+          near ? (
+            <iframe
+              src={item.embedUrl}
+              title={item.title}
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full border-0 bg-black"
+            />
+          ) : (
+            <div className="h-full w-full bg-black" />
+          )
+        ) : item.youtubeId && near ? (
           <YouTubeStage
             videoId={item.youtubeId}
             active={isActive}
