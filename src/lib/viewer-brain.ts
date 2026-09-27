@@ -22,7 +22,7 @@ export type BrainMoment = {
   title: string;
   note: string;
   pinnedByUser: boolean;
-  source: "chat" | "voice" | "video" | "update" | "manual";
+  source: "chat" | "voice" | "video" | "update" | "manual" | "file";
   createdAt: string;
 };
 
@@ -214,6 +214,26 @@ export function mergeSessionIntoBrain(
       createdAt: new Date().toISOString(),
     },
   ];
+
+  // Files the viewer shared are remembered by name and gist, so the Mind can
+  // bring them up later ("that sales sheet you sent me").
+  for (const t of session.turns) {
+    if (t.role !== "user") continue;
+    for (const m of t.text.matchAll(/\[\[file:([^|\]]+)\|([a-z]+)\]\]\n?([\s\S]*?)\[\[\/file\]\]/g)) {
+      p.moments = [
+        ...(p.moments || []),
+        {
+          id: newId(),
+          date: session.startedAt,
+          title: `Shared a ${m[2]} file: ${m[1]!.slice(0, 80)}`,
+          note: m[3]!.replace(/\s+/g, " ").trim().slice(0, 240),
+          pinnedByUser: false,
+          source: "file",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+  }
 
   // Achievements
   const achievements = new Map(p.achievements?.map((a) => [a.kind, a]) ?? []);
