@@ -33,6 +33,7 @@ import { buildMindView, clock, secondsOf, type Segment } from "@/lib/mind-explor
 import type { MindPayload } from "@/lib/mind-json";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { GameCoach } from "@/components/game-coach";
+import { BotBuilder } from "@/components/bot-builder";
 import { downloadTeammateBot } from "@/lib/game-bot";
 import { downloadBedrockAddon } from "@/lib/bedrock-addon";
 
@@ -225,9 +226,7 @@ export function MindExplorer({
               <TabsTrigger value="face"><UserSquare2 className="mr-1.5 h-3.5 w-3.5" />{t("face")} {view.counts['face']}</TabsTrigger>
               <TabsTrigger value="emotions"><Smile className="mr-1.5 h-3.5 w-3.5" />{t("emotions")} {view.counts['emotions']}</TabsTrigger>
               <TabsTrigger value="audio"><Music4 className="mr-1.5 h-3.5 w-3.5" />{t("audio")}</TabsTrigger>
-              {view.counts['gameSkills']! + view.counts['gameTutorials']! > 0 || view.gaming.skills.length > 0 || view.gaming.tactics.length > 0 ? (
-                <TabsTrigger value="gameplay"><Gamepad2 className="mr-1.5 h-3.5 w-3.5" />{t("gameplay")}</TabsTrigger>
-              ) : null}
+              <TabsTrigger value="gameplay"><Gamepad2 className="mr-1.5 h-3.5 w-3.5" />{t("gameplay")}</TabsTrigger>
               <TabsTrigger value="persona">{t("persona")}</TabsTrigger>
               <TabsTrigger value="raw"><Code2 className="mr-1.5 h-3.5 w-3.5" />{t("raw")}</TabsTrigger>
             </TabsList>
@@ -448,6 +447,7 @@ export function MindExplorer({
 
             <TabsContent value="gameplay" className="space-y-6 pt-4">
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+                <BotBuilder lang={lang} mindName={title} gaming={view.gaming} />
                 <GameCoach lang={lang} mindName={title} brain={view.gaming} />
                 <Button size="sm" variant="outline" onClick={() => downloadTeammateBot(title, view.gaming)}>
                   <Download className="mr-1.5 h-3.5 w-3.5" />
