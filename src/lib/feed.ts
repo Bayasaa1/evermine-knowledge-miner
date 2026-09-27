@@ -1,3 +1,4 @@
+import { otherVideo } from "@/lib/import-sources";
 /**
  * Global Home Feed: the TikTok/Reels-style content stream. Seeded from the
  * public Mind marketplace, plus everything the signed-in creator publishes
@@ -35,6 +36,8 @@ export type FeedItem = {
   src: string | null;
   /** YouTube video id — rendered with the YouTube Iframe player, no hosting cost. */
   youtubeId?: string | null;
+  /** Bilibili / VK / Rutube player for clips hosted outside YouTube. */
+  embedUrl?: string | null;
   /** Mined knowledge moments aligned to playback time. */
   timeline?: TimelineMark[];
   /** Mined emotion tags aligned to playback time. */
@@ -103,8 +106,9 @@ export async function removeFromFeed(id: string): Promise<FeedItem[]> {
 export async function projectFeed(): Promise<FeedItem[]> {
   const rows = await listPublicVisualContentLight();
   return rows
-    .filter((row) => row.youtube_id)
+    .filter((row) => row.youtube_id || otherVideo(row.source_url))
     .map((row) => {
+      const other = row.youtube_id ? null : otherVideo(row.source_url);
       const raw = (row.project?.plan_tiers ?? null) as Record<string, unknown> | null;
       // A creator selling access marks plan_tiers.enabled; otherwise the mind is free.
       const tiers = raw?.['enabled'] === true ? offeredTiers(normalizeTiers(raw)) : [];
@@ -119,9 +123,10 @@ export async function projectFeed(): Promise<FeedItem[]> {
       title: row.title,
       description: row.description,
       category: (row.category ?? "knowledge") as CreationCategory,
-      src: null,
-      youtubeId: row.youtube_id,
-      poster: `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg`,
+      src: other?.platform === "direct" ? other.url : null,
+      youtubeId: row.youtube_id || null,
+      embedUrl: other?.embedUrl ?? null,
+      poster: row.youtube_id ? `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg` : "",
       tags: row.tags,
       price: cheapest ?? Number(row.project?.price ?? 0),
       currency: (raw?.['currency'] as string | undefined) || row.project?.currency || "USD",

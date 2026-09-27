@@ -845,7 +845,7 @@ function StepUpload({
       await queryClient.invalidateQueries({ queryKey: ["mind-versions"] });
       return saved.vaultId;
     },
-    [lang, queryClient, target, userId, assessment],
+    [lang, queryClient, target, userId, assessment, postedUrl],
   );
 
 
