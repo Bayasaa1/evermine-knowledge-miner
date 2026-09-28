@@ -786,6 +786,7 @@ function FeedCard({
   return (
     <section
       ref={ref}
+      id={`feed-card-${index}`}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
       {/* Blurred backdrop on desktop so wide screens never stretch the vertical video */}
