@@ -31,9 +31,9 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
   return (
     <div
       ref={ref}
-      // The phone status bar / Dynamic Island used to sit on top of this pill,
-      // which swallowed the tap. Push it below the safe area and above the feed.
-      style={variant === "floating" ? { top: "calc(env(safe-area-inset-top) + 0.75rem)" } : undefined}
+      {...(variant === "floating"
+        ? { style: { top: "calc(env(safe-area-inset-top) + 0.75rem)" } }
+        : {})}
       className={`${variant === "floating" ? "fixed right-3 z-[70]" : "relative"} ${className}`}
     >
       <button
