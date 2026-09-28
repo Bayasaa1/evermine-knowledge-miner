@@ -246,7 +246,8 @@ export function DiagnosticChat() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={t("botFab")}
-        className="fixed bottom-4 left-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
+        className="fixed left-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
       >
         <Bot className="h-5 w-5" />
         {unseen > 0 && (
