@@ -424,6 +424,18 @@ function HomeFeed() {
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [buying, setBuying] = useState<string | null>(null);
   const [planPicker, setPlanPicker] = useState<FeedItem | null>(null);
+  // Tapping a creator opens their profile with every video of theirs in the feed.
+  const [creator, setCreator] = useState<FeedItem | null>(null);
+  const creatorVideos = creator
+    ? items.filter((it) => (it.mindId ?? it.creator) === (creator.mindId ?? creator.creator))
+    : [];
+  const jumpTo = (id: string) => {
+    setCreator(null);
+    requestAnimationFrame(() => {
+      const idx = items.findIndex((it) => it.id === id);
+      if (idx >= 0) document.getElementById(`feed-card-${idx}`)?.scrollIntoView({ behavior: "smooth" });
+    });
+  };
 
 
   const refreshPurchases = useCallback(async () => {
