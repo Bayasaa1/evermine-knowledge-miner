@@ -621,6 +621,7 @@ function FeedCard({
   onRobot: () => void;
   onVault: () => void;
   onFeedback: () => void;
+  onCreator: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
