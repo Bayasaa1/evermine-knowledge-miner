@@ -384,19 +384,68 @@ export const Route = createFileRoute("/")({
 
 const mindKey = (item: FeedItem) => item.mindId ?? item.id;
 
+type FeedOrder = "mixed" | "newest" | "oldest" | "creator";
+const ORDERS: FeedOrder[] = ["mixed", "newest", "oldest", "creator"];
+const ORDER_COPY = {
+  en: { label: "Video order", mixed: "Mixed creators", newest: "Newest first", oldest: "Oldest first", creator: "By creator", noNewer: "This is the newest video of this project", noOlder: "This is the oldest video of this project" },
+  mn: { label: "Бичлэгийн дараалал", mixed: "Бүтээгчдийг холих", newest: "Шинэ нь эхэндээ", oldest: "Хуучин нь эхэндээ", creator: "Бүтээгчээр", noNewer: "Энэ төслийн хамгийн шинэ бичлэг байна", noOlder: "Энэ төслийн хамгийн хуучин бичлэг байна" },
+  ko: { label: "영상 순서", mixed: "크리에이터 섞기", newest: "최신순", oldest: "오래된순", creator: "크리에이터별", noNewer: "이 프로젝트의 최신 영상입니다", noOlder: "이 프로젝트의 가장 오래된 영상입니다" },
+};
+
 function HomeFeed() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
-  const { data: items = [], isLoading, isError, refetch } = useQuery({
+  const { data: baseItems = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["home-feed"],
     queryFn: loadFeed,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
     retry: 2,
   });
+  const oc = ORDER_COPY[lang as keyof typeof ORDER_COPY] ?? ORDER_COPY.en;
+  // Viewer-chosen order, remembered on this device.
+  const [order, setOrder] = useState<FeedOrder>("mixed");
+  useEffect(() => {
+    const saved = localStorage.getItem("evermind.feedOrder") as FeedOrder | null;
+    if (saved && ORDERS.includes(saved)) setOrder(saved);
+  }, []);
+  const changeOrder = (o: FeedOrder) => {
+    setOrder(o);
+    setSwaps({});
+    localStorage.setItem("evermind.feedOrder", o);
+    document.querySelector("main")?.scrollTo({ top: 0 });
+  };
+  // Swiping sideways swaps the card in place for a newer/older video of the same project.
+  const [swaps, setSwaps] = useState<Record<number, FeedItem>>({});
+  const items = useMemo(() => {
+    const t = (x: FeedItem) => Date.parse(x.publishedAt) || 0;
+    let list = [...baseItems];
+    if (order === "newest") list.sort((a, b) => t(b) - t(a));
+    else if (order === "oldest") list.sort((a, b) => t(a) - t(b));
+    else if (order === "creator")
+      list.sort((a, b) => a.creator.localeCompare(b.creator) || t(b) - t(a));
+    list = list.map((it, i) => swaps[i] ?? it);
+    return list;
+  }, [baseItems, order, swaps]);
+  const swipeProject = (dir: "newer" | "older") => {
+    const cur = items[active];
+    if (!cur) return;
+    const t = (x: FeedItem) => Date.parse(x.publishedAt) || 0;
+    const same = baseItems
+      .filter((x) => (x.mindId ?? x.creator) === (cur.mindId ?? cur.creator))
+      .sort((a, b) => t(a) - t(b));
+    const pos = same.findIndex((x) => x.id === cur.id);
+    const next = same[dir === "newer" ? pos + 1 : pos - 1];
+    if (!next) {
+      toast(dir === "newer" ? oc.noNewer : oc.noOlder);
+      return;
+    }
+    setSwaps((s) => ({ ...s, [active]: next }));
+  };
+  const touch = useRef<{ x: number; y: number } | null>(null);
 
 
   // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
@@ -510,7 +559,47 @@ function HomeFeed() {
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
 
-      <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
+      <div
+        className="fixed left-4 z-30"
+        style={{ top: "calc(env(safe-area-inset-top) + 3.25rem)" }}
+      >
+        <select
+          aria-label={oc.label}
+          value={order}
+          onChange={(e) => changeOrder(e.target.value as FeedOrder)}
+          className="rounded-full border-0 bg-black/55 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur"
+        >
+          {ORDERS.map((o) => (
+            <option key={o} value={o} className="bg-background text-foreground">
+              {oc[o]}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <main
+        className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll"
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight") swipeProject("newer");
+          if (e.key === "ArrowLeft") swipeProject("older");
+        }}
+        onTouchStart={(e) => {
+          const p = e.touches[0];
+          if (p) touch.current = { x: p.clientX, y: p.clientY };
+        }}
+        onTouchEnd={(e) => {
+          const s = touch.current;
+          const p = e.changedTouches[0];
+          touch.current = null;
+          if (!s || !p) return;
+          const dx = p.clientX - s.x;
+          const dy = p.clientY - s.y;
+          if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            swipeProject(dx > 0 ? "newer" : "older");
+          }
+        }}
+      >
         {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
         {isError && <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"><p className="text-sm text-muted-foreground">Creator feed could not load.</p><button type="button" onClick={() => void refetch()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Retry</button></div>}
         {items.map((item, i) => (
