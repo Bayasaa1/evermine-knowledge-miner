@@ -1023,7 +1023,10 @@ function FeedCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
       {/* Right action rail — only the services this creator enabled */}
-      <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5 md:bottom-8">
+      <div
+        className="absolute right-3 z-20 flex flex-col items-center gap-5"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
+      >
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
           <span className="text-[10px]">{c.like}</span>
