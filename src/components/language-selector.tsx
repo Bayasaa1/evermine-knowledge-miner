@@ -31,7 +31,10 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
   return (
     <div
       ref={ref}
-      className={`${variant === "floating" ? "fixed right-3 top-3 z-50" : "relative"} ${className}`}
+      {...(variant === "floating"
+        ? { style: { top: "calc(env(safe-area-inset-top) + 0.75rem)" } }
+        : {})}
+      className={`${variant === "floating" ? "fixed right-3 z-[70]" : "relative"} ${className}`}
     >
       <button
         type="button"

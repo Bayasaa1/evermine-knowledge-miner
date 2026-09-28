@@ -424,6 +424,18 @@ function HomeFeed() {
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [buying, setBuying] = useState<string | null>(null);
   const [planPicker, setPlanPicker] = useState<FeedItem | null>(null);
+  // Tapping a creator opens their profile with every video of theirs in the feed.
+  const [creator, setCreator] = useState<FeedItem | null>(null);
+  const creatorVideos = creator
+    ? items.filter((it) => (it.mindId ?? it.creator) === (creator.mindId ?? creator.creator))
+    : [];
+  const jumpTo = (id: string) => {
+    setCreator(null);
+    requestAnimationFrame(() => {
+      const idx = items.findIndex((it) => it.id === id);
+      if (idx >= 0) document.getElementById(`feed-card-${idx}`)?.scrollIntoView({ behavior: "smooth" });
+    });
+  };
 
 
   const refreshPurchases = useCallback(async () => {
@@ -477,9 +489,14 @@ function HomeFeed() {
 
   return (
     <div className="dark min-h-screen bg-black pb-28 text-white">
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center px-4 py-3">
-        <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> {c.headline}
+      {/* Title sits under the phone status bar and stops short of the language
+          pill on the right, so the two never print on top of each other. */}
+      <header
+        className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center px-4 pr-32"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      >
+        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" /> <span className="truncate">{c.headline}</span>
         </h1>
       </header>
       {/* Sits below the language selector so it is never covered by it */}
@@ -487,7 +504,8 @@ function HomeFeed() {
         type="button"
         onClick={() => setMuted((m) => !m)}
         aria-label={muted ? "Unmute" : "Mute"}
-        className="fixed right-3 top-16 z-40 rounded-full bg-black/40 p-2 backdrop-blur"
+        style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
+        className="fixed right-3 z-40 rounded-full bg-black/55 p-2 backdrop-blur"
       >
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
@@ -516,10 +534,65 @@ function HomeFeed() {
             onRobot={() => setRobot(item)}
             onVault={() => void navigate({ to: "/vaults" })}
             onFeedback={() => setFeedback(item)}
+            onCreator={() => setCreator(item)}
           />
         ))}
 
       </main>
+
+      {creator && (
+        <div className="fixed inset-0 z-[86] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              {creator.avatarUrl ? (
+                <img src={creator.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-12 w-12 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
+                  {creator.creator.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{creator.creator}</p>
+                <p className="truncate text-xs text-muted-foreground">{creator.handle}</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setCreator(null)}>
+                <X className="h-5 w-5 text-foreground" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {creatorVideos.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => jumpTo(v.id)}
+                  className="overflow-hidden rounded-xl border border-border bg-card text-left"
+                >
+                  {v.poster ? (
+                    <img src={v.poster} alt="" className="h-24 w-full object-cover" />
+                  ) : (
+                    <div className="h-24 w-full bg-muted" />
+                  )}
+                  <span className="block px-2 py-2 text-[11px] leading-snug text-foreground line-clamp-2">
+                    {v.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const target = creator;
+                setCreator(null);
+                setTalk(target);
+              }}
+              className="mt-4 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              {c.previewChat}
+            </button>
+          </div>
+        </div>
+      )}
+
 
       <TalkToMindModal
         open={!!talk}
@@ -597,6 +670,7 @@ function FeedCard({
   onRobot,
   onVault,
   onFeedback,
+  onCreator,
 }: {
   item: FeedItem;
   muted: boolean;
@@ -614,6 +688,7 @@ function FeedCard({
   onRobot: () => void;
   onVault: () => void;
   onFeedback: () => void;
+  onCreator: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -636,6 +711,16 @@ function FeedCard({
   const [speakOn, setSpeakOn] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceBlocked, setVoiceBlocked] = useState<string | null>(null);
+  // Lets the viewer jump to any moment of the video by dragging the bar.
+  const ytSeek = useRef<((seconds: number) => void) | null>(null);
+  const setYtSeek = useCallback((fn: ((seconds: number) => void) | null) => {
+    ytSeek.current = fn;
+  }, []);
+  const seekTo = useCallback((seconds: number) => {
+    setNow(seconds);
+    if (videoRef.current) videoRef.current.currentTime = seconds;
+    ytSeek.current?.(seconds);
+  }, []);
 
   // Subtitles and mined moments are large; fetch them only for the clip on
   // screen (and keep them cached so scrolling back is instant).
@@ -768,6 +853,7 @@ function FeedCard({
   return (
     <section
       ref={ref}
+      id={`feed-card-${index}`}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
       {/* Blurred backdrop on desktop so wide screens never stretch the vertical video */}
@@ -813,6 +899,17 @@ function FeedCard({
               if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
             }}
             onToggle={toggle}
+            onSeekRef={setYtSeek}
+            blockedLabel={
+              lang === "mn"
+                ? "Энэ бичлэгийг YouTube зөвхөн өөрийн сайт дээрээ тоглуулахыг зөвшөөрсөн байна."
+                : lang === "ko"
+                  ? "이 영상은 YouTube에서만 재생할 수 있습니다."
+                  : "YouTube only allows this video to play on its own site."
+            }
+            blockedAction={
+              lang === "mn" ? "YouTube дээр үзэх" : lang === "ko" ? "YouTube에서 보기" : "Watch on YouTube"
+            }
           />
         ) : item.youtubeId ? (
           <img
@@ -869,7 +966,25 @@ function FeedCard({
           </p>
         )}
         {!!transcript?.length && (
-          <div className="absolute right-3 top-28 z-30 flex flex-col gap-2">
+          <div
+            className="absolute right-3 z-30 flex flex-col gap-2"
+            style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
+          >
+            {/* Speak the video out loud in the chosen language — one tap, no menu. */}
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              disabled={!item.mindId}
+              onClick={() => {
+                setVoiceBlocked(null);
+                setSpeakOn((on) => !on);
+              }}
+              aria-label={vc.speak}
+              className="h-9 w-9 bg-background/75 backdrop-blur"
+            >
+              <Volume2 className={`h-4 w-4 ${speakOn ? "text-primary" : "text-muted-foreground"}`} />
+            </Button>
             <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
               <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
             </Button>
@@ -952,7 +1067,10 @@ function FeedCard({
         {/* Live mined knowledge + emotion tags, aligned to what is playing.
             Kept to a single compact chip so it never collides with the caption or header. */}
         {(activeMark || activeEmotion) && (
-          <div className="pointer-events-none absolute left-3 top-16 z-20 flex max-w-[58%] items-center gap-1.5">
+          <div
+            className="pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5"
+            style={{ top: "calc(env(safe-area-inset-top) + 4rem)" }}
+          >
             {activeMark && (
               <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
@@ -973,7 +1091,10 @@ function FeedCard({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
       {/* Right action rail — only the services this creator enabled */}
-      <div className="absolute bottom-28 right-3 z-20 flex flex-col items-center gap-5 md:bottom-8">
+      <div
+        className="absolute right-3 z-20 flex flex-col items-center gap-5"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
+      >
         <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
           <span className="text-[10px]">{c.like}</span>
@@ -1047,26 +1168,50 @@ function FeedCard({
         )}
       </div>
 
-      {/* Creator overlay */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20 md:bottom-6 md:pr-16">
+      {/* Creator overlay — its own dark panel, clear of the bottom bar */}
+      <div
+        className="pointer-events-none absolute inset-x-0 z-10 px-3 pr-20 md:pr-16"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}
+      >
+        <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
+        {/* Seek bar: drag to any moment of the video */}
+        {duration > 1 && (
+          <input
+            type="range"
+            min={0}
+            max={Math.round(duration)}
+            step={1}
+            value={Math.min(Math.round(now), Math.round(duration))}
+            onChange={(e) => seekTo(Number(e.target.value))}
+            aria-label="Video position"
+            className="pointer-events-auto mb-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary"
+          />
+        )}
         <div className="mb-2 flex items-center gap-3">
-          {item.avatarUrl ? (
-            <img
-              src={item.avatarUrl}
-              alt={item.creator}
-              referrerPolicy="no-referrer"
-              className="h-9 w-9 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
-              {item.creator.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={onCreator}
+            className="pointer-events-auto flex min-w-0 items-center gap-3 text-left"
+            aria-label={item.creator}
+          >
+            {item.avatarUrl ? (
+              <img
+                src={item.avatarUrl}
+                alt={item.creator}
+                referrerPolicy="no-referrer"
+                className="h-9 w-9 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
+                {item.creator.slice(0, 2).toUpperCase()}
+              </div>
+            )}
 
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{item.creator}</p>
-            <p className="truncate text-[11px] text-white/60">{item.handle}</p>
-          </div>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">{item.creator}</span>
+              <span className="block truncate text-[11px] text-white/60">{item.handle}</span>
+            </span>
+          </button>
           <button
             type="button"
             onClick={purchased ? onPrimary : onBuy}
@@ -1107,6 +1252,7 @@ function FeedCard({
             <span className="mt-0.5 inline-block text-[11px] font-semibold text-white/60">More</span>
           )}
         </button>
+        </div>
       </div>
       </div>
 

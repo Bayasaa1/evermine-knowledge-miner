@@ -10,6 +10,7 @@
  * Conversation shape: one session-scoped conversation, kept in memory only.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { Bot, Loader2, SendHorizonal, Trash2, X } from "lucide-react";
 import { useLang, type Lang } from "@/lib/i18n";
 import { LANGUAGES } from "@/lib/languages";
@@ -96,6 +97,10 @@ async function answer(lang: Lang, history: ChatMsg[]): Promise<string> {
 
 export function DiagnosticChat() {
   const { lang, t } = useLang();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // The watching screen stays clean: the helper bubble covered the video and
+  // the Home button there. It lives on the other screens instead.
+  const hidden = pathname === "/";
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
@@ -140,13 +145,16 @@ export function DiagnosticChat() {
     }
   }, [input, thinking, messages, lang]);
 
+  if (hidden) return null;
+
   return (
     <>
       {open && (
         <div
           role="dialog"
           aria-label={t("botTitle")}
-          className="fixed bottom-20 left-4 z-50 flex h-[28rem] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 9rem)" }}
+          className="fixed left-4 z-50 flex h-[26rem] max-h-[60vh] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         >
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
             <Bot className="h-4 w-4 text-primary" />
@@ -238,7 +246,8 @@ export function DiagnosticChat() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={t("botFab")}
-        className="fixed bottom-4 left-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
+        className="fixed left-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
       >
         <Bot className="h-5 w-5" />
         {unseen > 0 && (

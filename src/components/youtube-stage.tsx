@@ -56,6 +56,9 @@ export function YouTubeStage({
   duck,
   onTime,
   onToggle,
+  onSeekRef,
+  blockedLabel,
+  blockedAction,
 }: {
   videoId: string;
   active: boolean;
@@ -65,15 +68,23 @@ export function YouTubeStage({
   duck?: boolean;
   onTime?: (seconds: number, duration: number) => void;
   onToggle?: () => void;
+  /** Hands the parent a jump-to-second function so the feed can show a scrubber. */
+  onSeekRef?: (seek: ((seconds: number) => void) | null) => void;
+  blockedLabel?: string;
+  blockedAction?: string;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const activeRef = useRef(active);
   const pausedRef = useRef(paused);
   const [ready, setReady] = useState(false);
+  /** YouTube refuses to play some videos outside its own site (age limits,
+      embedding turned off). We show our own card instead of their error. */
+  const [blocked, setBlocked] = useState(false);
 
   activeRef.current = active;
   pausedRef.current = paused;
+
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +119,9 @@ export function YouTubeStage({
               if (cancelled || e.data !== 0) return;
               e.target.seekTo(0, true);
               if (activeRef.current && !pausedRef.current) e.target.playVideo();
+            },
+            onError: () => {
+              if (!cancelled) setBlocked(true);
             },
           },
         });
@@ -168,6 +182,12 @@ export function YouTubeStage({
     return () => window.clearInterval(id);
   }, [ready, active, onTime]);
 
+  useEffect(() => {
+    if (!onSeekRef) return;
+    onSeekRef(ready ? (seconds: number) => player.current?.seekTo(seconds, true) : null);
+    return () => onSeekRef(null);
+  }, [ready, onSeekRef]);
+
   return (
     <div className="absolute inset-0">
       <div className="pointer-events-none absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full">
@@ -179,6 +199,21 @@ export function YouTubeStage({
         onClick={onToggle}
         className="absolute inset-0 h-full w-full"
       />
+      {blocked && (
+        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-neutral-950 px-8 text-center">
+          <p className="max-w-xs text-sm leading-relaxed text-white/80">
+            {blockedLabel ?? "The owner of this video only allows it to play on YouTube."}
+          </p>
+          <a
+            href={`https://www.youtube.com/watch?v=${videoId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            {blockedAction ?? "Watch on YouTube"}
+          </a>
+        </div>
+      )}
     </div>
   );
 }
