@@ -999,7 +999,10 @@ function FeedCard({
         {/* Live mined knowledge + emotion tags, aligned to what is playing.
             Kept to a single compact chip so it never collides with the caption or header. */}
         {(activeMark || activeEmotion) && (
-          <div className="pointer-events-none absolute left-3 top-16 z-20 flex max-w-[58%] items-center gap-1.5">
+          <div
+            className="pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5"
+            style={{ top: "calc(env(safe-area-inset-top) + 4rem)" }}
+          >
             {activeMark && (
               <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
                 <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
