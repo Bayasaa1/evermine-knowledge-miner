@@ -120,6 +120,9 @@ export function YouTubeStage({
               e.target.seekTo(0, true);
               if (activeRef.current && !pausedRef.current) e.target.playVideo();
             },
+            onError: () => {
+              if (!cancelled) setBlocked(true);
+            },
           },
         });
       })
