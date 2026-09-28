@@ -1100,26 +1100,50 @@ function FeedCard({
         )}
       </div>
 
-      {/* Creator overlay */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-10 px-4 pr-20 md:bottom-6 md:pr-16">
+      {/* Creator overlay — its own dark panel, clear of the bottom bar */}
+      <div
+        className="pointer-events-none absolute inset-x-0 z-10 px-3 pr-20 md:pr-16"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}
+      >
+        <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
+        {/* Seek bar: drag to any moment of the video */}
+        {duration > 1 && (
+          <input
+            type="range"
+            min={0}
+            max={Math.round(duration)}
+            step={1}
+            value={Math.min(Math.round(now), Math.round(duration))}
+            onChange={(e) => seekTo(Number(e.target.value))}
+            aria-label="Video position"
+            className="pointer-events-auto mb-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary"
+          />
+        )}
         <div className="mb-2 flex items-center gap-3">
-          {item.avatarUrl ? (
-            <img
-              src={item.avatarUrl}
-              alt={item.creator}
-              referrerPolicy="no-referrer"
-              className="h-9 w-9 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
-              {item.creator.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={onCreator}
+            className="pointer-events-auto flex min-w-0 items-center gap-3 text-left"
+            aria-label={item.creator}
+          >
+            {item.avatarUrl ? (
+              <img
+                src={item.avatarUrl}
+                alt={item.creator}
+                referrerPolicy="no-referrer"
+                className="h-9 w-9 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary">
+                {item.creator.slice(0, 2).toUpperCase()}
+              </div>
+            )}
 
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{item.creator}</p>
-            <p className="truncate text-[11px] text-white/60">{item.handle}</p>
-          </div>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">{item.creator}</span>
+              <span className="block truncate text-[11px] text-white/60">{item.handle}</span>
+            </span>
+          </button>
           <button
             type="button"
             onClick={purchased ? onPrimary : onBuy}
