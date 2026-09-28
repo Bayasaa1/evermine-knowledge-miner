@@ -96,6 +96,10 @@ async function answer(lang: Lang, history: ChatMsg[]): Promise<string> {
 
 export function DiagnosticChat() {
   const { lang, t } = useLang();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // The watching screen stays clean: the helper bubble covered the video and
+  // the Home button there. It lives on the other screens instead.
+  const hidden = pathname === "/";
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
