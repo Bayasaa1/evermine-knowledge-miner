@@ -477,9 +477,14 @@ function HomeFeed() {
 
   return (
     <div className="dark min-h-screen bg-black pb-28 text-white">
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center px-4 py-3">
-        <h1 className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/40 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-primary" /> {c.headline}
+      {/* Title sits under the phone status bar and stops short of the language
+          pill on the right, so the two never print on top of each other. */}
+      <header
+        className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center px-4 pr-32"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      >
+        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" /> <span className="truncate">{c.headline}</span>
         </h1>
       </header>
       {/* Sits below the language selector so it is never covered by it */}
@@ -487,7 +492,8 @@ function HomeFeed() {
         type="button"
         onClick={() => setMuted((m) => !m)}
         aria-label={muted ? "Unmute" : "Mute"}
-        className="fixed right-3 top-16 z-40 rounded-full bg-black/40 p-2 backdrop-blur"
+        style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
+        className="fixed right-3 z-40 rounded-full bg-black/55 p-2 backdrop-blur"
       >
         {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
       </button>
