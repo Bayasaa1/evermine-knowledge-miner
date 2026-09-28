@@ -10,6 +10,7 @@
  * Conversation shape: one session-scoped conversation, kept in memory only.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import { Bot, Loader2, SendHorizonal, Trash2, X } from "lucide-react";
 import { useLang, type Lang } from "@/lib/i18n";
 import { LANGUAGES } from "@/lib/languages";
