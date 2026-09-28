@@ -603,6 +603,7 @@ function FeedCard({
   onRobot,
   onVault,
   onFeedback,
+  onCreator,
 }: {
   item: FeedItem;
   muted: boolean;
