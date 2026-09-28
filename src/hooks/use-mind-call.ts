@@ -108,7 +108,7 @@ export function useMindCall(
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       } catch {
         setListening(false);
-        toast.error((HEAR_ERR[lang] ?? HEAR_ERR.en!).mic);
+        toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).mic);
         return;
       }
       const mime = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
@@ -152,11 +152,11 @@ export function useMindCall(
             body: JSON.stringify({ audio: b64, mime: blob.type.split(";")[0], lang }),
           });
           const json = (await res.json().catch(() => ({}))) as { text?: string };
-          const msgs = HEAR_ERR[lang] ?? HEAR_ERR.en!;
+          const msgs = HEAR_ERR[lang] ?? HEAR_ERR["en"]!;
           if (!res.ok) toast.error(res.status === 429 ? msgs.busy : res.status === 401 ? msgs.auth : msgs.fail);
           else if (json.text) onTranscript(json.text);
         } catch {
-          toast.error((HEAR_ERR[lang] ?? HEAR_ERR.en!).fail);
+          toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).fail);
         } finally {
           setListening(false);
         }
