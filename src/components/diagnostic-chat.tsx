@@ -145,13 +145,16 @@ export function DiagnosticChat() {
     }
   }, [input, thinking, messages, lang]);
 
+  if (hidden) return null;
+
   return (
     <>
       {open && (
         <div
           role="dialog"
           aria-label={t("botTitle")}
-          className="fixed bottom-20 left-4 z-50 flex h-[28rem] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 9rem)" }}
+          className="fixed left-4 z-50 flex h-[26rem] max-h-[60vh] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         >
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
             <Bot className="h-4 w-4 text-primary" />
