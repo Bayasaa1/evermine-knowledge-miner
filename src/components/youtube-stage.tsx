@@ -200,7 +200,7 @@ export function YouTubeStage({
         className="absolute inset-0 h-full w-full"
       />
       {blocked && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-neutral-950 px-8 text-center">
+        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-neutral-950 px-8 text-center">
           <p className="max-w-xs text-sm leading-relaxed text-white/80">
             {blockedLabel ?? "The owner of this video only allows it to play on YouTube."}
           </p>
