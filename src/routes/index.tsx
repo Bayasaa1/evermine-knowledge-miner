@@ -534,10 +534,65 @@ function HomeFeed() {
             onRobot={() => setRobot(item)}
             onVault={() => void navigate({ to: "/vaults" })}
             onFeedback={() => setFeedback(item)}
+            onCreator={() => setCreator(item)}
           />
         ))}
 
       </main>
+
+      {creator && (
+        <div className="fixed inset-0 z-[86] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+          <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-background p-4 sm:rounded-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              {creator.avatarUrl ? (
+                <img src={creator.avatarUrl} alt="" referrerPolicy="no-referrer" className="h-12 w-12 rounded-full object-cover" />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
+                  {creator.creator.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-foreground">{creator.creator}</p>
+                <p className="truncate text-xs text-muted-foreground">{creator.handle}</p>
+              </div>
+              <button type="button" aria-label="Close" onClick={() => setCreator(null)}>
+                <X className="h-5 w-5 text-foreground" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {creatorVideos.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => jumpTo(v.id)}
+                  className="overflow-hidden rounded-xl border border-border bg-card text-left"
+                >
+                  {v.poster ? (
+                    <img src={v.poster} alt="" className="h-24 w-full object-cover" />
+                  ) : (
+                    <div className="h-24 w-full bg-muted" />
+                  )}
+                  <span className="block px-2 py-2 text-[11px] leading-snug text-foreground line-clamp-2">
+                    {v.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const target = creator;
+                setCreator(null);
+                setTalk(target);
+              }}
+              className="mt-4 w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              {c.previewChat}
+            </button>
+          </div>
+        </div>
+      )}
+
 
       <TalkToMindModal
         open={!!talk}
