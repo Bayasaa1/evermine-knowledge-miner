@@ -56,6 +56,9 @@ export function YouTubeStage({
   duck,
   onTime,
   onToggle,
+  onSeekRef,
+  blockedLabel,
+  blockedAction,
 }: {
   videoId: string;
   active: boolean;
@@ -65,15 +68,23 @@ export function YouTubeStage({
   duck?: boolean;
   onTime?: (seconds: number, duration: number) => void;
   onToggle?: () => void;
+  /** Hands the parent a jump-to-second function so the feed can show a scrubber. */
+  onSeekRef?: (seek: ((seconds: number) => void) | null) => void;
+  blockedLabel?: string;
+  blockedAction?: string;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const activeRef = useRef(active);
   const pausedRef = useRef(paused);
   const [ready, setReady] = useState(false);
+  /** YouTube refuses to play some videos outside its own site (age limits,
+      embedding turned off). We show our own card instead of their error. */
+  const [blocked, setBlocked] = useState(false);
 
   activeRef.current = active;
   pausedRef.current = paused;
+
 
   useEffect(() => {
     let cancelled = false;
