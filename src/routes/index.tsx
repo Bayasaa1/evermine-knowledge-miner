@@ -898,7 +898,25 @@ function FeedCard({
           </p>
         )}
         {!!transcript?.length && (
-          <div className="absolute right-3 top-28 z-30 flex flex-col gap-2">
+          <div
+            className="absolute right-3 z-30 flex flex-col gap-2"
+            style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
+          >
+            {/* Speak the video out loud in the chosen language — one tap, no menu. */}
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              disabled={!item.mindId}
+              onClick={() => {
+                setVoiceBlocked(null);
+                setSpeakOn((on) => !on);
+              }}
+              aria-label={vc.speak}
+              className="h-9 w-9 bg-background/75 backdrop-blur"
+            >
+              <Volume2 className={`h-4 w-4 ${speakOn ? "text-primary" : "text-muted-foreground"}`} />
+            </Button>
             <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
               <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
             </Button>
