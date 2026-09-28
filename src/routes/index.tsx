@@ -644,6 +644,16 @@ function FeedCard({
   const [speakOn, setSpeakOn] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceBlocked, setVoiceBlocked] = useState<string | null>(null);
+  // Lets the viewer jump to any moment of the video by dragging the bar.
+  const ytSeek = useRef<((seconds: number) => void) | null>(null);
+  const setYtSeek = useCallback((fn: ((seconds: number) => void) | null) => {
+    ytSeek.current = fn;
+  }, []);
+  const seekTo = useCallback((seconds: number) => {
+    setNow(seconds);
+    if (videoRef.current) videoRef.current.currentTime = seconds;
+    ytSeek.current?.(seconds);
+  }, []);
 
   // Subtitles and mined moments are large; fetch them only for the clip on
   // screen (and keep them cached so scrolling back is instant).
