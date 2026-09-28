@@ -1184,6 +1184,7 @@ function FeedCard({
             <span className="mt-0.5 inline-block text-[11px] font-semibold text-white/60">More</span>
           )}
         </button>
+        </div>
       </div>
       </div>
 
