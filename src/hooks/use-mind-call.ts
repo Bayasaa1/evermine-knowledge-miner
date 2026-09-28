@@ -3,6 +3,13 @@ import { inferEmotion, NEUTRAL_EMOTION, type AvatarEmotion } from "@/lib/emotion
 import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { apiFetch } from "@/lib/api-fetch";
 import type { Lang } from "@/lib/i18n";
+import { toast } from "sonner";
+
+const HEAR_ERR: Record<string, { mic: string; fail: string; busy: string; auth: string }> = {
+  en: { mic: "Microphone access was blocked. Allow the microphone and try again.", fail: "Couldn't understand the recording. Check your Gemini key in API Manager, or type instead.", busy: "Too many voice turns this minute. Wait a moment and try again.", auth: "Sign in to use voice calls." },
+  mn: { mic: "Микрофоны зөвшөөрөл хаалттай байна. Зөвшөөрөөд дахин оролдоно уу.", fail: "Бичлэгийг ойлгож чадсангүй. API Manager дахь Gemini түлхүүрээ шалгах эсвэл бичиж асуугаарай.", busy: "Нэг минутад хэт олон удаа ярилаа. Түр хүлээгээд дахин оролдоно уу.", auth: "Дуудлага ашиглахын тулд нэвтэрнэ үү." },
+  ko: { mic: "마이크 권한이 차단되었습니다. 허용한 뒤 다시 시도하세요.", fail: "녹음을 이해하지 못했습니다. API Manager에서 Gemini 키를 확인하거나 입력해 주세요.", busy: "1분 동안 음성 요청이 너무 많습니다. 잠시 후 다시 시도하세요.", auth: "음성 통화를 사용하려면 로그인하세요." },
+};
 
 type Recognition = {
   lang: string;
@@ -101,6 +108,7 @@ export function useMindCall(
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       } catch {
         setListening(false);
+        toast.error((HEAR_ERR[lang] ?? HEAR_ERR.en!).mic);
         return;
       }
       const mime = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
@@ -144,7 +152,11 @@ export function useMindCall(
             body: JSON.stringify({ audio: b64, mime: blob.type.split(";")[0], lang }),
           });
           const json = (await res.json().catch(() => ({}))) as { text?: string };
-          if (json.text) onTranscript(json.text);
+          const msgs = HEAR_ERR[lang] ?? HEAR_ERR.en!;
+          if (!res.ok) toast.error(res.status === 429 ? msgs.busy : res.status === 401 ? msgs.auth : msgs.fail);
+          else if (json.text) onTranscript(json.text);
+        } catch {
+          toast.error((HEAR_ERR[lang] ?? HEAR_ERR.en!).fail);
         } finally {
           setListening(false);
         }
