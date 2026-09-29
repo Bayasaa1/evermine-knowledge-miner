@@ -172,7 +172,10 @@ export async function loadFeed(): Promise<FeedItem[]> {
     const popularity = Math.log2(1 + Math.max(0, item.viewCount ?? 0)) * 2;
     const freshness = 10 / (1 + ageDays / 21);
     const quality = Math.min(3, item.tags.length * 0.35) + (item.description.trim() ? 1 : 0);
-    return popularity + freshness + quality;
+    // Stable exploration prevents an upload-date conveyor belt and gives new,
+    // unseen creators a fair chance without making the feed jump on refresh.
+    const discovery = [...item.id].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) % 997, 7) / 249.25;
+    return popularity + freshness + quality + discovery;
   };
   unique.sort((a, b) => score(b) - score(a));
 

@@ -64,6 +64,7 @@ export function useMindCall(
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
+  const releasePendingRef = useRef(false);
 
   const stopCamera = useCallback(() => {
     if (!camRef.current) return;
@@ -100,6 +101,8 @@ export function useMindCall(
       throw new Error("Voice input is not supported by this browser.");
     }
 
+    releasePendingRef.current = false;
+    setListening(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { echoCancellation: true, noiseSuppression: true } 
@@ -118,14 +121,13 @@ export function useMindCall(
       const buf = new Uint8Array(analyser.fftSize);
       
       let spoke = false;
-      let quietSince = Date.now();
       const began = Date.now();
 
       const timer = window.setInterval(() => {
         analyser.getByteTimeDomainData(buf);
         let peak = 0;
         for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-        if (peak > 14) { spoke = true; quietSince = Date.now(); }
+        if (peak > 10) spoke = true;
         
         // Safety timeout for PTT (60s)
         if (Date.now() - began > 60000) {
@@ -171,7 +173,7 @@ export function useMindCall(
       };
 
       rec.start(250);
-      setListening(true);
+      if (releasePendingRef.current && rec.state === "recording") rec.stop();
     } catch {
       setListening(false);
       toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).mic);
@@ -179,6 +181,7 @@ export function useMindCall(
   }, [lang, listening, onTranscript]);
 
   const stopListening = useCallback(() => {
+    releasePendingRef.current = true;
     if (recorderRef.current?.state === "recording") {
       recorderRef.current.stop();
     }
