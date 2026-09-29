@@ -38,7 +38,10 @@ export async function geminiSpeak(apiKey: string, text: string, lang: string, vo
 
 export async function geminiHear(apiKey: string, audioB64: string, mime: string, lang: string): Promise<string> {
   const { GEMINI_DEFAULT_MODEL } = await import("@/lib/gemini-models");
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_DEFAULT_MODEL}:generateContent`, {
+  const models = ["gemini-2.5-flash", GEMINI_DEFAULT_MODEL];
+  let lastStatus = 0;
+  for (const model of [...new Set(models)]) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -46,10 +49,11 @@ export async function geminiHear(apiKey: string, audioB64: string, mime: string,
         parts: [
           { inlineData: { mimeType: mime, data: audioB64 } },
           { text: [
-            `Listen and transcribe exactly what the speaker says, word for word.`,
+            `Listen to the full recording before deciding what was said. Transcribe exactly, word for word.`,
             `Do NOT assume a single language. First detect which language each part of the speech is in, then write each part in that language's own script and spelling.`,
             `The speaker often code-switches: one sentence can mix Mongolian, English, Korean and other languages. Keep every word in the language it was actually spoken in — never translate, never force everything into one language.`,
             `Write Mongolian strictly in Cyrillic (e.g. "Сайн байна уу"). Write Korean in Hangul, English in normal Latin spelling.`,
+            `For Mongolian, expect natural Khalkha pronunciation, fast casual speech, reduced vowels, phone microphone noise, and English names or game terms inside Mongolian grammar. Use sentence context to distinguish similar sounds; do not invent Russian words.`,
             `Be extremely precise with Mongolian grammar, suffixes, and particles. Transcribe exactly what is heard, including filler words or hesitations if they occur, but prioritize a clean and accurate text representation of the spoken content.`,
             `The app language is ${LANG_NAME[lang] ?? "unknown"}, which is only a weak hint — trust what you actually hear over this hint.`,
             `Output only the words spoken, nothing else. If there is no speech, output nothing.`,
@@ -63,7 +67,13 @@ export async function geminiHear(apiKey: string, audioB64: string, mime: string,
       },
     }),
   });
-  if (!res.ok) throw new Error(`Gemini hearing failed: ${res.status}`);
+  if (!res.ok) {
+    lastStatus = res.status;
+    if (res.status === 400 || res.status === 404) continue;
+    throw new Error(`Gemini hearing failed: ${res.status}`);
+  }
   const json = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
   return (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+  }
+  throw new Error(`Gemini hearing failed: ${lastStatus || "no supported model"}`);
 }
