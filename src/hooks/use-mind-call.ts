@@ -127,7 +127,7 @@ export function useMindCall(
         analyser.getByteTimeDomainData(buf);
         let peak = 0;
         for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-        if (peak > 10) spoke = true;
+        if (peak > 3) spoke = true;
         
         // Safety timeout for PTT (60s)
         if (Date.now() - began > 60000) {
@@ -143,7 +143,7 @@ export function useMindCall(
         recorderRef.current = null;
         streamRef.current = null;
         
-        if (!spoke || chunks.length === 0) { 
+        if ((!spoke && Date.now() - began < 400) || chunks.length === 0) { 
           setListening(false); 
           return; 
         }

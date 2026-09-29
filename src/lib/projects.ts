@@ -314,12 +314,19 @@ export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline"
 };
 
 export async function listPublicVisualContentLight(limit = 200): Promise<PublicFeedRow[]> {
+  // Newest + most-watched, so strong older videos can still surface.
+  const [fresh, popular] = await Promise.all([fetchFeedRows("created_at", limit), fetchFeedRows("view_count", limit)]);
+  const seen = new Set<string>();
+  return [...fresh, ...popular].filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+}
+
+async function fetchFeedRows(orderBy: "created_at" | "view_count", limit: number): Promise<PublicFeedRow[]> {
   const { data, error } = await supabase
     .from("project_content")
     .select(`${CONTENT_LIGHT_COLS},projects!inner(id,user_id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
     .eq("kind", "VISUAL_CONTENT")
     .eq("projects.published", true)
-    .order("created_at", { ascending: false })
+    .order(orderBy, { ascending: false, nullsFirst: false })
     .limit(limit);
   if (error) throw error;
   const rows = (data as unknown as Array<Record<string, unknown>> | null) ?? [];
