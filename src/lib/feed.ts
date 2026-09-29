@@ -56,6 +56,9 @@ export type FeedItem = {
   publishedAt: string;
   /** Account that owns the clip — used only to mix creators in the feed. */
   ownerId?: string | null;
+  projectId?: string;
+  sequenceIndex?: number;
+  viewCount?: number;
 };
 
 const FEED_KEY = () => scopedKey("publishedFeed");
@@ -133,6 +136,9 @@ export async function projectFeed(): Promise<FeedItem[]> {
       tiers,
       publishedAt: row.created_at,
       ownerId: (row.project as { user_id?: string } | null)?.user_id ?? null,
+      projectId: row.project_id,
+      sequenceIndex: row.sequence_index,
+      viewCount: row.view_count,
       };
     });
 }
@@ -158,8 +164,19 @@ export async function loadFeed(): Promise<FeedItem[]> {
     seen.add(key);
     return true;
   });
-  // Mix creators: take one newest card from each creator in turn, so one
-  // account's big batch can never push everyone else out of the feed.
+  // Transparent, zero-credit ranking: popularity, freshness, mined-card
+  // completeness, then creator diversity. No AI is called for recommendations.
+  const now = Date.now();
+  const score = (item: FeedItem) => {
+    const ageDays = Math.max(0, (now - new Date(item.publishedAt).getTime()) / 86_400_000);
+    const popularity = Math.log2(1 + Math.max(0, item.viewCount ?? 0)) * 2;
+    const freshness = 10 / (1 + ageDays / 21);
+    const quality = Math.min(3, item.tags.length * 0.35) + (item.description.trim() ? 1 : 0);
+    return popularity + freshness + quality;
+  };
+  unique.sort((a, b) => score(b) - score(a));
+
+  // Mix creators after ranking so one account never occupies the whole feed.
   const byOwner = new Map<string, FeedItem[]>();
   for (const item of unique) {
     const owner = item.ownerId ?? item.creator;

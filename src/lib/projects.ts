@@ -59,6 +59,8 @@ export type ProjectContent = {
   transcript: SubtitleCue[];
   mind_id: string;
   view_count: number;
+  /** Creator-controlled order inside the project: earlier/older to later/newer. */
+  sequence_index: number;
   created_at: string;
   updated_at: string;
 };
@@ -66,7 +68,7 @@ export type ProjectContent = {
 const PROJECT_COLS =
   "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,ai_level_default,ai_level_max,view_count,created_at,updated_at";
 const CONTENT_COLS =
-  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,created_at,updated_at";
+  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,sequence_index,created_at,updated_at";
 
 export async function listMyProjects(userId: string): Promise<Project[]> {
   // My Vaults is not a public-project lookup. Refuse stale or caller-supplied
@@ -77,7 +79,8 @@ export async function listMyProjects(userId: string): Promise<Project[]> {
     .from("projects")
     .select(PROJECT_COLS)
     .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .order("sequence_index", { ascending: true })
+    .order("created_at", { ascending: true });
   return (data as Project[] | null) ?? [];
 }
 
@@ -222,6 +225,43 @@ export async function updateProjectContent(
   return error?.message ?? null;
 }
 
+/** Moves one video one place earlier or later in its creator-defined sequence. */
+export async function moveProjectContentSequence(
+  id: string,
+  direction: "earlier" | "later",
+): Promise<string | null> {
+  const owner = await currentOwnerId();
+  if (!owner) return NOT_SIGNED_IN;
+  const { data: current, error: currentError } = await supabase
+    .from("project_content")
+    .select("id,project_id,sequence_index")
+    .eq("id", id)
+    .eq("user_id", owner)
+    .maybeSingle();
+  if (currentError) return currentError.message;
+  if (!current) return "Video not found";
+
+  let adjacentQuery = supabase
+    .from("project_content")
+    .select("id,sequence_index")
+    .eq("project_id", current.project_id)
+    .eq("user_id", owner);
+  adjacentQuery = direction === "earlier"
+    ? adjacentQuery.lt("sequence_index", current.sequence_index).order("sequence_index", { ascending: false })
+    : adjacentQuery.gt("sequence_index", current.sequence_index).order("sequence_index", { ascending: true });
+  const { data: adjacent, error: adjacentError } = await adjacentQuery.limit(1).maybeSingle();
+  if (adjacentError) return adjacentError.message;
+  if (!adjacent) return null;
+
+  const temporary = -Math.abs(current.sequence_index) - 1_000_000;
+  const first = await supabase.from("project_content").update({ sequence_index: temporary }).eq("id", current.id).eq("user_id", owner);
+  if (first.error) return first.error.message;
+  const second = await supabase.from("project_content").update({ sequence_index: current.sequence_index }).eq("id", adjacent.id).eq("user_id", owner);
+  if (second.error) return second.error.message;
+  const third = await supabase.from("project_content").update({ sequence_index: adjacent.sequence_index }).eq("id", current.id).eq("user_id", owner);
+  return third.error?.message ?? null;
+}
+
 /** Moves one mined video card into another project of the same owner. */
 export async function moveProjectContent(id: string, projectId: string): Promise<string | null> {
   const owner = await currentOwnerId();
@@ -267,7 +307,7 @@ export async function listPublicVisualContent(limit = 60): Promise<
  * pulls its own subtitles/timeline only when it is the one being watched.
  */
 const CONTENT_LIGHT_COLS =
-  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,mind_id,view_count,created_at,updated_at";
+  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,mind_id,view_count,sequence_index,created_at,updated_at";
 
 export type PublicFeedRow = Omit<ProjectContent, "timeline" | "emotion_timeline" | "transcript"> & {
   project: Pick<Project, "id" | "title" | "creator_name" | "creator_avatar_url" | "price" | "currency" | "plan_tiers"> | null;
