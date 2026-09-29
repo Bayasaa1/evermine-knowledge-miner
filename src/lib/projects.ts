@@ -79,7 +79,6 @@ export async function listMyProjects(userId: string): Promise<Project[]> {
     .from("projects")
     .select(PROJECT_COLS)
     .eq("user_id", userId)
-    .order("sequence_index", { ascending: true })
     .order("created_at", { ascending: true });
   return (data as Project[] | null) ?? [];
 }
