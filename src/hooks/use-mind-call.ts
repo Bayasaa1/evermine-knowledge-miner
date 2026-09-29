@@ -22,8 +22,6 @@ type Recognition = {
   stop: () => void;
 };
 
-type RecognitionCtor = new () => Recognition;
-
 /** Splits streamed text at natural speech breaks so the voice can start early. */
 function takePhrase(buffer: string, flush: boolean): [string, string] {
   if (flush) return [buffer.trim(), ""];
@@ -63,6 +61,11 @@ export function useMindCall(
   const camRef = useRef<{ stream: MediaStream; timer: number } | null>(null);
   const voiceId = opts?.voiceId;
 
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const releasePendingRef = useRef(false);
+
   const stopCamera = useCallback(() => {
     if (!camRef.current) return;
     window.clearInterval(camRef.current.timer);
@@ -74,7 +77,9 @@ export function useMindCall(
   const stop = useCallback(() => {
     recognitionRef.current?.stop();
     recognitionRef.current = null;
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+    }
     dubRef.current?.stop();
     dubRef.current = null;
     queueRef.current = [];
@@ -88,63 +93,68 @@ export function useMindCall(
   useEffect(() => stop, [stop]);
 
   /**
-   * Records the caller and transcribes with their own Gemini key — phone
-   * browsers can't recognise Mongolian speech. Stops on a second tap or after
-   * ~1.4s of silence once the caller has spoken.
+   * Starts recording the caller. Push-to-talk style.
    */
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const listen = useCallback(() => {
-    if (listening) {
-      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
-      return;
-    }
+  const startListening = useCallback(async () => {
+    if (listening) return;
     if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       throw new Error("Voice input is not supported by this browser.");
     }
+
+    releasePendingRef.current = false;
     setListening(true);
-    void (async () => {
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      } catch {
-        setListening(false);
-        toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).mic);
-        return;
-      }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { echoCancellation: true, noiseSuppression: true } 
+      });
+      streamRef.current = stream;
+      
       const mime = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       recorderRef.current = rec;
       const chunks: Blob[] = [];
       rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      
       const ctx = new AudioContext();
       const analyser = ctx.createAnalyser();
       ctx.createMediaStreamSource(stream).connect(analyser);
       const buf = new Uint8Array(analyser.fftSize);
+      
       let spoke = false;
-      let quietSince = Date.now();
       const began = Date.now();
+
       const timer = window.setInterval(() => {
         analyser.getByteTimeDomainData(buf);
         let peak = 0;
         for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-        if (peak > 14) { spoke = true; quietSince = Date.now(); }
-        const quiet = Date.now() - quietSince;
-        if ((spoke && quiet > 1400) || (!spoke && Date.now() - began > 8000) || Date.now() - began > 60000) {
+        if (peak > 10) spoke = true;
+        
+        // Safety timeout for PTT (60s)
+        if (Date.now() - began > 60000) {
           if (rec.state === "recording") rec.stop();
         }
       }, 120);
+      timerRef.current = timer;
+
       rec.onstop = async () => {
-        window.clearInterval(timer);
+        if (timerRef.current) window.clearInterval(timerRef.current);
         stream.getTracks().forEach((t) => t.stop());
         void ctx.close();
         recorderRef.current = null;
-        if (!spoke || chunks.length === 0) { setListening(false); return; }
+        streamRef.current = null;
+        
+        if (!spoke || chunks.length === 0) { 
+          setListening(false); 
+          return; 
+        }
+
         const blob = new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" });
         const b64 = await new Promise<string>((resolve) => {
           const r = new FileReader();
           r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
           r.readAsDataURL(blob);
         });
+
         try {
           const res = await apiFetch("/api/mind-hear", {
             method: "POST",
@@ -161,9 +171,21 @@ export function useMindCall(
           setListening(false);
         }
       };
+
       rec.start(250);
-    })();
+      if (releasePendingRef.current && rec.state === "recording") rec.stop();
+    } catch {
+      setListening(false);
+      toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).mic);
+    }
   }, [lang, listening, onTranscript]);
+
+  const stopListening = useCallback(() => {
+    releasePendingRef.current = true;
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+    }
+  }, []);
 
   const drain = useCallback(async () => {
     if (drainingRef.current || !mindId) return;
@@ -259,5 +281,19 @@ export function useMindCall(
     void look();
   }, [lang]);
 
-  return { listening, speaking, mouth, emotion, sees, listen, speak, speakStreaming, startCamera, stopCamera, stop };
+  return { 
+    listening, 
+    speaking, 
+    mouth, 
+    emotion, 
+    sees, 
+    listen: startListening, // Backwards compatibility if needed, but we'll use start/stop
+    startListening,
+    stopListening,
+    speak, 
+    speakStreaming, 
+    startCamera, 
+    stopCamera, 
+    stop 
+  };
 }

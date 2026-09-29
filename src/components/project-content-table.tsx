@@ -8,7 +8,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, Loader2, Pencil, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Pencil, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { listProjectVideos, rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
@@ -19,6 +19,7 @@ import {
   listProjectsByPersona,
   moveContentToPersona,
   moveProjectContent,
+  moveProjectContentSequence,
   splitProject,
   unfileContent,
   updateProjectContent,
@@ -64,6 +65,9 @@ const C = {
   selectFeed: { en: "Select feed", mn: "Хуудас сонгох", ko: "피드 선택" },
   selectTraining: { en: "Select training", mn: "Сургалт сонгох", ko: "학습 선택" },
   renamePrompt: { en: "New title for this video", mn: "Видеоны шинэ гарчиг", ko: "이 영상의 새 제목" },
+  order: { en: "Order", mn: "Дараалал", ko: "순서" },
+  earlier: { en: "Move earlier", mn: "Урагшлуулах", ko: "앞으로 이동" },
+  later: { en: "Move later", mn: "Хойшлуулах", ko: "뒤로 이동" },
 } as const;
 
 export function ProjectContentTable({
@@ -276,6 +280,14 @@ export function ProjectContentTable({
     else await refresh();
   };
 
+  const moveInSequence = async (id: string, direction: "earlier" | "later") => {
+    setBusy(true);
+    const error = await moveProjectContentSequence(id, direction);
+    setBusy(false);
+    if (error) toast.error(error);
+    else await refresh();
+  };
+
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
       <header className="flex flex-wrap items-center gap-2">
@@ -429,6 +441,7 @@ export function ProjectContentTable({
                 <th className="py-2">{t("colKind")}</th>
                 <th className="hidden py-2 sm:table-cell">{t("colTags")}</th>
                 <th className="hidden py-2 sm:table-cell">{t("colDate")}</th>
+                <th className="py-2">{t("order")}</th>
                 <th className="w-8 py-2" />
               </tr>
             </thead>
@@ -453,6 +466,17 @@ export function ProjectContentTable({
                   </td>
                   <td className="hidden py-2 text-muted-foreground sm:table-cell">
                     {new Date(row.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="py-2">
+                    <div className="flex items-center gap-1">
+                      <button type="button" disabled={busy} title={t("earlier")} aria-label={t("earlier")} onClick={() => void moveInSequence(row.id, "earlier")} className="rounded border border-border p-1 text-muted-foreground disabled:opacity-40">
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="w-6 text-center tabular-nums text-muted-foreground">{row.sequenceIndex + 1}</span>
+                      <button type="button" disabled={busy} title={t("later")} aria-label={t("later")} onClick={() => void moveInSequence(row.id, "later")} className="rounded border border-border p-1 text-muted-foreground disabled:opacity-40">
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </td>
                   <td className="py-2">
                     <button

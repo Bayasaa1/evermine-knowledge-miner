@@ -33,12 +33,15 @@ export function TalkToMindModal({
 }) {
   const { lang: activeLang } = useLang();
   const lang: Lang = langProp ?? activeLang;
-  const [heading, empty, placeholder, newChatLabel, resetConfirm] = useDisplayTexts([
+  const [heading, empty, placeholder, newChatLabel, resetConfirm, holdLabel, listeningLabel, speakingLabel] = useDisplayTexts([
     "Talk to",
     "Ask anything about this video — the Mind answers from its own mined brain.",
     "Ask this mind…",
     "New chat",
     "Fully reset this chat? All messages and this Mind's memory of you will be deleted. This cannot be undone.",
+    "Hold to talk",
+    "Listening — release to send",
+    "Speaking…",
   ]);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -374,10 +377,19 @@ export function TalkToMindModal({
             {callMode === "video" && call.sees && (
               <p className="max-w-xs text-center text-[11px] italic text-muted-foreground">Sees: {call.sees}</p>
             )}
-            <p className="text-xs font-medium text-muted-foreground">{call.listening ? "Listening…" : call.speaking ? "Speaking…" : `${mindName} AI Mind call`}</p>
+            <p className="text-xs font-medium text-muted-foreground">{call.listening ? listeningLabel : call.speaking ? speakingLabel : holdLabel}</p>
 
             <div className="flex gap-3">
-              <button type="button" onClick={() => { try { call.listen(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }} aria-label={call.listening ? "Stop listening" : "Speak"} className={`rounded-full p-3 ${call.listening ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
+              <button 
+                type="button" 
+                onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); try { void call.startListening(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }}
+                onPointerUp={(e) => { e.preventDefault(); call.stopListening(); }}
+                onPointerCancel={() => call.stopListening()}
+                onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); void call.startListening(); } }}
+                onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); call.stopListening(); } }}
+                aria-label={holdLabel}
+                className={`touch-none select-none rounded-full p-4 transition-transform active:scale-95 ${call.listening ? "animate-pulse bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+              >
                 {call.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
               <button type="button" onClick={() => { void mergeCurrentSession(); call.stop(); setCallMode("chat"); }} aria-label="End call" className="rounded-full bg-destructive p-3 text-destructive-foreground">

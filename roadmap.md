@@ -84,3 +84,10 @@
 - [x] Understand any language the caller speaks, including mixed sentences
 - [x] Reply in the same language the caller just used
 - [x] Free voice reply with the phone's own voice when no paid voice is set up
+- [x] Replace tap-to-call recording with hold-to-talk and release-to-send
+- [x] Improve casual Khalkha Mongolian and mixed-language transcription
+
+## Feed sequence and recommendations
+- [x] Let creators control the video order inside each project
+- [x] Swipe right for the project's next/newer video and left for its previous/older video
+- [x] Rank the main feed with popularity, freshness, quality, and creator diversity without AI credits

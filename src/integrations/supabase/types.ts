@@ -796,6 +796,7 @@ export type Database = {
           kind: string
           mind_id: string
           project_id: string
+          sequence_index: number
           source_url: string
           tags: string[]
           timeline: Json
@@ -815,6 +816,7 @@ export type Database = {
           kind?: string
           mind_id?: string
           project_id: string
+          sequence_index?: number
           source_url?: string
           tags?: string[]
           timeline?: Json
@@ -834,6 +836,7 @@ export type Database = {
           kind?: string
           mind_id?: string
           project_id?: string
+          sequence_index?: number
           source_url?: string
           tags?: string[]
           timeline?: Json

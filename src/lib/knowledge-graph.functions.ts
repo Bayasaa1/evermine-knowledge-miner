@@ -137,14 +137,15 @@ export const listProjectVideos = createServerFn({ method: "GET" })
 
     let q = context.supabase
       .from("project_content")
-      .select("id,title,youtube_id,source_url,kind,created_at,tags,view_count", { count: "exact" })
+      .select("id,title,youtube_id,source_url,kind,created_at,tags,view_count,sequence_index", { count: "exact" })
       .eq("user_id", context.userId)
       .eq("project_id", data.projectId);
     if (ids) q = q.in("id", ids.slice(0, 1000));
     if (data.search) q = q.ilike("title", `%${data.search}%`);
 
     const { data: rows, count, error } = await q
-      .order("created_at", { ascending: false })
+      .order("sequence_index", { ascending: true })
+      .order("created_at", { ascending: true })
       .range(data.offset, data.offset + data.limit - 1);
     if (error) throw new Error(error.message);
 
@@ -159,6 +160,7 @@ export const listProjectVideos = createServerFn({ method: "GET" })
         createdAt: r.created_at,
         tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
         views: r.view_count,
+        sequenceIndex: r.sequence_index,
       })),
     };
   });

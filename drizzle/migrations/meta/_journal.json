@@ -127,6 +127,20 @@
       "when": 1790481253285,
       "tag": "0017_sync_persona_name_to_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790650746494,
+      "tag": "0018_add_creator_video_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790650797966,
+      "tag": "0019_append_new_project_videos_to_sequence",
+      "breakpoints": true
     }
   ]
 }

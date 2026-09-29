@@ -13,6 +13,8 @@ import {
   Star,
   Video as VideoIcon,
   Captions,
+  ChevronLeft,
+  ChevronRight,
   Volume2,
   VolumeX,
   X,
@@ -436,6 +438,17 @@ function HomeFeed() {
       if (idx >= 0) document.getElementById(`feed-card-${idx}`)?.scrollIntoView({ behavior: "smooth" });
     });
   };
+  const swipeProject = useCallback((item: FeedItem, direction: "older" | "newer") => {
+    if (!item.projectId) return;
+    const projectVideos = items
+      .filter((candidate) => candidate.projectId === item.projectId)
+      .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0));
+    const current = projectVideos.findIndex((candidate) => candidate.id === item.id);
+    const target = projectVideos[current + (direction === "newer" ? 1 : -1)];
+    if (!target) return;
+    const targetIndex = items.findIndex((candidate) => candidate.id === target.id);
+    if (targetIndex >= 0) document.getElementById(`feed-card-${targetIndex}`)?.scrollIntoView({ behavior: "smooth" });
+  }, [items]);
 
 
   const refreshPurchases = useCallback(async () => {
@@ -535,6 +548,7 @@ function HomeFeed() {
             onVault={() => void navigate({ to: "/vaults" })}
             onFeedback={() => setFeedback(item)}
             onCreator={() => setCreator(item)}
+            onProjectSwipe={(direction) => swipeProject(item, direction)}
           />
         ))}
 
@@ -671,6 +685,7 @@ function FeedCard({
   onVault,
   onFeedback,
   onCreator,
+  onProjectSwipe,
 }: {
   item: FeedItem;
   muted: boolean;
@@ -689,6 +704,7 @@ function FeedCard({
   onVault: () => void;
   onFeedback: () => void;
   onCreator: () => void;
+  onProjectSwipe: (direction: "older" | "newer") => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -711,6 +727,7 @@ function FeedCard({
   const [speakOn, setSpeakOn] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceBlocked, setVoiceBlocked] = useState<string | null>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   // Lets the viewer jump to any moment of the video by dragging the bar.
   const ytSeek = useRef<((seconds: number) => void) | null>(null);
   const setYtSeek = useCallback((fn: ((seconds: number) => void) | null) => {
@@ -849,13 +866,34 @@ function FeedCard({
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
+  const beginSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("button,input,select,a,[role='slider']")) return;
+    swipeStart.current = { x: event.clientX, y: event.clientY };
+  };
+  const finishSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = event.clientY - start.y;
+    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    onProjectSwipe(dx > 0 ? "newer" : "older");
+  };
 
   return (
     <section
       ref={ref}
       id={`feed-card-${index}`}
+      onPointerDown={beginSwipe}
+      onPointerUp={finishSwipe}
+      onPointerCancel={() => { swipeStart.current = null; }}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
+      <div className="pointer-events-none absolute inset-x-3 top-1/2 z-20 flex -translate-y-1/2 justify-between text-white/35" aria-hidden>
+        <ChevronLeft className="h-6 w-6" />
+        <ChevronRight className="h-6 w-6" />
+      </div>
       {/* Blurred backdrop on desktop so wide screens never stretch the vertical video */}
       {item.poster && (
         <img
