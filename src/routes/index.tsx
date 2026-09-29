@@ -13,8 +13,6 @@ import {
   Star,
   Video as VideoIcon,
   Captions,
-  ChevronLeft,
-  ChevronRight,
   Volume2,
   VolumeX,
   X,
@@ -438,6 +436,7 @@ function HomeFeed() {
       if (idx >= 0) document.getElementById(`feed-card-${idx}`)?.scrollIntoView({ behavior: "smooth" });
     });
   };
+  const [swapped, setSwapped] = useState<Record<string, FeedItem>>({});
   const swipeProject = useCallback((item: FeedItem, direction: "older" | "newer") => {
     if (!item.projectId) return;
     const projectVideos = items
@@ -445,9 +444,15 @@ function HomeFeed() {
       .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0));
     const current = projectVideos.findIndex((candidate) => candidate.id === item.id);
     const target = projectVideos[current + (direction === "newer" ? 1 : -1)];
-    if (!target) return;
-    const targetIndex = items.findIndex((candidate) => candidate.id === target.id);
-    if (targetIndex >= 0) document.getElementById(`feed-card-${targetIndex}`)?.scrollIntoView({ behavior: "smooth" });
+    if (!target) {
+      toast(direction === "newer" ? "No newer video in this project" : "No earlier video in this project");
+      return;
+    }
+    // Swap the video in place so the vertical feed never jumps.
+    setSwapped((s) => {
+      const slot = Object.keys(s).find((k) => s[k]?.id === item.id) ?? item.id;
+      return { ...s, [slot]: target };
+    });
   }, [items]);
 
 
@@ -509,7 +514,7 @@ function HomeFeed() {
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
         <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" /> <span className="truncate">{c.headline}</span>
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" /> <span className="truncate">Evermind</span>
         </h1>
       </header>
       {/* Sits below the language selector so it is never covered by it */}
@@ -526,7 +531,7 @@ function HomeFeed() {
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
         {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
         {isError && <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center"><p className="text-sm text-muted-foreground">Creator feed could not load.</p><button type="button" onClick={() => void refetch()} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Retry</button></div>}
-        {items.map((item, i) => (
+        {items.map((base, i) => { const item = swapped[base.id] ?? base; return (
           <FeedCard
             key={item.id}
             item={item}
@@ -550,7 +555,7 @@ function HomeFeed() {
             onCreator={() => setCreator(item)}
             onProjectSwipe={(direction) => swipeProject(item, direction)}
           />
-        ))}
+        ); })}
 
       </main>
 
@@ -890,10 +895,6 @@ function FeedCard({
       onPointerCancel={() => { swipeStart.current = null; }}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
-      <div className="pointer-events-none absolute inset-x-3 top-1/2 z-20 flex -translate-y-1/2 justify-between text-white/35" aria-hidden>
-        <ChevronLeft className="h-6 w-6" />
-        <ChevronRight className="h-6 w-6" />
-      </div>
       {/* Blurred backdrop on desktop so wide screens never stretch the vertical video */}
       {item.poster && (
         <img
