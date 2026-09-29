@@ -377,7 +377,14 @@ export function TalkToMindModal({
             <p className="text-xs font-medium text-muted-foreground">{call.listening ? "Listening…" : call.speaking ? "Speaking…" : `${mindName} AI Mind call`}</p>
 
             <div className="flex gap-3">
-              <button type="button" onClick={() => { try { call.listen(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }} aria-label={call.listening ? "Stop listening" : "Speak"} className={`rounded-full p-3 ${call.listening ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"}`}>
+              <button 
+                type="button" 
+                onPointerDown={(e) => { e.preventDefault(); try { void call.startListening(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }}
+                onPointerUp={(e) => { e.preventDefault(); call.stopListening(); }}
+                onPointerLeave={() => { if (call.listening) call.stopListening(); }}
+                aria-label={call.listening ? "Recording..." : "Hold to speak"}
+                className={`rounded-full p-3 transition-transform active:scale-95 ${call.listening ? "bg-destructive text-destructive-foreground animate-pulse" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+              >
                 {call.listening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
               <button type="button" onClick={() => { void mergeCurrentSession(); call.stop(); setCallMode("chat"); }} aria-label="End call" className="rounded-full bg-destructive p-3 text-destructive-foreground">

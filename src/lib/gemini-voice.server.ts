@@ -47,15 +47,20 @@ export async function geminiHear(apiKey: string, audioB64: string, mime: string,
           { inlineData: { mimeType: mime, data: audioB64 } },
           { text: [
             `Listen and transcribe exactly what the speaker says, word for word.`,
-            `Do NOT assume a language. First detect which language each part of the speech is in, then write each part in that language's own script and spelling.`,
+            `Do NOT assume a single language. First detect which language each part of the speech is in, then write each part in that language's own script and spelling.`,
             `The speaker often code-switches: one sentence can mix Mongolian, English, Korean and other languages. Keep every word in the language it was actually spoken in — never translate, never force everything into one language.`,
-            `Write Mongolian in Cyrillic, Korean in Hangul, English in normal Latin spelling.`,
+            `Write Mongolian strictly in Cyrillic (e.g. "Сайн байна уу"). Write Korean in Hangul, English in normal Latin spelling.`,
+            `Be extremely precise with Mongolian grammar, suffixes, and particles. Transcribe exactly what is heard, including filler words or hesitations if they occur, but prioritize a clean and accurate text representation of the spoken content.`,
             `The app language is ${LANG_NAME[lang] ?? "unknown"}, which is only a weak hint — trust what you actually hear over this hint.`,
             `Output only the words spoken, nothing else. If there is no speech, output nothing.`,
           ].join("\n") },
         ],
       }],
-      generationConfig: { temperature: 0 },
+      generationConfig: { 
+        temperature: 0,
+        topP: 0.1,
+        topK: 1,
+      },
     }),
   });
   if (!res.ok) throw new Error(`Gemini hearing failed: ${res.status}`);
