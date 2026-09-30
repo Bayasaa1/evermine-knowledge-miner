@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
-  FolderOpen,
   Heart,
   Loader2,
   MessageCircle,
@@ -40,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
-import { listPurchases, purchaseMind } from "@/lib/purchases";
+import { cancelMind, listPurchases, purchaseMind } from "@/lib/purchases";
 import { formatMoney, type PlanLength } from "@/lib/subscription";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -84,6 +83,11 @@ function readPref<T extends string>(key: string, fallback: T): T {
 function writePref(key: string, value: string) {
   if (typeof window !== "undefined") window.localStorage.setItem(key, value);
 }
+
+/** Floating frosted-glass round button used by every on-video control. */
+const glassBtn =
+  "flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-lg backdrop-blur-2xl backdrop-saturate-150 transition-colors hover:bg-white/20";
+
 
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
@@ -303,10 +307,11 @@ const FEED_COPY = {
     voiceCall: "Voice Call",
     videoCall: "Video Call",
     robot: "Deploy to Robot",
-    assets: "Assets",
     reviews: "Reviews",
     buy: "Subscribe",
     subscribed: "Subscribed",
+    unsubscribed: "Subscription cancelled",
+    cancelSub: "Cancel subscription",
     free: "Subscribe · Free",
     chooseLength: "Choose your subscription",
     checkoutSoon: "Paid subscriptions are coming soon — card checkout is not connected yet.",
@@ -325,10 +330,11 @@ const FEED_COPY = {
     voiceCall: "Дуут дуудлага",
     videoCall: "Видео дуудлага",
     robot: "Робот руу байршуулах",
-    assets: "Файлууд",
     reviews: "Сэтгэгдэл",
     buy: "Захиалах",
     subscribed: "Захиалсан",
+    unsubscribed: "Захиалга цуцлагдлаа",
+    cancelSub: "Захиалга цуцлах",
     free: "Захиалах · Үнэгүй",
     chooseLength: "Захиалгаа сонгоно уу",
     checkoutSoon: "Төлбөртэй захиалга удахгүй — картын төлбөр хараахан холбогдоогүй байна.",
@@ -347,10 +353,11 @@ const FEED_COPY = {
     voiceCall: "음성 통화",
     videoCall: "영상 통화",
     robot: "로봇에 배포",
-    assets: "자료",
     reviews: "리뷰",
     buy: "구독하기",
     subscribed: "구독 중",
+    unsubscribed: "구독이 취소되었습니다",
+    cancelSub: "구독 취소",
     free: "무료로 구독",
     chooseLength: "구독 기간을 선택하세요",
     checkoutSoon: "유료 구독은 곧 제공됩니다 — 카드 결제가 아직 연결되지 않았습니다.",
@@ -390,13 +397,19 @@ function HomeFeed() {
   const queryClient = useQueryClient();
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
-  const { data: items = [], isLoading, isError, refetch } = useQuery({
+  const { data: allItems = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["home-feed"],
     queryFn: loadFeed,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
     retry: 2,
   });
+  // Videos YouTube refuses to play outside its own site (age limits, embedding
+  // off) are dropped from the feed instead of showing an error card.
+  const [unplayable, setUnplayable] = useState<Record<string, true>>({});
+  const items = useMemo(() => allItems.filter((i) => !unplayable[i.id]), [allItems, unplayable]);
+
+
 
 
   // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
@@ -488,6 +501,25 @@ function HomeFeed() {
     toast.success(`${c.subscribed} — ${item.creator}`);
   };
 
+  /** Cancelling is always the viewer's own decision — nothing else changes. */
+  const unsubscribe = async (item: FeedItem) => {
+    const key = mindKey(item);
+    setBuying(key);
+    const { error } = await cancelMind(key);
+    setBuying(null);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setOwned((s) => {
+      const next = { ...s };
+      delete next[key];
+      return next;
+    });
+    toast.success(c.unsubscribed);
+  };
+
+
   /** Paid minds ask for a length first; free minds subscribe straight away. */
   const onSubscribe = (item: FeedItem) => {
     const paid = (item.tiers ?? []).filter((t) => t.price > 0);
@@ -513,8 +545,8 @@ function HomeFeed() {
         className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center px-4 pr-32"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
-        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" /> <span className="truncate">Evermind</span>
+        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur-2xl backdrop-saturate-150">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Evermind</span>
         </h1>
       </header>
       {/* Sits below the language selector so it is never covered by it */}
@@ -523,9 +555,9 @@ function HomeFeed() {
         onClick={() => setMuted((m) => !m)}
         aria-label={muted ? "Unmute" : "Mute"}
         style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
-        className="fixed right-3 z-40 rounded-full bg-black/55 p-2 backdrop-blur"
+        className={`fixed right-3 z-40 h-10 w-10 ${glassBtn}`}
       >
-        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        {muted ? <VolumeX className="h-[1.1rem] w-[1.1rem]" /> : <Volume2 className="h-[1.1rem] w-[1.1rem]" />}
       </button>
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
@@ -548,9 +580,10 @@ function HomeFeed() {
             onLike={() => setLiked((s) => ({ ...s, [item.id]: !s[item.id] }))}
             onBuy={() => onSubscribe(item)}
             onPrimary={() => runPrimary(item)}
+            onCancel={() => void unsubscribe(item)}
             onTalk={() => setTalk(item)}
             onRobot={() => setRobot(item)}
-            onVault={() => void navigate({ to: "/vaults" })}
+            onBlocked={() => setUnplayable((s) => ({ ...s, [item.id]: true }))}
             onFeedback={() => setFeedback(item)}
             onCreator={() => setCreator(item)}
             onProjectSwipe={(direction) => swipeProject(item, direction)}
@@ -685,9 +718,10 @@ function FeedCard({
   onLike,
   onBuy,
   onPrimary,
+  onCancel,
   onTalk,
   onRobot,
-  onVault,
+  onBlocked,
   onFeedback,
   onCreator,
   onProjectSwipe,
@@ -704,9 +738,10 @@ function FeedCard({
   onLike: () => void;
   onBuy: () => void;
   onPrimary: () => void;
+  onCancel: () => void;
   onTalk: () => void;
   onRobot: () => void;
-  onVault: () => void;
+  onBlocked: () => void;
   onFeedback: () => void;
   onCreator: () => void;
   onProjectSwipe: (direction: "older" | "newer") => void;
@@ -939,16 +974,7 @@ function FeedCard({
             }}
             onToggle={toggle}
             onSeekRef={setYtSeek}
-            blockedLabel={
-              lang === "mn"
-                ? "Энэ бичлэгийг YouTube зөвхөн өөрийн сайт дээрээ тоглуулахыг зөвшөөрсөн байна."
-                : lang === "ko"
-                  ? "이 영상은 YouTube에서만 재생할 수 있습니다."
-                  : "YouTube only allows this video to play on its own site."
-            }
-            blockedAction={
-              lang === "mn" ? "YouTube дээр үзэх" : lang === "ko" ? "YouTube에서 보기" : "Watch on YouTube"
-            }
+            onBlocked={onBlocked}
           />
         ) : item.youtubeId ? (
           <img
@@ -1009,29 +1035,21 @@ function FeedCard({
             className="absolute right-3 z-30 flex flex-col gap-2"
             style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
           >
-            {/* Speak the video out loud in the chosen language — one tap, no menu. */}
-            <Button
+            {/* Subtitles on/off, then one settings sheet that holds reading
+                aloud and every language choice — no second speaker icon here. */}
+            <button
               type="button"
-              size="icon"
-              variant="secondary"
-              disabled={!item.mindId}
-              onClick={() => {
-                setVoiceBlocked(null);
-                setSpeakOn((on) => !on);
-              }}
-              aria-label={vc.speak}
-              className="h-9 w-9 bg-background/75 backdrop-blur"
+              onClick={() => setCaptions((value) => !value)}
+              aria-label={captions ? "Hide subtitles" : "Show subtitles"}
+              className={`${glassBtn} h-10 w-10 ${captions ? "" : "opacity-50"}`}
             >
-              <Volume2 className={`h-4 w-4 ${speakOn ? "text-primary" : "text-muted-foreground"}`} />
-            </Button>
-            <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
-              <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
-            </Button>
+              <Captions className="h-[1.1rem] w-[1.1rem]" />
+            </button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button type="button" size="icon" variant="secondary" aria-label="Subtitle settings" className="h-9 w-9 bg-background/75 backdrop-blur">
-                  <Settings2 className="h-4 w-4" />
-                </Button>
+                <button type="button" aria-label="Subtitle settings" className={`${glassBtn} h-10 w-10`}>
+                  <Settings2 className="h-[1.1rem] w-[1.1rem]" />
+                </button>
               </PopoverTrigger>
               <PopoverContent side="left" align="start" className="w-64 space-y-4">
                 <div>
@@ -1129,22 +1147,24 @@ function FeedCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-      {/* Right action rail — only the services this creator enabled */}
+      {/* Right action rail — floating frosted-glass icon buttons, no labels */}
       <div
-        className="absolute right-3 z-20 flex flex-col items-center gap-5"
+        className="absolute right-3 z-20 flex flex-col items-center gap-3"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
       >
-        <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
-          <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
-          <span className="text-[10px]">{c.like}</span>
+        <button type="button" onClick={onLike} aria-label={c.like} title={c.like} className={glassBtn}>
+          <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
         </button>
 
         {has("chat") && (
-          <button type="button" onClick={onTalk} aria-label="Text Chat" className="flex flex-col items-center gap-1">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <MessageCircle className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{purchased ? c.textChat : c.previewChat}</span>
+          <button
+            type="button"
+            onClick={onTalk}
+            aria-label={purchased ? c.textChat : c.previewChat}
+            title={purchased ? c.textChat : c.previewChat}
+            className={glassBtn}
+          >
+            <MessageCircle className="h-5 w-5" />
           </button>
         )}
 
@@ -1152,13 +1172,11 @@ function FeedCard({
           <button
             type="button"
             onClick={purchased ? onTalk : locked}
-            aria-label="Voice Call"
-            className={`flex flex-col items-center gap-1 ${purchased ? "" : "opacity-40"}`}
+            aria-label={c.voiceCall}
+            title={c.voiceCall}
+            className={`${glassBtn} ${purchased ? "" : "opacity-40"}`}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <Phone className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.voiceCall}</span>
+            <Phone className="h-5 w-5" />
           </button>
         )}
 
@@ -1166,42 +1184,27 @@ function FeedCard({
           <button
             type="button"
             onClick={purchased ? onTalk : locked}
-            aria-label="Video Call AI"
-            className={`flex flex-col items-center gap-1 ${purchased ? "" : "opacity-40"}`}
+            aria-label={c.videoCall}
+            title={c.videoCall}
+            className={`${glassBtn} ${purchased ? "" : "opacity-40"}`}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <VideoIcon className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.videoCall}</span>
+            <VideoIcon className="h-5 w-5" />
           </button>
         )}
 
         {/* Robot deployment only exists after purchase — never a free action */}
         {has("robot") && purchased && (
-          <button type="button" onClick={onRobot} aria-label="Deploy to Robot" className="flex flex-col items-center gap-1">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <Bot className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.robot}</span>
+          <button type="button" onClick={onRobot} aria-label={c.robot} title={c.robot} className={glassBtn}>
+            <Bot className="h-5 w-5" />
           </button>
         )}
 
-        {has("asset") && purchased && (
-          <button type="button" onClick={onVault} aria-label="Files and assets" className="flex flex-col items-center gap-1">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <FolderOpen className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.assets}</span>
-          </button>
-        )}
-
-        <button type="button" onClick={onFeedback} aria-label="Comments and mind reviews" className="flex flex-col items-center gap-1">
-          <Star className="h-7 w-7" />
-          <span className="text-[10px]">{c.reviews}</span>
+        <button type="button" onClick={onFeedback} aria-label={c.reviews} title={c.reviews} className={glassBtn}>
+          <Star className="h-5 w-5" />
         </button>
 
         {item.src && (
-          <button type="button" onClick={toggle} aria-label="Pause" className="opacity-70">
+          <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
             {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
           </button>
         )}
@@ -1253,8 +1256,8 @@ function FeedCard({
           </button>
           <button
             type="button"
-            onClick={purchased ? onPrimary : onBuy}
-            title={purchased ? shownPrimary : undefined}
+            onClick={purchased ? onCancel : onBuy}
+            title={purchased ? c.cancelSub : undefined}
             disabled={buying}
             className={`pointer-events-auto ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
               purchased ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"

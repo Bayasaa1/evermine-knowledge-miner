@@ -57,8 +57,7 @@ export function YouTubeStage({
   onTime,
   onToggle,
   onSeekRef,
-  blockedLabel,
-  blockedAction,
+  onBlocked,
 }: {
   videoId: string;
   active: boolean;
@@ -70,17 +69,20 @@ export function YouTubeStage({
   onToggle?: () => void;
   /** Hands the parent a jump-to-second function so the feed can show a scrubber. */
   onSeekRef?: (seek: ((seconds: number) => void) | null) => void;
-  blockedLabel?: string;
-  blockedAction?: string;
+  /** YouTube refuses to play some videos outside its own site (age limits,
+      embedding turned off). The feed drops those videos instead of showing an error. */
+  onBlocked?: () => void;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const activeRef = useRef(active);
   const pausedRef = useRef(paused);
   const [ready, setReady] = useState(false);
-  /** YouTube refuses to play some videos outside its own site (age limits,
-      embedding turned off). We show our own card instead of their error. */
-  const [blocked, setBlocked] = useState(false);
+  /** True only while frames are actually moving. Any other moment YouTube
+      paints its own title bar, logo and video grid, so we cover the frame. */
+  const [playing, setPlaying] = useState(false);
+  const blockedRef = useRef(onBlocked);
+  blockedRef.current = onBlocked;
 
   activeRef.current = active;
   pausedRef.current = paused;
@@ -114,14 +116,16 @@ export function YouTubeStage({
               setReady(true);
             },
             onStateChange: (e: { data: number; target: YTPlayer }) => {
+              if (cancelled) return;
+              setPlaying(e.data === 1);
               // YouTube shows recommendation cards when playback ends. Restart
               // immediately so the feed remains an Evermind-controlled loop.
-              if (cancelled || e.data !== 0) return;
+              if (e.data !== 0) return;
               e.target.seekTo(0, true);
               if (activeRef.current && !pausedRef.current) e.target.playVideo();
             },
             onError: () => {
-              if (!cancelled) setBlocked(true);
+              if (!cancelled) blockedRef.current?.();
             },
           },
         });
@@ -193,27 +197,20 @@ export function YouTubeStage({
       <div className="pointer-events-none absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full">
         <div ref={holder} className="h-full w-full" />
       </div>
+      {/* While paused, YouTube paints its own logo and "More videos" grid over
+          the frame. Cover it with the still image so the stage stays ours. */}
+      {!playing && (
+        <div
+          className="pointer-events-none absolute inset-0 z-[4] bg-neutral-950 bg-cover bg-center"
+          style={{ backgroundImage: `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)` }}
+        />
+      )}
       <button
         type="button"
         aria-label={paused ? "Play video" : "Pause video"}
         onClick={onToggle}
-        className="absolute inset-0 h-full w-full"
+        className="absolute inset-0 z-[6] h-full w-full"
       />
-      {blocked && (
-        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-neutral-950 px-8 text-center">
-          <p className="max-w-xs text-sm leading-relaxed text-white/80">
-            {blockedLabel ?? "The owner of this video only allows it to play on YouTube."}
-          </p>
-          <a
-            href={`https://www.youtube.com/watch?v=${videoId}`}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            {blockedAction ?? "Watch on YouTube"}
-          </a>
-        </div>
-      )}
     </div>
   );
 }
