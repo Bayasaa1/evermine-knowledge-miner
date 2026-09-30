@@ -19,6 +19,7 @@ import {
   type SpeakerRole,
 } from "@/lib/gemini";
 import { fetchCaptionCues } from "@/lib/youtube-captions.server";
+import { describeSpeakerLabel } from "@/lib/transcript-reconcile";
 import { secondsToStamp, tidyCues, type Cue } from "@/lib/timeline.server";
 import { generateRoleText } from "@/lib/user-ai.server";
 import type { Assessment } from "@/lib/youtube-mine.server";
