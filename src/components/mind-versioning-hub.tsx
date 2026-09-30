@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import { Clock, History, Loader2, RotateCcw, Trash2, Wrench } from "lucide-react";
+import { Clock, GitBranch, History, Loader2, RotateCcw, Trash2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -16,7 +16,7 @@ import {
   deleteMindVersion,
   listMindVersions,
   rollbackMindVersion,
-  saveMindVersion,
+  saveMindBranch,
   type MindVersion,
 } from "@/lib/mind-versions.functions";
 import { dataTypeCards, type MindPayload } from "@/lib/mind-json";
@@ -45,6 +45,14 @@ const C = {
   earlier: { en: "Earlier versions", mn: "Өмнөх хувилбарууд", ko: "이전 버전" },
   rolled: { en: "Went back", mn: "Буцлаа", ko: "되돌렸습니다" },
   deleted: { en: "Copy deleted", mn: "Хувь устгагдлаа", ko: "사본이 삭제되었습니다" },
+  branches: { en: "Branches", mn: "Салаанууд", ko: "가지" },
+  branchSaved: {
+    en: "Saved as a new branch. Your mind in use did not change — press \u201cUse this one\u201d when you want to switch.",
+    mn: "Шинэ салаа болгон хадгаллаа. Ашиглаж буй оюун чинь өөрчлөгдөөгүй — солихдоо \u201cҮүнийг ашиглах\u201d дарна уу.",
+    ko: "새 가지로 저장했습니다. 사용 중인 마인드는 그대로입니다 — 바꾸려면 \u201c이것을 사용\u201d을 누르세요.",
+  },
+  fixedBranch: { en: "My fix", mn: "Миний засвар", ko: "내 수정" },
+  by: { en: "by", mn: "хийсэн:", ko: "작성:" },
 } as const;
 
 const LABEL = {
@@ -71,7 +79,7 @@ export function MindVersioningHub({
   const load = useServerFn(listMindVersions);
   const rollbackFn = useServerFn(rollbackMindVersion);
   const deleteFn = useServerFn(deleteMindVersion);
-  const saveFn = useServerFn(saveMindVersion);
+  const saveBranchFn = useServerFn(saveMindBranch);
   const [editing, setEditing] = useState<MindVersion | null>(null);
   const [openHistory, setOpenHistory] = useState<Record<string, boolean>>({});
 
@@ -155,6 +163,12 @@ export function MindVersioningHub({
 
               <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border p-3">
                 <Badge>{active.version}</Badge>
+                <Badge variant="outline" className="gap-1">
+                  <GitBranch className="h-3 w-3" /> {active.branchName}
+                </Badge>
+                {active.createdByEngine ? (
+                  <span className="text-xs text-muted-foreground">{t("by")} {active.createdByEngine}</span>
+                ) : null}
                 <span className="text-xs text-primary">{t("current")}</span>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" /> {new Date(active.createdAt).toLocaleString()}
@@ -171,7 +185,7 @@ export function MindVersioningHub({
                   onClick={() => setOpenHistory((p) => ({ ...p, [head.vaultId]: !p[head.vaultId] }))}
                   className="mt-3 text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                 >
-                  {t("earlier")} ({older.length})
+                  {t("earlier")} · {t("branches")} ({older.length})
                 </button>
               ) : null}
 
@@ -182,6 +196,12 @@ export function MindVersioningHub({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="secondary">{v.version}</Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <GitBranch className="h-3 w-3" /> {v.branchName}
+                          </Badge>
+                          {v.createdByEngine ? (
+                            <span className="text-xs text-muted-foreground">{t("by")} {v.createdByEngine}</span>
+                          ) : null}
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Clock className="h-3 w-3" /> {new Date(v.createdAt).toLocaleString()}
                           </span>
@@ -216,15 +236,21 @@ export function MindVersioningHub({
           title={editing.title}
           payload={(editing.payload ?? {}) as MindPayload}
           onSave={async (next, notes) => {
-            await saveFn({
+            // A fix never overwrites the mind in use: it grows beside it as its
+            // own branch, and the creator decides when to switch over.
+            await saveBranchFn({
               data: {
                 vaultId: editing.vaultId,
                 title: editing.title,
                 payload: next as never,
+                parentVersionId: editing.id,
+                branchName: t("fixedBranch"),
+                engine: "manual",
                 releaseNotes: notes,
                 mindId: editing.mindId,
               },
             });
+            toast.success(t("branchSaved"));
             await refresh();
           }}
         />

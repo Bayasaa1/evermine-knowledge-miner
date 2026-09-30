@@ -19,6 +19,7 @@ import {
   type SpeakerRole,
 } from "@/lib/gemini";
 import { fetchCaptionCues } from "@/lib/youtube-captions.server";
+import { describeSpeakerLabel } from "@/lib/transcript-reconcile";
 import { secondsToStamp, tidyCues, type Cue } from "@/lib/timeline.server";
 import { generateRoleText } from "@/lib/user-ai.server";
 import type { Assessment } from "@/lib/youtube-mine.server";
@@ -87,7 +88,9 @@ ${numbered(slice, offset)}
 ${known ? `The creator says the people in this video are: ${known}. Use exactly these names.` : "Nobody named the participants. Use stable labels such as \"Host\", \"Guest 1\", \"Guest 2\"."}
 ${carried ? `Speakers already identified earlier in this same video: ${carried}. Reuse those labels for the same voices.` : ""}
 
-Decide who says each line. Use turn-taking (a question then an answer is two different people), names people call each other, introductions, and self-references. When two lines clearly continue one thought, they belong to the same person. If you truly cannot tell, use "unknown".
+Decide who says each line. Use turn-taking (a question then an answer is two different people), names people call each other, introductions, and self-references. When two lines clearly continue one thought, they belong to the same person.
+
+Name EVERY person you find. Prefer a real name whenever the words support one (someone is introduced, addressed, thanked or names themselves) and write it exactly as spoken. When no name exists, give a stable descriptive label for what that person does here — "Host", "Guest 1", "Guest 2", "Support role 1", "Caller 1", "Background voice 1" — numbered in the order they first speak, and never renumber them later. Use "unknown" only for a voice you genuinely cannot separate from another, never merely because the name is missing.
 
 Return JSON only:
 {"speakers":[{"label":"...","role":"primary|secondary|unknown","description":"one short sentence"}],
@@ -233,12 +236,21 @@ export async function analyzeTranscript(input: {
     speakers: (parsed['speakers'] as unknown[] | undefined)?.length ? parsed['speakers'] : speakers,
   });
 
-  // The captions are the measured clock, so they always win over the write-up.
+  // Caption-only mining: nobody listened to the audio here, so every line is
+  // marked "caption" — the Mind knows this wording was never double-checked.
   result.transcript = labelled.map((cue) => ({
     timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
     speech: cue.text,
     speaker: cue.speaker,
     role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
+    source: "caption" as const,
   }));
+  // No participant leaves the video nameless.
+  let secondary = 0;
+  let other = 0;
+  result.speakers = (result.speakers ?? []).map((s) => {
+    const index = s.role === "secondary" ? secondary++ : other++;
+    return { ...s, label: describeSpeakerLabel(s.label, s.role, index) };
+  });
   return { result, cues: labelled };
 }

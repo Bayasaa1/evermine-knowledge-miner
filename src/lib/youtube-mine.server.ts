@@ -1,7 +1,23 @@
 import { LANGUAGES } from "@/lib/languages";
 import { normalizeYoutubeUrl, youtubeId } from "@/lib/import-sources";
-import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
-import { buildTimeline, secondsToStamp, tidyCues, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+import {
+  normalizeChunkResult,
+  speakerIdentityDirective,
+  type ChunkResult,
+  type SpeakerProfile,
+} from "@/lib/gemini";
+import { describeSpeakerLabel, reconcileTranscript } from "@/lib/transcript-reconcile";
+import { buildTimeline, tidyCues, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+
+/** Nobody in a video stays nameless: blank or generic labels get a real role name. */
+function nameEverySpeaker(speakers: SpeakerProfile[]): SpeakerProfile[] {
+  let secondary = 0;
+  let other = 0;
+  return speakers.map((s) => {
+    const index = s.role === "secondary" ? secondary++ : other++;
+    return { ...s, label: describeSpeakerLabel(s.label, s.role, index) };
+  });
+}
 import {
   GeminiHttpError,
   UserAiError,
@@ -129,7 +145,7 @@ function assessmentDirective(a: Assessment | undefined): string {
  */
 function timelineDirective(block: string): string {
   if (!block) return "";
-  return `\n\nSPOKEN TIMELINE (ground truth — these times were measured, do not change them)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n- For the "subtitle" array, reuse these lines exactly: same words, same times, same speaker.`;
+  return `\n\nREFERENCE CAPTION TIMELINE (the TIMES were measured and are true; the WORDS may be wrong)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n\nWORDING RULES (DOUBLE-CHECK, DO NOT COPY BLINDLY)\n- These caption words come from automatic speech recognition and often mishear names, Mongolian words and mixed-language phrases.\n- For every line, listen to the audio and compare it with the caption. Keep the caption wording when it matches what you hear and reads as a sensible sentence; otherwise write what is genuinely spoken.\n- Keep the caption's time window and speaker split; only the words may change.\n- Never translate, never paraphrase, never smooth out the speaker's own way of talking, and never delete a line you can hear just because the caption is missing it.`;
 }
 
 /**
@@ -269,18 +285,17 @@ export async function analyzeYoutubeVideo(input: {
     }
   }
 
-  // Step 3 — the measured timeline always wins over the described one.
+  // Step 3 — captions keep the clock, listening decides the words. Where the
+  // two disagree the heard wording wins and the caption's version is kept
+  // alongside it, so a mis-transcribed caption can no longer poison the Mind.
   if (cues.length) {
-    const roleOf = new Map(
-      (result.speakers ?? []).map((s) => [s.label.toLowerCase().trim(), s.role] as const),
+    result.transcript = reconcileTranscript(
+      cues.map((cue) => ({ start: cue.start, end: cue.end, text: cue.text, speaker: cue.speaker })),
+      result.transcript ?? [],
+      result.speakers ?? [],
     );
-    result.transcript = cues.map((cue) => ({
-      timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
-      speech: cue.text,
-      speaker: cue.speaker,
-      role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
-    }));
   }
+  result.speakers = nameEverySpeaker(result.speakers ?? []);
   return result;
 }
 /**

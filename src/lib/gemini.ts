@@ -219,11 +219,23 @@ export async function uploadVideo(
 }
 
 export type SpeakerRole = "primary" | "secondary" | "unknown";
+/**
+ * Where a spoken line's wording came from once YouTube's captions and what the
+ * model actually heard were compared against each other.
+ * "verified" — both agree, or the model corrected a caption it disagreed with.
+ * "caption"  — only the caption exists for this moment.
+ * "heard"    — only the model's listening produced this line.
+ */
+export type TranscriptSource = "verified" | "caption" | "heard";
 export type TranscriptLine = {
   timestamp: string;
   speech: string;
   speaker: string;
   role: SpeakerRole;
+  /** How trustworthy the wording is (see TranscriptSource). */
+  source?: TranscriptSource;
+  /** YouTube's original caption text when it differed from the kept wording. */
+  captionText?: string;
 };
 export type SpeakerProfile = { label: string; role: SpeakerRole; description: string };
 export type SceneNote = { timestamp: string; description: string };
@@ -343,7 +355,13 @@ export type CopyrightAudit = {
   summary: string;
 };
 
-/** Canonical emotional states mined from a video segment. */
+/**
+ * Canonical emotional states mined from a video segment.
+ *
+ * The first six are the original set every older Mind was mined with; the rest
+ * widen the range so a reply can sound proud, amused, frustrated or curious
+ * instead of collapsing into a flat "HAPPY / SERIOUS / NEUTRAL".
+ */
 export const PRIMARY_EMOTIONS = [
   "HAPPY",
   "EXCITED",
@@ -351,8 +369,54 @@ export const PRIMARY_EMOTIONS = [
   "SAD",
   "EMPATHETIC",
   "NEUTRAL",
+  "CONFIDENT",
+  "AMUSED",
+  "PROUD",
+  "CURIOUS",
+  "PONDERING",
+  "ANGRY",
+  "FRUSTRATED",
+  "SURPRISED",
+  "NERVOUS",
+  "CALM",
 ] as const;
 export type PrimaryEmotion = (typeof PRIMARY_EMOTIONS)[number];
+
+/** Older or loosely worded model answers mapped onto the canonical set. */
+const EMOTION_ALIASES: Record<string, PrimaryEmotion> = {
+  JOY: "HAPPY",
+  JOYFUL: "HAPPY",
+  GLAD: "HAPPY",
+  ENTHUSIASTIC: "EXCITED",
+  ENERGETIC: "EXCITED",
+  FOCUSED: "SERIOUS",
+  DETERMINED: "CONFIDENT",
+  ASSERTIVE: "CONFIDENT",
+  FUNNY: "AMUSED",
+  PLAYFUL: "AMUSED",
+  LAUGHING: "AMUSED",
+  SATISFIED: "PROUD",
+  INTERESTED: "CURIOUS",
+  THOUGHTFUL: "PONDERING",
+  REFLECTIVE: "PONDERING",
+  MAD: "ANGRY",
+  IRRITATED: "FRUSTRATED",
+  ANNOYED: "FRUSTRATED",
+  DISAPPOINTED: "FRUSTRATED",
+  SHOCKED: "SURPRISED",
+  ASTONISHED: "SURPRISED",
+  ANXIOUS: "NERVOUS",
+  WORRIED: "NERVOUS",
+  RELAXED: "CALM",
+  PEACEFUL: "CALM",
+};
+
+/** Accepts any model wording and returns a canonical emotion. */
+export function canonicalEmotion(raw: unknown): PrimaryEmotion {
+  const key = String(raw ?? "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if ((PRIMARY_EMOTIONS as readonly string[]).includes(key)) return key as PrimaryEmotion;
+  return EMOTION_ALIASES[key] ?? "NEUTRAL";
+}
 
 /** One entry of the mined emotion timeline. */
 export type EmotionMoment = {
@@ -678,7 +742,24 @@ const responseSchema = {
           timestamp_end: { type: "string" },
           primary_emotion: {
             type: "string",
-            enum: ["HAPPY", "EXCITED", "SERIOUS", "SAD", "EMPATHETIC", "NEUTRAL"],
+            enum: [
+              "HAPPY",
+              "EXCITED",
+              "SERIOUS",
+              "SAD",
+              "EMPATHETIC",
+              "NEUTRAL",
+              "CONFIDENT",
+              "AMUSED",
+              "PROUD",
+              "CURIOUS",
+              "PONDERING",
+              "ANGRY",
+              "FRUSTRATED",
+              "SURPRISED",
+              "NERVOUS",
+              "CALM",
+            ],
           },
           expression_intensity: { type: "number" },
           facial_trigger: { type: "string" },
@@ -845,8 +926,14 @@ const responseSchema = {
 const PROMPT = `You are building an AI Avatar ("digital twin") of the speaker from one segment of a personal-archive video.
 Extract the pillars below and return JSON only.
 
-0. "speakers": perform SPEAKER DIARIZATION. List every distinct voice as "Speaker A", "Speaker B", ... with a "role" of "primary" for the Primary Owner (the creator whose mind is being cloned — usually the person who speaks the most, teaches, explains, answers, or owns the camera/space), "secondary" for customers, interviewers, guests or bystanders, and "unknown" when unclear. "description" says briefly why.
+0. "speakers": perform SPEAKER DIARIZATION and NAME EVERY PERSON. List every distinct voice you can hear, including brief off-camera voices and background speakers. Naming rules, in order:
+   a) Use a real name whenever the video supports it — someone is introduced, addressed, greeted, thanked, credited on screen, or names themselves. Write it exactly as spoken (e.g. "Bold").
+   b) When no real name is available, give a STABLE, DESCRIPTIVE label that says what the person does in this video: "Host", "Guest 1", "Guest 2", "Support role 1", "Support role 2", "Caller 1", "Background voice 1", "Crowd". Number them in the order they first speak and never renumber them later.
+   c) NEVER leave a person out and never label anyone "unknown" just because their name is missing — "unknown" is only for a voice you genuinely cannot separate from another.
+   d) Never invent a name that the video does not support.
+   Give every speaker a "role": "primary" for the Primary Owner (the creator whose mind is being cloned — usually the person who speaks the most, teaches, explains, answers, or owns the camera/space), "secondary" for customers, interviewers, guests or bystanders, and "unknown" only when truly unclear. "description" says briefly who they are and why you labelled them that way.
 1. "subtitle": the EXACT VERBATIM transcript of everything spoken, split into short lines of 3-10 seconds each, each with a MANDATORY "timestamp" RANGE written exactly as "HH:MM:SS - HH:MM:SS" (start - end) relative to the START OF THE WHOLE VIDEO. NEVER leave "timestamp" empty and never reuse the same window twice; if unsure, estimate from speech pace. Also give the "speaker" label and its "role". NEVER translate or paraphrase. Preserve the original mix of Mongolian (Cyrillic) and English word for word, including filler words.
+   WHEN A CAPTION TRACK IS SUPPLIED BELOW: those captions are a REFERENCE, not the truth. YouTube's automatic captions frequently mishear words, especially in Mongolian and in mixed-language speech. Listen to the audio yourself and compare it with the caption line by line. Keep the caption's TIMES, but write the wording that is actually spoken and that makes grammatical sense in context. Correct misheard words silently; never "fix" grammar the speaker really used, never translate, and never drop a line that only exists in the audio.
 2. "story": the narrative. "summary" = chronological account of what happens and what the person experiences in this segment; "tone" = the dominant emotional tone; "beats" = ordered events with timestamp, the event, and the emotion felt.
 3. "faceData": for video cloning AND visual action capture. Each entry describes one clear keyframe: what is seen, "gestures" (body/hand/head movement), "lighting" (quality and direction), "faceAngle" (e.g. frontal, 3/4 left, profile, looking down), and "cloneQuality" (excellent / good / poor + why).
    Additionally tag HIGH-PRECISION PHYSICAL ACTIONS that text cannot fully capture (dance moves, speed and rhythm of motion, cooking technique, hand gestures, tool use, hardware assembly, sport form): set "isKeyAction" to true, name the movement in "actionType", and give a tight clip window "clipStart"/"clipEnd" (whole-video-relative timestamps, 2-8 seconds long) so the user can replay the movement. For ordinary talking-head frames set "isKeyAction" to false, "actionType" to "" and leave clipStart/clipEnd equal to the timestamp.
@@ -880,7 +967,7 @@ Extract the pillars below and return JSON only.
 
 7. "emotion_timeline": MANDATORY — never return an empty list. Even a still frame or a voice-only stretch has a readable emotional state (use NEUTRAL with low intensity). Produce a continuous EMOTION & EXPRESSION TIMELINE of the Primary Owner. Segment the requested range into consecutive moments (roughly 3-15 seconds each, or wherever the emotion clearly shifts) and for every moment give:
    - "timestamp_start" / "timestamp_end": whole-video-relative MM:SS.
-   - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL.
+   - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL, CONFIDENT, AMUSED, PROUD, CURIOUS, PONDERING, ANGRY, FRUSTRATED, SURPRISED, NERVOUS, CALM. Choose the most precise one — use NEUTRAL only when nothing more specific fits, and prefer CALM over NEUTRAL when the person is deliberately relaxed.
    - "expression_intensity": 0.0-1.0 float for how strongly the emotion is expressed.
    - "facial_trigger": the dominant visible facial/head cue, e.g. Smile, Frown, Nod, Eyebrow_Raise, Wide_Eyes, Head_Shake, Neutral_Face.
    - "vocal_tone_marker": the dominant vocal quality, e.g. High_Pitch, Low_Calm, Passionate, Soft_Warm, Flat_Even, Laughing.
@@ -1045,10 +1132,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
   const knowledge = strings(v['knowledge']);
   const emotionTimeline = arr<Record<string, unknown>>(v['emotion_timeline'] ?? v['emotionTimeline'])
     .map((e) => {
-      const raw = String(e?.['primary_emotion'] ?? "").toUpperCase();
-      const primary = (PRIMARY_EMOTIONS as readonly string[]).includes(raw)
-        ? (raw as PrimaryEmotion)
-        : "NEUTRAL";
+      const primary = canonicalEmotion(e?.['primary_emotion']);
       return {
         timestamp_start: String(e?.['timestamp_start'] ?? ""),
         timestamp_end: String(e?.['timestamp_end'] ?? ""),

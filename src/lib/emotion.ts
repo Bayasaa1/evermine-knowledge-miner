@@ -99,6 +99,16 @@ export const EMOTION_LABEL: Record<PrimaryEmotion, { en: string; mn: string }> =
   SAD: { en: "Sad", mn: "Гунигтай" },
   EMPATHETIC: { en: "Empathetic", mn: "Энэрэнгүй" },
   NEUTRAL: { en: "Neutral", mn: "Төвийг сахисан" },
+  CONFIDENT: { en: "Confident", mn: "Итгэлтэй" },
+  AMUSED: { en: "Amused", mn: "Хөгжилтэй" },
+  PROUD: { en: "Proud", mn: "Бахархсан" },
+  CURIOUS: { en: "Curious", mn: "Сониуч" },
+  PONDERING: { en: "Pondering", mn: "Эргэцүүлсэн" },
+  ANGRY: { en: "Angry", mn: "Уурласан" },
+  FRUSTRATED: { en: "Frustrated", mn: "Бухимдсан" },
+  SURPRISED: { en: "Surprised", mn: "Гайхсан" },
+  NERVOUS: { en: "Nervous", mn: "Сандарсан" },
+  CALM: { en: "Calm", mn: "Тайван" },
 };
 
 /** Visual style the avatar takes on for an emotion. */
@@ -121,10 +131,30 @@ export function emotionStyle(e: AvatarEmotion): EmotionStyle {
       return { ring: "ring-primary/70", glow: "hsl(var(--primary) / 0.55)", mouthCurve: 6 * i, browLift: 1.5 * i, scale: 1 + 0.02 * i };
     case "EXCITED":
       return { ring: "ring-primary", glow: "hsl(var(--primary) / 0.75)", mouthCurve: 9 * i, browLift: 3.5 * i, scale: 1 + 0.04 * i };
+    case "AMUSED":
+      return { ring: "ring-primary/60", glow: "hsl(var(--primary) / 0.5)", mouthCurve: 7.5 * i, browLift: 2.5 * i, scale: 1 + 0.015 * i };
+    case "PROUD":
+      return { ring: "ring-primary/80", glow: "hsl(var(--primary) / 0.6)", mouthCurve: 4 * i, browLift: 2 * i, scale: 1 + 0.03 * i };
+    case "CONFIDENT":
+      return { ring: "ring-primary/60", glow: "hsl(var(--primary) / 0.45)", mouthCurve: 3 * i, browLift: 1 * i, scale: 1 + 0.02 * i };
+    case "SURPRISED":
+      return { ring: "ring-accent", glow: "hsl(var(--accent) / 0.6)", mouthCurve: 2 * i, browLift: 5 * i, scale: 1 + 0.035 * i };
+    case "CURIOUS":
+      return { ring: "ring-accent/70", glow: "hsl(var(--accent) / 0.5)", mouthCurve: 2 * i, browLift: 3 * i, scale: 1 + 0.01 * i };
+    case "PONDERING":
+      return { ring: "ring-muted-foreground/40", glow: "hsl(var(--muted-foreground) / 0.3)", mouthCurve: -1 * i, browLift: 1.5 * i, scale: 1 };
     case "SAD":
       return { ring: "ring-muted-foreground/50", glow: "hsl(var(--muted-foreground) / 0.35)", mouthCurve: -6 * i, browLift: -2 * i, scale: 1 - 0.02 * i };
+    case "NERVOUS":
+      return { ring: "ring-muted-foreground/60", glow: "hsl(var(--muted-foreground) / 0.4)", mouthCurve: -2 * i, browLift: 2.5 * i, scale: 1 - 0.01 * i };
+    case "ANGRY":
+      return { ring: "ring-destructive", glow: "hsl(var(--destructive) / 0.6)", mouthCurve: -7 * i, browLift: -4 * i, scale: 1 + 0.02 * i };
+    case "FRUSTRATED":
+      return { ring: "ring-destructive/70", glow: "hsl(var(--destructive) / 0.4)", mouthCurve: -4.5 * i, browLift: -3 * i, scale: 1 };
     case "EMPATHETIC":
       return { ring: "ring-accent/70", glow: "hsl(var(--accent) / 0.45)", mouthCurve: 2.5 * i, browLift: -1 * i, scale: 1 };
+    case "CALM":
+      return { ring: "ring-accent/50", glow: "hsl(var(--accent) / 0.3)", mouthCurve: 1.5 * i, browLift: -0.5 * i, scale: 1 };
     case "SERIOUS":
       return { ring: "ring-foreground/40", glow: "hsl(var(--foreground) / 0.25)", mouthCurve: -1.5 * i, browLift: -0.5 * i, scale: 1 };
     default:
@@ -142,6 +172,16 @@ export function emotionVoiceHints(e: AvatarEmotion): { speedDelta: number; instr
     SAD: { speedDelta: -0.1 * i, instruction: "Lower and soften the pitch, slower, quieter, with gentle heaviness." },
     EMPATHETIC: { speedDelta: -0.06 * i, instruction: "Soften and warm the voice, slower and caring, as if comforting someone." },
     NEUTRAL: { speedDelta: 0, instruction: "Keep an even, natural delivery." },
+    CONFIDENT: { speedDelta: 0.02 * i, instruction: "Speak with settled certainty, firm and unhurried, no hedging." },
+    AMUSED: { speedDelta: 0.08 * i, instruction: "Let laughter sit just under the words, playful and teasing." },
+    PROUD: { speedDelta: 0.03 * i, instruction: "Warm and full-chested, savouring the words a little." },
+    CURIOUS: { speedDelta: 0.04 * i, instruction: "Lift the ends of phrases, leaning in, genuinely interested." },
+    PONDERING: { speedDelta: -0.08 * i, instruction: "Slow down, leave small thinking pauses between thoughts." },
+    ANGRY: { speedDelta: 0.05 * i, instruction: "Harden and sharpen the voice, clipped words, more force." },
+    FRUSTRATED: { speedDelta: -0.02 * i, instruction: "Tighten the voice with audible impatience, short exhales." },
+    SURPRISED: { speedDelta: 0.1 * i, instruction: "Jump the pitch up sharply, breath caught, then recover." },
+    NERVOUS: { speedDelta: 0.07 * i, instruction: "Lighter, slightly unsteady, quicker with small hesitations." },
+    CALM: { speedDelta: -0.05 * i, instruction: "Low, smooth and relaxed, with easy breathing room." },
   };
   return map[e.primary_emotion];
 }
