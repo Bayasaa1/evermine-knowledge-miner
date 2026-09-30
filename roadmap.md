@@ -106,9 +106,9 @@
 - [x] Cancel a subscription from the Subscribed button
 
 ## Feed polish and everyone-is-a-creator
-- [ ] Remove the Evermind label chip from the top of the feed
-- [ ] Rotate / fullscreen button on landscape videos only
-- [ ] Replace the star review icon with a clearer one
-- [ ] Change profile picture from the Profile page
-- [ ] Post stories (24h) visible at the top of the feed
-- [ ] Write text/photo posts that appear in the feed
+- [x] Remove the Evermind label chip from the top of the feed
+- [x] Rotate / fullscreen button on landscape videos only
+- [x] Replace the star review icon with a clearer one
+- [x] Change profile picture from the Profile page
+- [x] Post stories (24h) — Posts & stories page, opened from Profile
+- [x] Write text/photo posts that appear on the Posts & stories page
