@@ -38,7 +38,7 @@ export async function uploadUserMedia(file: File): Promise<string> {
   const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   const path = `${uid}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type || undefined,
+    contentType: file.type || "application/octet-stream",
     upsert: false,
   });
   if (error) throw new Error(error.message);
@@ -73,7 +73,7 @@ export async function createPost(input: {
   body: string;
   file?: File | null;
   authorName: string;
-  authorAvatar?: string | null;
+  authorAvatar?: string | null | undefined;
 }): Promise<void> {
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
@@ -124,7 +124,7 @@ export async function createStory(input: {
   file: File;
   caption?: string;
   authorName: string;
-  authorAvatar?: string | null;
+  authorAvatar?: string | null | undefined;
 }): Promise<void> {
   const { data: auth } = await supabase.auth.getUser();
   const uid = auth.user?.id;
