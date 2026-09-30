@@ -38,7 +38,7 @@ const copy = {
 
 /** Round 24-hour stories, newest first, with an "add yours" button in front. */
 export function StoryBar() {
-  const lang = useLang();
+  const { lang } = useLang();
   const c = pickCopy(copy, lang);
   const { profile, userId } = useAuth();
   const [stories, setStories] = useState<UserStory[]>([]);
