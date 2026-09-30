@@ -1132,10 +1132,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
   const knowledge = strings(v['knowledge']);
   const emotionTimeline = arr<Record<string, unknown>>(v['emotion_timeline'] ?? v['emotionTimeline'])
     .map((e) => {
-      const raw = String(e?.['primary_emotion'] ?? "").toUpperCase();
-      const primary = (PRIMARY_EMOTIONS as readonly string[]).includes(raw)
-        ? (raw as PrimaryEmotion)
-        : "NEUTRAL";
+      const primary = canonicalEmotion(e?.['primary_emotion']);
       return {
         timestamp_start: String(e?.['timestamp_start'] ?? ""),
         timestamp_end: String(e?.['timestamp_end'] ?? ""),
