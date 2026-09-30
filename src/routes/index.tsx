@@ -1013,29 +1013,21 @@ function FeedCard({
             className="absolute right-3 z-30 flex flex-col gap-2"
             style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
           >
-            {/* Speak the video out loud in the chosen language — one tap, no menu. */}
-            <Button
+            {/* Subtitles on/off, then one settings sheet that holds reading
+                aloud and every language choice — no second speaker icon here. */}
+            <button
               type="button"
-              size="icon"
-              variant="secondary"
-              disabled={!item.mindId}
-              onClick={() => {
-                setVoiceBlocked(null);
-                setSpeakOn((on) => !on);
-              }}
-              aria-label={vc.speak}
-              className="h-9 w-9 bg-background/75 backdrop-blur"
+              onClick={() => setCaptions((value) => !value)}
+              aria-label={captions ? "Hide subtitles" : "Show subtitles"}
+              className={`${glassBtn} h-10 w-10 ${captions ? "" : "opacity-50"}`}
             >
-              <Volume2 className={`h-4 w-4 ${speakOn ? "text-primary" : "text-muted-foreground"}`} />
-            </Button>
-            <Button type="button" size="icon" variant="secondary" onClick={() => setCaptions((value) => !value)} aria-label={captions ? "Hide subtitles" : "Show subtitles"} className="h-9 w-9 bg-background/75 backdrop-blur">
-              <Captions className={`h-4 w-4 ${captions ? "text-primary" : "text-muted-foreground"}`} />
-            </Button>
+              <Captions className="h-[1.1rem] w-[1.1rem]" />
+            </button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button type="button" size="icon" variant="secondary" aria-label="Subtitle settings" className="h-9 w-9 bg-background/75 backdrop-blur">
-                  <Settings2 className="h-4 w-4" />
-                </Button>
+                <button type="button" aria-label="Subtitle settings" className={`${glassBtn} h-10 w-10`}>
+                  <Settings2 className="h-[1.1rem] w-[1.1rem]" />
+                </button>
               </PopoverTrigger>
               <PopoverContent side="left" align="start" className="w-64 space-y-4">
                 <div>
