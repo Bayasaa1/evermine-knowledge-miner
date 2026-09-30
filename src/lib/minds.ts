@@ -90,7 +90,7 @@ export const MINDS: Mind[] = [
     hourly: 40,
     perQuery: 0.5,
     access: "public",
-    accent: "#e8734a",
+    accent: "#e5e5e5",
     cover: coverHorse,
     highlight: "Starting a green horse without force — 40 years on the steppe.",
     coreBrain: {
