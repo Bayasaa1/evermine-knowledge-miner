@@ -57,8 +57,7 @@ export function YouTubeStage({
   onTime,
   onToggle,
   onSeekRef,
-  blockedLabel,
-  blockedAction,
+  onBlocked,
 }: {
   videoId: string;
   active: boolean;
@@ -70,17 +69,17 @@ export function YouTubeStage({
   onToggle?: () => void;
   /** Hands the parent a jump-to-second function so the feed can show a scrubber. */
   onSeekRef?: (seek: ((seconds: number) => void) | null) => void;
-  blockedLabel?: string;
-  blockedAction?: string;
+  /** YouTube refuses to play some videos outside its own site (age limits,
+      embedding turned off). The feed drops those videos instead of showing an error. */
+  onBlocked?: () => void;
 }) {
   const holder = useRef<HTMLDivElement>(null);
   const player = useRef<YTPlayer | null>(null);
   const activeRef = useRef(active);
   const pausedRef = useRef(paused);
   const [ready, setReady] = useState(false);
-  /** YouTube refuses to play some videos outside its own site (age limits,
-      embedding turned off). We show our own card instead of their error. */
-  const [blocked, setBlocked] = useState(false);
+  const blockedRef = useRef(onBlocked);
+  blockedRef.current = onBlocked;
 
   activeRef.current = active;
   pausedRef.current = paused;
