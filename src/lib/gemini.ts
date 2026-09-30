@@ -451,6 +451,42 @@ export type ChunkResult = {
   copyright: CopyrightAudit;
   /** Gaming Mind: player clone material mined from gameplay footage. */
   gaming: GamingExtraction;
+  /** Question → answer pairs (interviewer/guest asks, someone answers). */
+  qaPairs?: QAPair[];
+  /** People, organisations, places, products and ideas mentioned, with links. */
+  entities?: MinedEntity[];
+  /** On-screen text: slides, code, charts, captions burned into the frame. */
+  screenText?: ScreenText[];
+};
+
+export type QAPair = {
+  timestamp: string;
+  asker: string;
+  question: string;
+  answerer: string;
+  answer: string;
+};
+
+export type MinedEntity = {
+  name: string;
+  /** person | organization | place | product | concept | event | work | other */
+  type: string;
+  description: string;
+  timestamps: string[];
+  /** Links to other entities, e.g. {target:"Tesla", relation:"founded"}. */
+  relations: { target: string; relation: string }[];
+};
+
+export type ScreenText = {
+  timestamp: string;
+  /** slide | code | chart | caption | whiteboard | ui | other */
+  kind: string;
+  /** Verbatim text as it appears on screen. */
+  text: string;
+  /** Programming language for code, otherwise "". */
+  language: string;
+  /** What a chart/diagram shows, in words. */
+  description: string;
 };
 
 /** A distinct, repeatable play skill the player demonstrates. */
@@ -810,6 +846,55 @@ const responseSchema = {
       },
       required: ["flagged", "originality", "summary", "signals"],
     },
+    qaPairs: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp: { type: "string" },
+          asker: { type: "string" },
+          question: { type: "string" },
+          answerer: { type: "string" },
+          answer: { type: "string" },
+        },
+        required: ["timestamp", "asker", "question", "answerer", "answer"],
+      },
+    },
+    entities: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          type: { type: "string" },
+          description: { type: "string" },
+          timestamps: { type: "array", items: { type: "string" } },
+          relations: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: { target: { type: "string" }, relation: { type: "string" } },
+              required: ["target", "relation"],
+            },
+          },
+        },
+        required: ["name", "type", "description", "timestamps", "relations"],
+      },
+    },
+    screenText: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp: { type: "string" },
+          kind: { type: "string" },
+          text: { type: "string" },
+          language: { type: "string" },
+          description: { type: "string" },
+        },
+        required: ["timestamp", "kind", "text", "language", "description"],
+      },
+    },
     // Only filled for the Gaming Mind category; omitted otherwise so other
     // categories don't pay tokens for gameplay fields.
     gaming: {
@@ -979,6 +1064,10 @@ Extract the pillars below and return JSON only.
    - "originality": "original" when nothing suggests third-party content, "uncertain" when evidence is weak, "third-party" when the segment is clearly someone else's footage.
    - "flagged": true whenever originality is "third-party" or any signal has confidence 0.7 or higher. Flagged segments block publishing until the creator confirms ownership.
    - "summary": one plain sentence explaining the verdict. Never guess — say so in the summary and keep confidence low instead.
+
+9. "qaPairs": every real QUESTION and its ANSWER in this segment (interviews, podcasts, Q&A, lessons). "asker"/"answerer" use the exact speaker labels from "speakers". "question" is the question as asked; "answer" is a faithful, self-contained summary of the answer in the answerer's reasoning (pronouns resolved). Keep the original spoken language. Skip rhetorical questions. Empty list if none.
+10. "entities": every named PERSON, ORGANIZATION, PLACE, PRODUCT, WORK (book, film, game, song), EVENT or key CONCEPT that is mentioned or shown. "type" is one of person, organization, place, product, concept, event, work, other. "description" says who/what it is in this video. "timestamps" lists when it appears. "relations" links it to other entities in this list with a short verb ("founded", "works at", "competes with", "uses", "part of"). Only what the video supports — never add outside knowledge.
+11. "screenText": OCR of everything readable on screen: slides, code, charts, whiteboards, burned-in text, app UI. One entry per distinct screen. "text" is VERBATIM (keep line breaks and indentation for code). "kind" is slide, code, chart, caption, whiteboard, ui or other. "language" is the programming language for code, else "". "description" explains in words what a chart, diagram or picture shows. Skip platform watermarks and subtitles you already transcribed. Empty list for talking-head footage.
 
 Only cover the requested time range. Output JSON only.`;
 
@@ -1211,6 +1300,35 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
       quote: String(e?.['quote'] ?? ""),
     })),
   };
+  const qaPairs: QAPair[] = arr<Record<string, unknown>>(v['qaPairs'] ?? v['qa_pairs'])
+    .map((q) => ({
+      timestamp: String(q?.['timestamp'] ?? ""),
+      asker: String(q?.['asker'] ?? ""),
+      question: String(q?.['question'] ?? "").trim(),
+      answerer: String(q?.['answerer'] ?? ""),
+      answer: String(q?.['answer'] ?? "").trim(),
+    }))
+    .filter((q) => q.question && q.answer);
+  const entities: MinedEntity[] = arr<Record<string, unknown>>(v['entities'])
+    .map((e) => ({
+      name: String(e?.['name'] ?? "").trim(),
+      type: String(e?.['type'] ?? "other").toLowerCase(),
+      description: String(e?.['description'] ?? ""),
+      timestamps: strings(e?.['timestamps']),
+      relations: arr<Record<string, unknown>>(e?.['relations'])
+        .map((r) => ({ target: String(r?.['target'] ?? "").trim(), relation: String(r?.['relation'] ?? "").trim() }))
+        .filter((r) => r.target && r.relation),
+    }))
+    .filter((e) => e.name);
+  const screenText: ScreenText[] = arr<Record<string, unknown>>(v['screenText'] ?? v['screen_text'])
+    .map((t) => ({
+      timestamp: String(t?.['timestamp'] ?? ""),
+      kind: String(t?.['kind'] ?? "other"),
+      text: String(t?.['text'] ?? ""),
+      language: String(t?.['language'] ?? ""),
+      description: String(t?.['description'] ?? ""),
+    }))
+    .filter((t) => t.text.trim() || t.description.trim());
   return {
 
     speakers,
@@ -1243,6 +1361,9 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     emotionTimeline,
     copyright,
     gaming,
+    qaPairs,
+    entities,
+    screenText,
   };
 }
 

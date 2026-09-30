@@ -103,6 +103,9 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     knowledgeNodes: result.knowledgeNodes.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
     emotionTimeline: result.emotionTimeline.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
     copyright: { ...result.copyright, signals: result.copyright.signals.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
+    qaPairs: (result.qaPairs ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+    entities: (result.entities ?? []).map((item) => ({ ...item, timestamps: item.timestamps.map(stamp) })),
+    screenText: (result.screenText ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
   };
   // Fill after shifting so generated windows land in whole-video time.
   return fillMissingTranscriptStamps(shifted, chunkIndex);
@@ -186,6 +189,9 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
       aestheticProfile: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.aestheticProfile)),
     },
     knowledgeNodes: normalized.flatMap((r) => r.knowledgeNodes),
+    qaPairs: normalized.flatMap((r) => r.qaPairs ?? []),
+    entities: mergeEntities(normalized.flatMap((r) => r.entities ?? [])),
+    screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${t.text.trim()}`),
     emotionTimeline: normalized.flatMap((r) => r.emotionTimeline),
     copyright: {
       flagged,
@@ -205,4 +211,19 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
       emotions: normalized.flatMap((r) => r.gaming.emotions),
     },
   };
+}
+
+/** One entry per entity across all parts: timestamps and links are combined. */
+function mergeEntities(list: import("@/lib/gemini").MinedEntity[]): import("@/lib/gemini").MinedEntity[] {
+  const map = new Map<string, import("@/lib/gemini").MinedEntity>();
+  for (const e of list) {
+    const k = e.name.toLowerCase().trim();
+    const prev = map.get(k);
+    if (!prev) { map.set(k, { ...e, timestamps: [...e.timestamps], relations: [...e.relations] }); continue; }
+    if (!prev.description && e.description) prev.description = e.description;
+    prev.timestamps = [...new Set([...prev.timestamps, ...e.timestamps])];
+    const seen = new Set(prev.relations.map((r) => `${r.target.toLowerCase()}|${r.relation.toLowerCase()}`));
+    for (const r of e.relations) if (!seen.has(`${r.target.toLowerCase()}|${r.relation.toLowerCase()}`)) prev.relations.push(r);
+  }
+  return [...map.values()];
 }
