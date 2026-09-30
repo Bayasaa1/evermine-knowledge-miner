@@ -20,6 +20,12 @@ export type MindVersion = {
   payload: Json;
   isActive: boolean;
   createdAt: string;
+  /** The version this one grew out of; null for the root of the tree. */
+  parentVersionId: string | null;
+  /** Which line of the tree this copy belongs to, e.g. "main" or "Gemini re-mine". */
+  branchName: string;
+  /** Which engine or person produced it, so branches can be told apart. */
+  createdByEngine: string;
 };
 
 export type SavedMind = { vaultId: string; versionId: string; version: string; versionNum: number };
@@ -62,7 +68,9 @@ export const listMindVersions = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<MindVersion[]> => {
     const { data, error } = await context.supabase
       .from("mind_versions")
-      .select("id, vault_id, mind_id, title, version, version_num, release_notes, payload, is_active, created_at")
+      .select(
+        "id, vault_id, mind_id, title, version, version_num, release_notes, payload, is_active, created_at, parent_version_id, branch_name, created_by_engine",
+      )
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -78,7 +86,71 @@ export const listMindVersions = createServerFn({ method: "GET" })
       payload: r.payload as Json,
       isActive: r.is_active,
       createdAt: r.created_at,
+      parentVersionId: r.parent_version_id ?? null,
+      branchName: r.branch_name ?? "main",
+      createdByEngine: r.created_by_engine ?? "",
     }));
+  });
+
+/**
+ * Grows a NEW branch off an existing version.
+ *
+ * The Mind currently in use is left completely untouched — re-mining with a
+ * different engine, or hand-fixing a copy, adds a root alongside the old one
+ * and the creator alone decides which becomes the living Mind.
+ */
+export const saveMindBranch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: {
+      vaultId: string;
+      title: string;
+      payload: Json;
+      parentVersionId?: string | null;
+      branchName?: string;
+      engine?: string;
+      releaseNotes?: string;
+      mindId?: string;
+    }) => {
+      if (!input?.vaultId) throw new Error("A Mind is required");
+      const payload = input.payload as Record<string, unknown> | null;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload) || !payload['result']) {
+        throw new Error("The mined JSON payload is empty or invalid");
+      }
+      return input;
+    },
+  )
+  .handler(async ({ data, context }): Promise<{ versionId: string; version: string; versionNum: number }> => {
+    const { data: rows, error } = await context.supabase.rpc("save_mind_branch", {
+      _vault_id: data.vaultId,
+      _title: (data.title || "Untitled Mind").slice(0, 200),
+      _payload: data.payload as never,
+      _parent_version_id: (data.parentVersionId ?? null) as unknown as string,
+      _branch_name: (data.branchName ?? "branch").slice(0, 80),
+      _engine: (data.engine ?? "").slice(0, 80),
+      _release_notes: (data.releaseNotes ?? "").slice(0, 4000),
+      _mind_id: data.mindId ?? "",
+    });
+    if (error) throw new Error(error.message);
+    const row = (rows ?? [])[0];
+    if (!row) throw new Error("The branch could not be verified in the database");
+    return { versionId: row.version_id, version: row.version, versionNum: row.version_num };
+  });
+
+/** Renames one branch. Names are always the creator's choice, never automatic. */
+export const renameMindBranch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { versionId: string; branchName: string }) => {
+    if (!input?.versionId || !input?.branchName?.trim()) throw new Error("A branch name is required");
+    return input;
+  })
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.rpc("rename_mind_branch", {
+      _version_id: data.versionId,
+      _branch_name: data.branchName.trim().slice(0, 80),
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const rollbackMindVersion = createServerFn({ method: "POST" })
