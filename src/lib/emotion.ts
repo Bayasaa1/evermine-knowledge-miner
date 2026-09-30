@@ -99,6 +99,16 @@ export const EMOTION_LABEL: Record<PrimaryEmotion, { en: string; mn: string }> =
   SAD: { en: "Sad", mn: "Гунигтай" },
   EMPATHETIC: { en: "Empathetic", mn: "Энэрэнгүй" },
   NEUTRAL: { en: "Neutral", mn: "Төвийг сахисан" },
+  CONFIDENT: { en: "Confident", mn: "Итгэлтэй" },
+  AMUSED: { en: "Amused", mn: "Хөгжилтэй" },
+  PROUD: { en: "Proud", mn: "Бахархсан" },
+  CURIOUS: { en: "Curious", mn: "Сониуч" },
+  PONDERING: { en: "Pondering", mn: "Эргэцүүлсэн" },
+  ANGRY: { en: "Angry", mn: "Уурласан" },
+  FRUSTRATED: { en: "Frustrated", mn: "Бухимдсан" },
+  SURPRISED: { en: "Surprised", mn: "Гайхсан" },
+  NERVOUS: { en: "Nervous", mn: "Сандарсан" },
+  CALM: { en: "Calm", mn: "Тайван" },
 };
 
 /** Visual style the avatar takes on for an emotion. */
