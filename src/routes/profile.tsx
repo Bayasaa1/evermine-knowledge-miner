@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { KeyRound, ShieldCheck, Wallet } from "lucide-react";
+import { Boxes, KeyRound, ShieldCheck, Wallet } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
