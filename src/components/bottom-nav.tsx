@@ -49,7 +49,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         to={item.to}
         aria-label={item.label}
         className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
-          active ? "bg-foreground/15 text-foreground" : "text-muted-foreground hover:text-foreground"
+          active ? "bg-foreground/20 text-foreground" : "text-foreground/60 hover:text-foreground"
         }`}
       >
         <Icon className="h-6 w-6" />
@@ -64,7 +64,12 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         style={{ bottom: "calc(12px + env(safe-area-inset-bottom))" }}
         className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
       >
-        <nav className="pointer-events-auto flex items-center gap-1 rounded-full border border-foreground/15 bg-background/55 px-2 py-1.5 shadow-2xl backdrop-blur-2xl">
+        {/* Real frosted glass: heavy blur + saturation over a barely-there tint,
+            so the video underneath stays visible through the bar. */}
+        <nav
+          style={{ WebkitBackdropFilter: "blur(28px) saturate(180%)", backdropFilter: "blur(28px) saturate(180%)" }}
+          className="pointer-events-auto flex items-center gap-1 rounded-full border border-foreground/15 bg-background/25 px-2 py-1.5 shadow-2xl"
+        >
           {cell(home)}
           {cell(search)}
           {cell(create)}
