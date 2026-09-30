@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
-  FolderOpen,
   Heart,
   Loader2,
   MessageCircle,
