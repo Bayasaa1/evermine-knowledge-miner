@@ -219,11 +219,23 @@ export async function uploadVideo(
 }
 
 export type SpeakerRole = "primary" | "secondary" | "unknown";
+/**
+ * Where a spoken line's wording came from once YouTube's captions and what the
+ * model actually heard were compared against each other.
+ * "verified" — both agree, or the model corrected a caption it disagreed with.
+ * "caption"  — only the caption exists for this moment.
+ * "heard"    — only the model's listening produced this line.
+ */
+export type TranscriptSource = "verified" | "caption" | "heard";
 export type TranscriptLine = {
   timestamp: string;
   speech: string;
   speaker: string;
   role: SpeakerRole;
+  /** How trustworthy the wording is (see TranscriptSource). */
+  source?: TranscriptSource;
+  /** YouTube's original caption text when it differed from the kept wording. */
+  captionText?: string;
 };
 export type SpeakerProfile = { label: string; role: SpeakerRole; description: string };
 export type SceneNote = { timestamp: string; description: string };
