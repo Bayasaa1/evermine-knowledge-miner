@@ -966,7 +966,7 @@ Extract the pillars below and return JSON only.
 
 7. "emotion_timeline": MANDATORY — never return an empty list. Even a still frame or a voice-only stretch has a readable emotional state (use NEUTRAL with low intensity). Produce a continuous EMOTION & EXPRESSION TIMELINE of the Primary Owner. Segment the requested range into consecutive moments (roughly 3-15 seconds each, or wherever the emotion clearly shifts) and for every moment give:
    - "timestamp_start" / "timestamp_end": whole-video-relative MM:SS.
-   - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL.
+   - "primary_emotion": exactly one of HAPPY, EXCITED, SERIOUS, SAD, EMPATHETIC, NEUTRAL, CONFIDENT, AMUSED, PROUD, CURIOUS, PONDERING, ANGRY, FRUSTRATED, SURPRISED, NERVOUS, CALM. Choose the most precise one — use NEUTRAL only when nothing more specific fits, and prefer CALM over NEUTRAL when the person is deliberately relaxed.
    - "expression_intensity": 0.0-1.0 float for how strongly the emotion is expressed.
    - "facial_trigger": the dominant visible facial/head cue, e.g. Smile, Frown, Nod, Eyebrow_Raise, Wide_Eyes, Head_Shake, Neutral_Face.
    - "vocal_tone_marker": the dominant vocal quality, e.g. High_Pitch, Low_Calm, Passionate, Soft_Warm, Flat_Even, Laughing.
