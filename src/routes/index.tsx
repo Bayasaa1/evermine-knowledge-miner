@@ -560,7 +560,7 @@ function HomeFeed() {
             onPrimary={() => runPrimary(item)}
             onTalk={() => setTalk(item)}
             onRobot={() => setRobot(item)}
-            onVault={() => void navigate({ to: "/vaults" })}
+            onBlocked={() => setUnplayable((s) => ({ ...s, [item.id]: true }))}
             onFeedback={() => setFeedback(item)}
             onCreator={() => setCreator(item)}
             onProjectSwipe={(direction) => swipeProject(item, direction)}
