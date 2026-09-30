@@ -120,7 +120,7 @@ export function YouTubeStage({
               if (activeRef.current && !pausedRef.current) e.target.playVideo();
             },
             onError: () => {
-              if (!cancelled) setBlocked(true);
+              if (!cancelled) blockedRef.current?.();
             },
           },
         });
