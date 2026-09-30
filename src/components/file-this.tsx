@@ -122,7 +122,7 @@ export function FileThis({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
       <div className="w-full max-w-md space-y-3 rounded-[12px] border border-border bg-card p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">

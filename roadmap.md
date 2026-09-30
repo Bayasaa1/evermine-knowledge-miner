@@ -91,3 +91,9 @@
 - [x] Let creators control the video order inside each project
 - [x] Swipe right for the project's next/newer video and left for its previous/older video
 - [x] Rank the main feed with popularity, freshness, quality, and creator diversity without AI credits
+
+## Monochrome glass look
+- [x] Remove orange from the whole app (black / white / grey only)
+- [x] Floating frosted-glass dock with five icons and no labels
+- [x] Move My Vaults into Profile
+- [x] Stop the phone status bar covering pop-up titles and close buttons

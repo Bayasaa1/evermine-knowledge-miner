@@ -1026,7 +1026,7 @@ export function SavedMinds({
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
           <form
             onSubmit={(e) => {
               e.preventDefault();

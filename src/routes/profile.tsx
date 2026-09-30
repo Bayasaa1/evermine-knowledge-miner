@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { KeyRound, ShieldCheck, Wallet } from "lucide-react";
+import { Boxes, KeyRound, ShieldCheck, Wallet } from "lucide-react";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
@@ -43,12 +43,20 @@ function ProfilePage() {
 
         <div className="mt-4 grid gap-3">
           <Link
-            to="/keys"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/60"
+            to="/vaults"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/40"
           >
-            <KeyRound className="h-5 w-5 text-primary" />
+            <Boxes className="h-5 w-5 text-foreground" />
+            <span className="text-sm font-medium">My Vaults — saved minds, videos and branches</span>
+          </Link>
+          <Link
+            to="/keys"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/40"
+          >
+            <KeyRound className="h-5 w-5 text-foreground" />
             <span className="text-sm font-medium">API Manager — keys, limits and usage</span>
           </Link>
+
           <Link
             to="/creator"
             hash="analytics"
