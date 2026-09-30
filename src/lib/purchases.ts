@@ -3,7 +3,7 @@
  * verified reviews are all gated on an active row existing here.
  */
 import { supabase } from "@/integrations/supabase/client";
-import { claimMind } from "./purchases.functions";
+import { claimMind, releaseMind } from "./purchases.functions";
 import type { CreationCategory } from "./creation-category";
 import type { PlanLength } from "./subscription";
 
@@ -44,5 +44,15 @@ export async function purchaseMind(input: {
     return { error: res.ok ? null : (res.error ?? "Subscription failed") };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Subscription failed" };
+  }
+}
+
+/** Cancels a subscription. The viewer keeps nothing but their own history. */
+export async function cancelMind(mindId: string): Promise<{ error: string | null }> {
+  try {
+    const res = await releaseMind({ data: { mindId } });
+    return { error: res.ok ? null : (res.error ?? "Cancel failed") };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Cancel failed" };
   }
 }

@@ -88,3 +88,22 @@ export const claimMind = createServerFn({ method: "POST" })
     if (error) return { ok: false, error: error.message };
     return { ok: true, error: null };
   });
+
+/** Cancels the viewer's own subscription to a mind. Only their own row is
+ *  removed — nobody else's access is ever touched. */
+export const releaseMind = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { mindId: string }) => {
+    if (!input?.mindId || typeof input.mindId !== "string") throw new Error("A mind id is required");
+    if (input.mindId.length > 200) throw new Error("Invalid mind id");
+    return { mindId: input.mindId };
+  })
+  .handler(async ({ data, context }): Promise<PurchaseResult> => {
+    const { error } = await context.supabase
+      .from("mind_purchases")
+      .delete()
+      .eq("user_id", context.userId)
+      .eq("mind_id", data.mindId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, error: null };
+  });
