@@ -81,9 +81,9 @@ function writePref(key: string, value: string) {
   if (typeof window !== "undefined") window.localStorage.setItem(key, value);
 }
 
-/** Floating frosted-glass round button used by every on-video control. */
+/** Flat charcoal round button used by every on-video control. */
 const glassBtn =
-  "flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-lg backdrop-blur-2xl backdrop-saturate-150 transition-colors hover:bg-white/20";
+  "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#232326]/90 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-[#2c2c30]";
 
 
 /** mm:ss stamp for mined timeline marks. */
