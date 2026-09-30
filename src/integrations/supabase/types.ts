@@ -1333,6 +1333,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      author_is_banned: { Args: { _user_id: string }; Returns: boolean }
       get_published_mind_package: {
         Args: { _token: string }
         Returns: {

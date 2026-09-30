@@ -162,6 +162,13 @@
       "when": 1790746858187,
       "tag": "0022_user_media_read_scoped",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790746932499,
+      "tag": "0023_hide_banned_authors_in_public_reads",
+      "breakpoints": true
     }
   ]
 }
