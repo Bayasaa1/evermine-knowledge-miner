@@ -949,16 +949,7 @@ function FeedCard({
             }}
             onToggle={toggle}
             onSeekRef={setYtSeek}
-            blockedLabel={
-              lang === "mn"
-                ? "Энэ бичлэгийг YouTube зөвхөн өөрийн сайт дээрээ тоглуулахыг зөвшөөрсөн байна."
-                : lang === "ko"
-                  ? "이 영상은 YouTube에서만 재생할 수 있습니다."
-                  : "YouTube only allows this video to play on its own site."
-            }
-            blockedAction={
-              lang === "mn" ? "YouTube дээр үзэх" : lang === "ko" ? "YouTube에서 보기" : "Watch on YouTube"
-            }
+            onBlocked={onBlocked}
           />
         ) : item.youtubeId ? (
           <img
