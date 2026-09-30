@@ -78,6 +78,9 @@ export function YouTubeStage({
   const activeRef = useRef(active);
   const pausedRef = useRef(paused);
   const [ready, setReady] = useState(false);
+  /** True only while frames are actually moving. Any other moment YouTube
+      paints its own title bar, logo and video grid, so we cover the frame. */
+  const [playing, setPlaying] = useState(false);
   const blockedRef = useRef(onBlocked);
   blockedRef.current = onBlocked;
 
@@ -113,9 +116,11 @@ export function YouTubeStage({
               setReady(true);
             },
             onStateChange: (e: { data: number; target: YTPlayer }) => {
+              if (cancelled) return;
+              setPlaying(e.data === 1);
               // YouTube shows recommendation cards when playback ends. Restart
               // immediately so the feed remains an Evermind-controlled loop.
-              if (cancelled || e.data !== 0) return;
+              if (e.data !== 0) return;
               e.target.seekTo(0, true);
               if (activeRef.current && !pausedRef.current) e.target.playVideo();
             },
@@ -194,7 +199,7 @@ export function YouTubeStage({
       </div>
       {/* While paused, YouTube paints its own logo and "More videos" grid over
           the frame. Cover it with the still image so the stage stays ours. */}
-      {paused && (
+      {!playing && (
         <div
           className="pointer-events-none absolute inset-0 z-[4] bg-neutral-950 bg-cover bg-center"
           style={{ backgroundImage: `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)` }}
