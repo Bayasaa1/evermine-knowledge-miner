@@ -162,6 +162,16 @@ export function emotionVoiceHints(e: AvatarEmotion): { speedDelta: number; instr
     SAD: { speedDelta: -0.1 * i, instruction: "Lower and soften the pitch, slower, quieter, with gentle heaviness." },
     EMPATHETIC: { speedDelta: -0.06 * i, instruction: "Soften and warm the voice, slower and caring, as if comforting someone." },
     NEUTRAL: { speedDelta: 0, instruction: "Keep an even, natural delivery." },
+    CONFIDENT: { speedDelta: 0.02 * i, instruction: "Speak with settled certainty, firm and unhurried, no hedging." },
+    AMUSED: { speedDelta: 0.08 * i, instruction: "Let laughter sit just under the words, playful and teasing." },
+    PROUD: { speedDelta: 0.03 * i, instruction: "Warm and full-chested, savouring the words a little." },
+    CURIOUS: { speedDelta: 0.04 * i, instruction: "Lift the ends of phrases, leaning in, genuinely interested." },
+    PONDERING: { speedDelta: -0.08 * i, instruction: "Slow down, leave small thinking pauses between thoughts." },
+    ANGRY: { speedDelta: 0.05 * i, instruction: "Harden and sharpen the voice, clipped words, more force." },
+    FRUSTRATED: { speedDelta: -0.02 * i, instruction: "Tighten the voice with audible impatience, short exhales." },
+    SURPRISED: { speedDelta: 0.1 * i, instruction: "Jump the pitch up sharply, breath caught, then recover." },
+    NERVOUS: { speedDelta: 0.07 * i, instruction: "Lighter, slightly unsteady, quicker with small hesitations." },
+    CALM: { speedDelta: -0.05 * i, instruction: "Low, smooth and relaxed, with easy breathing room." },
   };
   return map[e.primary_emotion];
 }
