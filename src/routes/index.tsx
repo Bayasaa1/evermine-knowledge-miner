@@ -517,8 +517,8 @@ function HomeFeed() {
         className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center px-4 pr-32"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
-        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full bg-black/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" /> <span className="truncate">Evermind</span>
+        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur-2xl backdrop-saturate-150">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Evermind</span>
         </h1>
       </header>
       {/* Sits below the language selector so it is never covered by it */}
@@ -527,9 +527,9 @@ function HomeFeed() {
         onClick={() => setMuted((m) => !m)}
         aria-label={muted ? "Unmute" : "Mute"}
         style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
-        className="fixed right-3 z-40 rounded-full bg-black/55 p-2 backdrop-blur"
+        className={`fixed right-3 z-40 h-10 w-10 ${glassBtn}`}
       >
-        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        {muted ? <VolumeX className="h-[1.1rem] w-[1.1rem]" /> : <Volume2 className="h-[1.1rem] w-[1.1rem]" />}
       </button>
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
