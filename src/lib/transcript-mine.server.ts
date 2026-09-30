@@ -87,7 +87,9 @@ ${numbered(slice, offset)}
 ${known ? `The creator says the people in this video are: ${known}. Use exactly these names.` : "Nobody named the participants. Use stable labels such as \"Host\", \"Guest 1\", \"Guest 2\"."}
 ${carried ? `Speakers already identified earlier in this same video: ${carried}. Reuse those labels for the same voices.` : ""}
 
-Decide who says each line. Use turn-taking (a question then an answer is two different people), names people call each other, introductions, and self-references. When two lines clearly continue one thought, they belong to the same person. If you truly cannot tell, use "unknown".
+Decide who says each line. Use turn-taking (a question then an answer is two different people), names people call each other, introductions, and self-references. When two lines clearly continue one thought, they belong to the same person.
+
+Name EVERY person you find. Prefer a real name whenever the words support one (someone is introduced, addressed, thanked or names themselves) and write it exactly as spoken. When no name exists, give a stable descriptive label for what that person does here — "Host", "Guest 1", "Guest 2", "Support role 1", "Caller 1", "Background voice 1" — numbered in the order they first speak, and never renumber them later. Use "unknown" only for a voice you genuinely cannot separate from another, never merely because the name is missing.
 
 Return JSON only:
 {"speakers":[{"label":"...","role":"primary|secondary|unknown","description":"one short sentence"}],
