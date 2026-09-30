@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import type { TimelineMark } from "@/lib/projects";
 import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabilities";
-import { listPurchases, purchaseMind } from "@/lib/purchases";
+import { cancelMind, listPurchases, purchaseMind } from "@/lib/purchases";
 import { formatMoney, type PlanLength } from "@/lib/subscription";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -310,6 +310,8 @@ const FEED_COPY = {
     reviews: "Reviews",
     buy: "Subscribe",
     subscribed: "Subscribed",
+    unsubscribed: "Subscription cancelled",
+    cancelSub: "Cancel subscription",
     free: "Subscribe · Free",
     chooseLength: "Choose your subscription",
     checkoutSoon: "Paid subscriptions are coming soon — card checkout is not connected yet.",
