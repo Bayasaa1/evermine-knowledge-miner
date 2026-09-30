@@ -897,6 +897,24 @@ function FeedCard({
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
+  // Wide (16:9) clips get a rotate-to-fullscreen button; vertical clips do not need one.
+  const isLandscape = !!(item.youtubeId || item.embedUrl);
+  const goFullscreen = useCallback(() => {
+    const frame = stageRef.current;
+    if (!frame) return;
+    const orientation = window.screen?.orientation as
+      | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
+      | undefined;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+      orientation?.unlock?.();
+      return;
+    }
+    void frame
+      .requestFullscreen?.()
+      .then(() => orientation?.lock?.("landscape").catch(() => undefined))
+      .catch(() => undefined);
+  }, []);
   const beginSwipe = (event: React.PointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,select,a,[role='slider']")) return;
