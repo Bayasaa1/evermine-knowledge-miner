@@ -580,6 +580,7 @@ function HomeFeed() {
             onLike={() => setLiked((s) => ({ ...s, [item.id]: !s[item.id] }))}
             onBuy={() => onSubscribe(item)}
             onPrimary={() => runPrimary(item)}
+            onCancel={() => void unsubscribe(item)}
             onTalk={() => setTalk(item)}
             onRobot={() => setRobot(item)}
             onBlocked={() => setUnplayable((s) => ({ ...s, [item.id]: true }))}
@@ -717,6 +718,7 @@ function FeedCard({
   onLike,
   onBuy,
   onPrimary,
+  onCancel,
   onTalk,
   onRobot,
   onBlocked,
@@ -736,6 +738,7 @@ function FeedCard({
   onLike: () => void;
   onBuy: () => void;
   onPrimary: () => void;
+  onCancel: () => void;
   onTalk: () => void;
   onRobot: () => void;
   onBlocked: () => void;
@@ -1253,8 +1256,8 @@ function FeedCard({
           </button>
           <button
             type="button"
-            onClick={purchased ? onPrimary : onBuy}
-            title={purchased ? shownPrimary : undefined}
+            onClick={purchased ? onCancel : onBuy}
+            title={purchased ? c.cancelSub : undefined}
             disabled={buying}
             className={`pointer-events-auto ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
               purchased ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
