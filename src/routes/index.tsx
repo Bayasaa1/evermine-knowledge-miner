@@ -1129,22 +1129,24 @@ function FeedCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-      {/* Right action rail — only the services this creator enabled */}
+      {/* Right action rail — floating frosted-glass icon buttons, no labels */}
       <div
-        className="absolute right-3 z-20 flex flex-col items-center gap-5"
+        className="absolute right-3 z-20 flex flex-col items-center gap-3"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
       >
-        <button type="button" onClick={onLike} aria-label="Like" className="flex flex-col items-center gap-1">
-          <Heart className={`h-7 w-7 ${liked ? "fill-primary text-primary" : ""}`} />
-          <span className="text-[10px]">{c.like}</span>
+        <button type="button" onClick={onLike} aria-label={c.like} title={c.like} className={glassBtn}>
+          <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
         </button>
 
         {has("chat") && (
-          <button type="button" onClick={onTalk} aria-label="Text Chat" className="flex flex-col items-center gap-1">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <MessageCircle className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{purchased ? c.textChat : c.previewChat}</span>
+          <button
+            type="button"
+            onClick={onTalk}
+            aria-label={purchased ? c.textChat : c.previewChat}
+            title={purchased ? c.textChat : c.previewChat}
+            className={glassBtn}
+          >
+            <MessageCircle className="h-5 w-5" />
           </button>
         )}
 
@@ -1152,13 +1154,11 @@ function FeedCard({
           <button
             type="button"
             onClick={purchased ? onTalk : locked}
-            aria-label="Voice Call"
-            className={`flex flex-col items-center gap-1 ${purchased ? "" : "opacity-40"}`}
+            aria-label={c.voiceCall}
+            title={c.voiceCall}
+            className={`${glassBtn} ${purchased ? "" : "opacity-40"}`}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <Phone className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.voiceCall}</span>
+            <Phone className="h-5 w-5" />
           </button>
         )}
 
@@ -1166,42 +1166,27 @@ function FeedCard({
           <button
             type="button"
             onClick={purchased ? onTalk : locked}
-            aria-label="Video Call AI"
-            className={`flex flex-col items-center gap-1 ${purchased ? "" : "opacity-40"}`}
+            aria-label={c.videoCall}
+            title={c.videoCall}
+            className={`${glassBtn} ${purchased ? "" : "opacity-40"}`}
           >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <VideoIcon className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.videoCall}</span>
+            <VideoIcon className="h-5 w-5" />
           </button>
         )}
 
         {/* Robot deployment only exists after purchase — never a free action */}
         {has("robot") && purchased && (
-          <button type="button" onClick={onRobot} aria-label="Deploy to Robot" className="flex flex-col items-center gap-1">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <Bot className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.robot}</span>
+          <button type="button" onClick={onRobot} aria-label={c.robot} title={c.robot} className={glassBtn}>
+            <Bot className="h-5 w-5" />
           </button>
         )}
 
-        {has("asset") && purchased && (
-          <button type="button" onClick={onVault} aria-label="Files and assets" className="flex flex-col items-center gap-1">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-black/40 backdrop-blur">
-              <FolderOpen className="h-5 w-5" />
-            </span>
-            <span className="text-[10px]">{c.assets}</span>
-          </button>
-        )}
-
-        <button type="button" onClick={onFeedback} aria-label="Comments and mind reviews" className="flex flex-col items-center gap-1">
-          <Star className="h-7 w-7" />
-          <span className="text-[10px]">{c.reviews}</span>
+        <button type="button" onClick={onFeedback} aria-label={c.reviews} title={c.reviews} className={glassBtn}>
+          <Star className="h-5 w-5" />
         </button>
 
         {item.src && (
-          <button type="button" onClick={toggle} aria-label="Pause" className="opacity-70">
+          <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
             {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
           </button>
         )}
