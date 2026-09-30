@@ -84,6 +84,11 @@ function writePref(key: string, value: string) {
   if (typeof window !== "undefined") window.localStorage.setItem(key, value);
 }
 
+/** Floating frosted-glass round button used by every on-video control. */
+const glassBtn =
+  "flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-lg backdrop-blur-2xl backdrop-saturate-150 transition-colors hover:bg-white/20";
+
+
 /** mm:ss stamp for mined timeline marks. */
 function stamp(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
