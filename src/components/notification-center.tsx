@@ -192,18 +192,18 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t.open}
-        className="relative flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="relative flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
       >
         <span className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className="h-6 w-6" />
           {attention > 0 && (
             <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
               {attention}
             </span>
           )}
         </span>
-        {t.label}
       </button>
+
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="max-h-[75vh] overflow-y-auto rounded-t-2xl">

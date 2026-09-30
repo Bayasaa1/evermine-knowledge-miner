@@ -1,39 +1,43 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Search, Home, Boxes, Plus, User } from "lucide-react";
+import { Search, Home, Plus, User } from "lucide-react";
 
 import { MiningStatusPill } from "@/components/mining-status-pill";
 import { NotificationCenter } from "@/components/notification-center";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
-type Item = { to: "/" | "/search" | "/vaults" | "/profile"; label: string; icon: typeof Home };
+type Item = { to: "/" | "/search" | "/creator" | "/profile"; label: string; icon: typeof Home };
 
 const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
   en: [
     { to: "/", label: "Home", icon: Home },
     { to: "/search", label: "Search", icon: Search },
-    { to: "/vaults", label: "My Vaults", icon: Boxes },
+    { to: "/creator", label: "Create", icon: Plus },
     { to: "/profile", label: "Profile", icon: User },
   ],
   mn: [
     { to: "/", label: "Нүүр", icon: Home },
     { to: "/search", label: "Хайлт", icon: Search },
-    { to: "/vaults", label: "Сангууд", icon: Boxes },
+    { to: "/creator", label: "Бүтээх", icon: Plus },
     { to: "/profile", label: "Профайл", icon: User },
   ],
   ko: [
     { to: "/", label: "홈", icon: Home },
     { to: "/search", label: "검색", icon: Search },
-    { to: "/vaults", label: "내 보관함", icon: Boxes },
+    { to: "/creator", label: "만들기", icon: Plus },
     { to: "/profile", label: "프로필", icon: User },
   ],
 };
 
-/** Unified fixed bottom navigation with the centered "+" Create hub. */
+/**
+ * Floating frosted-glass dock: five icons, no labels, no colour.
+ *
+ * Home, Search, Create, Alerts, Profile. The bar sits above the content with
+ * a blurred translucent backdrop so the video keeps showing through it.
+ */
 export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = pickCopy(ITEMS, lang);
-  const left = items.slice(0, 2);
-  const right = items.slice(2);
+  const [home, search, create, profile] = items;
 
   const cell = (item: Item) => {
     const Icon = item.icon;
@@ -42,12 +46,12 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
       <Link
         key={item.to}
         to={item.to}
-        className={`flex flex-1 flex-col items-center gap-1 py-2 text-[10px] font-medium transition-colors ${
-          active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+        aria-label={item.label}
+        className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+          active ? "bg-foreground/15 text-foreground" : "text-muted-foreground hover:text-foreground"
         }`}
       >
-        <Icon className="h-5 w-5" />
-        {item.label}
+        <Icon className="h-6 w-6" />
       </Link>
     );
   };
@@ -55,20 +59,18 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   return (
     <>
       <MiningStatusPill lang={lang} />
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto flex max-w-lg items-center px-2">
-          {left.map(cell)}
-          <Link
-            to="/creator"
-            aria-label={pickCopy({ en: "Create", mn: "Бүтээх", ko: "만들기" }, lang)}
-            className="mx-1 -mt-5 flex h-12 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-terracotta-dark"
-          >
-            <Plus className="h-6 w-6" />
-          </Link>
-          {right.map(cell)}
+      <div
+        style={{ bottom: "calc(12px + env(safe-area-inset-bottom))" }}
+        className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+      >
+        <nav className="pointer-events-auto flex items-center gap-1 rounded-full border border-foreground/15 bg-background/55 px-2 py-1.5 shadow-2xl backdrop-blur-2xl">
+          {cell(home)}
+          {cell(search)}
+          {cell(create)}
           <NotificationCenter lang={lang} />
-        </div>
-      </nav>
+          {cell(profile)}
+        </nav>
+      </div>
     </>
   );
 }
