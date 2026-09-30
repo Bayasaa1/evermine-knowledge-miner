@@ -235,12 +235,21 @@ export async function analyzeTranscript(input: {
     speakers: (parsed['speakers'] as unknown[] | undefined)?.length ? parsed['speakers'] : speakers,
   });
 
-  // The captions are the measured clock, so they always win over the write-up.
+  // Caption-only mining: nobody listened to the audio here, so every line is
+  // marked "caption" — the Mind knows this wording was never double-checked.
   result.transcript = labelled.map((cue) => ({
     timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
     speech: cue.text,
     speaker: cue.speaker,
     role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
+    source: "caption" as const,
   }));
+  // No participant leaves the video nameless.
+  let secondary = 0;
+  let other = 0;
+  result.speakers = (result.speakers ?? []).map((s) => {
+    const index = s.role === "secondary" ? secondary++ : other++;
+    return { ...s, label: describeSpeakerLabel(s.label, s.role, index) };
+  });
   return { result, cues: labelled };
 }
