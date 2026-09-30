@@ -129,7 +129,7 @@ function assessmentDirective(a: Assessment | undefined): string {
  */
 function timelineDirective(block: string): string {
   if (!block) return "";
-  return `\n\nSPOKEN TIMELINE (ground truth — these times were measured, do not change them)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n- For the "subtitle" array, reuse these lines exactly: same words, same times, same speaker.`;
+  return `\n\nREFERENCE CAPTION TIMELINE (the TIMES were measured and are true; the WORDS may be wrong)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n\nWORDING RULES (DOUBLE-CHECK, DO NOT COPY BLINDLY)\n- These caption words come from automatic speech recognition and often mishear names, Mongolian words and mixed-language phrases.\n- For every line, listen to the audio and compare it with the caption. Keep the caption wording when it matches what you hear and reads as a sensible sentence; otherwise write what is genuinely spoken.\n- Keep the caption's time window and speaker split; only the words may change.\n- Never translate, never paraphrase, never smooth out the speaker's own way of talking, and never delete a line you can hear just because the caption is missing it.`;
 }
 
 /**
