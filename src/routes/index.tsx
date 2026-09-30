@@ -5,17 +5,14 @@ import {
   Heart,
   Loader2,
   MessageCircle,
-  MessageSquareQuote,
   Pause,
-  Phone,
   Play,
-  Maximize2,
-  Video as VideoIcon,
+  RotateCw,
+  Star,
   Captions,
   Volume2,
   VolumeX,
   X,
-  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 
