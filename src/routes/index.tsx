@@ -697,7 +697,7 @@ function FeedCard({
   onPrimary,
   onTalk,
   onRobot,
-  onVault,
+  onBlocked,
   onFeedback,
   onCreator,
   onProjectSwipe,
