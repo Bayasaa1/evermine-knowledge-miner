@@ -1,7 +1,23 @@
 import { LANGUAGES } from "@/lib/languages";
 import { normalizeYoutubeUrl, youtubeId } from "@/lib/import-sources";
-import { normalizeChunkResult, speakerIdentityDirective, type ChunkResult } from "@/lib/gemini";
-import { buildTimeline, secondsToStamp, tidyCues, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+import {
+  normalizeChunkResult,
+  speakerIdentityDirective,
+  type ChunkResult,
+  type SpeakerProfile,
+} from "@/lib/gemini";
+import { describeSpeakerLabel, reconcileTranscript } from "@/lib/transcript-reconcile";
+import { buildTimeline, tidyCues, timelineForPrompt, type Cue } from "@/lib/timeline.server";
+
+/** Nobody in a video stays nameless: blank or generic labels get a real role name. */
+function nameEverySpeaker(speakers: SpeakerProfile[]): SpeakerProfile[] {
+  let secondary = 0;
+  let other = 0;
+  return speakers.map((s) => {
+    const index = s.role === "secondary" ? secondary++ : other++;
+    return { ...s, label: describeSpeakerLabel(s.label, s.role, index) };
+  });
+}
 import {
   GeminiHttpError,
   UserAiError,
