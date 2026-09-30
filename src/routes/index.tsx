@@ -1048,21 +1048,21 @@ function FeedCard({
           >
             {/* Subtitles on/off, then one settings sheet that holds reading
                 aloud and every language choice — no second speaker icon here. */}
-            <button
-              type="button"
-              onClick={() => setCaptions((value) => !value)}
-              aria-label={captions ? "Hide subtitles" : "Show subtitles"}
-              className={`${glassBtn} h-10 w-10 ${captions ? "" : "opacity-50"}`}
-            >
-              <Captions className="h-[1.1rem] w-[1.1rem]" />
-            </button>
             <Popover>
               <PopoverTrigger asChild>
-                <button type="button" aria-label="Subtitle settings" className={`${glassBtn} h-10 w-10`}>
-                  <Settings2 className="h-[1.1rem] w-[1.1rem]" />
+                <button
+                  type="button"
+                  aria-label="Subtitles"
+                  className={`${glassBtn} h-10 w-10 ${captions ? "" : "opacity-50"}`}
+                >
+                  <Captions className="h-[1.1rem] w-[1.1rem]" />
                 </button>
               </PopoverTrigger>
               <PopoverContent side="left" align="start" className="w-64 space-y-4">
+                <label className="flex items-center justify-between text-xs">
+                  <span>Subtitles</span>
+                  <Switch checked={captions} onCheckedChange={setCaptions} aria-label="Subtitles on or off" />
+                </label>
                 <div>
                   <div className="mb-2 flex items-center justify-between text-xs"><span>Subtitle size</span><span>{subtitleSize}px</span></div>
                   <Slider min={14} max={30} step={1} value={[subtitleSize]} onValueChange={(value) => setSubtitleSize(value[0] ?? 18)} aria-label="Subtitle size" />
@@ -1179,30 +1179,6 @@ function FeedCard({
           </button>
         )}
 
-        {has("voice") && (
-          <button
-            type="button"
-            onClick={purchased ? onTalk : locked}
-            aria-label={c.voiceCall}
-            title={c.voiceCall}
-            className={`${glassBtn} ${purchased ? "" : "opacity-40"}`}
-          >
-            <Phone className="h-5 w-5" />
-          </button>
-        )}
-
-        {has("video") && (
-          <button
-            type="button"
-            onClick={purchased ? onTalk : locked}
-            aria-label={c.videoCall}
-            title={c.videoCall}
-            className={`${glassBtn} ${purchased ? "" : "opacity-40"}`}
-          >
-            <VideoIcon className="h-5 w-5" />
-          </button>
-        )}
-
         {/* Robot deployment only exists after purchase — never a free action */}
         {has("robot") && purchased && (
           <button type="button" onClick={onRobot} aria-label={c.robot} title={c.robot} className={glassBtn}>
@@ -1211,13 +1187,13 @@ function FeedCard({
         )}
 
         <button type="button" onClick={onFeedback} aria-label={c.reviews} title={c.reviews} className={glassBtn}>
-          <MessageSquareQuote className="h-5 w-5" />
+          <Star className="h-5 w-5" />
         </button>
 
         {/* Wide videos only: turn the phone sideways and fill the screen. */}
         {isLandscape && (
           <button type="button" onClick={goFullscreen} aria-label="Rotate to full screen" className={glassBtn}>
-            <Maximize2 className="h-5 w-5" />
+            <RotateCw className="h-5 w-5" />
           </button>
         )}
 
