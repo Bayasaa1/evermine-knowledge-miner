@@ -716,7 +716,7 @@ function FeedCard({
   onPrimary: () => void;
   onTalk: () => void;
   onRobot: () => void;
-  onVault: () => void;
+  onBlocked: () => void;
   onFeedback: () => void;
   onCreator: () => void;
   onProjectSwipe: (direction: "older" | "newer") => void;
