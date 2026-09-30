@@ -497,10 +497,13 @@ export type Database = {
       }
       mind_versions: {
         Row: {
+          branch_name: string
           created_at: string
+          created_by_engine: string
           id: string
           is_active: boolean
           mind_id: string
+          parent_version_id: string | null
           payload: Json
           release_notes: string
           title: string
@@ -511,10 +514,13 @@ export type Database = {
           version_num: number
         }
         Insert: {
+          branch_name?: string
           created_at?: string
+          created_by_engine?: string
           id?: string
           is_active?: boolean
           mind_id?: string
+          parent_version_id?: string | null
           payload?: Json
           release_notes?: string
           title?: string
@@ -525,10 +531,13 @@ export type Database = {
           version_num?: number
         }
         Update: {
+          branch_name?: string
           created_at?: string
+          created_by_engine?: string
           id?: string
           is_active?: boolean
           mind_id?: string
+          parent_version_id?: string | null
           payload?: Json
           release_notes?: string
           title?: string
@@ -539,6 +548,13 @@ export type Database = {
           version_num?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "mind_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "mind_versions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mind_versions_vault_id_fkey"
             columns: ["vault_id"]
@@ -1270,11 +1286,32 @@ export type Database = {
         Args: { _exclude_id?: string; _handle: string }
         Returns: boolean
       }
+      rename_mind_branch: {
+        Args: { _branch_name: string; _version_id: string }
+        Returns: boolean
+      }
       rollback_mind_version: {
         Args: { _version_id: string }
         Returns: {
           vault_id: string
           version: string
+        }[]
+      }
+      save_mind_branch: {
+        Args: {
+          _branch_name?: string
+          _engine?: string
+          _mind_id?: string
+          _parent_version_id?: string
+          _payload: Json
+          _release_notes?: string
+          _title: string
+          _vault_id: string
+        }
+        Returns: {
+          version: string
+          version_id: string
+          version_num: number
         }[]
       }
       save_mind_version: {
