@@ -104,3 +104,11 @@
 - [x] Hide videos YouTube refuses to play instead of showing an error card
 - [x] Clean the leftover YouTube logo / "More videos" strip
 - [x] Cancel a subscription from the Subscribed button
+
+## Feed polish and everyone-is-a-creator
+- [x] Remove the Evermind label chip from the top of the feed
+- [x] Rotate / fullscreen button on landscape videos only
+- [x] Replace the star review icon with a clearer one
+- [x] Change profile picture from the Profile page
+- [x] Post stories (24h) — Posts & stories page, opened from Profile
+- [x] Write text/photo posts that appear on the Posts & stories page

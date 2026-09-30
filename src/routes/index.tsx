@@ -5,11 +5,11 @@ import {
   Heart,
   Loader2,
   MessageCircle,
+  MessageSquareQuote,
   Pause,
   Phone,
   Play,
-  Sparkles,
-  Star,
+  Maximize2,
   Video as VideoIcon,
   Captions,
   Volume2,
@@ -539,16 +539,7 @@ function HomeFeed() {
 
   return (
     <div className="dark min-h-screen bg-black pb-28 text-white">
-      {/* Title sits under the phone status bar and stops short of the language
-          pill on the right, so the two never print on top of each other. */}
-      <header
-        className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center px-4 pr-32"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
-      >
-        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur-2xl backdrop-saturate-150">
-          <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Evermind</span>
-        </h1>
-      </header>
+      {/* No app label over the video — the feed stays clean. */}
       {/* Sits below the language selector so it is never covered by it */}
       <button
         type="button"
@@ -748,6 +739,8 @@ function FeedCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  /** The player frame itself — used for rotate-to-fullscreen on wide videos. */
+  const stageRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -906,6 +899,24 @@ function FeedCard({
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
+  // Wide (16:9) clips get a rotate-to-fullscreen button; vertical clips do not need one.
+  const isLandscape = !!(item.youtubeId || item.embedUrl);
+  const goFullscreen = useCallback(() => {
+    const frame = stageRef.current;
+    if (!frame) return;
+    const orientation = window.screen?.orientation as
+      | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
+      | undefined;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+      orientation?.unlock?.();
+      return;
+    }
+    void frame
+      .requestFullscreen?.()
+      .then(() => orientation?.lock?.("landscape").catch(() => undefined))
+      .catch(() => undefined);
+  }, []);
   const beginSwipe = (event: React.PointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,select,a,[role='slider']")) return;
@@ -943,6 +954,7 @@ function FeedCard({
 
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
       <div
+        ref={stageRef}
         className={
           item.youtubeId || item.embedUrl
             ? "relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*16/9),94vw)] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:16/9]"
@@ -1200,8 +1212,15 @@ function FeedCard({
         )}
 
         <button type="button" onClick={onFeedback} aria-label={c.reviews} title={c.reviews} className={glassBtn}>
-          <Star className="h-5 w-5" />
+          <MessageSquareQuote className="h-5 w-5" />
         </button>
+
+        {/* Wide videos only: turn the phone sideways and fill the screen. */}
+        {isLandscape && (
+          <button type="button" onClick={goFullscreen} aria-label="Rotate to full screen" className={glassBtn}>
+            <Maximize2 className="h-5 w-5" />
+          </button>
+        )}
 
         {item.src && (
           <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
