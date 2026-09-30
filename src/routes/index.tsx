@@ -1212,8 +1212,15 @@ function FeedCard({
         )}
 
         <button type="button" onClick={onFeedback} aria-label={c.reviews} title={c.reviews} className={glassBtn}>
-          <Star className="h-5 w-5" />
+          <MessageSquareQuote className="h-5 w-5" />
         </button>
+
+        {/* Wide videos only: turn the phone sideways and fill the screen. */}
+        {isLandscape && (
+          <button type="button" onClick={goFullscreen} aria-label="Rotate to full screen" className={glassBtn}>
+            <Maximize2 className="h-5 w-5" />
+          </button>
+        )}
 
         {item.src && (
           <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
