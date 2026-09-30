@@ -37,7 +37,8 @@ const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
 export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = pickCopy(ITEMS, lang);
-  const [home, search, create, profile] = items;
+  const [home, search, create, profile] = items as [Item, Item, Item, Item];
+
 
   const cell = (item: Item) => {
     const Icon = item.icon;
