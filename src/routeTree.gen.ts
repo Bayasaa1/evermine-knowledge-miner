@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CommunityRouteImport } from './routes/community'
 import { Route as CreatorRouteImport } from './routes/creator'
 import { Route as ExploreRouteImport } from './routes/explore'
 import { Route as KeysRouteImport } from './routes/keys'
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CreatorRoute = CreatorRouteImport.update({
@@ -185,6 +191,7 @@ const ApiPublicV1MindTokenPackageDotjsonRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/community': typeof CommunityRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/keys': typeof KeysRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/community': typeof CommunityRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/keys': typeof KeysRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/community': typeof CommunityRoute
   '/creator': typeof CreatorRoute
   '/explore': typeof ExploreRoute
   '/keys': typeof KeysRoute
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/community'
     | '/creator'
     | '/explore'
     | '/keys'
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/community'
     | '/creator'
     | '/explore'
     | '/keys'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/community'
     | '/creator'
     | '/explore'
     | '/keys'
@@ -369,6 +381,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  CommunityRoute: typeof CommunityRoute
   CreatorRoute: typeof CreatorRoute
   ExploreRoute: typeof ExploreRoute
   KeysRoute: typeof KeysRoute
@@ -411,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/creator': {
@@ -601,6 +621,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  CommunityRoute: CommunityRoute,
   CreatorRoute: CreatorRoute,
   ExploreRoute: ExploreRoute,
   KeysRoute: KeysRoute,
