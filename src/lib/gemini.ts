@@ -343,7 +343,13 @@ export type CopyrightAudit = {
   summary: string;
 };
 
-/** Canonical emotional states mined from a video segment. */
+/**
+ * Canonical emotional states mined from a video segment.
+ *
+ * The first six are the original set every older Mind was mined with; the rest
+ * widen the range so a reply can sound proud, amused, frustrated or curious
+ * instead of collapsing into a flat "HAPPY / SERIOUS / NEUTRAL".
+ */
 export const PRIMARY_EMOTIONS = [
   "HAPPY",
   "EXCITED",
@@ -351,8 +357,54 @@ export const PRIMARY_EMOTIONS = [
   "SAD",
   "EMPATHETIC",
   "NEUTRAL",
+  "CONFIDENT",
+  "AMUSED",
+  "PROUD",
+  "CURIOUS",
+  "PONDERING",
+  "ANGRY",
+  "FRUSTRATED",
+  "SURPRISED",
+  "NERVOUS",
+  "CALM",
 ] as const;
 export type PrimaryEmotion = (typeof PRIMARY_EMOTIONS)[number];
+
+/** Older or loosely worded model answers mapped onto the canonical set. */
+const EMOTION_ALIASES: Record<string, PrimaryEmotion> = {
+  JOY: "HAPPY",
+  JOYFUL: "HAPPY",
+  GLAD: "HAPPY",
+  ENTHUSIASTIC: "EXCITED",
+  ENERGETIC: "EXCITED",
+  FOCUSED: "SERIOUS",
+  DETERMINED: "CONFIDENT",
+  ASSERTIVE: "CONFIDENT",
+  FUNNY: "AMUSED",
+  PLAYFUL: "AMUSED",
+  LAUGHING: "AMUSED",
+  SATISFIED: "PROUD",
+  INTERESTED: "CURIOUS",
+  THOUGHTFUL: "PONDERING",
+  REFLECTIVE: "PONDERING",
+  MAD: "ANGRY",
+  IRRITATED: "FRUSTRATED",
+  ANNOYED: "FRUSTRATED",
+  DISAPPOINTED: "FRUSTRATED",
+  SHOCKED: "SURPRISED",
+  ASTONISHED: "SURPRISED",
+  ANXIOUS: "NERVOUS",
+  WORRIED: "NERVOUS",
+  RELAXED: "CALM",
+  PEACEFUL: "CALM",
+};
+
+/** Accepts any model wording and returns a canonical emotion. */
+export function canonicalEmotion(raw: unknown): PrimaryEmotion {
+  const key = String(raw ?? "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if ((PRIMARY_EMOTIONS as readonly string[]).includes(key)) return key as PrimaryEmotion;
+  return EMOTION_ALIASES[key] ?? "NEUTRAL";
+}
 
 /** One entry of the mined emotion timeline. */
 export type EmotionMoment = {
