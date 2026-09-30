@@ -269,18 +269,17 @@ export async function analyzeYoutubeVideo(input: {
     }
   }
 
-  // Step 3 — the measured timeline always wins over the described one.
+  // Step 3 — captions keep the clock, listening decides the words. Where the
+  // two disagree the heard wording wins and the caption's version is kept
+  // alongside it, so a mis-transcribed caption can no longer poison the Mind.
   if (cues.length) {
-    const roleOf = new Map(
-      (result.speakers ?? []).map((s) => [s.label.toLowerCase().trim(), s.role] as const),
+    result.transcript = reconcileTranscript(
+      cues.map((cue) => ({ start: cue.start, end: cue.end, text: cue.text, speaker: cue.speaker })),
+      result.transcript ?? [],
+      result.speakers ?? [],
     );
-    result.transcript = cues.map((cue) => ({
-      timestamp: `${secondsToStamp(cue.start)} - ${secondsToStamp(cue.end)}`,
-      speech: cue.text,
-      speaker: cue.speaker,
-      role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
-    }));
   }
+  result.speakers = nameEverySpeaker(result.speakers ?? []);
   return result;
 }
 /**
