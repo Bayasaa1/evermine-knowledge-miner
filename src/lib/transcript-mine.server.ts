@@ -177,6 +177,8 @@ Return JSON only with these keys:
 - "subconsciousness": {"skills","beliefs","decisionLogic","culturalVocabulary","expressiveStyle","aestheticProfile"} — ONLY the primary speaker. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment and usage.
   "expressiveStyle" must capture how they SOUND in conversation: humour and sarcasm, what makes them laugh, how they tease the other person, typical sentence length, filler words and verbal tics, how they open and close a topic, how they react when surprised or when they disagree. Short imitable statements.
 - "knowledgeNodes": [{"timestamp_start","timestamp_end","concept_title","detailed_explanation","spatial_action":null,"confidence_score"}] — one per distinct idea, claim, story or piece of advice. confidence_score below 0.8 whenever you are guessing, because those are discarded.
+- "qaPairs": [{"timestamp","asker","question","answerer","answer"}] — every real question and its answer; asker/answerer use the speaker labels above; answer is a faithful self-contained summary in the original language.
+- "entities": [{"name","type","description","timestamps":[],"relations":[{"target","relation"}]}] — every named person, organization, place, product, work, event or key concept mentioned; type is person|organization|place|product|concept|event|work|other; relations link to other entities in the list.
 
 Rules:
 - Every timestamp must be copied from a line above.

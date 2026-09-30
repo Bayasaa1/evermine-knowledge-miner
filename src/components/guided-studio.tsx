@@ -1761,6 +1761,60 @@ function StepUpload({
               ))}
             </div>
 
+            {(result.qaPairs?.length || result.entities?.length || result.screenText?.length) ? (
+              <div className="mt-3 space-y-2">
+                {result.qaPairs && result.qaPairs.length > 0 && (
+                  <details className="rounded-lg border border-border bg-background p-3">
+                    <summary className="cursor-pointer text-sm font-medium text-foreground">
+                      {pickCopy({ en: "Questions & answers", mn: "Асуулт ба хариулт", ko: "질문과 답변" }, lang)} ({result.qaPairs.length})
+                    </summary>
+                    <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto">
+                      {result.qaPairs.map((q, i) => (
+                        <li key={i} className="text-xs">
+                          <p className="text-foreground"><span className="font-mono text-primary">{q.timestamp}</span> {q.asker}: {q.question}</p>
+                          <p className="mt-0.5 text-muted-foreground">→ {q.answerer}: {q.answer}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {result.entities && result.entities.length > 0 && (
+                  <details className="rounded-lg border border-border bg-background p-3">
+                    <summary className="cursor-pointer text-sm font-medium text-foreground">
+                      {pickCopy({ en: "People, places & things", mn: "Хүн, газар, зүйлс", ko: "인물·장소·사물" }, lang)} ({result.entities.length})
+                    </summary>
+                    <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto">
+                      {result.entities.map((e, i) => (
+                        <li key={i} className="text-xs">
+                          <p className="text-foreground"><span className="font-medium">{e.name}</span> <span className="text-muted-foreground">· {e.type}</span></p>
+                          {e.description && <p className="text-muted-foreground">{e.description}</p>}
+                          {e.relations.length > 0 && (
+                            <p className="text-muted-foreground">{e.relations.map((r) => `${r.relation} → ${r.target}`).join(" · ")}</p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {result.screenText && result.screenText.length > 0 && (
+                  <details className="rounded-lg border border-border bg-background p-3">
+                    <summary className="cursor-pointer text-sm font-medium text-foreground">
+                      {pickCopy({ en: "On-screen text, slides & code", mn: "Дэлгэцийн бичвэр, слайд, код", ko: "화면 텍스트·슬라이드·코드" }, lang)} ({result.screenText.length})
+                    </summary>
+                    <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto">
+                      {result.screenText.map((t, i) => (
+                        <li key={i} className="text-xs">
+                          <p className="text-muted-foreground"><span className="font-mono text-primary">{t.timestamp}</span> · {t.kind}{t.language ? ` · ${t.language}` : ""}</p>
+                          {t.text && <pre className="mt-1 whitespace-pre-wrap rounded-md bg-muted/40 p-2 font-mono text-[11px] text-foreground">{t.text}</pre>}
+                          {t.description && <p className="mt-1 text-muted-foreground">{t.description}</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            ) : null}
+
             {result.knowledgeNodes.length > 0 ? (
               <ul className="mt-3 max-h-80 space-y-2 overflow-y-auto pr-1">
                 {result.knowledgeNodes.slice(0, 20).map((n, i) => (
