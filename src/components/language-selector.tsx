@@ -39,12 +39,17 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Change language"
+        aria-label={`Change language — ${LANGUAGES[lang].native}`}
+        title={LANGUAGES[lang].native}
         aria-expanded={open}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-muted"
+        className={
+          variant === "floating"
+            ? "inline-flex h-10 w-10 items-center justify-center rounded-full border border-foreground/15 bg-background/30 text-foreground shadow-lg backdrop-blur-2xl transition-colors hover:bg-background/45"
+            : "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-muted"
+        }
       >
-        <Languages className="h-4 w-4 text-primary" />
-        {LANGUAGES[lang].native}
+        <Languages className="h-[1.1rem] w-[1.1rem]" />
+        {variant === "inline" && LANGUAGES[lang].native}
       </button>
 
       {open && (

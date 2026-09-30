@@ -97,3 +97,9 @@
 - [x] Floating frosted-glass dock with five icons and no labels
 - [x] Move My Vaults into Profile
 - [x] Stop the phone status bar covering pop-up titles and close buttons
+- [ ] Real see-through frosted glass on the bottom bar (not flat grey)
+- [ ] Language button becomes icon only, no text
+- [ ] Like / chat / call / reviews become floating glass icon buttons
+- [ ] Remove the Assets button and the duplicate speaker button
+- [ ] Hide videos YouTube refuses to play instead of showing an error card
+- [ ] Clean the leftover YouTube logo / "More videos" strip
