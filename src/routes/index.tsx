@@ -495,6 +495,25 @@ function HomeFeed() {
     toast.success(`${c.subscribed} — ${item.creator}`);
   };
 
+  /** Cancelling is always the viewer's own decision — nothing else changes. */
+  const unsubscribe = async (item: FeedItem) => {
+    const key = mindKey(item);
+    setBuying(key);
+    const { error } = await cancelMind(key);
+    setBuying(null);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    setOwned((s) => {
+      const next = { ...s };
+      delete next[key];
+      return next;
+    });
+    toast.success(c.unsubscribed);
+  };
+
+
   /** Paid minds ask for a length first; free minds subscribe straight away. */
   const onSubscribe = (item: FeedItem) => {
     const paid = (item.tiers ?? []).filter((t) => t.price > 0);
