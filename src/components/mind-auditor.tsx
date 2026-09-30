@@ -171,7 +171,7 @@ export function MindAuditor({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background/90 p-4">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background/90 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
       <div className="w-full max-w-2xl space-y-4 rounded-[12px] border border-border bg-card p-4">
         <div className="flex items-start gap-2">
           <Gavel className="mt-0.5 h-4 w-4 text-primary" />
