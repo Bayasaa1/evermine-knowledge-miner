@@ -739,6 +739,8 @@ function FeedCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  /** The player frame itself — used for rotate-to-fullscreen on wide videos. */
+  const stageRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
   const [duration, setDuration] = useState(0);
