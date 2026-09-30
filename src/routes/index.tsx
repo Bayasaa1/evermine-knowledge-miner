@@ -954,6 +954,7 @@ function FeedCard({
 
       {/* 9:16 player frame: full-bleed mobile, contained pane on tablet, centered frame on desktop/4K */}
       <div
+        ref={stageRef}
         className={
           item.youtubeId || item.embedUrl
             ? "relative h-[100dvh] w-full overflow-hidden @container md:h-auto md:w-[min(calc((100dvh-2rem)*16/9),94vw)] md:shrink-0 md:rounded-lg md:border md:border-white/10 md:shadow-2xl md:[aspect-ratio:16/9]"
