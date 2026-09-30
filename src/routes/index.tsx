@@ -394,13 +394,19 @@ function HomeFeed() {
   const queryClient = useQueryClient();
   const { lang } = useLang();
   const c = pickCopy(FEED_COPY, lang);
-  const { data: items = [], isLoading, isError, refetch } = useQuery({
+  const { data: allItems = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["home-feed"],
     queryFn: loadFeed,
     refetchOnWindowFocus: false,
     staleTime: 60_000,
     retry: 2,
   });
+  // Videos YouTube refuses to play outside its own site (age limits, embedding
+  // off) are dropped from the feed instead of showing an error card.
+  const [unplayable, setUnplayable] = useState<Record<string, true>>({});
+  const items = useMemo(() => allItems.filter((i) => !unplayable[i.id]), [allItems, unplayable]);
+
+
 
 
   // Newly mined VISUAL_CONTENT shows up instantly, without a page reload.
