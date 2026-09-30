@@ -539,16 +539,7 @@ function HomeFeed() {
 
   return (
     <div className="dark min-h-screen bg-black pb-28 text-white">
-      {/* Title sits under the phone status bar and stops short of the language
-          pill on the right, so the two never print on top of each other. */}
-      <header
-        className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center px-4 pr-32"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
-      >
-        <h1 className="pointer-events-auto inline-flex max-w-full items-center gap-2 truncate rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur-2xl backdrop-saturate-150">
-          <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Evermind</span>
-        </h1>
-      </header>
+      {/* No app label over the video — the feed stays clean. */}
       {/* Sits below the language selector so it is never covered by it */}
       <button
         type="button"
