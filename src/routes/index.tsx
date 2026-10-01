@@ -1238,19 +1238,6 @@ function FeedCard({
         }
       >
         <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
-        {/* Seek bar: drag to any moment of the video */}
-        {duration > 1 && (
-          <input
-            type="range"
-            min={0}
-            max={Math.round(duration)}
-            step={1}
-            value={Math.min(Math.round(now), Math.round(duration))}
-            onChange={(e) => seekTo(Number(e.target.value))}
-            aria-label="Video position"
-            className="pointer-events-auto mb-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary"
-          />
-        )}
         <div className="mb-2 flex items-center gap-3">
           <button
             type="button"
