@@ -38,6 +38,7 @@ import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabi
 import { cancelMind, listPurchases, purchaseMind } from "@/lib/purchases";
 import { formatMoney, type PlanLength } from "@/lib/subscription";
 import { useAuth } from "@/hooks/use-auth";
+import { setChromeVisible, useChromeVisible } from "@/hooks/use-chrome-visible";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
