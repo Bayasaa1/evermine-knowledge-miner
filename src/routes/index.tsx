@@ -7,7 +7,6 @@ import {
   MessageCircle,
   Pause,
   Play,
-  RotateCw,
   Star,
   Captions,
   Volume2,
@@ -39,6 +38,7 @@ import { capabilitiesFor, primaryActionFor, type Capability } from "@/lib/capabi
 import { cancelMind, listPurchases, purchaseMind } from "@/lib/purchases";
 import { formatMoney, type PlanLength } from "@/lib/subscription";
 import { useAuth } from "@/hooks/use-auth";
+import { setChromeVisible, useChromeVisible } from "@/hooks/use-chrome-visible";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -426,6 +426,8 @@ function HomeFeed() {
   }, [queryClient]);
 
   const [muted, setMuted] = useState(true);
+  // Mute button fades away with the rest of the on-screen controls.
+  const pageChrome = useChromeVisible();
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
   const [robot, setRobot] = useState<FeedItem | null>(null);
@@ -543,7 +545,9 @@ function HomeFeed() {
         onClick={() => setMuted((m) => !m)}
         aria-label={muted ? "Unmute" : "Mute"}
         style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
-        className={`fixed right-3 z-40 h-10 w-10 ${glassBtn}`}
+        className={`fixed right-3 z-40 h-10 w-10 transition-opacity duration-500 ${glassBtn} ${
+          pageChrome ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
       >
         {muted ? <VolumeX className="h-[1.1rem] w-[1.1rem]" /> : <Volume2 className="h-[1.1rem] w-[1.1rem]" />}
       </button>
@@ -896,24 +900,33 @@ function FeedCard({
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
-  // Wide (16:9) clips get a rotate-to-fullscreen button; vertical clips do not need one.
+  // Wide (16:9) clips leave black space above and below on a phone — the title
+  // and the subtitles go there so nothing ever covers the picture.
   const isLandscape = !!(item.youtubeId || item.embedUrl);
-  const goFullscreen = useCallback(() => {
-    const frame = stageRef.current;
-    if (!frame) return;
-    const orientation = window.screen?.orientation as
-      | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
-      | undefined;
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => undefined);
-      orientation?.unlock?.();
-      return;
+
+  // One tap brings every control back; a few idle seconds take them all away
+  // again so only the video (and the subtitles) are left on screen.
+  const [chrome, setChrome] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showChrome = useCallback((show: boolean) => {
+    setChrome(show);
+    setChromeVisible(show);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (show) {
+      hideTimer.current = setTimeout(() => {
+        setChrome(false);
+        setChromeVisible(false);
+      }, 3500);
     }
-    void frame
-      .requestFullscreen?.()
-      .then(() => orientation?.lock?.("landscape").catch(() => undefined))
-      .catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (isActive) showChrome(true);
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [isActive, showChrome]);
+  const chromeCls = chrome ? "opacity-100" : "pointer-events-none opacity-0";
+
   const beginSwipe = (event: React.PointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,select,a,[role='slider']")) return;
@@ -925,7 +938,11 @@ function FeedCard({
     if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.3) {
+      // A plain tap (not a swipe) shows or hides the controls.
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) showChrome(!chrome);
+      return;
+    }
     onProjectSwipe(dx > 0 ? "newer" : "older");
   };
 
@@ -983,7 +1000,7 @@ function FeedCard({
               setNow(seconds);
               if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
             }}
-            onToggle={toggle}
+            onToggle={() => showChrome(!chrome)}
             onSeekRef={setYtSeek}
             onBlocked={onBlocked}
           />
@@ -1033,17 +1050,26 @@ function FeedCard({
             <Play className="h-14 w-14 opacity-80" />
           </button>
         )}
+      </div>
+
+        {/* Subtitles live under a wide video, in the free space, so they never
+            sit on top of the picture. Vertical videos keep them over the clip. */}
         {captions && activeSubtitle && (
           <p
             className="pointer-events-none absolute inset-x-3 z-30 mx-auto line-clamp-3 w-fit max-w-[92%] overflow-hidden rounded-md bg-background/85 px-3 py-1.5 text-center font-semibold leading-snug text-balance break-words hyphens-auto text-foreground shadow-lg sm:inset-x-6"
-            style={{ bottom: `${subtitlePosition}%`, fontSize: `min(${subtitleSize}px, ${(subtitleSize / 4).toFixed(2)}cqw)` }}
+            style={{
+              bottom: isLandscape
+                ? `max(8rem, calc(50% - 31vw))`
+                : `${subtitlePosition}%`,
+              fontSize: `min(${subtitleSize}px, ${(subtitleSize / 4).toFixed(2)}vw)`,
+            }}
           >
             {shownSubtitle || activeSubtitle.speech}
           </p>
         )}
         {!!transcript?.length && (
           <div
-            className="absolute right-3 z-30 flex flex-col gap-2"
+            className={`absolute right-3 z-40 flex flex-col gap-2 transition-opacity duration-500 ${chromeCls}`}
             style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
           >
             {/* Subtitles on/off, then one settings sheet that holds reading
@@ -1136,8 +1162,8 @@ function FeedCard({
             Kept to a single compact chip so it never collides with the caption or header. */}
         {(activeMark || activeEmotion) && (
           <div
-            className="pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5"
-            style={{ top: "calc(env(safe-area-inset-top) + 4rem)" }}
+            className={`pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5 transition-opacity duration-500 ${chromeCls}`}
+            style={{ top: `calc(env(safe-area-inset-top) + ${isLandscape ? "10rem" : "4rem"})` }}
           >
             {activeMark && (
               <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
@@ -1156,11 +1182,15 @@ function FeedCard({
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+        {!isLandscape && (
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-500 ${chromeCls}`}
+          />
+        )}
 
-      {/* Right action rail — floating frosted-glass icon buttons, no labels */}
+      {/* Right action rail — floating icon buttons that fade with everything else */}
       <div
-        className="absolute right-3 z-20 flex flex-col items-center gap-3"
+        className={`absolute right-3 z-30 flex flex-col items-center gap-3 transition-opacity duration-500 ${chromeCls}`}
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
       >
         <button type="button" onClick={onLike} aria-label={c.like} title={c.like} className={glassBtn}>
@@ -1190,24 +1220,22 @@ function FeedCard({
           <Star className="h-5 w-5" />
         </button>
 
-        {/* Wide videos only: turn the phone sideways and fill the screen. */}
-        {isLandscape && (
-          <button type="button" onClick={goFullscreen} aria-label="Rotate to full screen" className={glassBtn}>
-            <RotateCw className="h-5 w-5" />
-          </button>
-        )}
-
-        {item.src && (
+        {(item.src || item.youtubeId) && (
           <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
             {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
           </button>
         )}
       </div>
 
-      {/* Creator overlay — its own dark panel, clear of the bottom bar */}
+      {/* Title card: sits above a wide video in the spare black space so the
+          picture is never covered; vertical videos keep it near the bottom. */}
       <div
-        className="pointer-events-none absolute inset-x-0 z-10 px-3 pr-20 md:pr-16"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}
+        className={`pointer-events-none absolute inset-x-0 z-30 px-3 pr-20 md:pr-16 transition-opacity duration-500 ${chromeCls}`}
+        style={
+          isLandscape
+            ? { top: "calc(env(safe-area-inset-top) + 3.25rem)" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }
+        }
       >
         <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
         {/* Seek bar: drag to any moment of the video */}
@@ -1289,7 +1317,6 @@ function FeedCard({
           )}
         </button>
         </div>
-      </div>
       </div>
 
     </section>
