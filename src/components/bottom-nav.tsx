@@ -62,7 +62,9 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
       <MiningStatusPill lang={lang} />
       <div
         style={{ bottom: "calc(12px + env(safe-area-inset-bottom))" }}
-        className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+        className={`pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4 transition-opacity duration-500 ${
+          chrome ? "opacity-100" : "opacity-0"
+        }`}
       >
         {/* Real frosted glass: heavy blur + saturation over a barely-there tint,
             so the video underneath stays visible through the bar. */}
