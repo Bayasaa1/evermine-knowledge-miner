@@ -153,6 +153,10 @@ export const translateTexts = createServerFn({ method: "POST" })
          if (err.code === "rate_minute") return { texts: data.texts, retry: true };
         if (err.code === "quota")
           return { texts: data.texts, blocked: "quota" as const, via: "key" as const };
+        // A retired model or a job this engine cannot do is NOT a missing key:
+        // saying "no key" sent people to the API Manager for nothing.
+        if (err.code === "model_unavailable" || err.code === "unsupported_task")
+          return { texts: data.texts, retry: true };
         return { texts: data.texts, blocked: "no_key" as const };
       }
        return { texts: data.texts, failed: err instanceof Error ? err.message.slice(0, 180) : "Translation failed." };
