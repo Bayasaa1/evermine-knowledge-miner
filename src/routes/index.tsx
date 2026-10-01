@@ -896,24 +896,33 @@ function FeedCard({
 
   const toggle = useCallback(() => setPaused((p) => !p), []);
   const locked = () => toast.error(c.locked);
-  // Wide (16:9) clips get a rotate-to-fullscreen button; vertical clips do not need one.
+  // Wide (16:9) clips leave black space above and below on a phone — the title
+  // and the subtitles go there so nothing ever covers the picture.
   const isLandscape = !!(item.youtubeId || item.embedUrl);
-  const goFullscreen = useCallback(() => {
-    const frame = stageRef.current;
-    if (!frame) return;
-    const orientation = window.screen?.orientation as
-      | (ScreenOrientation & { lock?: (o: string) => Promise<void> })
-      | undefined;
-    if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => undefined);
-      orientation?.unlock?.();
-      return;
+
+  // One tap brings every control back; a few idle seconds take them all away
+  // again so only the video (and the subtitles) are left on screen.
+  const [chrome, setChrome] = useState(true);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showChrome = useCallback((show: boolean) => {
+    setChrome(show);
+    setChromeVisible(show);
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (show) {
+      hideTimer.current = setTimeout(() => {
+        setChrome(false);
+        setChromeVisible(false);
+      }, 3500);
     }
-    void frame
-      .requestFullscreen?.()
-      .then(() => orientation?.lock?.("landscape").catch(() => undefined))
-      .catch(() => undefined);
   }, []);
+  useEffect(() => {
+    if (isActive) showChrome(true);
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, [isActive, showChrome]);
+  const chromeCls = chrome ? "opacity-100" : "pointer-events-none opacity-0";
+
   const beginSwipe = (event: React.PointerEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button,input,select,a,[role='slider']")) return;
@@ -925,7 +934,11 @@ function FeedCard({
     if (!start) return;
     const dx = event.clientX - start.x;
     const dy = event.clientY - start.y;
-    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.3) {
+      // A plain tap (not a swipe) shows or hides the controls.
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12) showChrome(!chrome);
+      return;
+    }
     onProjectSwipe(dx > 0 ? "newer" : "older");
   };
 
