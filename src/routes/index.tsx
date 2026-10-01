@@ -1043,7 +1043,7 @@ function FeedCard({
         )}
         {!!transcript?.length && (
           <div
-            className="absolute right-3 z-30 flex flex-col gap-2"
+            className={`absolute right-3 z-40 flex flex-col gap-2 transition-opacity duration-500 ${chromeCls}`}
             style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
           >
             {/* Subtitles on/off, then one settings sheet that holds reading
@@ -1136,8 +1136,8 @@ function FeedCard({
             Kept to a single compact chip so it never collides with the caption or header. */}
         {(activeMark || activeEmotion) && (
           <div
-            className="pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5"
-            style={{ top: "calc(env(safe-area-inset-top) + 4rem)" }}
+            className={`pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5 transition-opacity duration-500 ${chromeCls}`}
+            style={{ top: `calc(env(safe-area-inset-top) + ${isLandscape ? "10rem" : "4rem"})` }}
           >
             {activeMark && (
               <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
