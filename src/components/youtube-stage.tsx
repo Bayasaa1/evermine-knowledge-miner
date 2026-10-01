@@ -200,7 +200,7 @@ export function YouTubeStage({
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           ref={holder}
-          className="absolute left-1/2 top-1/2 h-[136%] w-[136%] -translate-x-1/2 -translate-y-1/2 [&>iframe]:h-full [&>iframe]:w-full"
+          className="absolute inset-x-0 top-1/2 h-[160%] w-full -translate-y-1/2 [&>iframe]:h-full [&>iframe]:w-full"
         />
       </div>
       {/* While paused, YouTube paints its own logo and "More videos" grid over

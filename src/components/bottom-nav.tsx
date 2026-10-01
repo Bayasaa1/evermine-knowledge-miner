@@ -73,7 +73,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
             so the video underneath stays visible through the bar. */}
         <nav
           style={{ WebkitBackdropFilter: "blur(28px) saturate(180%)", backdropFilter: "blur(28px) saturate(180%)" }}
-          className="pointer-events-auto flex items-center gap-1 rounded-full border border-foreground/15 bg-background/25 px-2 py-1.5 shadow-2xl"
+          className={`${chrome ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-1 rounded-full border border-foreground/15 bg-background/25 px-2 py-1.5 shadow-2xl`}
         >
           {cell(home)}
           {cell(search)}
