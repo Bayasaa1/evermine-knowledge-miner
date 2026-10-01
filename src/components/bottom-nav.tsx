@@ -3,6 +3,7 @@ import { Search, Home, Plus, User } from "lucide-react";
 
 import { MiningStatusPill } from "@/components/mining-status-pill";
 import { NotificationCenter } from "@/components/notification-center";
+import { useChromeVisible } from "@/hooks/use-chrome-visible";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 type Item = { to: "/" | "/search" | "/creator" | "/profile"; label: string; icon: typeof Home };
@@ -38,6 +39,8 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = pickCopy(ITEMS, lang);
   const [home, search, create, profile] = items as [Item, Item, Item, Item];
+  // The feed fades every control away while a video plays; the dock follows.
+  const chrome = useChromeVisible();
 
 
   const cell = (item: Item) => {

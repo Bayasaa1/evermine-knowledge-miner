@@ -1,6 +1,7 @@
 import { Languages, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { useChromeVisible } from "@/hooks/use-chrome-visible";
 import { useLang } from "@/lib/i18n";
 import { LANGUAGES, LANG_LIST } from "@/lib/languages";
 
@@ -18,6 +19,8 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
   const { lang, setLang } = useLang();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Fades out with the rest of the controls while a feed video plays.
+  const chrome = useChromeVisible();
 
   useEffect(() => {
     if (!open) return;
@@ -34,7 +37,11 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
       {...(variant === "floating"
         ? { style: { top: "calc(env(safe-area-inset-top) + 0.75rem)" } }
         : {})}
-      className={`${variant === "floating" ? "fixed right-3 z-[70]" : "relative"} ${className}`}
+      className={`${
+        variant === "floating"
+          ? `fixed right-3 z-[70] transition-opacity duration-500 ${chrome ? "opacity-100" : "pointer-events-none opacity-0"}`
+          : "relative"
+      } ${className}`}
     >
       <button
         type="button"
