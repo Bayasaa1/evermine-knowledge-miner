@@ -193,9 +193,15 @@ export function YouTubeStage({
   }, [ready, onSeekRef]);
 
   return (
-    <div className="absolute inset-0">
-      <div className="pointer-events-none absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full">
-        <div ref={holder} className="h-full w-full" />
+    <div className="absolute inset-0 overflow-hidden">
+      {/* YouTube paints its own title bar, channel avatar and "More videos"
+          strip inside the frame. Blow the frame up slightly and clip it, so
+          those bands fall outside the visible picture. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div
+          ref={holder}
+          className="absolute left-1/2 top-1/2 h-[136%] w-[136%] -translate-x-1/2 -translate-y-1/2 [&>iframe]:h-full [&>iframe]:w-full"
+        />
       </div>
       {/* While paused, YouTube paints its own logo and "More videos" grid over
           the frame. Cover it with the still image so the stage stays ours. */}
