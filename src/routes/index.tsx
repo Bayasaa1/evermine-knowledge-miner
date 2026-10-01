@@ -7,7 +7,6 @@ import {
   MessageCircle,
   Pause,
   Play,
-  RotateCw,
   Star,
   Captions,
   Volume2,
@@ -543,7 +542,9 @@ function HomeFeed() {
         onClick={() => setMuted((m) => !m)}
         aria-label={muted ? "Unmute" : "Mute"}
         style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
-        className={`fixed right-3 z-40 h-10 w-10 ${glassBtn}`}
+        className={`fixed right-3 z-40 h-10 w-10 transition-opacity duration-500 ${glassBtn} ${
+          pageChrome ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
       >
         {muted ? <VolumeX className="h-[1.1rem] w-[1.1rem]" /> : <Volume2 className="h-[1.1rem] w-[1.1rem]" />}
       </button>
@@ -996,7 +997,7 @@ function FeedCard({
               setNow(seconds);
               if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
             }}
-            onToggle={toggle}
+            onToggle={() => showChrome(!chrome)}
             onSeekRef={setYtSeek}
             onBlocked={onBlocked}
           />
