@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { BottomNav } from "@/components/bottom-nav";
 import { LanguageSelector } from "@/components/language-selector";
+import { setChromeVisible } from "@/hooks/use-chrome-visible";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setLocalScope,
@@ -155,6 +156,8 @@ function RootComponent() {
 
   // Global error interception feeding the System Diagnostic Assistant widget.
   useEffect(() => installGlobalErrorInterceptors(), []);
+  // Leaving a page always brings the menu back, even if the feed had hidden it.
+  useEffect(() => setChromeVisible(true), [pathname]);
 
   // Single app-wide auth subscriber: keeps the router/cache and the local data
   // scope in sync with the signed-in account.
