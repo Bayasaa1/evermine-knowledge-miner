@@ -1306,6 +1306,26 @@ function FeedCard({
         </div>
       </div>
 
+      {/* Seek bar: always at the very bottom, under the picture, never on it. */}
+      {duration > 1 && (
+        <div
+          className={`pointer-events-none absolute inset-x-0 z-30 px-4 transition-opacity duration-500 ${chromeCls}`}
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
+        >
+          <input
+            type="range"
+            min={0}
+            max={Math.round(duration)}
+            step={1}
+            value={Math.min(Math.round(now), Math.round(duration))}
+            onChange={(e) => seekTo(Number(e.target.value))}
+            aria-label="Video position"
+            className="pointer-events-auto h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary"
+          />
+        </div>
+      )}
+
+
     </section>
   );
 }
