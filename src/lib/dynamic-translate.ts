@@ -198,15 +198,16 @@ async function flush() {
         // and say so once, instead of quietly showing the original language.
         blocked = true;
         // A block is never permanent: a key can be added, enabled or reset
-        // while the page stays open, so try again a few minutes later.
+        // while the page stays open, so try again a few minutes later. The
+        // warning itself is shown only ONCE per visit — repeating it over the
+        // video every half minute was the real annoyance, not the retry.
         setTimeout(() => {
           blocked = false;
-          noticeShown = false;
           // Lines missed during the pause are worth asking for again.
           missed.clear();
           attempts.clear();
           emit();
-        }, 30 * 1000);
+        }, 5 * 60 * 1000);
         pending.clear();
         for (const t of texts) inflight.delete(`${lang}:${t}`);
         if (!noticeShown) {

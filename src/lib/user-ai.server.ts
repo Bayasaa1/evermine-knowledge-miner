@@ -148,7 +148,19 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   );
   const teamKeys = team.map((id) => rows.find((row) => row.id === id)).filter((row): row is (typeof rows)[number] => !!row);
   const spareKeys = rows.filter((row) => !reserved.has(row.id) && !team.includes(row.id));
-  const pool = team.length ? (roleRow?.exclusive ? teamKeys : [...teamKeys, ...spareKeys]) : spareKeys;
+  // "Only for this job" keeps OTHER jobs out of these keys. It must never mean
+  // the job itself stops while the account still has a healthy spare: when
+  // every key of an exclusive team is resting, the spares take over.
+  const teamHealthy = teamKeys.some(
+    (row) => !skipIds.includes(row.id) && row.status !== "invalid" && row.status !== "exhausted" && unusableReason(row) === null,
+  );
+  const pool = team.length
+    ? roleRow?.exclusive && !teamHealthy
+      ? [...teamKeys, ...spareKeys]
+      : roleRow?.exclusive
+        ? teamKeys
+        : [...teamKeys, ...spareKeys]
+    : spareKeys;
   const free = pool.filter((row) => !skipIds.includes(row.id) && unusableReason(row) === null);
   // A key that once failed but has no rest time left is not binned: it simply
   // goes to the back of the queue, so a good key is always tried first and a

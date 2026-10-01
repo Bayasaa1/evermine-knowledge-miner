@@ -1234,23 +1234,10 @@ function FeedCard({
         style={
           isLandscape
             ? { top: "calc(env(safe-area-inset-top) + 3.25rem)" }
-            : { bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 7.5rem)" }
         }
       >
         <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
-        {/* Seek bar: drag to any moment of the video */}
-        {duration > 1 && (
-          <input
-            type="range"
-            min={0}
-            max={Math.round(duration)}
-            step={1}
-            value={Math.min(Math.round(now), Math.round(duration))}
-            onChange={(e) => seekTo(Number(e.target.value))}
-            aria-label="Video position"
-            className="pointer-events-auto mb-3 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary"
-          />
-        )}
         <div className="mb-2 flex items-center gap-3">
           <button
             type="button"
@@ -1318,6 +1305,26 @@ function FeedCard({
         </button>
         </div>
       </div>
+
+      {/* Seek bar: always at the very bottom, under the picture, never on it. */}
+      {duration > 1 && (
+        <div
+          className={`pointer-events-none absolute inset-x-0 z-30 px-4 transition-opacity duration-500 ${chromeCls}`}
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }}
+        >
+          <input
+            type="range"
+            min={0}
+            max={Math.round(duration)}
+            step={1}
+            value={Math.min(Math.round(now), Math.round(duration))}
+            onChange={(e) => seekTo(Number(e.target.value))}
+            aria-label="Video position"
+            className="pointer-events-auto h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/25 accent-primary"
+          />
+        </div>
+      )}
+
 
     </section>
   );
