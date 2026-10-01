@@ -425,6 +425,8 @@ function HomeFeed() {
   }, [queryClient]);
 
   const [muted, setMuted] = useState(true);
+  // Mute button fades away with the rest of the on-screen controls.
+  const pageChrome = useChromeVisible();
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
   const [robot, setRobot] = useState<FeedItem | null>(null);
