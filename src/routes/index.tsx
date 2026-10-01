@@ -1290,7 +1290,6 @@ function FeedCard({
         </button>
         </div>
       </div>
-      </div>
 
     </section>
   );
