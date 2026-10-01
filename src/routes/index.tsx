@@ -1234,7 +1234,7 @@ function FeedCard({
         style={
           isLandscape
             ? { top: "calc(env(safe-area-inset-top) + 3.25rem)" }
-            : { bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 7.5rem)" }
         }
       >
         <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
