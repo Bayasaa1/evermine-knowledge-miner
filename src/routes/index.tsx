@@ -1158,9 +1158,9 @@ function FeedCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-      {/* Right action rail — floating frosted-glass icon buttons, no labels */}
+      {/* Right action rail — floating icon buttons that fade with everything else */}
       <div
-        className="absolute right-3 z-20 flex flex-col items-center gap-3"
+        className={`absolute right-3 z-30 flex flex-col items-center gap-3 transition-opacity duration-500 ${chromeCls}`}
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
       >
         <button type="button" onClick={onLike} aria-label={c.like} title={c.like} className={glassBtn}>
@@ -1190,24 +1190,22 @@ function FeedCard({
           <Star className="h-5 w-5" />
         </button>
 
-        {/* Wide videos only: turn the phone sideways and fill the screen. */}
-        {isLandscape && (
-          <button type="button" onClick={goFullscreen} aria-label="Rotate to full screen" className={glassBtn}>
-            <RotateCw className="h-5 w-5" />
-          </button>
-        )}
-
-        {item.src && (
+        {(item.src || item.youtubeId) && (
           <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
             {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
           </button>
         )}
       </div>
 
-      {/* Creator overlay — its own dark panel, clear of the bottom bar */}
+      {/* Title card: sits above a wide video in the spare black space so the
+          picture is never covered; vertical videos keep it near the bottom. */}
       <div
-        className="pointer-events-none absolute inset-x-0 z-10 px-3 pr-20 md:pr-16"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }}
+        className={`pointer-events-none absolute inset-x-0 z-30 px-3 pr-20 md:pr-16 transition-opacity duration-500 ${chromeCls}`}
+        style={
+          isLandscape
+            ? { top: "calc(env(safe-area-inset-top) + 3.25rem)" }
+            : { bottom: "calc(env(safe-area-inset-bottom) + 5rem)" }
+        }
       >
         <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
         {/* Seek bar: drag to any moment of the video */}
