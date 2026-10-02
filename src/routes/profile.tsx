@@ -115,13 +115,6 @@ function ProfilePage() {
             <Wallet className="h-5 w-5 text-primary" />
             <span className="text-sm font-medium">Earnings & unclaimed balance</span>
           </Link>
-          <Link
-            to="/explore"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/60"
-          >
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Privacy & User Memory Vault</span>
-          </Link>
         </div>
 
         <ViewerBrainHub />

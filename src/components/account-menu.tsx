@@ -89,10 +89,6 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
           <Settings className="mr-2 h-4 w-4" />
           Creator Studio
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void navigate({ to: "/explore" })}>
-          <ShieldCheck className="mr-2 h-4 w-4" />
-          My memory vault
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void handleSignOut()} className="text-destructive focus:text-destructive">
           <LogOut className="mr-2 h-4 w-4" />

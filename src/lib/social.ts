@@ -111,7 +111,7 @@ export async function pushNotification(n: CreatorNotification): Promise<boolean>
     tag: n.id,
     icon: "/favicon.ico",
     badge: "/favicon.ico",
-    data: { url: "/explore", mindId: n.mindId },
+    data: { url: "/", mindId: n.mindId },
   };
   try {
     if ("serviceWorker" in navigator) {
