@@ -55,10 +55,10 @@ export function ModeSwitch({ lang = "en" }: { lang?: Lang }) {
           <span className="hidden sm:inline">{t.creator}</span>
         </Link>
         <Link
-          to="/explore"
+          to="/"
           onClick={() => setStoredRole("explorer")}
           className={`${base} ${
-            pathname === "/explore"
+            pathname === "/"
               ? "bg-card text-foreground shadow-sm"
               : "text-muted-foreground hover:text-foreground"
           }`}
