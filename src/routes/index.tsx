@@ -999,6 +999,8 @@ function FeedCard({
             onToggle={() => showChrome(!chrome)}
             onSeekRef={setYtSeek}
             onBlocked={onBlocked}
+            onPrev={item.projectId ? () => onProjectSwipe("older") : undefined}
+            onNext={item.projectId ? () => onProjectSwipe("newer") : undefined}
           />
         ) : item.youtubeId ? (
           <img
