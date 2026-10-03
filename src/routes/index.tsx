@@ -5,7 +5,6 @@ import {
   Heart,
   Loader2,
   MessageCircle,
-  Pause,
   Play,
   Star,
   Captions,
@@ -81,9 +80,10 @@ function writePref(key: string, value: string) {
   if (typeof window !== "undefined") window.localStorage.setItem(key, value);
 }
 
-/** Flat charcoal round button used by every on-video control. */
-const glassBtn =
-  "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#232326]/90 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-[#2c2c30]";
+/** Shorts-style rail: bare white outline icon with a small label under it. */
+const railBtn = "flex w-12 flex-col items-center gap-1 text-white [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.7))]";
+const railIcon = "h-7 w-7 stroke-[2.2]";
+const railLabel = "text-[11px] font-semibold leading-none";
 
 
 /** mm:ss stamp for mined timeline marks. */
@@ -540,17 +540,6 @@ function HomeFeed() {
     <div className="dark min-h-screen bg-black pb-28 text-white">
       {/* No app label over the video — the feed stays clean. */}
       {/* Sits below the language selector so it is never covered by it */}
-      <button
-        type="button"
-        onClick={() => setMuted((m) => !m)}
-        aria-label={muted ? "Unmute" : "Mute"}
-        style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
-        className={`fixed right-3 z-40 h-10 w-10 transition-opacity duration-500 ${glassBtn} ${
-          pageChrome ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      >
-        {muted ? <VolumeX className="h-[1.1rem] w-[1.1rem]" /> : <Volume2 className="h-[1.1rem] w-[1.1rem]" />}
-      </button>
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
         {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
@@ -560,6 +549,7 @@ function HomeFeed() {
             key={item.id}
             item={item}
             muted={muted}
+            onMute={() => setMuted((m) => !m)}
             index={i}
             onVisible={setActive}
             isActive={active === i}
@@ -711,6 +701,7 @@ function FeedCard({
   onBuy,
   onPrimary,
   onCancel,
+  onMute,
   onTalk,
   onRobot,
   onBlocked,
@@ -731,6 +722,7 @@ function FeedCard({
   onBuy: () => void;
   onPrimary: () => void;
   onCancel: () => void;
+  onMute: () => void;
   onTalk: () => void;
   onRobot: () => void;
   onBlocked: () => void;
@@ -955,16 +947,6 @@ function FeedCard({
       onPointerCancel={() => { swipeStart.current = null; }}
       className="relative flex h-[100dvh] w-full snap-start items-center justify-center overflow-hidden bg-neutral-950"
     >
-      {/* Blurred backdrop on desktop so wide screens never stretch the vertical video */}
-      {item.poster && (
-        <img
-          src={item.poster}
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute inset-0 hidden h-full w-full scale-110 object-cover opacity-50 blur-3xl lg:block"
-        />
-      )}
-      <div className="pointer-events-none absolute inset-0 hidden bg-black/40 lg:block" />
 
       {/* Player frame: wide clips keep a true 16:9 band centred on the phone,
           vertical clips stay full-bleed. Never stretched to the full height —
@@ -1067,21 +1049,55 @@ function FeedCard({
             {shownSubtitle || activeSubtitle.speech}
           </p>
         )}
-        {!!transcript?.length && (
+
+        {/* Live mined knowledge + emotion tags, aligned to what is playing.
+            Kept to a single compact chip so it never collides with the caption or header. */}
+        {(activeMark || activeEmotion) && (
           <div
-            className={`absolute right-3 z-40 flex flex-col gap-2 transition-opacity duration-500 ${chromeCls}`}
-            style={{ top: "calc(env(safe-area-inset-top) + 7rem)" }}
+            className={`pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5 transition-opacity duration-500 ${chromeCls}`}
+            style={{ top: `calc(env(safe-area-inset-top) + ${isLandscape ? "10rem" : "4rem"})` }}
           >
-            {/* Subtitles on/off, then one settings sheet that holds reading
-                aloud and every language choice — no second speaker icon here. */}
+            {activeMark && (
+              <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
+                <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
+                {shownMarks[(timeline ?? []).indexOf(activeMark)] || activeMark.label}
+              </p>
+            )}
+            {activeEmotion && (
+              <span className="inline-flex shrink-0 items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
+                {shownEmotions[(emotionTimeline ?? []).indexOf(activeEmotion)] ||
+
+                  activeEmotion.emotion ||
+                  activeEmotion.label}
+              </span>
+            )}
+          </div>
+        )}
+
+        {!isLandscape && (
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-500 ${chromeCls}`}
+          />
+        )}
+
+      {/* Right action rail — floating icon buttons that fade with everything else */}
+      <div
+        className={`absolute right-2 z-30 flex flex-col items-center gap-4 transition-opacity duration-500 ${chromeCls}`}
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10rem)" }}
+      >
+        <button type="button" onClick={onMute} aria-label={muted ? "Unmute" : "Mute"} className={railBtn}>
+          {muted ? <VolumeX className={railIcon} /> : <Volume2 className={railIcon} />}
+        </button>
+        {!!transcript?.length && (
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
                   aria-label="Subtitles"
-                  className={`${glassBtn} h-10 w-10 ${captions ? "" : "opacity-50"}`}
+                  className={`${railBtn} ${captions ? "" : "opacity-50"}`}
                 >
-                  <Captions className="h-[1.1rem] w-[1.1rem]" />
+                  <Captions className={railIcon} />
+                  <span className={railLabel}>CC</span>
                 </button>
               </PopoverTrigger>
               <PopoverContent side="left" align="start" className="w-64 space-y-4">
@@ -1155,76 +1171,26 @@ function FeedCard({
                 </div>
               </PopoverContent>
             </Popover>
-          </div>
         )}
-
-        {/* Live mined knowledge + emotion tags, aligned to what is playing.
-            Kept to a single compact chip so it never collides with the caption or header. */}
-        {(activeMark || activeEmotion) && (
-          <div
-            className={`pointer-events-none absolute left-3 z-20 flex max-w-[58%] items-center gap-1.5 transition-opacity duration-500 ${chromeCls}`}
-            style={{ top: `calc(env(safe-area-inset-top) + ${isLandscape ? "10rem" : "4rem"})` }}
-          >
-            {activeMark && (
-              <p className="line-clamp-2 rounded-xl bg-black/55 px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur">
-                <span className="mr-1.5 font-mono text-primary">{stamp(activeMark.t)}</span>
-                {shownMarks[(timeline ?? []).indexOf(activeMark)] || activeMark.label}
-              </p>
-            )}
-            {activeEmotion && (
-              <span className="inline-flex shrink-0 items-center rounded-full bg-primary/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary backdrop-blur">
-                {shownEmotions[(emotionTimeline ?? []).indexOf(activeEmotion)] ||
-
-                  activeEmotion.emotion ||
-                  activeEmotion.label}
-              </span>
-            )}
-          </div>
-        )}
-
-        {!isLandscape && (
-          <div
-            className={`pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-500 ${chromeCls}`}
-          />
-        )}
-
-      {/* Right action rail — floating icon buttons that fade with everything else */}
-      <div
-        className={`absolute right-3 z-30 flex flex-col items-center gap-3 transition-opacity duration-500 ${chromeCls}`}
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 10.5rem)" }}
-      >
-        <button type="button" onClick={onLike} aria-label={c.like} title={c.like} className={glassBtn}>
-          <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
+        <button type="button" onClick={onLike} aria-label={c.like} className={railBtn}>
+          <Heart className={`${railIcon} ${liked ? "fill-current" : ""}`} />
+          <span className={railLabel}>{c.like}</span>
         </button>
-
         {has("chat") && (
-          <button
-            type="button"
-            onClick={onTalk}
-            aria-label={purchased ? c.textChat : c.previewChat}
-            title={purchased ? c.textChat : c.previewChat}
-            className={glassBtn}
-          >
-            <MessageCircle className="h-5 w-5" />
+          <button type="button" onClick={onTalk} aria-label={purchased ? c.textChat : c.previewChat} className={railBtn}>
+            <MessageCircle className={railIcon} />
+            <span className={railLabel}>Chat</span>
           </button>
         )}
-
-        {/* Robot deployment only exists after purchase — never a free action */}
         {has("robot") && purchased && (
-          <button type="button" onClick={onRobot} aria-label={c.robot} title={c.robot} className={glassBtn}>
-            <Bot className="h-5 w-5" />
+          <button type="button" onClick={onRobot} aria-label={c.robot} className={railBtn}>
+            <Bot className={railIcon} />
           </button>
         )}
-
-        <button type="button" onClick={onFeedback} aria-label={c.reviews} title={c.reviews} className={glassBtn}>
-          <Star className="h-5 w-5" />
+        <button type="button" onClick={onFeedback} aria-label={c.reviews} className={railBtn}>
+          <Star className={railIcon} />
+          <span className={railLabel}>{c.reviews}</span>
         </button>
-
-        {(item.src || item.youtubeId) && (
-          <button type="button" onClick={toggle} aria-label="Pause" className={glassBtn}>
-            {paused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
-          </button>
-        )}
       </div>
 
       {/* Title card: sits above a wide video in the spare black space so the
@@ -1237,7 +1203,7 @@ function FeedCard({
             : { bottom: "calc(env(safe-area-inset-bottom) + 7.5rem)" }
         }
       >
-        <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
+        <div className="[text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
         <div className="mb-2 flex items-center gap-3">
           <button
             type="button"
@@ -1268,8 +1234,8 @@ function FeedCard({
             onClick={purchased ? onCancel : onBuy}
             title={purchased ? c.cancelSub : undefined}
             disabled={buying}
-            className={`pointer-events-auto ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
-              purchased ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
+            className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
+              purchased ? "border border-white/50 bg-black/30 text-white" : "bg-white text-black [text-shadow:none]"
             }`}
           >
             {buying && <Loader2 className="h-3 w-3 animate-spin" />}
