@@ -74,6 +74,8 @@ export function FriendsPanel({ onCounts, initialTab = "subscribers" }: { onCount
     return () => clearTimeout(h);
   }, [q]);
 
+  useEffect(() => setTab(initialTab), [initialTab]);
+
   if (!isAuthenticated) return <p className="py-8 text-center text-sm text-muted-foreground">{t.signIn}</p>;
 
   const act = async (id: string, fn: () => Promise<unknown>) => {
@@ -164,7 +166,6 @@ export function FriendsPanel({ onCounts, initialTab = "subscribers" }: { onCount
     </li>
   );
 
-  useEffect(() => setTab(initialTab), [initialTab]);
   const listFor = (k: Tab): { p: Person; rel: Tab }[] => {
     if (!graph) return [];
     const mut = graph.friends.map((p) => ({ p, rel: "friends" as Tab }));
