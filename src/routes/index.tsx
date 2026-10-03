@@ -996,7 +996,7 @@ function FeedCard({
               setNow(seconds);
               if (total > 0) setDuration((d) => (Math.abs(d - total) > 1 ? total : d));
             }}
-            onToggle={() => showChrome(!chrome)}
+            onToggle={toggle}
             onSeekRef={setYtSeek}
             onBlocked={onBlocked}
             onPrev={item.projectId ? () => onProjectSwipe("older") : undefined}
@@ -1030,15 +1030,7 @@ function FeedCard({
         {/* YouTube adds share/recommendation controls whenever its iframe is
             paused. Replace that surface with the clean poster while keeping
             Evermind's own controls, subtitles, and actions above it. */}
-        {paused && item.youtubeId && (
-          <img
-            src={item.poster}
-            alt=""
-            aria-hidden
-            className="pointer-events-none absolute inset-0 z-10 h-full w-full bg-neutral-950 object-contain"
-          />
-        )}
-        {paused && (item.src || item.youtubeId) && (
+        {paused && item.src && !item.youtubeId && (
           <button
             type="button"
             onClick={toggle}
