@@ -5,7 +5,6 @@ import {
   Heart,
   Loader2,
   MessageCircle,
-  Pause,
   Play,
   Star,
   Captions,
@@ -81,9 +80,10 @@ function writePref(key: string, value: string) {
   if (typeof window !== "undefined") window.localStorage.setItem(key, value);
 }
 
-/** Flat charcoal round button used by every on-video control. */
-const glassBtn =
-  "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-[#232326]/90 text-white shadow-lg backdrop-blur-xl transition-colors hover:bg-[#2c2c30]";
+/** Shorts-style rail: bare white outline icon with a small label under it. */
+const railBtn = "flex w-12 flex-col items-center gap-1 text-white [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.7))]";
+const railIcon = "h-7 w-7 stroke-[2.2]";
+const railLabel = "text-[11px] font-semibold leading-none";
 
 
 /** mm:ss stamp for mined timeline marks. */
@@ -540,17 +540,6 @@ function HomeFeed() {
     <div className="dark min-h-screen bg-black pb-28 text-white">
       {/* No app label over the video — the feed stays clean. */}
       {/* Sits below the language selector so it is never covered by it */}
-      <button
-        type="button"
-        onClick={() => setMuted((m) => !m)}
-        aria-label={muted ? "Unmute" : "Mute"}
-        style={{ top: "calc(env(safe-area-inset-top) + 3.75rem)" }}
-        className={`fixed right-3 z-40 h-10 w-10 transition-opacity duration-500 ${glassBtn} ${
-          pageChrome ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      >
-        {muted ? <VolumeX className="h-[1.1rem] w-[1.1rem]" /> : <Volume2 className="h-[1.1rem] w-[1.1rem]" />}
-      </button>
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
         {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
@@ -560,6 +549,7 @@ function HomeFeed() {
             key={item.id}
             item={item}
             muted={muted}
+            onMute={() => setMuted((m) => !m)}
             index={i}
             onVisible={setActive}
             isActive={active === i}
@@ -711,6 +701,7 @@ function FeedCard({
   onBuy,
   onPrimary,
   onCancel,
+  onMute,
   onTalk,
   onRobot,
   onBlocked,
@@ -731,6 +722,7 @@ function FeedCard({
   onBuy: () => void;
   onPrimary: () => void;
   onCancel: () => void;
+  onMute: () => void;
   onTalk: () => void;
   onRobot: () => void;
   onBlocked: () => void;
@@ -1211,7 +1203,7 @@ function FeedCard({
             : { bottom: "calc(env(safe-area-inset-bottom) + 7.5rem)" }
         }
       >
-        <div className="rounded-2xl bg-black/60 p-3 backdrop-blur-md">
+        <div className="[text-shadow:0_1px_3px_rgba(0,0,0,0.8)]">
         <div className="mb-2 flex items-center gap-3">
           <button
             type="button"
@@ -1242,8 +1234,8 @@ function FeedCard({
             onClick={purchased ? onCancel : onBuy}
             title={purchased ? c.cancelSub : undefined}
             disabled={buying}
-            className={`pointer-events-auto ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
-              purchased ? "border border-white/40 bg-transparent" : "bg-primary text-primary-foreground"
+            className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-60 ${
+              purchased ? "border border-white/50 bg-black/30 text-white" : "bg-white text-black [text-shadow:none]"
             }`}
           >
             {buying && <Loader2 className="h-3 w-3 animate-spin" />}
