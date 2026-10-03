@@ -31,7 +31,7 @@ function VaultsPage() {
   // so entering CTS only ever shows CTS material — never another persona's.
   const [persona, setPersona] = useState<VaultPersonaSelection>(null);
   return (
-    <div className="dark min-h-screen bg-background pb-28 text-foreground">
+    <div className="min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-8">
         <h1 className="text-2xl font-semibold tracking-tight">My Vaults</h1>
         <p className="mb-3 mt-1 text-sm text-muted-foreground">
