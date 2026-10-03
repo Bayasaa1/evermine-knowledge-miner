@@ -33,7 +33,6 @@ import {
   BrainCircuit,
 } from "lucide-react";
 import { toast } from "sonner";
-import { SubscriptionPanel } from "@/components/subscription-panel";
 import { CategoryList } from "@/components/create-wizard";
 import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
@@ -112,7 +111,7 @@ const MODEL = "gemini-3.1-flash-lite";
 type Tab = "youtube" | "drive" | "link" | "file";
 
 
-export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
+export function GuidedStudio({ lang }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
   // Arriving from Saved Minds or the Auditor means "mine this now": open the
@@ -122,7 +121,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
     try {
       const wanted = window.localStorage.getItem("evermind.mine-step");
       window.localStorage.removeItem("evermind.mine-step");
-      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 4;
+      if (wanted === "3" || window.localStorage.getItem("evermind.mine-batch")) return 5;
     } catch {
       /* blocked storage just starts at step 1 */
     }
@@ -132,6 +131,36 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
   const loadAccountKeys = useServerFn(getUserAiKeyStatus);
   const [category, setCategory] = useState<CreationCategory>(() => getCreationCategory());
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
+  // Step 1 mining rules are shared by steps 4 (saved with the video) and 5 (mining).
+  const RULES_KEY = "evermind.mining-rules";
+  const [rules, setRules] = useState<Assessment>(() => {
+    const base = defaultAssessmentFor(getCreationCategory());
+    if (typeof window === "undefined") return base;
+    try {
+      const raw = window.localStorage.getItem(RULES_KEY);
+      if (raw) return { ...base, ...(JSON.parse(raw) as Partial<Assessment>) };
+    } catch {
+      /* corrupt draft falls back to defaults */
+    }
+    return base;
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(RULES_KEY, JSON.stringify(rules));
+    } catch {
+      /* storage blocked */
+    }
+  }, [rules]);
+  const changeCategory = useCallback((c: CreationCategory) => {
+    setCategory(c);
+    setRules((prev) => ({ ...defaultAssessmentFor(c), miningMode: prev.miningMode, speakerIdentity: prev.speakerIdentity, customInstructions: prev.customInstructions }));
+  }, []);
+  // Sign-in and key steps disappear once they are done.
+  const visible = useMemo(
+    () => [1, ...(isAuthenticated ? [] : [2]), ...(isAuthenticated && hasGeminiKey ? [] : [3]), 4, 5],
+    [isAuthenticated, hasGeminiKey],
+  );
+  const position = Math.max(0, visible.indexOf(step));
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -145,10 +174,6 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
 
   const continueSetup = useCallback(async () => {
     // Already signed in? Never make the creator sit through the sign-in step.
-    if (step === 1 && isAuthenticated) {
-      setStep(3);
-      return;
-    }
     if (step === 2 && !isAuthenticated) {
       void navigate({ to: "/auth", search: { next: "/creator" } });
       return;
@@ -162,17 +187,20 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       setHasGeminiKey(true);
     }
     if (step < 5) {
-      setStep((current) => current + 1);
+      const signedIn = isAuthenticated;
+      const keyed = step === 3 ? true : hasGeminiKey;
+      const order = [1, ...(signedIn ? [] : [2]), ...(signedIn && keyed ? [] : [3]), 4, 5];
+      setStep(order.find((n) => n > step) ?? 5);
       return;
     }
     toast.success(pickCopy({ en: "Setup complete", mn: "Тохиргоо дууслаа", ko: "설정 완료" }, lang));
     void navigate({ to: "/vaults" });
-  }, [isAuthenticated, lang, loadAccountKeys, navigate, step]);
+  }, [hasGeminiKey, isAuthenticated, lang, loadAccountKeys, navigate, step]);
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-6">
       <ol className="flex items-center gap-2">
-        {[1, 2, 3, 4, 5].map((n) => (
+        {visible.map((n, i) => (
           <li key={n} className="flex flex-1 items-center gap-2">
             <button
               type="button"
@@ -186,20 +214,23 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
               }`}
               aria-current={step === n ? "step" : undefined}
             >
-              {n}
+              {i + 1}
             </button>
-            {n < 5 && <span className="h-px flex-1 bg-border" />}
+            {i < visible.length - 1 && <span className="h-px flex-1 bg-border" />}
           </li>
         ))}
       </ol>
 
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
-        {t("step")} {step} {t("of")} 5
+        {t("step")} {position + 1} {t("of")} {visible.length}
       </p>
 
       {step === 1 && (
         <StepShell title={t("step1Title")} sub={t("step1Sub")}>
-          <StepCategory lang={lang} value={category} onChange={setCategory} />
+          <div className="space-y-4">
+            <StepCategory lang={lang} value={category} onChange={changeCategory} />
+            <MiningWizard key={category} lang={lang} category={category} value={rules} onChange={setRules} onStart={() => {}} hideStart />
+          </div>
         </StepShell>
       )}
       {step === 2 && (
@@ -236,14 +267,13 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       {step === 4 && (
         <div className="space-y-8">
           <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
-          <StepUpload lang={lang} mode="both" category={category} />
+          <StepUpload lang={lang} mode="save" category={category} rules={rules} onDone={() => setStep(5)} />
         </div>
       )}
       {step === 5 && (
         <div className="space-y-8">
-          <StepShell title={t("step5Title")} sub={t("step5Sub")} tip={t("tipPrice")}>
-            <SubscriptionPanel lang={lang} creatorEmail={creatorEmail} />
-          </StepShell>
+          <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
+          <StepUpload lang={lang} mode="mine" category={category} rules={rules} />
         </div>
       )}
 
@@ -251,7 +281,7 @@ export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail:
       <div className="flex items-center justify-between pt-2">
         <button
           type="button"
-          onClick={() => setStep((s) => Math.max(1, s - 1))}
+          onClick={() => setStep(visible[Math.max(0, position - 1)] ?? 1)}
           disabled={step === 1}
           className="inline-flex items-center gap-1 rounded-xl border border-border px-4 py-2 text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-40"
         >
@@ -387,8 +417,12 @@ function StepUpload({
   lang,
   mode,
   category,
+  rules,
+  onDone,
 }: {
   lang: Lang;
+  rules?: Assessment;
+  onDone?: () => void;
   /** "both" is the single combined step: save a link, then mine a saved video. */
   mode: "save" | "mine" | "both";
   category: CreationCategory;
@@ -434,7 +468,7 @@ function StepUpload({
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ChunkResult | null>(null);
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
-  const [assessment, setAssessment] = useState<Assessment>(() => defaultAssessmentFor(category));
+  const [assessment, setAssessment] = useState<Assessment>(() => ({ ...defaultAssessmentFor(category), ...rules }));
   const [meta, setMeta] = useState<VideoMetadata | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [checkpoint, setCheckpoint] = useState<{ index: number; total: number } | null>(null);
@@ -1479,20 +1513,15 @@ function StepUpload({
                 </div>
               </div>
             )}
-            <MiningWizard
-              lang={lang}
-              category={category}
-              value={assessment}
-              onChange={setAssessment}
-              busy={saving || !url.trim()}
-              meta={meta}
-              metaLoading={metaLoading}
-              startLabel={saving ? lib.saving : lib.saveTitle}
-              onStart={(a) => {
-                setAssessment(a);
-                void saveLink(a);
-              }}
-            />
+            <button
+              type="button"
+              onClick={() => void saveLink(assessment)}
+              disabled={saving || !url.trim() || !ready}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {saving ? lib.saving : lib.saveTitle}
+            </button>
             {!url.trim() && (
               <p className="text-xs text-muted-foreground">
                 {pickCopy(
@@ -1522,6 +1551,15 @@ function StepUpload({
                   </li>
                 ))}
               </ul>
+            )}
+            {justSaved.length > 0 && onDone && (
+              <button
+                type="button"
+                onClick={onDone}
+                className="ml-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                {pickCopy({ en: "Next: mine", mn: "Дараагийн алхам: Олборлох", ko: "다음: 마이닝" }, lang)}
+              </button>
             )}
             {justSaved.length > 0 && (
               <button
