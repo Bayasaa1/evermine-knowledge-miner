@@ -1,20 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
-import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Users, Wallet } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { FriendsPanel } from "@/components/friends-panel";
 import { UsernameEditor } from "@/components/username-editor";
 import { SavedMinds } from "@/components/saved-minds";
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { setProfilePicture } from "@/lib/community";
 import { pickCopy, useLang } from "@/lib/i18n";
-import type { Graph } from "@/lib/friends";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 const copy = {
@@ -47,9 +45,7 @@ function ProfilePage() {
   const { profile, isAuthenticated } = useAuth();
   const { lang } = useLang();
   const t = pickCopy(copy, lang);
-  const [tab, setTab] = useState<"friends" | "vault" | "api" | "more">("friends");
-  const [counts, setCounts] = useState({ friends: 0, subscribers: 0, following: 0 });
-  const onCounts = useCallback((g: Graph) => setCounts({ friends: g.friends.length, subscribers: g.subscribers.length + g.friends.length, following: g.following.length + g.friends.length }), []);
+  const [tab, setTab] = useState<"vault" | "api" | "more">("vault");
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [picture, setPicture] = useState<string | null>(null);
@@ -108,19 +104,8 @@ function ProfilePage() {
           <AccountMenu compact />
         </div>
 
-        {isAuthenticated && (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            {([["friends", counts.friends, "🤝"], ["subscribers", counts.subscribers, "👥"], ["following", counts.following, "➡️"]] as const).map(([k, n, e]) => (
-              <button key={k} onClick={() => setTab("friends")} className="rounded-xl border border-border bg-card py-2.5">
-                <p className="text-base font-semibold">{e} {n}</p>
-                <p className="text-[11px] text-muted-foreground">{t[k]}</p>
-              </button>
-            ))}
-          </div>
-        )}
-
         <div className="sticky top-0 z-10 -mx-4 mt-4 flex gap-1 bg-background/95 px-4 py-2 backdrop-blur">
-          {([["friends", Users], ["vault", Boxes], ["api", KeyRound], ["more", Settings]] as const).map(([k, Icon]) => (
+          {([["vault", Boxes], ["api", KeyRound], ["more", Settings]] as const).map(([k, Icon]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold ${tab === k ? "bg-foreground text-background" : "text-muted-foreground"}`}>
               <Icon className="h-4 w-4" />{t[k]}
@@ -129,7 +114,6 @@ function ProfilePage() {
         </div>
 
         <div className="mt-3">
-          {tab === "friends" && <FriendsPanel onCounts={onCounts} />}
           {tab === "vault" && (
             <div className="space-y-4">
               <Link to="/vaults" className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
