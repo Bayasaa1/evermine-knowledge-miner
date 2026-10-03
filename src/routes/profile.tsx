@@ -8,6 +8,7 @@ import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { FriendsPanel } from "@/components/friends-panel";
+import { UsernameEditor } from "@/components/username-editor";
 import { SavedMinds } from "@/components/saved-minds";
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
@@ -101,7 +102,7 @@ function ProfilePage() {
             <h1 className="truncate text-lg font-semibold">
               {isAuthenticated && profile ? profile.displayName : "Guest"}
             </h1>
-            <p className="text-xs text-muted-foreground">A life becomes a mind.</p>
+            {isAuthenticated ? <UsernameEditor /> : <p className="text-xs text-muted-foreground">A life becomes a mind.</p>}
           </div>
           <PersonaSwitcher />
           <AccountMenu compact />
