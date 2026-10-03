@@ -28,7 +28,7 @@ export const Route = createFileRoute("/mining")({
 function MiningPage() {
   const { lang } = useLang();
   return (
-    <div className="dark min-h-screen bg-background pb-28 text-foreground">
+    <div className="min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="sr-only">Live mining progress</h1>
         <MiningMonitor lang={lang} />

@@ -52,7 +52,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         to={item.to}
         aria-label={item.label}
         className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
-          active ? "text-white" : "text-white/90 hover:text-white"
+          active ? "text-foreground" : "text-foreground/90 hover:text-foreground"
         }`}
       >
         <Icon className={`h-6 w-6 ${active ? "stroke-[2.6]" : "stroke-[2.2]"}`} />
@@ -72,7 +72,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         {/* Real frosted glass: heavy blur + saturation over a barely-there tint,
             so the video underneath stays visible through the bar. */}
         <nav
-          className={`${chrome ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-1 rounded-full border border-white/10 bg-black px-3 py-1.5 shadow-2xl`}
+          className={`${chrome ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-1 rounded-full border border-border bg-background px-3 py-1.5 shadow-2xl`}
         >
           {cell(home)}
           {cell(search)}

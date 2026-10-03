@@ -1788,7 +1788,7 @@ function Index() {
 
 
   return (
-    <div className="dark min-h-screen overflow-x-hidden bg-background text-foreground">
+    <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div

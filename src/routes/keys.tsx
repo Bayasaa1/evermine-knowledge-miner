@@ -92,7 +92,7 @@ function KeysPage() {
   const t = pickCopy(copy, lang);
 
   return (
-    <div className="dark min-h-screen bg-background pb-28 text-foreground">
+    <div className="min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">

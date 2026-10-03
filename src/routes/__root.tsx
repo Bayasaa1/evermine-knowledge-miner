@@ -16,6 +16,7 @@ import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { BottomNav } from "@/components/bottom-nav";
 import { LanguageSelector } from "@/components/language-selector";
 import { setChromeVisible } from "@/hooks/use-chrome-visible";
+import { THEME_BOOT_SCRIPT } from "@/hooks/use-theme";
 import { supabase } from "@/integrations/supabase/client";
 import {
   setLocalScope,
@@ -135,9 +136,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
         {children}

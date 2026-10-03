@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { setProfilePicture } from "@/lib/community";
 import { initials, useAuth } from "@/hooks/use-auth";
 
@@ -47,7 +48,7 @@ function ProfilePage() {
   };
 
   return (
-    <div className="dark min-h-screen bg-background pb-28 text-foreground">
+    <div className="min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-2xl px-4 py-8">
         <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5">
           <input
@@ -116,6 +117,8 @@ function ProfilePage() {
             <span className="text-sm font-medium">Earnings & unclaimed balance</span>
           </Link>
         </div>
+
+        <ThemeSwitcher />
 
         <ViewerBrainHub />
       </div>
