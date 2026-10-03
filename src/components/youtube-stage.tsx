@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 
 /**
  * TikTok-style YouTube stage. Plays the video straight from YouTube's Iframe
@@ -192,6 +193,27 @@ export function YouTubeStage({
     return () => onSeekRef(null);
   }, [ready, onSeekRef]);
 
+  // Facebook-style centre controls: a tap shows ⟲10 / play-pause / 10⟳,
+  // they fade after 3 seconds while playing and stay while paused.
+  const [showUi, setShowUi] = useState(false);
+  const hideTimer = useRef<number | null>(null);
+  const flashUi = () => {
+    setShowUi(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setShowUi(false), 3000);
+  };
+  useEffect(() => () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); }, []);
+  const skip = (delta: number) => {
+    const p = player.current;
+    if (p) {
+      const dur = typeof p.getDuration === "function" ? p.getDuration() : 0;
+      const next = Math.max(0, p.getCurrentTime() + delta);
+      p.seekTo(dur ? Math.min(next, dur - 1) : next, true);
+    }
+    flashUi();
+  };
+
+
   return (
     <div className="absolute inset-0 overflow-hidden">
       {/* YouTube paints its own title bar, channel avatar and "More videos"
@@ -213,10 +235,43 @@ export function YouTubeStage({
       )}
       <button
         type="button"
-        aria-label={paused ? "Play video" : "Pause video"}
-        onClick={onToggle}
+        aria-label="Show controls"
+        onClick={() => {
+          if (showUi && !paused) setShowUi(false);
+          else flashUi();
+        }}
         className="absolute inset-0 z-[6] h-full w-full"
       />
+      {(showUi || paused) && (
+        <div className="pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-6">
+          <button
+            type="button"
+            aria-label="Back 10 seconds"
+            onClick={() => skip(-10)}
+            className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+          >
+            <RotateCcw className="h-5 w-5" />
+            <span className="absolute text-[9px] font-bold">10</span>
+          </button>
+          <button
+            type="button"
+            aria-label={paused ? "Play video" : "Pause video"}
+            onClick={() => { onToggle?.(); flashUi(); }}
+            className="pointer-events-auto flex h-16 w-16 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+          >
+            {paused ? <Play className="h-7 w-7 fill-current" /> : <Pause className="h-7 w-7 fill-current" />}
+          </button>
+          <button
+            type="button"
+            aria-label="Forward 10 seconds"
+            onClick={() => skip(10)}
+            className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+          >
+            <RotateCw className="h-5 w-5" />
+            <span className="absolute text-[9px] font-bold">10</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
