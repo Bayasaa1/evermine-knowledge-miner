@@ -26,7 +26,7 @@ export function TalkToMindModal({
   lang: langProp,
   onReview,
 }: {
-  onReview?: () => void;
+  onReview?: (() => void) | undefined;
   open: boolean;
   onClose: () => void;
   mindId: string | null;
