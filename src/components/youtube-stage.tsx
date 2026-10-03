@@ -63,8 +63,8 @@ export function YouTubeStage({
   onNext,
 }: {
   /** Jump to the previous / next video of the same project (creator's order). */
-  onPrev?: () => void;
-  onNext?: () => void;
+  onPrev?: (() => void) | undefined;
+  onNext?: (() => void) | undefined;
   videoId: string;
   active: boolean;
   muted: boolean;
