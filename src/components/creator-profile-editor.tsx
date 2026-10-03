@@ -59,7 +59,7 @@ export function CreatorProfileEditor({ personaId, lang }: { personaId: string | 
   const addQa = async () => {
     if (!nq.trim() || !projectId) return;
     const { error } = await supabase.from("mind_qa").insert({ project_id: projectId, question: nq.trim(), answer: na.trim(), sort: qa.length });
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     setNq(""); setNa(""); void loadQa(projectId);
   };
   const patchQa = async (id: string, patch: Partial<Qa>) => {
