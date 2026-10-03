@@ -13,6 +13,7 @@ export const CATEGORY_CAPABILITIES: Record<CreationCategory, Capability[]> = {
   voice: ["chat", "voice", "video"],
   sales: ["chat", "voice", "asset"],
   gaming: ["chat", "voice", "coach", "game", "asset"],
+  movement: ["chat", "voice", "coach", "asset"],
 };
 
 export const CAPABILITY_LABELS: Record<Capability, { en: string; mn: string }> = {

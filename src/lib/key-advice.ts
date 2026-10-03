@@ -22,7 +22,7 @@ export type KeyAdvice = {
 
 type Trio = { en: KeyAdvice; mn: KeyAdvice; ko: KeyAdvice };
 
-const ADVICE: Record<CreationCategory, Trio> = {
+const ADVICE: Record<Exclude<CreationCategory, "movement">, Trio> = {
   knowledge: {
     en: {
       first: "Gemini at #1 — it reads the video and writes the Q&A.",
@@ -213,7 +213,7 @@ export type Recommendation = {
  * up with a working team. `paidUpgrade` is the one paid AI worth adding later,
  * offered separately so nobody is pushed into a bill.
  */
-const PICKS: Record<CreationCategory, { recommended: string[]; paidUpgrade?: string; avoid: string[] }> = {
+const PICKS: Record<Exclude<CreationCategory, "movement">, { recommended: string[]; paidUpgrade?: string; avoid: string[] }> = {
   knowledge: { recommended: ["groq", "cerebras", "together"], paidUpgrade: "openai", avoid: ["perplexity", "cohere"] },
   robot: { recommended: ["cerebras", "groq"], paidUpgrade: "anthropic", avoid: ["perplexity", "cohere", "github"] },
   voice: { recommended: ["groq", "cerebras"], avoid: ["perplexity", "moonshot"] },
