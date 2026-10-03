@@ -1,6 +1,8 @@
 import { Languages, Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { useRouterState } from "@tanstack/react-router";
+
 import { useChromeVisible } from "@/hooks/use-chrome-visible";
 import { useLang } from "@/lib/i18n";
 import { LANGUAGES, LANG_LIST } from "@/lib/languages";
@@ -21,6 +23,8 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
   const ref = useRef<HTMLDivElement>(null);
   // Fades out with the rest of the controls while a feed video plays.
   const chrome = useChromeVisible();
+  // Over the feed video the icon stays white; elsewhere it follows the theme.
+  const onFeed = useRouterState({ select: (s) => s.location.pathname }) === "/";
 
   useEffect(() => {
     if (!open) return;
@@ -51,7 +55,7 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
         aria-expanded={open}
         className={
           variant === "floating"
-            ? "inline-flex h-10 w-10 items-center justify-center rounded-full text-white [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.7))]"
+            ? `inline-flex h-10 w-10 items-center justify-center rounded-full ${onFeed ? "text-white [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.7))]" : "text-foreground"}`
             : "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-muted"
         }
       >
