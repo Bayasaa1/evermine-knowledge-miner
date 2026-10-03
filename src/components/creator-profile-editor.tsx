@@ -43,7 +43,7 @@ export function CreatorProfileEditor({ personaId, lang }: { personaId: string | 
     const { data } = await supabase.from("mind_qa").select("id, question, answer, suggest, sort").eq("project_id", pid).order("sort");
     setQa((data as Qa[]) ?? []);
   };
-  useEffect(() => { void loadQa(projectId); }, [projectId]);
+  useEffect(() => { void loadQa(projectId); }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!personaId) return <p className="text-sm text-muted-foreground">{t.pick}</p>;
 
