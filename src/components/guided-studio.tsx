@@ -66,7 +66,6 @@ import { markSourceStatus, saveSourcesToVault, type SavedSource, type SourcePayl
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
-import { MiningWizard } from "@/components/mining-wizard";
 import {
   DEFAULT_MINER,
   findMiner,

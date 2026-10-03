@@ -186,7 +186,7 @@ const ADVICE: Record<Exclude<CreationCategory, "movement">, Trio> = {
 };
 
 export function adviceFor(category: string, lang: Lang): KeyAdvice {
-  const key = (category in ADVICE ? category : "knowledge") as CreationCategory;
+  const key = (category === "movement" ? "robot" : category in ADVICE ? category : "knowledge") as keyof typeof ADVICE;
   return pickCopy(ADVICE[key], lang);
 }
 
@@ -281,7 +281,7 @@ const FALLBACK_NOTE: { en: string; mn: string; ko: string } = {
 };
 
 export function recommendationFor(category: string, providerId: string, lang: Lang): Recommendation {
-  const key = (category in PICKS ? category : "knowledge") as CreationCategory;
+  const key = (category === "movement" ? "robot" : category in PICKS ? category : "knowledge") as keyof typeof PICKS;
   const picks = PICKS[key];
   const level: RecLevel =
     providerId === "gemini"
@@ -307,7 +307,7 @@ export function recommendationFor(category: string, providerId: string, lang: La
  * so the key list can offer them as one-click additions.
  */
 export function suggestedTeam(category: string, installedIds: string[]): string[] {
-  const key = (category in PICKS ? category : "knowledge") as CreationCategory;
+  const key = (category === "movement" ? "robot" : category in PICKS ? category : "knowledge") as keyof typeof PICKS;
   const pick = PICKS[key];
   const ids = [...pick.recommended, ...(pick.paidUpgrade ? [pick.paidUpgrade] : [])];
   return ids.filter((id) => !installedIds.includes(id));
