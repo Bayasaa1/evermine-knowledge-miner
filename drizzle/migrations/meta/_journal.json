@@ -190,6 +190,13 @@
       "when": 1790997184535,
       "tag": "0026_mutual_subscriptions_friends",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790998522208,
+      "tag": "0027_profile_username",
+      "breakpoints": true
     }
   ]
 }
