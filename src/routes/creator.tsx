@@ -1791,94 +1791,18 @@ function Index() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={`fixed left-0 top-0 z-50 h-full w-[260px] border-r border-border bg-card transition-transform duration-300 ease-out lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="flex h-full flex-col p-6">
-          <div className="mb-8">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <Brain className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-foreground">{t.appName} — Creator Dashboard</h1>
-                <p className="text-xs text-muted-foreground">{t.tagline}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6">
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {t.language}
-            </label>
-            <LanguageSelector variant="inline" />
-          </div>
-
-          <nav className="flex-1">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.quickLinks}</p>
-            <ul className="space-y-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <li key={link.key}>
-                    <a
-                      href={link.href}
-                      className="group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    >
-                      <span className="flex items-center gap-3">
-                        <Icon className="h-4 w-4 transition-colors group-hover:text-primary" />
-                        {(t as Record<string, string>)[link.key]}
-                      </span>
-                      <ChevronRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          <div className="mt-auto rounded-xl border border-border bg-muted p-4">
-            <p className="text-xs font-medium text-muted-foreground">{t.appName}</p>
-            <p className="mt-1 text-xs text-muted-foreground">v0.1.0</p>
-          </div>
-        </div>
-      </aside>
-
       {/* Main workspace */}
-      <main className="min-h-screen min-w-0 pb-28 lg:pl-[260px]">
+      <main className="min-h-screen min-w-0 pb-28">
         {/* Header */}
         <header className="sticky top-0 z-30 border-b border-border bg-background/80 px-4 py-4 backdrop-blur-md sm:px-6 sm:py-5 lg:px-8 xl:px-10">
-          <div className="flex min-w-0 items-center justify-between">
-            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-muted lg:hidden"
-                aria-label="Open menu"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-              <div className="min-w-0">
-                <h2 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t.dashboard}</h2>
-                <p className="truncate text-sm text-muted-foreground">{t.tagline}</p>
-              </div>
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t.dashboard}</h2>
+              <p className="truncate text-sm text-muted-foreground">{t.tagline}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <PersonaSwitcher compact />
+            <div className="flex shrink-0 items-center">
               <AccountMenu compact />
             </div>
-
           </div>
         </header>
 
