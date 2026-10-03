@@ -222,7 +222,7 @@ export async function askMind(
   }));
   lines.push({
     role: "user",
-    text: `[Group room note — not from a person] ${ROLE_NOTE[mind.role] ?? ROLE_NOTE.debater} Reply now as yourself to the conversation above.`,
+    text: `[Group room note — not from a person] ${ROLE_NOTE[mind.role] ?? ROLE_NOTE["debater"]} Reply now as yourself to the conversation above.`,
   });
   const res = await apiFetch("/api/mind-chat", {
     method: "POST",

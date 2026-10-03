@@ -34,6 +34,8 @@ import { Route as ApiMindVisionRouteImport } from './routes/api/mind-vision'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
 import { Route as ApiVoiceCloneRouteImport } from './routes/api/voice-clone'
+import { Route as ChatsIndexRouteImport } from './routes/chats.index'
+import { Route as ChatsRoomIdRouteImport } from './routes/chats.$roomId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
 import { Route as ApiPublicCronResumeMiningRouteImport } from './routes/api/public/cron/resume-mining'
@@ -165,6 +167,16 @@ const ApiVoiceCloneRoute = ApiVoiceCloneRouteImport.update({
   path: '/api/voice-clone',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatsIndexRoute = ChatsIndexRouteImport.update({
+  id: '/chats/',
+  path: '/chats/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatsRoomIdRoute = ChatsRoomIdRouteImport.update({
+  id: '/chats/$roomId',
+  path: '/chats/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   id: '/.lovable/oauth/consent',
   path: '/.lovable/oauth/consent',
@@ -214,6 +226,8 @@ export interface FileRoutesByFullPath {
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/voice-clone': typeof ApiVoiceCloneRoute
+  '/chats/$roomId': typeof ChatsRoomIdRoute
+  '/chats/': typeof ChatsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
@@ -245,6 +259,8 @@ export interface FileRoutesByTo {
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/voice-clone': typeof ApiVoiceCloneRoute
+  '/chats/$roomId': typeof ChatsRoomIdRoute
+  '/chats': typeof ChatsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
@@ -277,6 +293,8 @@ export interface FileRoutesById {
   '/api/mind-voice': typeof ApiMindVoiceRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/voice-clone': typeof ApiVoiceCloneRoute
+  '/chats/$roomId': typeof ChatsRoomIdRoute
+  '/chats/': typeof ChatsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
@@ -310,6 +328,8 @@ export interface FileRouteTypes {
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/voice-clone'
+    | '/chats/$roomId'
+    | '/chats/'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
@@ -341,6 +361,8 @@ export interface FileRouteTypes {
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/voice-clone'
+    | '/chats/$roomId'
+    | '/chats'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
@@ -372,6 +394,8 @@ export interface FileRouteTypes {
     | '/api/mind-voice'
     | '/api/user-mine'
     | '/api/voice-clone'
+    | '/chats/$roomId'
+    | '/chats/'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
     | '/api/public/cron/resume-mining'
@@ -404,6 +428,8 @@ export interface RootRouteChildren {
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
   ApiVoiceCloneRoute: typeof ApiVoiceCloneRoute
+  ChatsRoomIdRoute: typeof ChatsRoomIdRoute
+  ChatsIndexRoute: typeof ChatsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
   ApiPublicCronResumeMiningRoute: typeof ApiPublicCronResumeMiningRoute
@@ -587,6 +613,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVoiceCloneRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chats/': {
+      id: '/chats/'
+      path: '/chats'
+      fullPath: '/chats/'
+      preLoaderRoute: typeof ChatsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chats/$roomId': {
+      id: '/chats/$roomId'
+      path: '/chats/$roomId'
+      fullPath: '/chats/$roomId'
+      preLoaderRoute: typeof ChatsRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.lovable/oauth/consent': {
       id: '/.lovable/oauth/consent'
       path: '/.lovable/oauth/consent'
@@ -645,6 +685,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMindVoiceRoute: ApiMindVoiceRoute,
   ApiUserMineRoute: ApiUserMineRoute,
   ApiVoiceCloneRoute: ApiVoiceCloneRoute,
+  ChatsRoomIdRoute: ChatsRoomIdRoute,
+  ChatsIndexRoute: ChatsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
   ApiPublicCronResumeMiningRoute: ApiPublicCronResumeMiningRoute,
