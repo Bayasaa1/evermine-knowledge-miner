@@ -1,25 +1,42 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
-import { Boxes, Camera, KeyRound, Loader2, PenSquare, ShieldCheck, Wallet } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { FriendsPanel } from "@/components/friends-panel";
+import { SavedMinds } from "@/components/saved-minds";
+import { AiKeysCard } from "@/components/ai-keys-card";
+import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { setProfilePicture } from "@/lib/community";
+import { pickCopy, useLang } from "@/lib/i18n";
+import type { Graph } from "@/lib/friends";
 import { initials, useAuth } from "@/hooks/use-auth";
+
+const copy = {
+  en: { friends: "Friends", subscribers: "Subscribers", following: "Following", vault: "Vault", api: "API", more: "More",
+    openVault: "Open full Vault studio", openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
+    posts: "Posts & stories", earnings: "Earnings & unclaimed balance" },
+  mn: { friends: "Найзууд", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
+    openVault: "Vault студийг бүтнээр нээх", openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
+    posts: "Пост & стори", earnings: "Орлого & үлдэгдэл" },
+  ko: { friends: "친구", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
+    openVault: "볼트 스튜디오 열기", openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
+    posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액" },
+} as const;
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
       { title: "Profile — Evermind" },
-      {
-        name: "description",
-        content: "Your Evermind account: creator studio, earnings, payouts and data privacy controls.",
-      },
+      { name: "description", content: "Your Evermind profile: friends, subscribers, Mind vaults and your own AI keys." },
       { property: "og:title", content: "Profile — Evermind" },
-      { property: "og:description", content: "Manage your Evermind account, studio and earnings." },
+      { property: "og:description", content: "Manage friends, vaults and API keys in Evermind." },
+      { property: "og:type", content: "profile" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ProfilePage,
@@ -27,6 +44,11 @@ export const Route = createFileRoute("/profile")({
 
 function ProfilePage() {
   const { profile, isAuthenticated } = useAuth();
+  const { lang } = useLang();
+  const t = pickCopy(copy, lang);
+  const [tab, setTab] = useState<"friends" | "vault" | "api" | "more">("friends");
+  const [counts, setCounts] = useState({ friends: 0, subscribers: 0, following: 0 });
+  const onCounts = useCallback((g: Graph) => setCounts({ friends: g.friends.length, subscribers: g.subscribers.length + g.friends.length, following: g.following.length + g.friends.length }), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [picture, setPicture] = useState<string | null>(null);
@@ -85,42 +107,61 @@ function ProfilePage() {
           <AccountMenu compact />
         </div>
 
-        <div className="mt-4 grid gap-3">
-          <Link
-            to="/community"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/40"
-          >
-            <PenSquare className="h-5 w-5 text-foreground" />
-            <span className="text-sm font-medium">Posts & stories — share a thought, photo or clip</span>
-          </Link>
-          <Link
-            to="/vaults"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/40"
-          >
-            <Boxes className="h-5 w-5 text-foreground" />
-            <span className="text-sm font-medium">My Vaults — saved minds, videos and branches</span>
-          </Link>
-          <Link
-            to="/keys"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-foreground/40"
-          >
-            <KeyRound className="h-5 w-5 text-foreground" />
-            <span className="text-sm font-medium">API Manager — keys, limits and usage</span>
-          </Link>
+        {isAuthenticated && (
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            {([["friends", counts.friends, "🤝"], ["subscribers", counts.subscribers, "👥"], ["following", counts.following, "➡️"]] as const).map(([k, n, e]) => (
+              <button key={k} onClick={() => setTab("friends")} className="rounded-xl border border-border bg-card py-2.5">
+                <p className="text-base font-semibold">{e} {n}</p>
+                <p className="text-[11px] text-muted-foreground">{t[k]}</p>
+              </button>
+            ))}
+          </div>
+        )}
 
-          <Link
-            to="/creator"
-            hash="analytics"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/60"
-          >
-            <Wallet className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Earnings & unclaimed balance</span>
-          </Link>
+        <div className="sticky top-0 z-10 -mx-4 mt-4 flex gap-1 bg-background/95 px-4 py-2 backdrop-blur">
+          {([["friends", Users], ["vault", Boxes], ["api", KeyRound], ["more", Settings]] as const).map(([k, Icon]) => (
+            <button key={k} onClick={() => setTab(k)}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold ${tab === k ? "bg-foreground text-background" : "text-muted-foreground"}`}>
+              <Icon className="h-4 w-4" />{t[k]}
+            </button>
+          ))}
         </div>
 
-        <ThemeSwitcher />
-
-        <ViewerBrainHub />
+        <div className="mt-3">
+          {tab === "friends" && <FriendsPanel onCounts={onCounts} />}
+          {tab === "vault" && (
+            <div className="space-y-4">
+              <Link to="/vaults" className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
+                <span className="flex items-center gap-3 text-sm font-medium"><Boxes className="h-5 w-5" />{t.openVault}</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <SavedMinds lang={lang} />
+              <ViewerBrainHub />
+            </div>
+          )}
+          {tab === "api" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">{t.apiHint}</p>
+              <AiKeysCard />
+              <TokenUsagePanel lang={lang} />
+              <Link to="/keys" className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
+                <span className="flex items-center gap-3 text-sm font-medium"><KeyRound className="h-5 w-5" />{t.openApi}</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
+          {tab === "more" && (
+            <div className="grid gap-3">
+              <Link to="/community" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+                <PenSquare className="h-5 w-5" /><span className="text-sm font-medium">{t.posts}</span>
+              </Link>
+              <Link to="/creator" hash="analytics" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
+                <Wallet className="h-5 w-5 text-primary" /><span className="text-sm font-medium">{t.earnings}</span>
+              </Link>
+              <ThemeSwitcher />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
