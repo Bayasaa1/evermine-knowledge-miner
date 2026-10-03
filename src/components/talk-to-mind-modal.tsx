@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X }  from "lucide-react";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
