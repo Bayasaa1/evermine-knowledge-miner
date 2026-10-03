@@ -1,20 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
-import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Users, Wallet } from "lucide-react";
+import { useRef, useState } from "react";
+import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { FriendsPanel } from "@/components/friends-panel";
 import { UsernameEditor } from "@/components/username-editor";
 import { SavedMinds } from "@/components/saved-minds";
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { setProfilePicture } from "@/lib/community";
 import { pickCopy, useLang } from "@/lib/i18n";
-import type { Graph } from "@/lib/friends";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 const copy = {
