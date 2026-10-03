@@ -33,7 +33,6 @@ import {
   BrainCircuit,
 } from "lucide-react";
 import { toast } from "sonner";
-import { SubscriptionPanel } from "@/components/subscription-panel";
 import { CategoryList } from "@/components/create-wizard";
 import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
@@ -112,7 +111,7 @@ const MODEL = "gemini-3.1-flash-lite";
 type Tab = "youtube" | "drive" | "link" | "file";
 
 
-export function GuidedStudio({ lang, creatorEmail }: { lang: Lang; creatorEmail: string }) {
+export function GuidedStudio({ lang }: { lang: Lang; creatorEmail: string }) {
   const t = useCallback((k: string) => tr(lang, k), [lang]);
   const navigate = useNavigate();
   // Arriving from Saved Minds or the Auditor means "mine this now": open the
