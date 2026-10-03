@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, RotateCcw, RotateCw } from "lucide-react";
+import { Pause, Play, RotateCcw, RotateCw, SkipBack, SkipForward } from "lucide-react";
 
 /**
  * TikTok-style YouTube stage. Plays the video straight from YouTube's Iframe
@@ -59,7 +59,12 @@ export function YouTubeStage({
   onToggle,
   onSeekRef,
   onBlocked,
+  onPrev,
+  onNext,
 }: {
+  /** Jump to the previous / next video of the same project (creator's order). */
+  onPrev?: (() => void) | undefined;
+  onNext?: (() => void) | undefined;
   videoId: string;
   active: boolean;
   muted: boolean;
@@ -243,7 +248,17 @@ export function YouTubeStage({
         className="absolute inset-0 z-[6] h-full w-full"
       />
       {(showUi || paused) && (
-        <div className="pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-6">
+        <div className="pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-4">
+          {onPrev && (
+            <button
+              type="button"
+              aria-label="Previous video in project"
+              onClick={() => { onPrev(); flashUi(); }}
+              className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+            >
+              <SkipBack className="h-5 w-5 fill-current" />
+            </button>
+          )}
           <button
             type="button"
             aria-label="Back 10 seconds"
@@ -270,6 +285,16 @@ export function YouTubeStage({
             <RotateCw className="h-5 w-5" />
             <span className="absolute text-[9px] font-bold">10</span>
           </button>
+          {onNext && (
+            <button
+              type="button"
+              aria-label="Next video in project"
+              onClick={() => { onNext(); flashUi(); }}
+              className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+            >
+              <SkipForward className="h-5 w-5 fill-current" />
+            </button>
+          )}
         </div>
       )}
     </div>
