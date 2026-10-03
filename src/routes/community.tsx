@@ -109,7 +109,7 @@ function CommunityPage() {
   };
 
   return (
-    <div className="dark min-h-screen bg-background pb-28 text-foreground">
+    <div className="min-h-screen bg-background pb-28 text-foreground">
       <div
         className="mx-auto max-w-2xl px-4"
         style={{ paddingTop: "calc(env(safe-area-inset-top,0px) + 1.5rem)" }}
