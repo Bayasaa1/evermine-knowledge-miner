@@ -112,3 +112,10 @@
 - [x] Change profile picture from the Profile page
 - [x] Post stories (24h) — Posts & stories page, opened from Profile
 - [x] Write text/photo posts that appear on the Posts & stories page
+
+## Social chat (people + Minds)
+- [x] Chat tab in the dock; inbox with group rooms + every Mind chat from videos (MD/JSON export)
+- [x] Group rooms: create/delete, invite code, people admin/member/remove, leave
+- [x] Minds in rooms with roles (debater/judge/host/creator twin), @mention / round-table / relevance modes, turn limit, pause/continue
+- [ ] Share button on feed videos → send to a room or Mind
+- [ ] Direct messages between two users; viewer/creator community rooms
