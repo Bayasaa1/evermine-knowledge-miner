@@ -42,7 +42,6 @@ function ChatsPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"people" | "minds">("people");
   const [showNew, setShowNew] = useState(false);
   const [openMind, setOpenMind] = useState<string | null>(null);
   const [names, setNames] = useState<Map<string, string>>(new Map());
@@ -117,13 +116,6 @@ function ChatsPage() {
           <h1 className="text-2xl font-bold">{t.title}</h1>
           <button type="button" aria-label={t.newRoom} onClick={() => setShowNew((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"><Plus className="h-5 w-5" /></button>
         </div>
-        <div className="flex gap-2">
-          {(["people", "minds"] as const).map((k) => (
-            <button key={k} type="button" onClick={() => setTab(k)} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${tab === k ? "bg-foreground text-background" : "border border-border"}`}>
-              {k === "people" ? `👥 ${t.rooms}` : `🧠 ${t.minds}`}
-            </button>
-          ))}
-        </div>
 
         {showNew && <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
           <div className="flex gap-2">
@@ -168,45 +160,43 @@ function ChatsPage() {
           </div>
         </section>}
 
-        {tab === "people" && <section>
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Users className="h-4 w-4" /> {t.rooms}</h2>
+        <section>
           {rooms === null ? (
             <Loader2 className="h-5 w-5 animate-spin" />
-          ) : rooms.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t.empty}</p>
+          ) : rooms.length === 0 && threads.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t.empty} {t.noMinds}</p>
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
-              {rooms.map((r) => (
-                <li key={r.id}>
-                  <Link to="/chats/$roomId" params={{ roomId: r.id }} className="flex items-center justify-between px-4 py-3">
-                    <span className="flex items-center gap-2 font-medium">{r.kind === "dm" ? <Users className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />} {r.kind === "dm" ? dmNames.get(r.id) ?? r.title : r.title}</span>
-                    {r.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{t.unread}</span>}
-                  </Link>
-                </li>
-              ))}
+              {[
+                ...rooms.map((r) => ({ at: r.updated_at, key: `r${r.id}`, room: r, th: null as MindThread | null })),
+                ...threads.map((th) => ({ at: th.last, key: `m${th.mindId}`, room: null as (Room & { unread: boolean }) | null, th })),
+              ]
+                .sort((a, b) => b.at.localeCompare(a.at))
+                .map(({ key, room: r, th }) =>
+                  r ? (
+                    <li key={key}>
+                      <Link to="/chats/$roomId" params={{ roomId: r.id }} className="flex items-center justify-between px-4 py-3">
+                        <span className="flex min-w-0 items-center gap-2 font-medium">{r.kind === "dm" ? <Users className="h-4 w-4 shrink-0" /> : <MessageCircle className="h-4 w-4 shrink-0" />} <span className="truncate">{r.kind === "dm" ? dmNames.get(r.id) ?? r.title : r.title}</span></span>
+                        {r.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{t.unread}</span>}
+                      </Link>
+                    </li>
+                  ) : th ? (
+                    <li key={key} className="flex items-center justify-between gap-2 px-4 py-3">
+                      <button onClick={() => setOpenMind(th.mindId)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                        <Bot className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{label(th.mindId)}</span>
+                          <span className="block text-xs text-muted-foreground">{th.count} · {new Date(th.last).toLocaleDateString()}</span>
+                        </span>
+                      </button>
+                      <button onClick={() => void exportThread(th.mindId, "md")} className="flex items-center gap-1 rounded-full border border-border px-2 py-1 text-xs"><Download className="h-3 w-3" />{t.exportMd}</button>
+                      <button onClick={() => void exportThread(th.mindId, "json")} className="rounded-full border border-border px-2 py-1 text-xs">{t.exportJson}</button>
+                    </li>
+                  ) : null,
+                )}
             </ul>
           )}
-        </section>}
-
-        {tab === "minds" && <section>
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Bot className="h-4 w-4" /> {t.minds}</h2>
-          {threads.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t.noMinds}</p>
-          ) : (
-            <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
-              {threads.map((th) => (
-                <li key={th.mindId} className="flex items-center justify-between gap-2 px-4 py-3">
-                  <button onClick={() => setOpenMind(th.mindId)} className="min-w-0 flex-1 text-left">
-                    <div className="truncate font-medium">{label(th.mindId)}</div>
-                    <div className="text-xs text-muted-foreground">{th.count} · {new Date(th.last).toLocaleDateString()}</div>
-                  </button>
-                  <button onClick={() => void exportThread(th.mindId, "md")} className="flex items-center gap-1 rounded-full border border-border px-2 py-1 text-xs"><Download className="h-3 w-3" />{t.exportMd}</button>
-                  <button onClick={() => void exportThread(th.mindId, "json")} className="rounded-full border border-border px-2 py-1 text-xs">{t.exportJson}</button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>}
+        </section>
       </div>
       <TalkToMindModal open={!!openMind} onClose={() => { setOpenMind(null); void refresh(); }} mindId={openMind} mindName={openMind ? label(openMind) : ""} lang={lang} />
       <BottomNav lang={lang} />
