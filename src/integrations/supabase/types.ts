@@ -146,6 +146,168 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_room_members: {
+        Row: {
+          display_name: string
+          id: string
+          joined_at: string
+          last_read_at: string
+          role: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          display_name?: string
+          id?: string
+          joined_at?: string
+          last_read_at?: string
+          role?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          display_name?: string
+          id?: string
+          joined_at?: string
+          last_read_at?: string
+          role?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_members_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_room_messages: {
+        Row: {
+          author_name: string
+          body: string
+          created_at: string
+          id: string
+          mind_id: string | null
+          room_id: string
+          sender_kind: string
+          sender_user_id: string
+          shared_url: string | null
+        }
+        Insert: {
+          author_name?: string
+          body: string
+          created_at?: string
+          id?: string
+          mind_id?: string | null
+          room_id: string
+          sender_kind?: string
+          sender_user_id: string
+          shared_url?: string | null
+        }
+        Update: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          mind_id?: string | null
+          room_id?: string
+          sender_kind?: string
+          sender_user_id?: string
+          shared_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_room_minds: {
+        Row: {
+          added_by: string
+          created_at: string
+          id: string
+          mind_id: string
+          mind_name: string
+          role: string
+          room_id: string
+          sort: number
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          id?: string
+          mind_id: string
+          mind_name?: string
+          role?: string
+          room_id: string
+          sort?: number
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          mind_id?: string
+          mind_name?: string
+          role?: string
+          room_id?: string
+          sort?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_room_minds_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_rooms: {
+        Row: {
+          created_at: string
+          debate_mode: string
+          id: string
+          invite_code: string
+          invite_enabled: boolean
+          kind: string
+          owner_id: string
+          title: string
+          turn_limit: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          debate_mode?: string
+          id?: string
+          invite_code?: string
+          invite_enabled?: boolean
+          kind?: string
+          owner_id: string
+          title?: string
+          turn_limit?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          debate_mode?: string
+          id?: string
+          invite_code?: string
+          invite_enabled?: boolean
+          kind?: string
+          owner_id?: string
+          title?: string
+          turn_limit?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       creator_personas: {
         Row: {
           avatar_url: string | null
@@ -1404,6 +1566,18 @@ export type Database = {
         Returns: boolean
       }
       is_banned: { Args: { _user_id: string }; Returns: boolean }
+      is_room_admin: {
+        Args: { _room: string; _user: string }
+        Returns: boolean
+      }
+      is_room_member: {
+        Args: { _room: string; _user: string }
+        Returns: boolean
+      }
+      join_room_by_code: {
+        Args: { _code: string; _name: string }
+        Returns: string
+      }
       my_duplicate_persona_ids: { Args: never; Returns: string[] }
       persona_handle_taken: {
         Args: { _exclude_id?: string; _handle: string }
@@ -1451,6 +1625,10 @@ export type Database = {
           version_id: string
           version_num: number
         }[]
+      }
+      set_room_member_role: {
+        Args: { _member: string; _role: string }
+        Returns: boolean
       }
     }
     Enums: {

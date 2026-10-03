@@ -1,0 +1,268 @@
+/**
+ * Social chat rooms: people + Minds in one room.
+ *
+ * Privacy: every read and write runs as the signed-in user through the
+ * browser client, so the database's member-only rules decide what is visible.
+ * Mind replies are generated with the *sender's* own AI keys via
+ * /api/mind-chat — no member ever spends another member's credentials.
+ */
+import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api-fetch";
+import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
+import { findMind, MINDS } from "@/lib/minds";
+import { listPublicVisualContentLight } from "@/lib/projects";
+
+export type MindRole = "debater" | "judge" | "admin" | "twin";
+export type DebateMode = "mention" | "round" | "relevance";
+
+export type Room = {
+  id: string;
+  owner_id: string;
+  title: string;
+  kind: string;
+  invite_code: string;
+  invite_enabled: boolean;
+  debate_mode: string;
+  turn_limit: number;
+  updated_at: string;
+};
+export type RoomMember = { id: string; user_id: string; display_name: string; role: string; last_read_at: string };
+export type RoomMind = { id: string; mind_id: string; mind_name: string; role: string; sort: number };
+export type RoomMessage = {
+  id: string;
+  room_id: string;
+  sender_user_id: string;
+  sender_kind: string;
+  mind_id: string | null;
+  author_name: string;
+  body: string;
+  shared_url: string | null;
+  created_at: string;
+};
+
+async function me(): Promise<string> {
+  const id = await currentOwnerId();
+  if (!id) throw new Error(NOT_SIGNED_IN);
+  return id;
+}
+
+export async function listMyRooms(): Promise<(Room & { unread: boolean })[]> {
+  const uid = await me();
+  const { data: mems } = await supabase.from("chat_room_members").select("room_id,last_read_at").eq("user_id", uid);
+  const ids = (mems ?? []).map((m) => m.room_id);
+  if (!ids.length) return [];
+  const { data, error } = await supabase.from("chat_rooms").select("*").in("id", ids).order("updated_at", { ascending: false });
+  if (error) throw error;
+  const read = new Map((mems ?? []).map((m) => [m.room_id, m.last_read_at]));
+  const { data: recent } = await supabase
+    .from("chat_room_messages")
+    .select("room_id,created_at,sender_user_id")
+    .in("room_id", ids)
+    .neq("sender_user_id", uid)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  const latest = new Map<string, string>();
+  for (const m of recent ?? []) if (!latest.has(m.room_id)) latest.set(m.room_id, m.created_at);
+  return (data ?? []).map((r) => ({ ...(r as Room), unread: (read.get(r.id) ?? "") < (latest.get(r.id) ?? "") }));
+}
+
+export async function createRoom(title: string, displayName: string): Promise<string> {
+  const uid = await me();
+  const { data, error } = await supabase
+    .from("chat_rooms")
+    .insert({ owner_id: uid, title: title.trim().slice(0, 80) || "Group" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  const { error: mErr } = await supabase
+    .from("chat_room_members")
+    .insert({ room_id: data.id, user_id: uid, role: "owner", display_name: displayName.slice(0, 60) });
+  if (mErr) throw mErr;
+  return data.id;
+}
+
+export async function deleteRoom(roomId: string): Promise<void> {
+  const uid = await me();
+  const { error } = await supabase.from("chat_rooms").delete().eq("id", roomId).eq("owner_id", uid);
+  if (error) throw error;
+}
+
+export async function updateRoom(roomId: string, patch: Partial<Pick<Room, "title" | "debate_mode" | "turn_limit" | "invite_enabled">>) {
+  await me();
+  const { error } = await supabase.from("chat_rooms").update(patch).eq("id", roomId);
+  if (error) throw error;
+}
+
+export async function joinByCode(code: string, displayName: string): Promise<string> {
+  await me();
+  const { data, error } = await supabase.rpc("join_room_by_code", { _code: code.trim(), _name: displayName });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function loadRoom(roomId: string) {
+  const [room, members, minds, messages] = await Promise.all([
+    supabase.from("chat_rooms").select("*").eq("id", roomId).maybeSingle(),
+    supabase.from("chat_room_members").select("id,user_id,display_name,role,last_read_at").eq("room_id", roomId),
+    supabase.from("chat_room_minds").select("id,mind_id,mind_name,role,sort").eq("room_id", roomId).order("sort"),
+    supabase.from("chat_room_messages").select("*").eq("room_id", roomId).order("created_at").limit(500),
+  ]);
+  return {
+    room: (room.data as Room | null) ?? null,
+    members: (members.data ?? []) as RoomMember[],
+    minds: (minds.data ?? []) as RoomMind[],
+    messages: (messages.data ?? []) as RoomMessage[],
+  };
+}
+
+export async function markRead(roomId: string) {
+  const uid = await currentOwnerId();
+  if (!uid) return;
+  await supabase.from("chat_room_members").update({ last_read_at: new Date().toISOString() }).eq("room_id", roomId).eq("user_id", uid);
+}
+
+export async function leaveRoom(roomId: string) {
+  const uid = await me();
+  const { error } = await supabase.from("chat_room_members").delete().eq("room_id", roomId).eq("user_id", uid);
+  if (error) throw error;
+}
+
+export async function removeMember(memberId: string) {
+  await me();
+  const { error } = await supabase.from("chat_room_members").delete().eq("id", memberId);
+  if (error) throw error;
+}
+
+export async function setMemberRole(memberId: string, role: "admin" | "member") {
+  await me();
+  const { error } = await supabase.rpc("set_room_member_role", { _member: memberId, _role: role });
+  if (error) throw error;
+}
+
+export async function addMind(roomId: string, mindId: string, mindName: string, role: MindRole, sort: number) {
+  const uid = await me();
+  const { error } = await supabase
+    .from("chat_room_minds")
+    .insert({ room_id: roomId, mind_id: mindId, mind_name: mindName.slice(0, 80), role, added_by: uid, sort });
+  if (error) throw error;
+}
+
+export async function setMindRole(id: string, role: MindRole) {
+  await me();
+  const { error } = await supabase.from("chat_room_minds").update({ role }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function removeMind(id: string) {
+  await me();
+  const { error } = await supabase.from("chat_room_minds").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function postMessage(
+  roomId: string,
+  msg: { body: string; authorName: string; kind?: "user" | "mind"; mindId?: string | null; sharedUrl?: string | null },
+) {
+  const uid = await me();
+  const { error } = await supabase.from("chat_room_messages").insert({
+    room_id: roomId,
+    sender_user_id: uid,
+    sender_kind: msg.kind ?? "user",
+    mind_id: msg.mindId ?? null,
+    author_name: msg.authorName.slice(0, 80),
+    body: msg.body.slice(0, 8000),
+    shared_url: msg.sharedUrl ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function deleteMessage(id: string) {
+  await me();
+  const { error } = await supabase.from("chat_room_messages").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Published Minds anyone may invite into a room. */
+export async function listInvitableMinds(): Promise<{ mindId: string; name: string }[]> {
+  const out = new Map<string, string>();
+  try {
+    for (const r of await listPublicVisualContentLight(120)) {
+      if (r.mind_id && !out.has(r.mind_id)) out.set(r.mind_id, r.project?.title || r.project?.creator_name || r.title);
+    }
+  } catch {
+    /* offline: fall back to built-in minds */
+  }
+  for (const m of MINDS) if (!out.has(m.id)) out.set(m.id, m.name);
+  return [...out].map(([mindId, name]) => ({ mindId, name }));
+}
+
+export function mindLabel(mindId: string, fallback?: string) {
+  return fallback || findMind(mindId)?.name || mindId;
+}
+
+const ROLE_NOTE: Record<string, string> = {
+  debater: "You are a panelist in a calm round-table. Give your own view in 1-3 sentences; you may agree or politely disagree with the others by name. Never insult or attack anyone.",
+  judge: "You are the moderator/judge of this round-table. In 2-4 sentences, fairly summarise where the panelists agree and differ, and name the strongest point. Stay neutral and kind.",
+  admin: "You are the room's host. Keep the conversation friendly and on topic; answer briefly and guide people back if it drifts.",
+  twin: "You are the creator's AI twin answering their community. Be warm and welcoming; if the creator already answered above, add to it rather than repeat.",
+};
+
+/**
+ * Ask one Mind to speak in the room, seeing the full room transcript as turns.
+ * Runs on the caller's own AI keys.
+ */
+export async function askMind(
+  mind: RoomMind,
+  transcript: RoomMessage[],
+  lang: string,
+): Promise<string> {
+  const lines = transcript.slice(-60).map((m) => ({
+    role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
+    text: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? m.body : `${m.author_name}: ${m.body}`,
+  }));
+  lines.push({
+    role: "user",
+    text: `[Group room note — not from a person] ${ROLE_NOTE[mind.role] ?? ROLE_NOTE["debater"]} Reply now as yourself to the conversation above.`,
+  });
+  const res = await apiFetch("/api/mind-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mindId: mind.mind_id, lang, messages: lines }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+  if (!res.ok) throw new Error(data.error || "The Mind could not answer.");
+  const text = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
+  if (!text) throw new Error("The Mind returned an empty answer.");
+  return text;
+}
+
+/** Which Minds should speak for this message, in order. */
+export function pickSpeakers(body: string, minds: RoomMind[], mode: string, limit: number): RoomMind[] {
+  const lower = body.toLowerCase();
+  const mentioned = minds.filter((m) => lower.includes(`@${m.mind_name.toLowerCase()}`) || lower.includes(`@${m.mind_id.toLowerCase()}`));
+  if (mentioned.length) return mentioned.slice(0, limit);
+  const panel = minds.filter((m) => m.role !== "judge");
+  const judge = minds.find((m) => m.role === "judge");
+  if (mode === "round") return [...panel.slice(0, Math.max(1, limit - (judge ? 1 : 0))), ...(judge ? [judge] : [])];
+  if (mode === "relevance") {
+    const words = new Set(lower.split(/\W+/).filter((w) => w.length > 3));
+    const score = (m: RoomMind) => m.mind_name.toLowerCase().split(/\W+/).filter((w) => words.has(w)).length;
+    const best = [...panel].sort((a, b) => score(b) - score(a))[0];
+    return best ? [best] : [];
+  }
+  return []; // mention mode: Minds speak only when called
+}
+
+export function exportRoom(room: Room, messages: RoomMessage[], format: "md" | "json") {
+  const content =
+    format === "json"
+      ? JSON.stringify({ room: { title: room.title, id: room.id }, messages }, null, 2)
+      : `# ${room.title}\n\n` +
+        messages.map((m) => `**${m.author_name}** (${new Date(m.created_at).toLocaleString()}):\n${m.body}\n`).join("\n");
+  const blob = new Blob([content], { type: format === "json" ? "application/json" : "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${room.title.replace(/[^\w-]+/g, "_") || "chat"}.${format}`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}

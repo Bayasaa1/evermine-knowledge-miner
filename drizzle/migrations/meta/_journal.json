@@ -176,6 +176,13 @@
       "when": 1790994402861,
       "tag": "0024_creator_profile_and_mind_qa",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790996316171,
+      "tag": "0025_social_chat_rooms",
+      "breakpoints": true
     }
   ]
 }
