@@ -57,7 +57,7 @@ export function CreatorProfileEditor({ personaId, lang }: { personaId: string | 
     setTagInput("");
   };
   const addQa = async () => {
-    if (!nq.trim() || !projectId) return;
+    if (!nq.trim() || !projectId) return undefined;
     const { error } = await supabase.from("mind_qa").insert({ project_id: projectId, question: nq.trim(), answer: na.trim(), sort: qa.length });
     if (error) { toast.error(error.message); return; }
     setNq(""); setNa(""); void loadQa(projectId);
