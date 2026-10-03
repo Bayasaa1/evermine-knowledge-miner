@@ -115,7 +115,7 @@ export function FriendsPanel({ onCounts }: { onCounts?: (g: Graph) => void }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{p.name}</p>
+        <p className="truncate text-sm font-medium">{p.name}{p.username && <span className="ml-1 text-xs font-normal text-muted-foreground">@{p.username}</span>}</p>
         <p className="truncate text-[11px] text-muted-foreground">
           {rel === "friends" ? t.mutual : rel === "subscribers" ? t.subHint : rel === "following" ? t.folHint : ""}
         </p>

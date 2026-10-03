@@ -266,3 +266,33 @@ export function exportRoom(room: Room, messages: RoomMessage[], format: "md" | "
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+/** Readable names for Mind ids: "project:<uuid>" becomes the project's title. */
+export async function resolveMindNames(ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const uuids = ids.filter((i) => i.startsWith("project:")).map((i) => i.slice(8));
+  if (uuids.length) {
+    const { data } = await supabase.from("projects").select("id,title,creator_name").in("id", uuids);
+    for (const p of data ?? []) out.set(`project:${p.id}`, p.title || p.creator_name || "Project");
+  }
+  for (const i of ids) if (!out.has(i)) out.set(i, i.startsWith("project:") ? "Project" : mindLabel(i));
+  return out;
+}
+
+/** For DM rooms: the other person's display name and @username. */
+export async function dmPartnerNames(roomIds: string[], uid: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!roomIds.length) return out;
+  const { data: mems } = await supabase.from("chat_room_members").select("room_id,user_id,display_name").in("room_id", roomIds).neq("user_id", uid);
+  const userIds = [...new Set((mems ?? []).map((m) => m.user_id))];
+  const { data: profs } = userIds.length
+    ? await supabase.from("profiles").select("id,display_name,username").in("id", userIds)
+    : { data: [] as { id: string; display_name: string | null; username: string | null }[] };
+  const pm = new Map((profs ?? []).map((p) => [p.id, p]));
+  for (const m of mems ?? []) {
+    const p = pm.get(m.user_id);
+    const n = p?.display_name || m.display_name || "User";
+    out.set(m.room_id, p?.username ? `${n} (@${p.username})` : n);
+  }
+  return out;
+}

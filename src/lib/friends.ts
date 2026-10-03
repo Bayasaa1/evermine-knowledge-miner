@@ -4,7 +4,7 @@
  */
 import { supabase } from "@/integrations/supabase/client";
 
-export type Person = { id: string; name: string; avatar: string | null };
+export type Person = { id: string; name: string; avatar: string | null; username?: string | null };
 export type Graph = {
   friends: Person[];
   subscribers: Person[]; // follow me, I don't follow back
@@ -21,8 +21,8 @@ async function me(): Promise<string> {
 async function people(ids: string[]): Promise<Map<string, Person>> {
   const map = new Map<string, Person>();
   if (!ids.length) return map;
-  const { data } = await supabase.from("profiles").select("id,display_name,avatar_url").in("id", ids);
-  for (const p of data ?? []) map.set(p.id, { id: p.id, name: p.display_name || "User", avatar: p.avatar_url });
+  const { data } = await supabase.from("profiles").select("id,display_name,avatar_url,username").in("id", ids);
+  for (const p of data ?? []) map.set(p.id, { id: p.id, name: p.display_name || "User", avatar: p.avatar_url, username: p.username });
   return map;
 }
 
@@ -51,15 +51,15 @@ export async function loadGraph(): Promise<Graph> {
 
 export async function searchPeople(q: string): Promise<Person[]> {
   const uid = await me();
-  const term = q.trim().replace(/[%,()]/g, "");
+  const term = q.trim().replace(/^@/, "").replace(/[%,()]/g, "");
   if (term.length < 2) return [];
   const { data } = await supabase
     .from("profiles")
-    .select("id,display_name,avatar_url")
-    .ilike("display_name", `%${term}%`)
+    .select("id,display_name,avatar_url,username")
+    .or(`display_name.ilike.%${term}%,username.ilike.%${term.toLowerCase()}%`)
     .neq("id", uid)
     .limit(20);
-  return (data ?? []).map((p) => ({ id: p.id, name: p.display_name || "User", avatar: p.avatar_url }));
+  return (data ?? []).map((p) => ({ id: p.id, name: p.display_name || "User", avatar: p.avatar_url, username: p.username }));
 }
 
 export async function subscribe(target: string) {
@@ -96,4 +96,22 @@ export async function openDm(other: string): Promise<string> {
   const { data, error } = await supabase.rpc("open_dm", { _other: other });
   if (error) throw new Error(error.message.includes("not_mutual") ? "not_mutual" : error.message);
   return data as string;
+}
+
+export const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
+
+export async function getMyUsername(): Promise<string | null> {
+  const uid = await me();
+  const { data } = await supabase.from("profiles").select("username").eq("id", uid).maybeSingle();
+  return data?.username ?? null;
+}
+
+/** Sets the unique @username. Throws "taken" or "invalid". */
+export async function setMyUsername(raw: string): Promise<string> {
+  const uid = await me();
+  const name = raw.trim().replace(/^@/, "").toLowerCase();
+  if (!USERNAME_RE.test(name)) throw new Error("invalid");
+  const { error } = await supabase.from("profiles").update({ username: name }).eq("id", uid);
+  if (error) throw new Error(error.code === "23505" ? "taken" : error.message);
+  return name;
 }
