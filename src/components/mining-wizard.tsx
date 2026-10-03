@@ -109,7 +109,10 @@ export function MiningWizard({
   busy,
   meta,
   metaLoading,
+  hideStart,
 }: {
+  /** Step 1 only collects rules; no button. */
+  hideStart?: boolean;
   lang: Lang;
   /** What the creator is building — drives which choices are offered. */
   category?: CreationCategory;
@@ -299,14 +302,14 @@ export function MiningWizard({
         </label>
       </details>
 
-      <button
+      {!hideStart && <button
         type="button"
         onClick={() => onStart(state)}
         disabled={busy}
         className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
       >
         <Sparkles className="h-4 w-4" /> {startLabel ?? t.start}
-      </button>
+      </button>}
     </div>
   );
 }
