@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
-import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Wallet } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
+import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
 import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { FriendsPanel } from "@/components/friends-panel";
+import type { Graph } from "@/lib/friends";
 import { UsernameEditor } from "@/components/username-editor";
 import { SavedMinds } from "@/components/saved-minds";
 import { AiKeysCard } from "@/components/ai-keys-card";
@@ -16,13 +18,13 @@ import { pickCopy, useLang } from "@/lib/i18n";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 const copy = {
-  en: { friends: "Friends", subscribers: "Subscribers", following: "Following", vault: "Vault", api: "API", more: "More",
+  en: { people: "People", subscribers: "Subscribers", following: "Following", vault: "Vault", api: "API", more: "More",
     openVault: "Open full Vault studio", openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
     posts: "Posts & stories", earnings: "Earnings & unclaimed balance" },
-  mn: { friends: "Найзууд", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
+  mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
     openVault: "Vault студийг бүтнээр нээх", openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
     posts: "Пост & стори", earnings: "Орлого & үлдэгдэл" },
-  ko: { friends: "친구", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
+  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
     openVault: "볼트 스튜디오 열기", openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
     posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액" },
 } as const;
@@ -45,7 +47,10 @@ function ProfilePage() {
   const { profile, isAuthenticated } = useAuth();
   const { lang } = useLang();
   const t = pickCopy(copy, lang);
-  const [tab, setTab] = useState<"vault" | "api" | "more">("vault");
+  const [tab, setTab] = useState<"people" | "vault" | "api" | "more">("vault");
+  const [peopleTab, setPeopleTab] = useState<"subscribers" | "following">("subscribers");
+  const [counts, setCounts] = useState({ subscribers: 0, following: 0 });
+  const onCounts = useCallback((g: Graph) => setCounts({ subscribers: g.subscribers.length + g.friends.length, following: g.following.length + g.friends.length }), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [picture, setPicture] = useState<string | null>(null);
@@ -104,8 +109,19 @@ function ProfilePage() {
           <AccountMenu compact />
         </div>
 
+        {isAuthenticated && (
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+            {(["subscribers", "following"] as const).map((k) => (
+              <button key={k} onClick={() => { setPeopleTab(k); setTab("people"); }} className="rounded-xl border border-border bg-card py-2.5">
+                <p className="text-base font-semibold">{counts[k]}</p>
+                <p className="text-[11px] text-muted-foreground">{t[k]}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="sticky top-0 z-10 -mx-4 mt-4 flex gap-1 bg-background/95 px-4 py-2 backdrop-blur">
-          {([["vault", Boxes], ["api", KeyRound], ["more", Settings]] as const).map(([k, Icon]) => (
+          {([["people", Users], ["vault", Boxes], ["api", KeyRound], ["more", Settings]] as const).map(([k, Icon]) => (
             <button key={k} onClick={() => setTab(k)}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-xs font-semibold ${tab === k ? "bg-foreground text-background" : "text-muted-foreground"}`}>
               <Icon className="h-4 w-4" />{t[k]}
@@ -114,6 +130,9 @@ function ProfilePage() {
         </div>
 
         <div className="mt-3">
+          <div className={tab === "people" ? "" : "hidden"}>
+            <FriendsPanel onCounts={onCounts} initialTab={peopleTab} />
+          </div>
           {tab === "vault" && (
             <div className="space-y-4">
               <Link to="/vaults" className="flex items-center justify-between rounded-xl border border-border bg-card p-4">

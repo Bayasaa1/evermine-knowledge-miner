@@ -42,13 +42,13 @@ const copy = {
 
 type Tab = "friends" | "subscribers" | "following" | "blocked";
 
-export function FriendsPanel({ onCounts }: { onCounts?: (g: Graph) => void }) {
+export function FriendsPanel({ onCounts, initialTab = "subscribers" }: { onCounts?: (g: Graph) => void; initialTab?: "subscribers" | "following" }) {
   const { lang } = useLang();
   const t = pickCopy(copy, lang);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [graph, setGraph] = useState<Graph | null>(null);
-  const [tab, setTab] = useState<Tab>("friends");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Person[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -164,7 +164,15 @@ export function FriendsPanel({ onCounts }: { onCounts?: (g: Graph) => void }) {
     </li>
   );
 
-  const list = results ?? graph?.[tab] ?? [];
+  useEffect(() => setTab(initialTab), [initialTab]);
+  const listFor = (k: Tab): { p: Person; rel: Tab }[] => {
+    if (!graph) return [];
+    const mut = graph.friends.map((p) => ({ p, rel: "friends" as Tab }));
+    if (k === "subscribers") return [...mut, ...graph.subscribers.map((p) => ({ p, rel: k }))];
+    if (k === "following") return [...mut, ...graph.following.map((p) => ({ p, rel: k }))];
+    return graph[k].map((p) => ({ p, rel: k }));
+  };
+  const list = results ? results.map((p) => ({ p, rel: relation(p.id) as Tab })) : listFor(tab);
 
   return (
     <div>
@@ -175,10 +183,10 @@ export function FriendsPanel({ onCounts }: { onCounts?: (g: Graph) => void }) {
       </div>
       {!results && (
         <div className="mt-3 flex gap-2 overflow-x-auto">
-          {(["friends", "subscribers", "following", "blocked"] as Tab[]).map((k) => (
+          {(["subscribers", "following", "blocked"] as Tab[]).map((k) => (
             <button key={k} onClick={() => setTab(k)}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${tab === k ? "bg-foreground text-background" : "border border-border text-muted-foreground"}`}>
-              {t[k]} {graph ? `(${graph[k].length})` : ""}
+              {t[k]} {graph ? `(${listFor(k).length})` : ""}
             </button>
           ))}
         </div>
@@ -186,7 +194,7 @@ export function FriendsPanel({ onCounts }: { onCounts?: (g: Graph) => void }) {
       {!graph ? <Loader2 className="mx-auto mt-6 h-5 w-5 animate-spin" /> : list.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">{t.empty}</p>
       ) : (
-        <ul className="mt-2 divide-y divide-border">{list.map((p) => row(p, results ? relation(p.id) : tab))}</ul>
+        <ul className="mt-2 divide-y divide-border">{list.map(({ p, rel }) => row(p, rel))}</ul>
       )}
     </div>
   );
