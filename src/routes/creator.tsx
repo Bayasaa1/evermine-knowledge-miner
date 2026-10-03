@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { scopedKey } from "@/lib/user-scope";
 import { toast } from "sonner";
-import { ModeSwitch } from "@/components/mode-switch";
+import { PersonaSwitcher } from "@/components/persona-switcher";
+import { AccountMenu } from "@/components/account-menu";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { SubscriptionPanel } from "@/components/subscription-panel";
@@ -977,6 +978,7 @@ class QuotaPaused extends Error {
 function Index() {
   const { lang, setLang } = useLang();
   const [view, setView] = useState<"guided" | "advanced">("guided");
+  void setView;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-3.1-flash-lite");
@@ -1873,39 +1875,12 @@ function Index() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                to="/mining"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                {pickCopy({ en: "Live mining", mn: "Шууд мining", ko: "실시간 마이닝" }, lang)}
-              </Link>
-              <ModeSwitch lang={lang} />
+              <PersonaSwitcher compact />
+              <AccountMenu compact />
             </div>
 
           </div>
         </header>
-
-        <div className="flex justify-center border-b border-border bg-background/60 px-4 py-3">
-          <div className="flex rounded-xl border border-border bg-muted p-1">
-            <button
-              onClick={() => setView("guided")}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                view === "guided" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tr(lang, "guided")}
-            </button>
-            <button
-              onClick={() => setView("advanced")}
-              className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${
-                view === "advanced" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tr(lang, "advanced")}
-            </button>
-          </div>
-        </div>
 
         {view === "guided" ? (
           <div className="p-4 sm:p-6 lg:p-8 xl:p-10">

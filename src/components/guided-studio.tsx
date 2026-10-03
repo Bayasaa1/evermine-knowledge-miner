@@ -66,7 +66,6 @@ import { markSourceStatus, saveSourcesToVault, type SavedSource, type SourcePayl
 import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
-import { MiningWizard } from "@/components/mining-wizard";
 import {
   DEFAULT_MINER,
   findMiner,
@@ -153,7 +152,7 @@ export function GuidedStudio({ lang }: { lang: Lang; creatorEmail: string }) {
   }, [rules]);
   const changeCategory = useCallback((c: CreationCategory) => {
     setCategory(c);
-    setRules((prev) => ({ ...defaultAssessmentFor(c), miningMode: prev.miningMode, speakerIdentity: prev.speakerIdentity, customInstructions: prev.customInstructions }));
+    setRules((prev) => ({ ...defaultAssessmentFor(c), speakerIdentity: prev.speakerIdentity, customInstructions: prev.customInstructions }));
   }, []);
   // Sign-in and key steps disappear once they are done.
   const visible = useMemo(
@@ -229,7 +228,6 @@ export function GuidedStudio({ lang }: { lang: Lang; creatorEmail: string }) {
         <StepShell title={t("step1Title")} sub={t("step1Sub")}>
           <div className="space-y-4">
             <StepCategory lang={lang} value={category} onChange={changeCategory} />
-            <MiningWizard key={category} lang={lang} category={category} value={rules} onChange={setRules} onStart={() => {}} hideStart />
           </div>
         </StepShell>
       )}

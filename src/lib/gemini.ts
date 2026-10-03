@@ -1090,7 +1090,7 @@ Map every diarized voice onto these names in "speakers". The Mind Owner / Host i
 }
 
 /** Category-strict mining directives selected in the "+" Create hub. */
-export type MiningCategory = "knowledge" | "robot" | "voice" | "sales" | "gaming";
+export type MiningCategory = "knowledge" | "robot" | "voice" | "sales" | "gaming" | "movement";
 
 export function categoryDirective(category: MiningCategory | undefined): string {
   if (category === "gaming") {
@@ -1110,6 +1110,10 @@ Only claim what the footage actually shows. Never invent mechanics the video doe
   if (category === "robot") {
     return `\n\nCATEGORY: ROBOT BRAIN / EMBODIED VLA — STRICT SPATIAL MODE.
 "knowledgeNodes" is the primary output of this run. Emit one node for EVERY distinct physical manipulation, and always fill "spatial_action" with object_name, coordinates_xyz (3 normalized numbers, camera space), grasp_type and movement_vector (3 normalized numbers). Timestamps must be tight (under 8 seconds per node). Give an honest "confidence_score"; anything you infer rather than see must stay below 0.8 so it is discarded. Prefer fewer, exact nodes over many approximate ones.`;
+  }
+  if (category === "movement") {
+    return `\n\nCATEGORY: MOVEMENT MIND — HUMAN PHYSICAL SKILL MODE (STRICT).
+The creator teaches a physical skill (cooking, gym/fitness, dance, crafts, sport). Emit one "knowledgeNodes" entry for EVERY distinct movement or technique step, in order: what the body/hands do, posture, tempo, reps/sets or quantities, tools and ingredients, common mistakes and the creator's spoken cues. Fill "spatial_action" when an object or body part is clearly moved. Tight timestamps (under 10 seconds per node). Anything inferred rather than seen stays below 0.8 confidence. Capture the coaching style in "subconsciousness".`;
   }
   if (category === "sales") {
     return `\n\nCATEGORY: PRODUCT & SERVICE SALES MIND — COMMERCIAL MODE.
