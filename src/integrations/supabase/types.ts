@@ -1328,6 +1328,27 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_user_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          blocked_user_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          blocked_user_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_flags: {
         Row: {
           ban_reason: string
@@ -1445,6 +1466,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          subscriber_id: string
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          subscriber_id: string
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          subscriber_id?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       viewer_brains: {
         Row: {
           created_at: string
@@ -1549,6 +1591,7 @@ export type Database = {
     }
     Functions: {
       author_is_banned: { Args: { _user_id: string }; Returns: boolean }
+      block_user: { Args: { _other: string }; Returns: boolean }
       get_published_mind_package: {
         Args: { _token: string }
         Returns: {
@@ -1566,6 +1609,8 @@ export type Database = {
         Returns: boolean
       }
       is_banned: { Args: { _user_id: string }; Returns: boolean }
+      is_blocked_between: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_mutual: { Args: { _a: string; _b: string }; Returns: boolean }
       is_room_admin: {
         Args: { _room: string; _user: string }
         Returns: boolean
@@ -1579,6 +1624,7 @@ export type Database = {
         Returns: string
       }
       my_duplicate_persona_ids: { Args: never; Returns: string[] }
+      open_dm: { Args: { _other: string }; Returns: string }
       persona_handle_taken: {
         Args: { _exclude_id?: string; _handle: string }
         Returns: boolean
