@@ -94,6 +94,7 @@ const CONTEXTS_BY_CATEGORY: Record<string, readonly string[]> = {
   robot: ["Robot demo", "Hands-on task", "Workshop / factory", "Walkthrough"],
   gaming: ["Gameplay", "Match replay", "Tutorial run"],
   voice: ["Conversation", "Podcast", "Phone call", "Speech"],
+  movement: ["Hands-on task", "Tutorial", "Workout", "Cooking"],
   sales: ["Product demo", "Sales call", "Ad / promo", "Review"],
   knowledge: ["Talk / lecture", "Interview", "Podcast", "Tutorial"],
 };
@@ -102,6 +103,7 @@ const FOCUSES_BY_CATEGORY: Record<string, readonly string[]> = {
   robot: ["Movement & grasping", "Objects & space", "Step order"],
   gaming: ["Tactics", "Reactions", "Mechanics"],
   voice: ["Tone & emotion", "Wording", "Timing"],
+  movement: ["Movement & grasping", "Step order", "Explanations"],
   sales: ["Offers & pricing", "Objections", "Product details"],
   knowledge: ["Facts & answers", "Explanations", "Opinions"],
 };

@@ -6,10 +6,10 @@
  * that way keep working and are read as Knowledge Minds (voice is a feature of
  * the other types, not a type of its own).
  */
-export type CreationCategory = "knowledge" | "robot" | "voice" | "sales" | "gaming";
+export type CreationCategory = "knowledge" | "robot" | "voice" | "sales" | "gaming" | "movement";
 
 /** The choices a creator can actually pick today. */
-export const ACTIVE_CATEGORIES: CreationCategory[] = ["knowledge", "robot", "sales", "gaming"];
+export const ACTIVE_CATEGORIES: CreationCategory[] = ["knowledge", "movement", "robot", "gaming"];
 
 export const CREATION_KEY = "evermind.creationCategory";
 
@@ -46,6 +46,11 @@ export const CATEGORY_LABELS: Record<
       sub: "제품을 소개하고 구매자에게 대신 답합니다",
     },
   },
+  movement: {
+    en: { title: "Movement Mind", sub: "Learns how a chef cooks, a coach trains or an artist works with their hands" },
+    mn: { title: "Хөдөлгөөний Оюун", sub: "Тогоочийн хоол хийх, дасгалжуулагчийн хөдөлгөөн, урлаачийн гарын техникийг сурна" },
+    ko: { title: "무브먼트 마인드", sub: "요리사의 요리, 코치의 동작, 장인의 손기술을 배웁니다" },
+  },
   gaming: {
     en: {
       title: "Gaming Mind",
@@ -74,7 +79,7 @@ export function getCreationCategory(): CreationCategory {
   try {
     const v = localStorage.getItem(CREATION_KEY);
     // Legacy "voice" picks become Knowledge Minds — voice still works on them.
-    return v === "knowledge" || v === "robot" || v === "sales" || v === "gaming" ? v : "knowledge";
+    return v === "knowledge" || v === "robot" || v === "movement" || v === "gaming" ? v : "knowledge";
   } catch {
     return "knowledge";
   }

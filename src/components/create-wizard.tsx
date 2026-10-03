@@ -1,4 +1,4 @@
-import { Bot, Brain, PhoneCall, Megaphone, Gamepad2, ChevronRight } from "lucide-react";
+import { Bot, Brain, PhoneCall, Megaphone, Gamepad2, ChevronRight, Dumbbell } from "lucide-react";
 
 import {
   ACTIVE_CATEGORIES,
@@ -13,6 +13,7 @@ const ICONS: Record<CreationCategory, typeof Brain> = {
   voice: PhoneCall,
   sales: Megaphone,
   gaming: Gamepad2,
+  movement: Dumbbell,
 };
 
 const ORDER: CreationCategory[] = ACTIVE_CATEGORIES;
