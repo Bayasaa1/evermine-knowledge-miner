@@ -217,9 +217,12 @@ export function ProjectTargetPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.contentKind, touchedPublish]);
 
-  // Preselect the only persona so single-identity creators aren't blocked.
+  // The account's own name is used automatically — no persona picking.
   useEffect(() => {
-    if (!value.personaId && personas.length === 1) set({ personaId: personas[0]!.id });
+    if (!value.personaId && personas.length > 0) {
+      const own = personas.find((p) => p.is_active) ?? personas[0]!;
+      set({ personaId: own.id });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personas, value.personaId]);
 
@@ -284,7 +287,9 @@ export function ProjectTargetPicker({
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="text-sm font-semibold text-foreground">{t.title}</p>
 
-      {/* ---- Who is posting ---- */}
+      {/* ---- Who is posting: only shown when no name exists yet ---- */}
+      {!personaChosen && (
+      <>
       <p className="mt-5 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepA}</p>
       <p className="mt-1 text-sm text-muted-foreground">{t.personaQ}</p>
 
@@ -354,6 +359,8 @@ export function ProjectTargetPicker({
       )}
       {!personasLoading && personas.length === 0 && !creating && (
         <p className="mt-2 text-xs text-muted-foreground">{t.noPersona}</p>
+      )}
+      </>
       )}
 
       {/* ---- Step 2B: project (nested under the persona) ---- */}
