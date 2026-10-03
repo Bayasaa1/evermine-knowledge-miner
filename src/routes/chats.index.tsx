@@ -25,9 +25,9 @@ export const Route = createFileRoute("/chats/")({
 });
 
 const COPY = {
-  en: { title: "Chats", rooms: "Group rooms", minds: "Mind chats (from videos)", newRoom: "New group", name: "Group name", create: "Create", join: "Join with invite code", joinBtn: "Join", empty: "No rooms yet.", noMinds: "Talk to a Mind under any video — it appears here.", signIn: "Sign in to use chats", exportMd: "MD", exportJson: "JSON", unread: "new" },
-  mn: { title: "Чат", rooms: "Бүлгийн өрөөнүүд", minds: "Mind-тай чат (бичлэгээс)", newRoom: "Шинэ бүлэг", name: "Бүлгийн нэр", create: "Үүсгэх", join: "Урилгын кодоор нэгдэх", joinBtn: "Нэгдэх", empty: "Одоогоор өрөө алга.", noMinds: "Аль нэг бичлэг дээр Mind-тай ярилцвал энд гарч ирнэ.", signIn: "Чат ашиглахын тулд нэвтэрнэ үү", exportMd: "MD", exportJson: "JSON", unread: "шинэ" },
-  ko: { title: "채팅", rooms: "그룹 방", minds: "마인드 채팅 (영상에서)", newRoom: "새 그룹", name: "그룹 이름", create: "만들기", join: "초대 코드로 참여", joinBtn: "참여", empty: "아직 방이 없습니다.", noMinds: "영상에서 마인드와 대화하면 여기에 표시됩니다.", signIn: "채팅을 사용하려면 로그인하세요", exportMd: "MD", exportJson: "JSON", unread: "새 메시지" },
+  en: { title: "Chats", rooms: "People & groups", minds: "AI Minds", newRoom: "New group", name: "Group name", create: "Create", join: "Join with invite code", joinBtn: "Join", empty: "No rooms yet.", noMinds: "Talk to a Mind under any video — it appears here.", signIn: "Sign in to use chats", exportMd: "MD", exportJson: "JSON", unread: "new" },
+  mn: { title: "Чат", rooms: "Хүмүүс & бүлэг", minds: "AI Mind-ууд", newRoom: "Шинэ бүлэг", name: "Бүлгийн нэр", create: "Үүсгэх", join: "Урилгын кодоор нэгдэх", joinBtn: "Нэгдэх", empty: "Одоогоор өрөө алга.", noMinds: "Аль нэг бичлэг дээр Mind-тай ярилцвал энд гарч ирнэ.", signIn: "Чат ашиглахын тулд нэвтэрнэ үү", exportMd: "MD", exportJson: "JSON", unread: "шинэ" },
+  ko: { title: "채팅", rooms: "사람 & 그룹", minds: "AI 마인드", newRoom: "새 그룹", name: "그룹 이름", create: "만들기", join: "초대 코드로 참여", joinBtn: "참여", empty: "아직 방이 없습니다.", noMinds: "영상에서 마인드와 대화하면 여기에 표시됩니다.", signIn: "채팅을 사용하려면 로그인하세요", exportMd: "MD", exportJson: "JSON", unread: "새 메시지" },
 };
 
 type MindThread = { mindId: string; last: string; count: number };
@@ -42,6 +42,8 @@ function ChatsPage() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"people" | "minds">("people");
+  const [showNew, setShowNew] = useState(false);
   const [openMind, setOpenMind] = useState<string | null>(null);
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [dmNames, setDmNames] = useState<Map<string, string>>(new Map());
@@ -111,9 +113,19 @@ function ChatsPage() {
   return (
     <main className="min-h-screen bg-background px-4 pb-32 pt-[calc(env(safe-area-inset-top)+16px)] text-foreground">
       <div className="mx-auto max-w-xl space-y-6">
-        <h1 className="text-2xl font-bold">{t.title}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">{t.title}</h1>
+          <button type="button" aria-label={t.newRoom} onClick={() => setShowNew((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"><Plus className="h-5 w-5" /></button>
+        </div>
+        <div className="flex gap-2">
+          {(["people", "minds"] as const).map((k) => (
+            <button key={k} type="button" onClick={() => setTab(k)} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${tab === k ? "bg-foreground text-background" : "border border-border"}`}>
+              {k === "people" ? `👥 ${t.rooms}` : `🧠 ${t.minds}`}
+            </button>
+          ))}
+        </div>
 
-        <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+        {showNew && <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
           <div className="flex gap-2">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.name} className="flex-1 rounded-full border border-border bg-background px-4 py-2 text-sm" />
             <button
@@ -154,9 +166,9 @@ function ChatsPage() {
               {t.joinBtn}
             </button>
           </div>
-        </section>
+        </section>}
 
-        <section>
+        {tab === "people" && <section>
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Users className="h-4 w-4" /> {t.rooms}</h2>
           {rooms === null ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -174,9 +186,9 @@ function ChatsPage() {
               ))}
             </ul>
           )}
-        </section>
+        </section>}
 
-        <section>
+        {tab === "minds" && <section>
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground"><Bot className="h-4 w-4" /> {t.minds}</h2>
           {threads.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t.noMinds}</p>
@@ -194,7 +206,7 @@ function ChatsPage() {
               ))}
             </ul>
           )}
-        </section>
+        </section>}
       </div>
       <TalkToMindModal open={!!openMind} onClose={() => { setOpenMind(null); void refresh(); }} mindId={openMind} mindName={openMind ? label(openMind) : ""} lang={lang} />
       <BottomNav lang={lang} />

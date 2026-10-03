@@ -182,18 +182,25 @@ export async function deleteMessage(id: string) {
   if (error) throw error;
 }
 
-/** Published Minds anyone may invite into a room. */
-export async function listInvitableMinds(): Promise<{ mindId: string; name: string }[]> {
-  const out = new Map<string, string>();
+/** Published Minds anyone may invite: Personas (all their projects) and single Projects. */
+export async function listInvitableMinds(): Promise<{ mindId: string; name: string; kind: "persona" | "project" }[]> {
+  const out = new Map<string, { name: string; kind: "persona" | "project" }>();
   try {
-    for (const r of await listPublicVisualContentLight(120)) {
-      if (r.mind_id && !out.has(r.mind_id)) out.set(r.mind_id, r.project?.title || r.project?.creator_name || r.title);
+    const { data } = await supabase
+      .from("projects")
+      .select("id,title,creator_name,persona_id")
+      .eq("published", true)
+      .order("updated_at", { ascending: false })
+      .limit(200);
+    for (const p of data ?? []) {
+      if (p.persona_id && !out.has(`persona:${p.persona_id}`)) out.set(`persona:${p.persona_id}`, { name: p.creator_name || "Creator", kind: "persona" });
+      out.set(`project:${p.id}`, { name: p.title || p.creator_name || "Project", kind: "project" });
     }
   } catch {
     /* offline: fall back to built-in minds */
   }
-  for (const m of MINDS) if (!out.has(m.id)) out.set(m.id, m.name);
-  return [...out].map(([mindId, name]) => ({ mindId, name }));
+  for (const m of MINDS) if (!out.has(m.id)) out.set(m.id, { name: m.name, kind: "project" });
+  return [...out].map(([mindId, v]) => ({ mindId, ...v }));
 }
 
 export function mindLabel(mindId: string, fallback?: string) {
@@ -275,7 +282,12 @@ export async function resolveMindNames(ids: string[]): Promise<Map<string, strin
     const { data } = await supabase.from("projects").select("id,title,creator_name").in("id", uuids);
     for (const p of data ?? []) out.set(`project:${p.id}`, p.title || p.creator_name || "Project");
   }
-  for (const i of ids) if (!out.has(i)) out.set(i, i.startsWith("project:") ? "Project" : mindLabel(i));
+  const personas = ids.filter((i) => i.startsWith("persona:")).map((i) => i.slice(8));
+  if (personas.length) {
+    const { data } = await supabase.from("projects").select("persona_id,creator_name").in("persona_id", personas).eq("published", true);
+    for (const p of data ?? []) if (p.persona_id) out.set(`persona:${p.persona_id}`, `👤 ${p.creator_name || "Creator"}`);
+  }
+  for (const i of ids) if (!out.has(i)) out.set(i, i.startsWith("project:") ? "Project" : i.startsWith("persona:") ? "👤 Creator" : mindLabel(i));
   return out;
 }
 

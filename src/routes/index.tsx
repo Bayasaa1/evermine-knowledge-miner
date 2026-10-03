@@ -6,6 +6,7 @@ import {
   Loader2,
   MessageCircle,
   Play,
+  Share2,
   Star,
   Captions,
   Volume2,
@@ -15,6 +16,7 @@ import {
 import { toast } from "sonner";
 
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
+import { ShareSheet } from "@/components/share-sheet";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { YouTubeStage } from "@/components/youtube-stage";
@@ -430,6 +432,7 @@ function HomeFeed() {
   const pageChrome = useChromeVisible();
   const [active, setActive] = useState(0);
   const [talk, setTalk] = useState<FeedItem | null>(null);
+  const [sharing, setSharing] = useState<FeedItem | null>(null);
   const [robot, setRobot] = useState<FeedItem | null>(null);
   const [feedback, setFeedback] = useState<FeedItem | null>(null);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
@@ -564,6 +567,7 @@ function HomeFeed() {
             onPrimary={() => runPrimary(item)}
             onCancel={() => void unsubscribe(item)}
             onTalk={() => setTalk(item)}
+            onShare={() => setSharing(item)}
             onRobot={() => setRobot(item)}
             onBlocked={() => setUnplayable((s) => ({ ...s, [item.id]: true }))}
             onFeedback={() => setFeedback(item)}
@@ -627,6 +631,13 @@ function HomeFeed() {
         </div>
       )}
 
+
+      <ShareSheet
+        open={!!sharing}
+        onClose={() => setSharing(null)}
+        title={sharing ? `${sharing.creator} — ${sharing.title}` : ""}
+        url={sharing ? (sharing.youtubeId ? `https://www.youtube.com/watch?v=${sharing.youtubeId}` : typeof window !== "undefined" ? window.location.origin : "") : ""}
+      />
 
       <TalkToMindModal
         open={!!talk}
@@ -704,6 +715,7 @@ function FeedCard({
   onCancel,
   onMute,
   onTalk,
+  onShare,
   onRobot,
   onBlocked,
   onFeedback,
@@ -725,6 +737,7 @@ function FeedCard({
   onCancel: () => void;
   onMute: () => void;
   onTalk: () => void;
+  onShare: () => void;
   onRobot: () => void;
   onBlocked: () => void;
   onFeedback: () => void;
@@ -1183,6 +1196,10 @@ function FeedCard({
             <span className={railLabel}>Chat</span>
           </button>
         )}
+        <button type="button" onClick={onShare} aria-label="Share" className={railBtn}>
+          <Share2 className={railIcon} />
+          <span className={railLabel}>Share</span>
+        </button>
         {has("robot") && purchased && (
           <button type="button" onClick={onRobot} aria-label={c.robot} className={railBtn}>
             <Bot className={railIcon} />

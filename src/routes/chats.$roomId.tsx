@@ -49,7 +49,7 @@ function RoomPage() {
   const [paused, setPaused] = useState(false);
   const [queue, setQueue] = useState<RoomMind[]>([]);
   const [showSettings, setShowSettings] = useState(false);
-  const [invitable, setInvitable] = useState<{ mindId: string; name: string }[]>([]);
+  const [invitable, setInvitable] = useState<{ mindId: string; name: string; kind: "persona" | "project" }[]>([]);
   const pausedRef = useRef(false);
   const msgsRef = useRef<RoomMessage[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
@@ -236,7 +236,12 @@ function RoomPage() {
               {isAdmin && (
                 <select value="" onChange={(e) => { const p = invitable.find((x) => x.mindId === e.target.value); if (p) void addMind(room.id, p.mindId, p.name, "debater", minds.length).then(reload).catch((err) => toast.error(err.message)); }} className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm">
                   <option value="">+ {t.addMind}</option>
-                  {invitable.filter((p) => !minds.some((m) => m.mind_id === p.mindId)).map((p) => <option key={p.mindId} value={p.mindId}>{p.name}</option>)}
+                  <optgroup label={lang === "mn" ? "👤 Бүтээгч (бүх төсөл)" : lang === "ko" ? "👤 크리에이터 (모든 프로젝트)" : "👤 Creator (all projects)"}>
+                    {invitable.filter((p) => p.kind === "persona" && !minds.some((m) => m.mind_id === p.mindId)).map((p) => <option key={p.mindId} value={p.mindId}>{p.name}</option>)}
+                  </optgroup>
+                  <optgroup label={lang === "mn" ? "📁 Төсөл" : lang === "ko" ? "📁 프로젝트" : "📁 Project"}>
+                    {invitable.filter((p) => p.kind === "project" && !minds.some((m) => m.mind_id === p.mindId)).map((p) => <option key={p.mindId} value={p.mindId}>{p.name}</option>)}
+                  </optgroup>
                 </select>
               )}
             </section>

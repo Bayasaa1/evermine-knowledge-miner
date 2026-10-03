@@ -123,10 +123,18 @@ function pickRelevant(items: string[], query: string[], relevant: number, always
 async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "") {
   const builtIn = buildSystemPrompt(mindId, lang);
   if (builtIn) return builtIn;
-  const project = await getPublicProjectMind(mindId);
+  let project: Awaited<ReturnType<typeof getPublicProjectMind>> = null;
+  let extras: Awaited<ReturnType<typeof import("@/lib/mind-qa.server").loadCreatorExtras>> = null;
+  if (mindId.startsWith("persona:")) {
+    const { getPersonaMind } = await import("@/lib/persona-mind.server");
+    const merged = await getPersonaMind(mindId);
+    if (merged) ({ mind: project, extras } = merged);
+  } else {
+    project = await getPublicProjectMind(mindId);
+    const { loadCreatorExtras } = await import("@/lib/mind-qa.server");
+    extras = await loadCreatorExtras(mindId).catch(() => null);
+  }
   if (!project) return null;
-  const { loadCreatorExtras } = await import("@/lib/mind-qa.server");
-  const extras = await loadCreatorExtras(mindId).catch(() => null);
   const q = words(queryText);
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
