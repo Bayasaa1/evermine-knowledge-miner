@@ -151,10 +151,13 @@ export type Database = {
           avatar_url: string | null
           bio: string
           created_at: string
+          greeting: string
           handle: string
           id: string
           is_active: boolean
           name: string
+          social_links: Json
+          tags: string[]
           updated_at: string
           user_id: string
         }
@@ -162,10 +165,13 @@ export type Database = {
           avatar_url?: string | null
           bio?: string
           created_at?: string
+          greeting?: string
           handle?: string
           id?: string
           is_active?: boolean
           name?: string
+          social_links?: Json
+          tags?: string[]
           updated_at?: string
           user_id: string
         }
@@ -173,10 +179,13 @@ export type Database = {
           avatar_url?: string | null
           bio?: string
           created_at?: string
+          greeting?: string
           handle?: string
           id?: string
           is_active?: boolean
           name?: string
+          social_links?: Json
+          tags?: string[]
           updated_at?: string
           user_id?: string
         }
@@ -356,6 +365,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      mind_qa: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          project_id: string
+          question: string
+          sort: number
+          suggest: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string
+          created_at?: string
+          id?: string
+          project_id: string
+          question: string
+          sort?: number
+          suggest?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          question?: string
+          sort?: number
+          suggest?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mind_qa_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mind_reviews: {
         Row: {

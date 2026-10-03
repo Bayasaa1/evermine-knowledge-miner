@@ -169,6 +169,13 @@
       "when": 1790746932499,
       "tag": "0023_hide_banned_authors_in_public_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790994402861,
+      "tag": "0024_creator_profile_and_mind_qa",
+      "breakpoints": true
     }
   ]
 }

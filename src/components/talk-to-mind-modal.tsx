@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
+import { ChatSuggestions } from "@/components/chat-suggestions";
 
 
 type Msg = { role: "user" | "agent"; text: string; id?: string };
@@ -408,9 +409,14 @@ export function TalkToMindModal({
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {messages.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              {loadingHistory ? "…" : empty}
-            </p>
+            loadingHistory ? (
+              <p className="text-xs text-muted-foreground">…</p>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">{empty}</p>
+                <ChatSuggestions mindId={mindId} lang={lang} onPick={(q) => void sendRef.current(q)} />
+              </>
+            )
           )}
           {messages.map((m, i) => (
             <div key={i} className={`group flex items-center gap-1 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
