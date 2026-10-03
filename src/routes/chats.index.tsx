@@ -8,7 +8,7 @@ import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { useAuth } from "@/hooks/use-auth";
 import { useLang, pickCopy } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
-import { createRoom, joinByCode, listMyRooms, mindLabel, type Room } from "@/lib/chat-rooms";
+import { createRoom, dmPartnerNames, joinByCode, listMyRooms, mindLabel, resolveMindNames, type Room } from "@/lib/chat-rooms";
 
 export const Route = createFileRoute("/chats/")({
   head: () => ({
@@ -43,11 +43,16 @@ function ChatsPage() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [openMind, setOpenMind] = useState<string | null>(null);
+  const [names, setNames] = useState<Map<string, string>>(new Map());
+  const [dmNames, setDmNames] = useState<Map<string, string>>(new Map());
+  const label = (id: string) => names.get(id) ?? (id.startsWith("project:") ? "…" : mindLabel(id));
 
   const refresh = useCallback(async () => {
     if (!userId) return;
     try {
-      setRooms(await listMyRooms());
+      const rs = await listMyRooms();
+      setRooms(rs);
+      void dmPartnerNames(rs.filter((r) => r.kind === "dm").map((r) => r.id), userId).then(setDmNames);
       const { data } = await supabase
         .from("chat_messages")
         .select("mind_id,created_at")
@@ -61,6 +66,7 @@ function ChatsPage() {
         else map.set(r.mind_id, { mindId: r.mind_id, last: r.created_at, count: 1 });
       }
       setThreads([...map.values()]);
+      setNames(await resolveMindNames([...map.keys()]));
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -80,7 +86,7 @@ function ChatsPage() {
       .eq("mind_id", mindId)
       .order("created_at");
     const rows = data ?? [];
-    const name = mindLabel(mindId);
+    const name = label(mindId);
     const content =
       format === "json"
         ? JSON.stringify({ mind: name, mindId, messages: rows }, null, 2)
@@ -161,7 +167,7 @@ function ChatsPage() {
               {rooms.map((r) => (
                 <li key={r.id}>
                   <Link to="/chats/$roomId" params={{ roomId: r.id }} className="flex items-center justify-between px-4 py-3">
-                    <span className="flex items-center gap-2 font-medium"><MessageCircle className="h-4 w-4" /> {r.title}</span>
+                    <span className="flex items-center gap-2 font-medium">{r.kind === "dm" ? <Users className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />} {r.kind === "dm" ? dmNames.get(r.id) ?? r.title : r.title}</span>
                     {r.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{t.unread}</span>}
                   </Link>
                 </li>
@@ -179,7 +185,7 @@ function ChatsPage() {
               {threads.map((th) => (
                 <li key={th.mindId} className="flex items-center justify-between gap-2 px-4 py-3">
                   <button onClick={() => setOpenMind(th.mindId)} className="min-w-0 flex-1 text-left">
-                    <div className="truncate font-medium">{mindLabel(th.mindId)}</div>
+                    <div className="truncate font-medium">{label(th.mindId)}</div>
                     <div className="text-xs text-muted-foreground">{th.count} · {new Date(th.last).toLocaleDateString()}</div>
                   </button>
                   <button onClick={() => void exportThread(th.mindId, "md")} className="flex items-center gap-1 rounded-full border border-border px-2 py-1 text-xs"><Download className="h-3 w-3" />{t.exportMd}</button>
@@ -190,7 +196,7 @@ function ChatsPage() {
           )}
         </section>
       </div>
-      <TalkToMindModal open={!!openMind} onClose={() => { setOpenMind(null); void refresh(); }} mindId={openMind} mindName={openMind ? mindLabel(openMind) : ""} lang={lang} />
+      <TalkToMindModal open={!!openMind} onClose={() => { setOpenMind(null); void refresh(); }} mindId={openMind} mindName={openMind ? label(openMind) : ""} lang={lang} />
       <BottomNav lang={lang} />
     </main>
   );
