@@ -4,7 +4,6 @@ import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, User
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
-import { PersonaSwitcher } from "@/components/persona-switcher";
 import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { FriendsPanel } from "@/components/friends-panel";
@@ -105,7 +104,6 @@ function ProfilePage() {
             </h1>
             {isAuthenticated ? <UsernameEditor /> : <p className="text-xs text-muted-foreground">A life becomes a mind.</p>}
           </div>
-          <PersonaSwitcher />
           <AccountMenu compact />
         </div>
 
