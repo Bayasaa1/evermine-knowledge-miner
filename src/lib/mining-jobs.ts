@@ -144,6 +144,9 @@ export function defaultAssessmentFor(category: string): Assessment {
     ...DEFAULT_ASSESSMENT,
     videoContext: contextsFor(category)[0]!,
     primaryFocus: focusesFor(category)[0]!,
+    // The mind type decides how the video is read: talking minds use the
+    // subtitles, anything physical or visual is watched.
+    miningMode: category === "knowledge" || category === "voice" || category === "sales" ? "fast" : "watch",
   };
 }
 
