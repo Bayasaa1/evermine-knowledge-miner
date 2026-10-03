@@ -51,11 +51,11 @@ export function LanguageSelector({ variant = "floating", className = "" }: Props
         aria-expanded={open}
         className={
           variant === "floating"
-            ? "inline-flex h-10 w-10 items-center justify-center rounded-full border border-foreground/15 bg-background/30 text-foreground shadow-lg backdrop-blur-2xl transition-colors hover:bg-background/45"
+            ? "inline-flex h-10 w-10 items-center justify-center rounded-full text-white [filter:drop-shadow(0_1px_3px_rgba(0,0,0,0.7))]"
             : "inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/90 px-3 text-xs font-medium text-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-muted"
         }
       >
-        <Languages className="h-[1.1rem] w-[1.1rem]" />
+        <Languages className="h-6 w-6 stroke-[2.2]" />
         {variant === "inline" && LANGUAGES[lang].native}
       </button>
 

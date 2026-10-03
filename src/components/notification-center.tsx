@@ -192,10 +192,10 @@ export function NotificationCenter({ lang = "en" }: { lang?: Lang }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t.open}
-        className="relative flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+        className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/90 transition-colors hover:text-white"
       >
         <span className="relative">
-          <Bell className="h-6 w-6" />
+          <Bell className="h-6 w-6 stroke-[2.2]" />
           {attention > 0 && (
             <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
               {attention}
