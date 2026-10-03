@@ -460,6 +460,15 @@ export function TalkToMindModal({
             </div>
           ))}
           {busy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Replying" />}
+          {!busy && messages.length > 0 && messages[messages.length - 1]?.role === "agent" && (
+            <ChatSuggestions
+              compact
+              mindId={mindId}
+              lang={lang}
+              used={messages.filter((m) => m.role === "user").map((m) => m.text)}
+              onPick={(q) => void sendRef.current(q)}
+            />
+          )}
           <div ref={endRef} />
         </div>
 
