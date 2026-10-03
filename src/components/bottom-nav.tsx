@@ -1,29 +1,32 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Search, Home, Plus, User } from "lucide-react";
+import { Search, Home, Plus, User, MessageCircle } from "lucide-react";
 
 import { MiningStatusPill } from "@/components/mining-status-pill";
 import { NotificationCenter } from "@/components/notification-center";
 import { useChromeVisible } from "@/hooks/use-chrome-visible";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
-type Item = { to: "/" | "/search" | "/creator" | "/profile"; label: string; icon: typeof Home };
+type Item = { to: "/" | "/search" | "/creator" | "/profile" | "/chats"; label: string; icon: typeof Home };
 
 const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
   en: [
     { to: "/", label: "Home", icon: Home },
     { to: "/search", label: "Search", icon: Search },
+    { to: "/chats", label: "Chats", icon: MessageCircle },
     { to: "/creator", label: "Create", icon: Plus },
     { to: "/profile", label: "Profile", icon: User },
   ],
   mn: [
     { to: "/", label: "Нүүр", icon: Home },
     { to: "/search", label: "Хайлт", icon: Search },
+    { to: "/chats", label: "Чат", icon: MessageCircle },
     { to: "/creator", label: "Бүтээх", icon: Plus },
     { to: "/profile", label: "Профайл", icon: User },
   ],
   ko: [
     { to: "/", label: "홈", icon: Home },
     { to: "/search", label: "검색", icon: Search },
+    { to: "/chats", label: "채팅", icon: MessageCircle },
     { to: "/creator", label: "만들기", icon: Plus },
     { to: "/profile", label: "프로필", icon: User },
   ],
@@ -38,14 +41,14 @@ const ITEMS: { en: Item[] } & Partial<Record<Lang, Item[]>> = {
 export function BottomNav({ lang = "en" }: { lang?: Lang }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const items = pickCopy(ITEMS, lang);
-  const [home, search, create, profile] = items as [Item, Item, Item, Item];
+  const [home, search, chats, create, profile] = items as [Item, Item, Item, Item, Item];
   // The feed fades every control away while a video plays; the dock follows.
   const chrome = useChromeVisible();
 
 
   const cell = (item: Item) => {
     const Icon = item.icon;
-    const active = pathname === item.to;
+    const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
     return (
       <Link
         key={item.to}
@@ -76,6 +79,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         >
           {cell(home)}
           {cell(search)}
+          {cell(chats)}
           {cell(create)}
           <NotificationCenter lang={lang} />
           {cell(profile)}
