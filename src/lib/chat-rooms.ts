@@ -54,7 +54,16 @@ export async function listMyRooms(): Promise<(Room & { unread: boolean })[]> {
   const { data, error } = await supabase.from("chat_rooms").select("*").in("id", ids).order("updated_at", { ascending: false });
   if (error) throw error;
   const read = new Map((mems ?? []).map((m) => [m.room_id, m.last_read_at]));
-  return (data ?? []).map((r) => ({ ...(r as Room), unread: (read.get(r.id) ?? "") < r.updated_at }));
+  const { data: recent } = await supabase
+    .from("chat_room_messages")
+    .select("room_id,created_at,sender_user_id")
+    .in("room_id", ids)
+    .neq("sender_user_id", uid)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  const latest = new Map<string, string>();
+  for (const m of recent ?? []) if (!latest.has(m.room_id)) latest.set(m.room_id, m.created_at);
+  return (data ?? []).map((r) => ({ ...(r as Room), unread: (read.get(r.id) ?? "") < (latest.get(r.id) ?? "") }));
 }
 
 export async function createRoom(title: string, displayName: string): Promise<string> {
@@ -165,8 +174,6 @@ export async function postMessage(
     shared_url: msg.sharedUrl ?? null,
   });
   if (error) throw error;
-  // Bump the room so other members see it as unread.
-  await supabase.from("chat_rooms").update({ debate_mode: undefined }).eq("id", roomId);
 }
 
 export async function deleteMessage(id: string) {
