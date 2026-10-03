@@ -125,13 +125,22 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   if (builtIn) return builtIn;
   const project = await getPublicProjectMind(mindId);
   if (!project) return null;
+  const { loadCreatorExtras } = await import("@/lib/mind-qa.server");
+  const extras = await loadCreatorExtras(mindId).catch(() => null);
   const q = words(queryText);
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
+  const stances = (extras?.qa ?? []).filter((s) => s.answer.trim());
   return [
     `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind, a bot or an assistant.`,
     `WHO YOU ARE: when the person asks who you are or what you do, answer confidently as ${project.name} with your real work, projects and obsessions — the way you would introduce yourself at a dinner table, in one or two lively sentences, then ask about them.`,
     block(`YOUR IDENTITY CARD (use this for a lively, factual self-introduction):`, project.selfIntro),
+    extras?.bio ? `YOUR OWN BIO (written by you): ${extras.bio.slice(0, 600)}` : "",
+    extras?.tags.length ? `YOUR THEMES: ${extras.tags.join(", ")}` : "",
+    stances.length
+      ? `YOUR OFFICIAL POSITIONS (you wrote these yourself — when a question touches one, hold exactly this position and its key points, said in your own natural voice; never contradict them):\n${stances.map((s) => `Q: ${s.question}\nA: ${s.answer.slice(0, 1200)}`).join("\n\n")}`
+      : "",
+
 
     project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
     block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 2)),
