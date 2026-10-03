@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X } from "lucide-react";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
@@ -24,7 +24,9 @@ export function TalkToMindModal({
   mindId,
   mindName,
   lang: langProp,
+  onReview,
 }: {
+  onReview?: (() => void) | undefined;
   open: boolean;
   onClose: () => void;
   mindId: string | null;
@@ -354,6 +356,11 @@ export function TalkToMindModal({
             <Eraser className="h-4 w-4" />
             <span className="hidden text-[11px] sm:inline">{newChatLabel}</span>
           </button>
+          {onReview && (
+            <button type="button" onClick={onReview} aria-label="Reviews" title="Reviews" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <Star className="h-4 w-4" />
+            </button>
+          )}
           <button type="button" onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>

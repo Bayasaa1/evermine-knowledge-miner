@@ -52,10 +52,10 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         to={item.to}
         aria-label={item.label}
         className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
-          active ? "bg-foreground/20 text-foreground" : "text-foreground/60 hover:text-foreground"
+          active ? "text-white" : "text-white/90 hover:text-white"
         }`}
       >
-        <Icon className="h-6 w-6" />
+        <Icon className={`h-6 w-6 ${active ? "stroke-[2.6]" : "stroke-[2.2]"}`} />
       </Link>
     );
   };
@@ -72,8 +72,7 @@ export function BottomNav({ lang = "en" }: { lang?: Lang }) {
         {/* Real frosted glass: heavy blur + saturation over a barely-there tint,
             so the video underneath stays visible through the bar. */}
         <nav
-          style={{ WebkitBackdropFilter: "blur(28px) saturate(180%)", backdropFilter: "blur(28px) saturate(180%)" }}
-          className={`${chrome ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-1 rounded-full border border-foreground/15 bg-background/25 px-2 py-1.5 shadow-2xl`}
+          className={`${chrome ? "pointer-events-auto" : "pointer-events-none"} flex items-center gap-1 rounded-full border border-white/10 bg-black px-3 py-1.5 shadow-2xl`}
         >
           {cell(home)}
           {cell(search)}

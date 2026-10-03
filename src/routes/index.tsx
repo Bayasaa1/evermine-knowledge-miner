@@ -633,6 +633,7 @@ function HomeFeed() {
         onClose={() => setTalk(null)}
         mindId={talk?.mindId ?? null}
         mindName={talk?.creator ?? ""}
+        onReview={talk ? () => { const t = talk; setTalk(null); setFeedback(t); } : undefined}
       />
       {planPicker && (
         <div className="fixed inset-0 z-[85] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
@@ -908,7 +909,7 @@ function FeedCard({
       hideTimer.current = setTimeout(() => {
         setChrome(false);
         setChromeVisible(false);
-      }, 3500);
+      }, 20000);
     }
   }, []);
   useEffect(() => {
@@ -1187,10 +1188,6 @@ function FeedCard({
             <Bot className={railIcon} />
           </button>
         )}
-        <button type="button" onClick={onFeedback} aria-label={c.reviews} className={railBtn}>
-          <Star className={railIcon} />
-          <span className={railLabel}>{c.reviews}</span>
-        </button>
       </div>
 
       {/* Title card: sits above a wide video in the spare black space so the
