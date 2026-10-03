@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { scopedKey } from "@/lib/user-scope";
 import { toast } from "sonner";
-import { PersonaSwitcher } from "@/components/persona-switcher";
 import { AccountMenu } from "@/components/account-menu";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
