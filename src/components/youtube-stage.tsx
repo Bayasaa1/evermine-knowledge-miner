@@ -250,7 +250,7 @@ export function YouTubeStage({
               type="button"
               aria-label="Previous video in project"
               onClick={() => { onPrev(); flashUi(); }}
-              className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+              className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
             >
               <SkipBack className="h-4 w-4 fill-current" />
             </button>
@@ -259,7 +259,7 @@ export function YouTubeStage({
             type="button"
             aria-label="Back 10 seconds"
             onClick={() => skip(-10)}
-            className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+            className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
           >
             <RotateCcw className="h-5 w-5" />
             <span className="absolute text-[9px] font-bold">10</span>
@@ -268,7 +268,7 @@ export function YouTubeStage({
             type="button"
             aria-label={paused ? "Play video" : "Pause video"}
             onClick={() => { onToggle?.(); flashUi(); }}
-            className="pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+            className="pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
           >
             {paused ? <Play className="h-6 w-6 fill-current" /> : <Pause className="h-6 w-6 fill-current" />}
           </button>
@@ -276,7 +276,7 @@ export function YouTubeStage({
             type="button"
             aria-label="Forward 10 seconds"
             onClick={() => skip(10)}
-            className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+            className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
           >
             <RotateCw className="h-5 w-5" />
             <span className="absolute text-[9px] font-bold">10</span>
@@ -286,7 +286,7 @@ export function YouTubeStage({
               type="button"
               aria-label="Next video in project"
               onClick={() => { onNext(); flashUi(); }}
-              className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur-sm"
+              className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
             >
               <SkipForward className="h-4 w-4 fill-current" />
             </button>
