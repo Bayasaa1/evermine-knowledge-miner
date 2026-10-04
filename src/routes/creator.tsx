@@ -977,7 +977,18 @@ class QuotaPaused extends Error {
 function Index() {
   const { lang, setLang } = useLang();
   const [view, setView] = useState<"guided" | "advanced">("guided");
-  void setView;
+  // The Profile "Earnings" link opens /creator#analytics — show the earnings view then.
+  useEffect(() => {
+    const sync = () => {
+      if (window.location.hash === "#analytics") {
+        setView("advanced");
+        setTimeout(() => document.getElementById("analytics")?.scrollIntoView({ behavior: "smooth" }), 300);
+      }
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [provider, setProvider] = useState("gemini");
   const [model, setModel] = useState("gemini-3.1-flash-lite");
