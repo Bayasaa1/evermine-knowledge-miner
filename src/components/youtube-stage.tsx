@@ -99,22 +99,18 @@ export function YouTubeStage({
     void loadApi()
       .then((YT) => {
         if (cancelled || !holder.current || player.current) return;
-        player.current = new YT.Player(holder.current, {
-          videoId,
-          playerVars: {
-            // Muted autoplay is the only form browsers allow without a gesture.
-            autoplay: 1,
-            mute: 1,
-            controls: 0,
-            disablekb: 1,
-            fs: 0,
-            iv_load_policy: 3,
-            modestbranding: 1,
-            rel: 0,
-            playsinline: 1,
-            loop: 1,
-            playlist: videoId,
-          },
+        // Build the frame ourselves: YouTube's mobile player paints its own
+        // prev / ⟲10 / pause / 10⟳ / next buttons when it sees `playlist` or
+        // `origin` in the address, which doubled our controls. Looping is
+        // handled in onStateChange below instead.
+        const frame = document.createElement("iframe");
+        frame.src =
+          `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&mute=1&controls=0` +
+          `&disablekb=1&fs=0&iv_load_policy=3&rel=0&playsinline=1`;
+        frame.allow = "autoplay; encrypted-media; picture-in-picture";
+        frame.setAttribute("frameborder", "0");
+        holder.current.replaceChildren(frame);
+        player.current = new YT.Player(frame as unknown as HTMLElement, {
           events: {
             onReady: (e: { target: YTPlayer }) => {
               if (cancelled) return;
