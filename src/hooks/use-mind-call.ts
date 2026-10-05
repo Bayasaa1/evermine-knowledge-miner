@@ -80,6 +80,8 @@ export function useMindCall(
     if (recorderRef.current?.state === "recording") {
       recorderRef.current.stop();
     }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
     dubRef.current?.stop();
     dubRef.current = null;
     queueRef.current = [];
