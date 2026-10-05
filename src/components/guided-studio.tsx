@@ -103,6 +103,7 @@ import {
 import { withNetworkRetry } from "@/lib/retry";
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { getUserAiKeyStatus } from "@/lib/user-ai-keys.functions";
+import { SubtitleUpload } from "@/components/subtitle-upload";
 
 
 const MODEL = "gemini-3.1-flash-lite";
@@ -1412,7 +1413,6 @@ function StepUpload({
           {(
             [
               ["youtube", t("sourceYoutube"), Youtube],
-              ["drive", t("sourceDrive"), HardDrive],
               ["link", t("sourceLink"), Globe2],
               ...(saveMode ? [] : [["file", t("sourceFile"), Upload] as const]),
             ] as const
@@ -1483,6 +1483,7 @@ function StepUpload({
             />
           </label>
         )}
+        {tab === "youtube" && <SubtitleUpload lang={lang} url={url} />}
         </>
         )}
 
