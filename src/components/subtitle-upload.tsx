@@ -21,7 +21,7 @@ export function SubtitleUpload({ lang, url }: { lang: Lang; url: string }) {
   const vid = youtubeId(url) ?? "";
   const c = (en: string, mn: string, ko: string) => pickCopy({ en, mn, ko }, lang);
 
-  const submit = async (raw: string) => {
+  const submit = async (raw: string): Promise<void> => {
     const cues = parseSubtitleText(raw);
     if (!vid) return toast.error(c("Paste the YouTube link first.", "Эхлээд YouTube линкээ оруулна уу.", "먼저 YouTube 링크를 넣으세요."));
     if (cues.length < 3) return toast.error(c("No timed lines found. Use SRT, VTT or the copied YouTube transcript with times.", "Цагтай мөр олдсонгүй. SRT, VTT эсвэл цагтай нь хуулсан YouTube транскрипт оруулна уу.", "시간이 있는 줄을 찾지 못했습니다. SRT, VTT 또는 시간 포함 YouTube 스크립트를 넣으세요."));

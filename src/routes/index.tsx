@@ -197,15 +197,15 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   if (!cues?.length) return [];
   // Drop duplicate lines the miner sometimes repeats with a coarser stamp.
   const seen = new Set<string>();
-  const list = cues.filter((c) => {
+  const unique = cues.filter((c) => {
     const key = c.speech.trim();
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  if (!list.length) return [];
+  if (!unique.length) return [];
 
-  let parsed = list.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
+  let parsed = unique.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
   // A stamp past the end of the video is a mis-read clock, never a real
   // moment. When the rest of the video is properly timed, such a line is
   // dropped (spreading it would flash a wrong line); otherwise it is untimed.
@@ -215,6 +215,8 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
     parsed = parsed.filter((p) => !(mostlyTimed && p.time && p.time.start > duration + 30));
     for (const entry of parsed) if (entry.time && entry.time.start > duration + 30) entry.time = null;
   }
+  const list = parsed.map((p) => p.cue);
+  if (!list.length) return [];
 
   // Legacy five-minute checkpoints restarted at 00:00. Only a stamp that truly
   // restarts near zero is shifted; any other backwards stamp is one mis-read
