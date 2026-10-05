@@ -16,3 +16,5 @@
 - Feed ranking is deterministic and signal-based, never an AI call, so recommendation does not spend anyone's credits.
 - Group chat rooms live in chat_rooms/_members/_minds/_messages; membership is checked by security-definer helpers and joining happens only via join_room_by_code, because members must never see rooms they were not invited to. Mind replies in rooms run on the sending user's own keys via /api/mind-chat.
 - Friendship is mutual subscription (user_subscriptions both ways, no user_blocks); human DMs are chat_rooms kind 'dm' opened only via open_dm RPC, because one-way subscribers must never DM a creator directly.
+- Every mined part stores its `window` and merge confines all subtitle times to it, because one mis-read clock used to push every later caption past the video end.
+- Mined-video repair re-mines only the flagged parts from the mining record and rebuilds through finalizeMiningJob, so fixes never hand-edit saved subtitles.

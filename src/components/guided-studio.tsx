@@ -956,7 +956,7 @@ function StepUpload({
   );
 
   /**
-   * Drives a list of server-side mining jobs to completion, one 5-minute
+   * Drives a list of server-side mining jobs to completion, one 15-minute
    * checkpoint at a time. Used both for freshly started videos and for jobs
    * picked back up after the tab was closed.
    */
@@ -969,7 +969,7 @@ function StepUpload({
       say(`$ evermind mine --videos ${jobs.length}`);
       say(`  # ${term.background}`);
       jobs.forEach((j, i) =>
-        say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 5${term.min}`),
+        say(`  [${i + 1}] ${j.sourceLabel} — ${j.totalChunks} × 15${term.min}`),
       );
       let lastMerged: ChunkResult | null = null;
 
@@ -1661,7 +1661,7 @@ function StepUpload({
                   <span className="truncate">
                     {i + 1}. {q.label}
                   </span>
-                  <span className="shrink-0">{q.total} × 5min</span>
+                  <span className="shrink-0">{q.total} × 15min</span>
                 </li>
               ))}
             </ol>

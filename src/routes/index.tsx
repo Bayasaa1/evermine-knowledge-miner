@@ -205,6 +205,12 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   if (!list.length) return [];
 
   const parsed = list.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
+  // A stamp past the end of the video is a mis-read clock, never a real
+  // moment. Left in, it fooled the reset repair below into pushing every later
+  // caption hours past the end. Treat it as untimed instead.
+  if (duration > 0) {
+    for (const entry of parsed) if (entry.time && entry.time.start > duration + 30) entry.time = null;
+  }
 
   // Some older five-minute mining checkpoints returned chunk-local times
   // (00:00 again at each checkpoint). Repair each reset into a continuous

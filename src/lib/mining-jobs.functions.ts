@@ -330,7 +330,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
             }),
             data.lane,
           );
-      const nextResults = [...results, mined];
+      const nextResults = [...results, { ...mined, window: { start: chunk.start, end: chunk.end } }];
       const nextIndex = job.nextIndex + 1;
       const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "running";
       const { data: savedRow, error: upErr } = await context.supabase

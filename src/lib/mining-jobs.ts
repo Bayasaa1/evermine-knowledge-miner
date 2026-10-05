@@ -1,4 +1,5 @@
 import type { Chunk } from "@/lib/chunking";
+import { CHUNK_SECONDS } from "@/lib/chunking";
 import type { ChunkResult } from "@/lib/gemini";
 
 /** Answers collected by the pre-mining assessment wizard. */
@@ -62,10 +63,10 @@ export function formatPublishedDate(iso: string, locale = "en"): string {
   }
 }
 
-/** Chunk plan size for a duration — always at least one 5-minute chunk. */
+/** Chunk plan size for a duration — always at least one part (see CHUNK_SECONDS). */
 export function totalChunksFor(durationSec: number): number {
   if (!Number.isFinite(durationSec) || durationSec <= 0) return 1;
-  return Math.max(1, Math.ceil(durationSec / 300));
+  return Math.max(1, Math.ceil(durationSec / CHUNK_SECONDS));
 }
 
 

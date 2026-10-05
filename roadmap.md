@@ -119,3 +119,11 @@
 - [x] Minds in rooms with roles (debater/judge/host/creator twin), @mention / round-table / relevance modes, turn limit, pause/continue
 - [ ] Share button on feed videos → send to a room or Mind
 - [ ] Direct messages between two users; viewer/creator community rooms
+
+## Miner repair (Oct 2026)
+- [x] 15-minute mining parts for new jobs; each mined part records its own time range
+- [x] Subtitle lines confined to their part (MM:SS:frames rescued, strays dropped, foreign-script AI summaries kept out)
+- [x] Player ignores clocks past the video end
+- [x] Chat uses mined knowledge nodes; 3-letter creator names (CTS) recognised
+- [x] Vault "Subtitle timing" shows problems per part + one-press "Fix with Gemini"
+- [ ] Mine 2 parts at once (deferred: needs a safe claim per part so two runners never save over each other)
