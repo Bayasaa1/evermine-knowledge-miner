@@ -20,11 +20,20 @@ function stampAt(seconds: number): string {
 }
 
 /** Gemini can occasionally return times relative to a checkpoint despite the prompt. */
-function wholeVideoStamp(raw: string, chunkIndex: number): string {
+type Window = { start: number; end: number };
+
+/** Legacy results carry no window; they were always 5-minute checkpoints. */
+function windowOf(result: ChunkResult, chunkIndex: number): Window {
+  const w = result.window;
+  if (w && Number.isFinite(w.start) && Number.isFinite(w.end) && w.end > w.start) return w;
+  return { start: chunkIndex * CHUNK_SECONDS, end: (chunkIndex + 1) * CHUNK_SECONDS };
+}
+
+function wholeVideoStamp(raw: string, chunkIndex: number, win?: Window): string {
   const parts = String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/).filter(Boolean);
   const values = parts.map(stampSeconds);
   if (!values.length || values[0] == null) return raw;
-  const chunkStart = chunkIndex * CHUNK_SECONDS;
+  const chunkStart = win ? win.start : chunkIndex * CHUNK_SECONDS;
   // A timestamp before this checkpoint is necessarily chunk-local.
   if (chunkIndex === 0 || values[0]! >= chunkStart - 10) return raw;
   return values.map((value) => value == null ? "" : stampAt(value + chunkStart)).filter(Boolean).join(" - ");
@@ -39,7 +48,9 @@ function wholeVideoStamp(raw: string, chunkIndex: number): string {
 function fillMissingTranscriptStamps(result: ChunkResult, chunkIndex: number): ChunkResult {
   const lines = result.transcript;
   if (!lines.length || lines.every((l) => String(l.timestamp ?? "").trim())) return result;
-  const chunkStart = chunkIndex * CHUNK_SECONDS;
+  const win = windowOf(result, chunkIndex);
+  const chunkStart = win.start;
+  const CHUNK_SECONDS = win.end - win.start;
   const anchors = lines.map((l) => {
     const raw = String(l.timestamp ?? "").trim();
     return raw ? stampSeconds(raw) : null;
@@ -76,10 +87,11 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     commentaryStyle: [], mistakes: [], communication: [], mindset: [], emotions: [],
   };
   const withGaming: ChunkResult = { ...result, gaming: result.gaming ?? EMPTY };
-  if (chunkIndex === 0) return fillMissingTranscriptStamps(withGaming, 0);
+  const win = windowOf(withGaming, chunkIndex);
+  if (win.start === 0) return confineTranscript(fillMissingTranscriptStamps(withGaming, chunkIndex), win);
   result = withGaming;
 
-  const stamp = (value: string) => wholeVideoStamp(value, chunkIndex);
+  const stamp = (value: string) => wholeVideoStamp(value, chunkIndex, win);
   const shifted: ChunkResult = {
     ...result,
     gaming: {
@@ -108,7 +120,54 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     screenText: (result.screenText ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
   };
   // Fill after shifting so generated windows land in whole-video time.
-  return fillMissingTranscriptStamps(shifted, chunkIndex);
+  return confineTranscript(fillMissingTranscriptStamps(shifted, chunkIndex), win);
+}
+
+/** Share of Cyrillic letters among all letters — tells Mongolian captions from English summaries. */
+export function cyrillicShare(text: string): number {
+  const letters = String(text ?? "").match(/\p{L}/gu) ?? [];
+  if (!letters.length) return 0;
+  return letters.filter((c) => /[\u0400-\u04FF]/.test(c)).length / letters.length;
+}
+
+/**
+ * Every spoken line must sit inside the part it was mined from. A stamp the
+ * model wrote as MM:SS:frames ("10:10:04" inside the 10–15 minute part) is read
+ * back as minutes; anything still outside the part is dropped, because one
+ * stray "10 hours" line used to push every later caption past the video's end.
+ * Heard-only lines in another script than the captions are model summaries,
+ * not speech, so they never reach the subtitles.
+ */
+function confineTranscript(result: ChunkResult, win: Window): ChunkResult {
+  const SLACK = 15;
+  const inside = (sec: number) => sec >= win.start - SLACK && sec <= win.end + SLACK;
+  const captioned = result.transcript.filter((l) => l.source === "caption" || l.source === "verified");
+  const captionCyrillic = captioned.length
+    ? captioned.reduce((sum, l) => sum + cyrillicShare(l.speech), 0) / captioned.length
+    : null;
+  const out: ChunkResult["transcript"] = [];
+  for (const line of result.transcript) {
+    if (line.source === "heard" && captionCyrillic != null) {
+      const own = cyrillicShare(line.speech);
+      if ((captionCyrillic > 0.6 && own < 0.3) || (captionCyrillic < 0.2 && own > 0.6)) continue;
+    }
+    const parts = String(line.timestamp ?? "").split(/\s*(?:-|–|—|>)\s*/).filter(Boolean);
+    const start = stampSeconds(parts[0] ?? "");
+    if (start == null) { out.push(line); continue; }
+    if (inside(start)) { out.push(line); continue; }
+    const asMinutes = (raw: string) => {
+      const p = raw.split(":").map(Number);
+      return p.length === 3 && p.every(Number.isFinite) ? p[0]! * 60 + p[1]! : null;
+    };
+    const rescued = asMinutes(parts[0] ?? "");
+    if (rescued != null && inside(rescued)) {
+      const endRaw = parts[1] ? asMinutes(parts[1]) : null;
+      const end = endRaw != null && endRaw > rescued ? Math.min(endRaw, win.end + SLACK) : rescued + 4;
+      out.push({ ...line, timestamp: `${stampAt(rescued)} - ${stampAt(end)}` });
+    }
+    // Otherwise the line is outside its part entirely: drop it.
+  }
+  return { ...result, transcript: out };
 }
 
 
