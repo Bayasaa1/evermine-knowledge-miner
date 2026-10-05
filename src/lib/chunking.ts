@@ -1,4 +1,5 @@
-export const CHUNK_SECONDS = 300;
+/** 15-minute parts: few enough seams for long videos, small enough to never truncate a reply. */
+export const CHUNK_SECONDS = 900;
 export const EPSILON = 1e-6;
 export const MIN_TAIL_SECONDS = 10;
 

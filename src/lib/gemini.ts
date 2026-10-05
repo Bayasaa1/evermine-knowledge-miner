@@ -457,6 +457,8 @@ export type ChunkResult = {
   entities?: MinedEntity[];
   /** On-screen text: slides, code, charts, captions burned into the frame. */
   screenText?: ScreenText[];
+  /** Whole-video seconds this checkpoint covered; every time in it must fall inside. */
+  window?: { start: number; end: number };
 };
 
 export type QAPair = {
