@@ -77,6 +77,7 @@ async function loadMinedPersona(projectId: string) {
     aestheticProfile: [] as string[],
     phrases: [] as MindPhrase[],
     selfIntro: [] as string[],
+    facts: [] as string[],
   };
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -106,6 +107,14 @@ async function loadMinedPersona(projectId: string) {
       merged.phrases.push(...phrases(sub["culturalVocabulary"], 200));
       const refreshedIntro = typeof refreshed["selfIntro"] === "string" ? String(refreshed["selfIntro"]).trim() : "";
       if (refreshedIntro) merged.selfIntro.push(refreshedIntro);
+      // The mined facts themselves — without these the chat never knew what was said.
+      const nodes = Array.isArray(result["knowledgeNodes"]) ? (result["knowledgeNodes"] as Record<string, unknown>[]) : [];
+      for (const n of nodes) {
+        const title = String(n?.["concept_title"] ?? "").trim();
+        const detail = String(n?.["detailed_explanation"] ?? "").trim();
+        if (title || detail) merged.facts.push(detail ? `${title}: ${detail.slice(0, 280)}` : title);
+      }
+      merged.facts.push(...strings(result["knowledge"], 200));
     }
     return {
       beliefs: strings(merged.beliefs, 45),
@@ -115,6 +124,7 @@ async function loadMinedPersona(projectId: string) {
       aestheticProfile: strings(merged.aestheticProfile, 10),
       phrases: merged.phrases.slice(0, 30),
       selfIntro: strings(merged.selfIntro, 4),
+      facts: strings(merged.facts, 400),
     };
   } catch {
     return empty;
@@ -165,7 +175,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     const cues = cuesOf(item);
     const named = cues.filter((cue) => {
       const speakerKey = cue.speaker.toLowerCase().replace(/[^a-z0-9\p{L}]/gu, "");
-      return ownerKey.length > 3 && speakerKey.length > 3 && (speakerKey.includes(ownerKey) || ownerKey.includes(speakerKey));
+      return ownerKey.length >= 3 && speakerKey.length >= 3 && (speakerKey.includes(ownerKey) || ownerKey.includes(speakerKey));
     });
     if (named.length >= 20) return named.map((cue) => cue.speech);
     // Too few lines carry the creator's name here, so this is their own solo
@@ -173,14 +183,14 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     const commentary = cues.filter((cue) => COMMENTARY.has(cue.speaker.toLowerCase()));
     return [...named, ...commentary].map((cue) => cue.speech);
   });
-  const persona = await loadMinedPersona(projectId);
+  const { facts, ...persona } = await loadMinedPersona(projectId);
   // Short, punchy real lines make the best speaking samples.
   const sampleLines = transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25);
   return {
     name: data.creator_name,
     title: data.title,
     description: data.description,
-    knowledge: content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean).slice(0, 100),
+    knowledge: [...facts, ...content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean)].slice(0, 500),
     transcript: transcript.slice(0, 200),
     sampleLines,
     ...persona,
