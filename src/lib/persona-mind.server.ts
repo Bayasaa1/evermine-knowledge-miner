@@ -33,7 +33,7 @@ export async function getPersonaMind(mindId: string): Promise<{ mind: PublicProj
     name: minds[0]!.name,
     title: minds.map((m) => m.title).join(" · "),
     description: minds.map((m) => `${m.title}: ${m.description}`).join(" | ").slice(0, 600),
-    knowledge: s((m) => m.knowledge, 80),
+    knowledge: s((m) => m.knowledge, 300),
     transcript: s((m) => m.transcript, 400),
     beliefs: s((m) => m.beliefs, 40),
     decisionLogic: s((m) => m.decisionLogic, 20),
