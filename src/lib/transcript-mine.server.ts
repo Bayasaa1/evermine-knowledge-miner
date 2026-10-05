@@ -199,7 +199,7 @@ export async function analyzeTranscript(input: {
   assessment?: Assessment;
   usage: TranscriptMineUsage;
 }): Promise<{ result: ChunkResult; cues: Cue[] } | null> {
-  const { cues: raw } = await fetchCaptionCues(input.videoId, input.startSec, input.endSec);
+  const { cues: raw } = await fetchCaptionCues(input.videoId, input.startSec, input.endSec, input.usage.userId);
   const cues = tidyCues(raw);
   if (cues.length < 3) return null;
 

@@ -92,6 +92,21 @@ function readsFromSubtitles(a: Assessment | undefined): boolean {
   return TALKING_CONTEXTS.includes((a?.videoContext ?? "").trim());
 }
 
+async function hasUploadedCaptions(videoId: string, userId: string): Promise<boolean> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { count } = await supabaseAdmin
+      .from("mind_vaults")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("kind", "captions")
+      .eq("title", videoId);
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
 const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
   Object.values(LANGUAGES).map((l) => [l.code, `${l.name} (${l.native})`]),
 );
@@ -162,7 +177,9 @@ export async function tryTranscriptMine(input: {
 }): Promise<ChunkResult | null> {
   const url = normalizeYoutubeUrl(input.url);
   const videoId = url ? youtubeId(url) : "";
-  if (!videoId || input.endSec <= input.startSec || !readsFromSubtitles(input.assessment)) return null;
+  if (!videoId || input.endSec <= input.startSec) return null;
+  // Subtitles the creator uploaded are always read, whatever the video type.
+  if (!readsFromSubtitles(input.assessment) && !(await hasUploadedCaptions(videoId, input.usage.userId))) return null;
   try {
     const { analyzeTranscript } = await import("@/lib/transcript-mine.server");
     const fast = await analyzeTranscript({

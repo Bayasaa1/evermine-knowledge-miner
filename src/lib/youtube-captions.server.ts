@@ -230,8 +230,34 @@ export async function fetchCaptionCues(
   videoId: string,
   startSec: number,
   endSec: number,
+  userId?: string,
 ): Promise<{ cues: Cue[]; track: CaptionTrack | null }> {
+  // Subtitles the job owner uploaded themselves always win over YouTube.
+  if (userId) {
+    const own = await userCaptionCues(videoId, userId, startSec, endSec);
+    if (own) return { cues: own, track: { baseUrl: "", languageCode: "", kind: "", name: "uploaded" } };
+  }
   const { json, track } = await wholeCaptions(videoId);
   if (!json) return { cues: [], track: null };
   return { cues: toCues(json, startSec, endSec), track };
+}
+
+async function userCaptionCues(videoId: string, userId: string, startSec: number, endSec: number): Promise<Cue[] | null> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("mind_vaults")
+      .select("payload")
+      .eq("user_id", userId)
+      .eq("kind", "captions")
+      .eq("title", videoId)
+      .maybeSingle();
+    const cues = ((data?.payload ?? {}) as { cues?: { start: number; end: number; text: string }[] }).cues;
+    if (!Array.isArray(cues) || !cues.length) return null;
+    return cues
+      .filter((c) => c.end >= startSec && c.start <= endSec)
+      .map((c) => ({ start: c.start, end: c.end, text: c.text, speaker: "Speaker" }));
+  } catch {
+    return null;
+  }
 }
