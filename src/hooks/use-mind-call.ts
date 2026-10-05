@@ -80,6 +80,8 @@ export function useMindCall(
     if (recorderRef.current?.state === "recording") {
       recorderRef.current.stop();
     }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
     dubRef.current?.stop();
     dubRef.current = null;
     queueRef.current = [];
@@ -104,48 +106,35 @@ export function useMindCall(
     releasePendingRef.current = false;
     setListening(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { echoCancellation: true, noiseSuppression: true } 
-      });
-      streamRef.current = stream;
-      
+      // Reuse the open microphone so recording starts the instant you press.
+      let stream = streamRef.current;
+      if (!stream || !stream.getAudioTracks().some((t) => t.readyState === "live")) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+        streamRef.current = stream;
+      }
+
       const mime = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "";
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       recorderRef.current = rec;
       const chunks: Blob[] = [];
       rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
-      
-      const ctx = new AudioContext();
-      const analyser = ctx.createAnalyser();
-      ctx.createMediaStreamSource(stream).connect(analyser);
-      const buf = new Uint8Array(analyser.fftSize);
-      
-      let spoke = false;
       const began = Date.now();
 
-      const timer = window.setInterval(() => {
-        analyser.getByteTimeDomainData(buf);
-        let peak = 0;
-        for (const v of buf) peak = Math.max(peak, Math.abs(v - 128));
-        if (peak > 3) spoke = true;
-        
-        // Safety timeout for PTT (60s)
-        if (Date.now() - began > 60000) {
-          if (rec.state === "recording") rec.stop();
-        }
-      }, 120);
+      // Push-to-talk: only your finger ends the recording (60s safety cap).
+      const timer = window.setTimeout(() => {
+        if (rec.state === "recording") rec.stop();
+      }, 60000);
       timerRef.current = timer;
 
       rec.onstop = async () => {
-        if (timerRef.current) window.clearInterval(timerRef.current);
-        stream.getTracks().forEach((t) => t.stop());
-        void ctx.close();
+        if (timerRef.current) window.clearTimeout(timerRef.current);
         recorderRef.current = null;
-        streamRef.current = null;
-        
-        if ((!spoke && Date.now() - began < 400) || chunks.length === 0) { 
-          setListening(false); 
-          return; 
+
+        if (Date.now() - began < 250 || chunks.length === 0) {
+          setListening(false);
+          return;
         }
 
         const blob = new Blob(chunks, { type: rec.mimeType || mime || "audio/webm" });
