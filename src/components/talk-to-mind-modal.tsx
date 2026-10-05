@@ -61,7 +61,15 @@ export function TalkToMindModal({
   const [attaching, setAttaching] = useState(0);
   const [attachError, setAttachError] = useState<string | null>(null);
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
-  const call = useMindCall(mindId, lang, (text) => void sendRef.current(text));
+  // Heard speech is shown first; it sends itself after 3s unless the user edits it.
+  const [heard, setHeard] = useState<string | null>(null);
+  const [heardEditing, setHeardEditing] = useState(false);
+  const call = useMindCall(mindId, lang, (text) => { setHeardEditing(false); setHeard(text); });
+  useEffect(() => {
+    if (heard === null || heardEditing) return;
+    const t = window.setTimeout(() => { const h = heard; setHeard(null); if (h.trim()) void sendRef.current(h); }, 3000);
+    return () => window.clearTimeout(t);
+  }, [heard, heardEditing]);
   const [faceUrl, setFaceUrl] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
   const sessionStartRef = useRef<string | null>(null);
@@ -386,6 +394,26 @@ export function TalkToMindModal({
               <p className="max-w-xs text-center text-[11px] italic text-muted-foreground">Sees: {call.sees}</p>
             )}
             <p className="text-xs font-medium text-muted-foreground">{call.listening ? listeningLabel : call.speaking ? speakingLabel : holdLabel}</p>
+            {heard !== null && (
+              <div className="w-full max-w-sm space-y-2 rounded-xl border border-border bg-background p-3">
+                <textarea
+                  value={heard}
+                  onFocus={() => setHeardEditing(true)}
+                  onChange={(e) => { setHeardEditing(true); setHeard(e.target.value); }}
+                  rows={2}
+                  className="w-full resize-none bg-transparent text-sm text-foreground outline-none"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-muted-foreground">
+                    {heardEditing ? (lang === "mn" ? "Засаад илгээнэ үү" : lang === "ko" ? "수정 후 보내세요" : "Fix it, then send") : (lang === "mn" ? "3 секундэд өөрөө илгээгдэнэ" : lang === "ko" ? "3초 후 자동 전송" : "Sends in 3s")}
+                  </span>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setHeard(null)} className="rounded-full border border-border px-3 py-1 text-xs text-foreground">{lang === "mn" ? "Болих" : lang === "ko" ? "취소" : "Cancel"}</button>
+                    <button type="button" onClick={() => { const h = heard; setHeard(null); if (h.trim()) void sendRef.current(h); }} className="rounded-full bg-primary px-3 py-1 text-xs text-primary-foreground">{lang === "mn" ? "Илгээх" : lang === "ko" ? "보내기" : "Send"}</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button 
