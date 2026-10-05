@@ -26,6 +26,7 @@ type JobRow = {
   content_kind: string | null;
   category: string | null;
   publish_to_feed: boolean | null;
+  chunks?: unknown;
 };
 
 function youtubeIdOf(url: string): string {
@@ -48,7 +49,14 @@ export async function finalizeMiningJob(
   // A partial save never marks the job finished, so the final save still runs.
   if (job.vault_id) return job.vault_id;
   const partial = opts.partial;
-  const results = (Array.isArray(job.results) ? job.results : []) as ChunkResult[];
+  // Older results do not record their part; the job's own plan says where each one sits.
+  const plan = (Array.isArray(job.chunks) ? job.chunks : []) as { start?: number; end?: number }[];
+  const results = ((Array.isArray(job.results) ? job.results : []) as ChunkResult[]).map((r, i) => {
+    const c = plan[i];
+    return r.window || typeof c?.start !== "number" || typeof c?.end !== "number"
+      ? r
+      : { ...r, window: { start: c.start, end: c.end } };
+  });
   const merged = mergeChunkResults(results);
   if (!merged) return null;
   const mined = merged;

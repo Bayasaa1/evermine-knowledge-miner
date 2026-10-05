@@ -147,7 +147,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
                   },
                 }),
               );
-              const nextResults = [...results, mined];
+              const nextResults = [...results, { ...mined, window: { start: chunk.start, end: chunk.end } }];
               const { data: savedRow } = await supabaseAdmin
                 .from("mining_jobs")
                 .update({
