@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { analyzeTiming, type TimingHealth, type TranscriptLine } from "@/lib/subtitle-health";
+import { analyzeTiming, findMineProblems, type MineProblem, type PartPlan, type TimingHealth, type TranscriptLine } from "@/lib/subtitle-health";
 import { repairTimingsLocal } from "@/lib/repair-timings";
 import { relistenTranscript } from "@/lib/retime.server";
 
@@ -13,7 +13,45 @@ export type SubtitleHealthRow = {
   updatedAt: string;
   /** Persona this video is filed under; null when it was never filed. */
   personaId: string | null;
+  /** Concrete problems, each pinned to the mined part it came from. */
+  problems: MineProblem[];
+  /** True when a mining record exists, so the Gemini fix can re-mine parts. */
+  canRemine: boolean;
 } & TimingHealth;
+
+type JobLite = { id: string; source_url: string; chunks: unknown; next_index: number };
+
+function videoIdOf(url: string): string {
+  return /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(url ?? "")?.[1] ?? "";
+}
+
+function planOf(job: JobLite | undefined): PartPlan[] {
+  return (Array.isArray(job?.chunks) ? (job!.chunks as PartPlan[]) : []).filter(
+    (c) => typeof c?.start === "number" && typeof c?.end === "number",
+  );
+}
+
+function healthOf(transcript: TranscriptLine[], job: JobLite | undefined) {
+  const timing = analyzeTiming(transcript);
+  const problems = job ? findMineProblems(transcript, planOf(job), job.next_index) : [];
+  // A single stray clock used to read as "in sync" while every later caption vanished.
+  const status: TimingHealth["status"] = problems.some((p) => p.kind !== "unfinished") && timing.status === "synced" ? "drifting" : timing.status;
+  return { ...timing, status, problems, canRemine: Boolean(job) };
+}
+
+async function jobsByVideo(context: Ctx): Promise<Map<string, JobLite>> {
+  const { data } = await context.supabase
+    .from("mining_jobs")
+    .select("id, source_url, chunks, next_index, created_at")
+    .eq("user_id", context.userId)
+    .order("created_at", { ascending: false });
+  const map = new Map<string, JobLite>();
+  for (const j of (data ?? []) as JobLite[]) {
+    const vid = videoIdOf(j.source_url);
+    if (vid && !map.has(vid)) map.set(vid, j);
+  }
+  return map;
+}
 
 function lines(value: unknown): TranscriptLine[] {
   return Array.isArray(value) ? (value as TranscriptLine[]) : [];
@@ -29,6 +67,7 @@ export const listSubtitleHealth = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
+    const jobs = await jobsByVideo(context as unknown as Ctx);
 
     return (data ?? []).map((row) => {
       const project = (row as unknown as { projects?: { persona_id?: string | null } | null }).projects;
@@ -39,7 +78,7 @@ export const listSubtitleHealth = createServerFn({ method: "POST" })
         sourceUrl: row.source_url ?? "",
         updatedAt: row.updated_at,
         personaId: project?.persona_id ?? null,
-        ...analyzeTiming(lines(row.transcript)),
+        ...healthOf(lines(row.transcript), jobs.get(row.youtube_id ?? "")),
       };
     });
   });
@@ -73,7 +112,7 @@ async function saveTimings(context: Ctx, row: any, repaired: TranscriptLine[]): 
     sourceUrl: row.source_url ?? "",
     updatedAt: new Date().toISOString(),
     personaId: row.persona_id ?? null,
-    ...analyzeTiming(repaired),
+    ...healthOf(repaired, (await jobsByVideo(context)).get(row.youtube_id ?? "")),
   };
 }
 
@@ -140,3 +179,80 @@ async function syncVaults(context: Ctx, youtubeId: string, title: string, repair
     }
   }
 }
+
+/** Problems the Gemini fix re-mines; at most this many parts per press so one press always finishes. */
+const PARTS_PER_FIX = 3;
+
+/**
+ * One-press fix for a badly mined video. The parts the check flagged are mined
+ * again with the current miner (captions first, Gemini when there are none),
+ * only those parts are replaced, and the video's subtitles and brain are
+ * rebuilt from the mining record — which also applies today's clock rules to
+ * every untouched part, at no cost.
+ */
+export const fixMinedVideo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ contentId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<SubtitleHealthRow & { remined: number; remaining: number }> => {
+    const ctx = context as unknown as Ctx;
+    const row = await loadContent(ctx, data.contentId);
+    const vid = row.youtube_id ?? "";
+    const lite = (await jobsByVideo(ctx)).get(vid);
+    if (!lite) throw new Error("This video has no mining record to repair from — mine it again from the start.");
+    const { data: job, error } = await context.supabase.from("mining_jobs").select("*").eq("id", lite.id).eq("user_id", context.userId).maybeSingle();
+    if (error || !job) throw new Error(error?.message ?? "Mining record not found.");
+
+    const plan = planOf(lite);
+    const problems = findMineProblems(lines(row.transcript), plan, lite.next_index);
+    const parts = [...new Set(problems.filter((p) => p.part >= 0 && p.kind !== "unfinished").map((p) => p.part))].sort((a, b) => a - b);
+    const todo = parts.slice(0, PARTS_PER_FIX);
+
+    const results = (Array.isArray(job.results) ? [...(job.results as unknown[])] : []) as Record<string, unknown>[];
+    const { unpackInstructions } = await import("@/lib/mining-jobs");
+    const meta = unpackInstructions(job.custom_instructions ?? "");
+    const assessment = { ...meta, videoContext: undefined as string | undefined };
+    const { tryTranscriptMine, analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
+    const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
+    const usage = { userId: context.userId, videoLabel: job.source_label ?? row.title, videoId: job.source_url, jobId: job.id };
+
+    let remined = 0;
+    for (const index of todo) {
+      const part = plan[index];
+      if (!part || index >= results.length) continue;
+      const fast = await tryTranscriptMine({ url: job.source_url, startSec: part.start, endSec: part.end, assessment, usage });
+      const mined = fast
+        ? fast
+        : (await runGeminiRoleWithFallback(context.userId, "mine", (credential) =>
+            analyzeYoutubeVideo({ url: job.source_url, startSec: part.start, endSec: part.end, assessment, credential, usage }),
+          )).value;
+      results[index] = { ...mined, window: { start: part.start, end: part.end } };
+      remined += 1;
+    }
+
+    if (remined) {
+      const { error: saveErr } = await context.supabase.from("mining_jobs").update({ results: results as never }).eq("id", job.id).eq("user_id", context.userId);
+      if (saveErr) throw new Error(saveErr.message);
+    }
+
+    const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
+    const done = lite.next_index >= plan.length;
+    await finalizeMiningJob(
+      context.supabase,
+      { ...job, results, vault_id: null } as never,
+      done ? {} : { partial: { done: lite.next_index, total: plan.length } },
+    );
+
+    const fresh = await loadContent(ctx, data.contentId);
+    const health = healthOf(lines(fresh.transcript), lite);
+    return {
+      contentId: fresh.id,
+      title: fresh.title,
+      youtubeId: fresh.youtube_id ?? "",
+      sourceUrl: fresh.source_url ?? "",
+      updatedAt: new Date().toISOString(),
+      personaId: null,
+      ...health,
+      remined,
+      remaining: Math.max(0, parts.length - todo.length),
+    };
+  });
