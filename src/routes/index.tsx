@@ -174,9 +174,10 @@ function fitPartsToWindow(parts: string[], seconds: number): string[] {
 /** Parse "MM:SS", "HH:MM:SS" or a "start - end" range. Returns null when unusable. */
 function parseStamp(raw: string): { start: number; end: number | null } | null {
   const parts = String(raw ?? "").split(/[-–—>]+/).map((p) => p.trim()).filter(Boolean);
+  // Whole-number groups only: "373:19" is 373 minutes, never "73:19".
   const toSec = (v: string) => {
-    const m = v.match(/(?:(\d+):)?(\d{1,2}):(\d{1,2})/);
-    if (m) return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+    const m = v.match(/(?:^|[^\d])(\d+):(\d{1,2})(?::(\d{1,2}))?(?:[.,]\d+)?(?![\d:])/) ?? v.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?/);
+    if (m) return m[3] != null ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : Number(m[1]) * 60 + Number(m[2]);
     const only = v.match(/^(\d+)(?:[.,]\d+)?$/);
     return only ? Number(only[1]) : null;
   };
@@ -204,25 +205,33 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   });
   if (!list.length) return [];
 
-  const parsed = list.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
+  let parsed = list.map((c) => ({ cue: c, time: parseStamp(c.timestamp) }));
   // A stamp past the end of the video is a mis-read clock, never a real
-  // moment. Left in, it fooled the reset repair below into pushing every later
-  // caption hours past the end. Treat it as untimed instead.
+  // moment. When the rest of the video is properly timed, such a line is
+  // dropped (spreading it would flash a wrong line); otherwise it is untimed.
   if (duration > 0) {
+    const timed = parsed.filter((p) => p.time).length;
+    const mostlyTimed = timed >= parsed.length * 0.8;
+    parsed = parsed.filter((p) => !(mostlyTimed && p.time && p.time.start > duration + 30));
     for (const entry of parsed) if (entry.time && entry.time.start > duration + 30) entry.time = null;
   }
 
-  // Some older five-minute mining checkpoints returned chunk-local times
-  // (00:00 again at each checkpoint). Repair each reset into a continuous
-  // whole-video timeline before matching captions to playback.
+  // Legacy five-minute checkpoints restarted at 00:00. Only a stamp that truly
+  // restarts near zero is shifted; any other backwards stamp is one mis-read
+  // clock and becomes untimed, so it can never push later captions away.
   let timelineOffset = 0;
   let previousStart = -1;
   for (const entry of parsed) {
     if (!entry.time) continue;
     let start = entry.time.start + timelineOffset;
     if (previousStart >= 0 && start < previousStart - 20) {
-      timelineOffset += Math.ceil((previousStart - start) / 300) * 300;
-      start = entry.time.start + timelineOffset;
+      if (entry.time.start < 30) {
+        timelineOffset = Math.ceil(previousStart / 300) * 300;
+        start = entry.time.start + timelineOffset;
+      } else {
+        entry.time = null;
+        continue;
+      }
     }
     entry.time = {
       start,
