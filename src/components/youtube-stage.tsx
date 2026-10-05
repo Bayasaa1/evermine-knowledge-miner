@@ -204,6 +204,15 @@ export function YouTubeStage({
     hideTimer.current = window.setTimeout(() => setShowUi(false), 3000);
   };
   useEffect(() => () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); }, []);
+  // YouTube's phone player paints its own round pause button in the centre for
+  // ~6s whenever playback starts. Keep our row up (with an opaque centre button
+  // of the same size) for that window so theirs is always covered.
+  useEffect(() => {
+    if (!playing) return;
+    setShowUi(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setShowUi(false), 7000);
+  }, [playing]);
   const skip = (delta: number) => {
     const p = player.current;
     if (p) {
@@ -268,7 +277,7 @@ export function YouTubeStage({
             type="button"
             aria-label={paused ? "Play video" : "Pause video"}
             onClick={() => { onToggle?.(); flashUi(); }}
-            className="pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
+            className="pointer-events-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-black text-white"
           >
             {paused ? <Play className="h-6 w-6 fill-current" /> : <Pause className="h-6 w-6 fill-current" />}
           </button>
