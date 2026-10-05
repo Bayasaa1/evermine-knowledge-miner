@@ -393,6 +393,7 @@ export function TalkToMindModal({
                 onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); try { void call.startListening(); } catch (error) { setMessages((current) => [...current, { role: "agent", text: error instanceof Error ? error.message : String(error) }]); } }}
                 onPointerUp={(e) => { e.preventDefault(); call.stopListening(); }}
                 onPointerCancel={() => call.stopListening()}
+                onContextMenu={(e) => e.preventDefault()}
                 onKeyDown={(e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); void call.startListening(); } }}
                 onKeyUp={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); call.stopListening(); } }}
                 aria-label={holdLabel}
