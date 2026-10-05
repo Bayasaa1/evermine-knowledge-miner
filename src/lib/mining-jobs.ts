@@ -1,4 +1,5 @@
 import type { Chunk } from "@/lib/chunking";
+import { CHUNK_SECONDS } from "@/lib/chunking";
 import type { ChunkResult } from "@/lib/gemini";
 
 /** Answers collected by the pre-mining assessment wizard. */
