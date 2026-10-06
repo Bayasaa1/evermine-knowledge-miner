@@ -115,6 +115,15 @@ async function loadMinedPersona(projectId: string) {
         if (title || detail) merged.facts.push(detail ? `${title}: ${detail.slice(0, 280)}` : title);
       }
       merged.facts.push(...strings(result["knowledge"], 200));
+      // Timed journal moments — what actually happened, citable by time.
+      const journal = Array.isArray(result["journal"]) ? (result["journal"] as Record<string, unknown>[]) : [];
+      for (const j of journal.slice(0, 300)) {
+        const text = String(j?.["text"] ?? "").trim();
+        if (!text) continue;
+        const who = String(j?.["who"] ?? "").trim();
+        if (/^video:/i.test(who)) continue; // played media is never the persona's own words
+        merged.facts.push(`[${String(j?.["timestamp"] ?? "").trim()}] ${who ? `${who}: ` : ""}${text.slice(0, 240)}`);
+      }
     }
     return {
       beliefs: strings(merged.beliefs, 45),
