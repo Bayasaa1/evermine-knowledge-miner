@@ -46,7 +46,7 @@ function wholeVideoStamp(raw: string, chunkIndex: number, win?: Window): string 
  * against the whole video.
  */
 function fillMissingTranscriptStamps(result: ChunkResult, chunkIndex: number): ChunkResult {
-  const lines = result.transcript;
+  const lines = Array.isArray(result.transcript) ? result.transcript : [];
   if (!lines.length || lines.every((l) => String(l.timestamp ?? "").trim())) return result;
   const win = windowOf(result, chunkIndex);
   const chunkStart = win.start;
@@ -81,6 +81,7 @@ function fillMissingTranscriptStamps(result: ChunkResult, chunkIndex: number): C
 }
 
 function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkResult {
+  if (!Array.isArray(result.transcript)) result = { ...result, transcript: [] };
   // Legacy payloads may predate the gaming layer — give them an empty one.
   const EMPTY: ChunkResult["gaming"] = {
     skills: [], tactics: [], decisions: [], tutorials: [],

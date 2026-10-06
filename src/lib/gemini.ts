@@ -1405,6 +1405,9 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     entities,
     screenText,
     journal,
+    ...(v['window'] && typeof v['window'] === 'object' && Number.isFinite((v['window'] as { start?: number }).start) && Number.isFinite((v['window'] as { end?: number }).end)
+      ? { window: { start: Number((v['window'] as { start: number }).start), end: Number((v['window'] as { end: number }).end) } }
+      : {}),
   };
 }
 
