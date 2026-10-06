@@ -256,3 +256,40 @@ export const fixMinedVideo = createServerFn({ method: "POST" })
       remaining: Math.max(0, parts.length - todo.length),
     };
   });
+
+/**
+ * One press: mine the whole video again from the very first part with the
+ * current miner (15-minute parts, journal). Old part results are cleared on the
+ * mining record only; the saved subtitles and brain are replaced part by part as
+ * the background worker finishes each new part, on the creator's own Gemini key.
+ */
+export const remineFromScratch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ contentId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }): Promise<{ jobId: string; parts: number }> => {
+    const ctx = context as unknown as Ctx;
+    const row = await loadContent(ctx, data.contentId);
+    const lite = (await jobsByVideo(ctx)).get(row.youtube_id ?? "");
+    if (!lite) throw new Error("This video has no mining record — mine it from the + button first.");
+    const { fetchVideoMeta } = await import("@/lib/youtube-meta.server");
+    const { splitIntoChunks } = await import("@/lib/chunking");
+    const meta = await fetchVideoMeta(row.youtube_id ?? "");
+    const chunks = splitIntoChunks(meta.durationSec);
+    if (!chunks.length) throw new Error("Could not read this video's length from YouTube.");
+    const { error } = await context.supabase
+      .from("mining_jobs")
+      .update({
+        chunks: chunks as never,
+        total_chunks: chunks.length,
+        results: [] as never,
+        next_index: 0,
+        status: "queued",
+        attempts: 0,
+        last_error: null,
+        retry_after: null,
+      })
+      .eq("id", lite.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { jobId: lite.id, parts: chunks.length };
+  });
