@@ -133,7 +133,7 @@ async function loadMinedPersona(projectId: string) {
       aestheticProfile: strings(merged.aestheticProfile, 10),
       phrases: merged.phrases.slice(0, 30),
       selfIntro: strings(merged.selfIntro, 4),
-      facts: strings(merged.facts, 400),
+      facts: strings(merged.facts, 800),
     };
   } catch {
     return empty;
@@ -199,7 +199,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     name: data.creator_name,
     title: data.title,
     description: data.description,
-    knowledge: [...facts, ...content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean)].slice(0, 500),
+    knowledge: [...facts, ...content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean)].slice(0, 900),
     transcript: transcript.slice(0, 200),
     sampleLines,
     ...persona,
