@@ -222,6 +222,14 @@ async function wholeCaptions(videoId: string): Promise<{ json: Json3 | null; tra
   return { json: null, track: null };
 }
 
+/** End time (seconds) of the last caption line — a real length when YouTube hides it. */
+export async function captionsLengthSec(videoId: string): Promise<number> {
+  const { json } = await wholeCaptions(videoId).catch(() => ({ json: null }));
+  let last = 0;
+  for (const e of json?.events ?? []) last = Math.max(last, ((e.tStartMs ?? 0) + (e.dDurationMs ?? 0)) / 1000);
+  return Math.ceil(last);
+}
+
 /**
  * The timed spoken lines of a video for one time range, straight from YouTube.
  * Returns an empty list when the video has no captions at all.
