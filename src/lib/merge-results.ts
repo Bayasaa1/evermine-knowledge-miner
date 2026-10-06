@@ -118,6 +118,7 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     qaPairs: (result.qaPairs ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     entities: (result.entities ?? []).map((item) => ({ ...item, timestamps: item.timestamps.map(stamp) })),
     screenText: (result.screenText ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+    journal: (result.journal ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
   };
   // Fill after shifting so generated windows land in whole-video time.
   return confineTranscript(fillMissingTranscriptStamps(shifted, chunkIndex), win);
@@ -251,6 +252,7 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
     qaPairs: normalized.flatMap((r) => r.qaPairs ?? []),
     entities: mergeEntities(normalized.flatMap((r) => r.entities ?? [])),
     screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${t.text.trim()}`),
+    journal: normalized.flatMap((r) => r.journal ?? []),
     emotionTimeline: normalized.flatMap((r) => r.emotionTimeline),
     copyright: {
       flagged,
