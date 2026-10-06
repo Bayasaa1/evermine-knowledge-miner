@@ -6,8 +6,6 @@
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-/** Fallback plan length when YouTube does not expose a duration. */
-export const FALLBACK_DURATION_SEC = 20 * 60;
 
 export type VideoMeta = { videoId: string; url: string; title: string; durationSec: number };
 
@@ -130,7 +128,12 @@ export async function fetchVideoMeta(videoId: string): Promise<VideoMeta> {
   } catch {
     // Metadata is best effort — the chunk plan falls back to a safe default.
   }
-  if (durationSec <= 0) durationSec = FALLBACK_DURATION_SEC;
+  // Never guess a length: a guess is what cut long videos off at 20 minutes.
+  if (durationSec <= 0) {
+    const { captionsLengthSec } = await import("@/lib/youtube-captions.server");
+    durationSec = await captionsLengthSec(videoId).catch(() => 0);
+  }
+  if (durationSec <= 0) throw new Error("Could not read this video's length from YouTube. Try again in a minute.");
   return { videoId, url, title, durationSec };
 }
 

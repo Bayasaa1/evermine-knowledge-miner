@@ -124,7 +124,8 @@ export async function relistenTranscript(
 ): Promise<TranscriptLine[]> {
   const id = extractYoutubeId(url);
   const meta = id ? await fetchVideoMeta(id).catch(() => null) : null;
-  const duration = meta?.durationSec && meta.durationSec > 30 ? meta.durationSec : 20 * 60;
+  if (!meta?.durationSec) throw new Error("Could not read this video's length from YouTube.");
+  const duration = meta.durationSec;
   const cues = await buildTimeline(url, 0, duration, credential);
   if (!cues.length) return previous;
   const roleOf = new Map(
