@@ -298,6 +298,11 @@ export const runNextChunk = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
 
     const chunk = job.chunks[job.nextIndex]!;
+    if (job.personaId && !job.assessment.speakerIdentity?.trim()) {
+      const { data: persona } = await context.supabase.from("creator_personas").select("name").eq("id", job.personaId).maybeSingle();
+      const { withOwnerIdentity } = await import("@/lib/mining-jobs");
+      job = { ...job, assessment: withOwnerIdentity(job.assessment, persona?.name) };
+    }
     const { analyzeYoutubeVideo, tryTranscriptMine } = await import("@/lib/youtube-mine.server");
     const usage = {
       userId: context.userId,

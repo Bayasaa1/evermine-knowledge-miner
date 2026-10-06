@@ -311,3 +311,13 @@ export function jobParts(job: MiningJob): { index: number; start: number; end: n
           : "waiting",
   }));
 }
+
+/**
+ * The persona a video is mined into is its owner. When the creator gave no
+ * speaker hint, the persona name becomes one so the miner never has to guess.
+ */
+export function withOwnerIdentity<T extends { speakerIdentity?: string }>(a: T, personaName: string | null | undefined): T {
+  const name = (personaName ?? "").trim();
+  if (!name || (a.speakerIdentity ?? "").trim()) return a;
+  return { ...a, speakerIdentity: `Mind Owner: ${name} (the person at the webcam/microphone). Everyone else is a guest or played media.` };
+}
