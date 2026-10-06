@@ -11,7 +11,7 @@ export type Chunk = {
 };
 
 /**
- * Split a video duration (seconds) into fixed 5-minute chunks.
+ * Split a video duration (seconds) into fixed 15-minute (CHUNK_SECONDS) chunks.
  * - 660s  -> 3 pieces (300, 300, 60)
  * - 9180s -> 31 pieces (30x300, 180)
  * - 600s  -> 2 pieces (exact boundary, epsilon guarded)
