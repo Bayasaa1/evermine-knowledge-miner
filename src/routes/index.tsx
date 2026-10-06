@@ -218,28 +218,17 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   const list = parsed.map((p) => p.cue);
   if (!list.length) return [];
 
-  // Legacy five-minute checkpoints restarted at 00:00. Only a stamp that truly
-  // restarts near zero is shifted; any other backwards stamp is one mis-read
-  // clock and becomes untimed, so it can never push later captions away.
-  let timelineOffset = 0;
+  // Saved stamps are already whole-video times confined to their 15-minute
+  // part. A stamp that runs backwards is one mis-read line: it alone becomes
+  // untimed and nothing is ever shifted.
   let previousStart = -1;
   for (const entry of parsed) {
     if (!entry.time) continue;
-    let start = entry.time.start + timelineOffset;
-    if (previousStart >= 0 && start < previousStart - 20) {
-      if (entry.time.start < 30) {
-        timelineOffset = Math.ceil(previousStart / 300) * 300;
-        start = entry.time.start + timelineOffset;
-      } else {
-        entry.time = null;
-        continue;
-      }
+    if (previousStart >= 0 && entry.time.start < previousStart - 20) {
+      entry.time = null;
+      continue;
     }
-    entry.time = {
-      start,
-      end: entry.time.end == null ? null : entry.time.end + timelineOffset,
-    };
-    previousStart = start;
+    previousStart = entry.time.start;
   }
   const span = duration > 0 ? duration : Math.max(...parsed.map((p) => p.time?.end ?? p.time?.start ?? 0), list.length * 5);
 
