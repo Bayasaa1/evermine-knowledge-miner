@@ -247,6 +247,16 @@ export async function analyzeTranscript(input: {
     role: roleOf.get(cue.speaker.toLowerCase().trim()) ?? "unknown",
     source: "caption" as const,
   }));
+  // Caption mining still yields the timed journal: every speaker-labelled line
+  // becomes a "said" moment, so search/chat work the same as video mining.
+  if (!result.journal?.length) {
+    result.journal = labelled.map((cue) => ({
+      timestamp: secondsToStamp(cue.start),
+      who: cue.speaker,
+      kind: "said",
+      text: cue.text,
+    }));
+  }
   // No participant leaves the video nameless.
   let secondary = 0;
   let other = 0;

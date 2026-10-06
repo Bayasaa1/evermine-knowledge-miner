@@ -115,6 +115,15 @@ async function loadMinedPersona(projectId: string) {
         if (title || detail) merged.facts.push(detail ? `${title}: ${detail.slice(0, 280)}` : title);
       }
       merged.facts.push(...strings(result["knowledge"], 200));
+      // Timed journal moments — what actually happened, citable by time.
+      const journal = Array.isArray(result["journal"]) ? (result["journal"] as Record<string, unknown>[]) : [];
+      for (const j of journal.slice(0, 300)) {
+        const text = String(j?.["text"] ?? "").trim();
+        if (!text) continue;
+        const who = String(j?.["who"] ?? "").trim();
+        if (/^video:/i.test(who)) continue; // played media is never the persona's own words
+        merged.facts.push(`[${String(j?.["timestamp"] ?? "").trim()}] ${who ? `${who}: ` : ""}${text.slice(0, 240)}`);
+      }
     }
     return {
       beliefs: strings(merged.beliefs, 45),
@@ -124,7 +133,7 @@ async function loadMinedPersona(projectId: string) {
       aestheticProfile: strings(merged.aestheticProfile, 10),
       phrases: merged.phrases.slice(0, 30),
       selfIntro: strings(merged.selfIntro, 4),
-      facts: strings(merged.facts, 400),
+      facts: strings(merged.facts, 800),
     };
   } catch {
     return empty;
@@ -190,7 +199,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     name: data.creator_name,
     title: data.title,
     description: data.description,
-    knowledge: [...facts, ...content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean)].slice(0, 500),
+    knowledge: [...facts, ...content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean)].slice(0, 900),
     transcript: transcript.slice(0, 200),
     sampleLines,
     ...persona,
