@@ -457,8 +457,18 @@ export type ChunkResult = {
   entities?: MinedEntity[];
   /** On-screen text: slides, code, charts, captions burned into the frame. */
   screenText?: ScreenText[];
+  /** Timed log of everything that happened: who said/did what, on-screen text, chat, donations. */
+  journal?: JournalEntry[];
   /** Whole-video seconds this checkpoint covered; every time in it must fall inside. */
   window?: { start: number; end: number };
+};
+
+/** One moment in the video journal. kind: speech | action | screen | chat | donation | text | event. */
+export type JournalEntry = {
+  timestamp: string;
+  who: string;
+  kind: string;
+  text: string;
 };
 
 export type QAPair = {
@@ -895,6 +905,19 @@ const responseSchema = {
           description: { type: "string" },
         },
         required: ["timestamp", "kind", "text", "language", "description"],
+      },
+    },
+    journal: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp: { type: "string" },
+          who: { type: "string" },
+          kind: { type: "string" },
+          text: { type: "string" },
+        },
+        required: ["timestamp", "who", "kind", "text"],
       },
     },
     // Only filled for the Gaming Mind category; omitted otherwise so other
