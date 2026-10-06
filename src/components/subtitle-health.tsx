@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { fixMinedVideo, listSubtitleHealth, repairTimings, retimeContent, type SubtitleHealthRow } from "@/lib/retime.functions";
+import { fixMinedVideo, listSubtitleHealth, remineFromScratch, repairTimings, retimeContent, type SubtitleHealthRow } from "@/lib/retime.functions";
 import { pickCopy, useLang } from "@/lib/i18n";
 import type { MineProblem } from "@/lib/subtitle-health";
 import { OwnerSpeakerPicker } from "@/components/owner-speaker-picker";
@@ -21,6 +21,9 @@ const FIX_COPY = {
     fixed: (n: number) => n ? `Re-mined ${n} part(s) and rebuilt the subtitles.` : "Subtitles rebuilt with the new rules.",
     more: (n: number) => ` ${n} more part(s) left — press again.`,
     noRecord: "No mining record — mine this video again.",
+    remine: "Mine again from start",
+    remineConfirm: "Mine this whole video again from the first part with your Gemini key? It runs in the background, part by part.",
+    remineStarted: (n: number) => `Started: ${n} parts will be mined in the background. Watch progress under "Mining now".`,
   },
   mn: {
     problems: "Илэрсэн асуудал",
@@ -34,6 +37,9 @@ const FIX_COPY = {
     fixed: (n: number) => n ? `${n} хэсгийг дахин mine хийж, хадмалыг шинэчиллээ.` : "Шинэ дүрмээр хадмалыг шинэчиллээ.",
     more: (n: number) => ` Дахиад ${n} хэсэг үлдсэн — дахин дарна уу.`,
     noRecord: "Mine хийсэн бүртгэл алга — бичлэгийг дахин mine хийнэ үү.",
+    remine: "Эхнээс нь дахин mine хийх",
+    remineConfirm: "Энэ бичлэгийг бүхэлд нь эхний хэсгээс эхлэн таны Gemini түлхүүрээр дахин mine хийх үү? Ар талд хэсэг хэсгээр явна.",
+    remineStarted: (n: number) => `Эхэллээ: ${n} хэсгийг ар талд mine хийнэ. Явцыг "Одоо олборлож байна" хэсгээс харна уу.`,
   },
   ko: {
     problems: "발견된 문제",
@@ -47,6 +53,9 @@ const FIX_COPY = {
     fixed: (n: number) => n ? `${n}개 구간을 다시 분석하고 자막을 다시 만들었습니다.` : "새 규칙으로 자막을 다시 만들었습니다.",
     more: (n: number) => ` ${n}개 구간이 남았습니다 — 다시 누르세요.`,
     noRecord: "분석 기록이 없습니다 — 영상을 다시 분석하세요.",
+    remine: "처음부터 다시 분석",
+    remineConfirm: "이 영상 전체를 첫 구간부터 내 Gemini 키로 다시 분석할까요? 백그라운드에서 구간별로 진행됩니다.",
+    remineStarted: (n: number) => `시작됨: ${n}개 구간을 백그라운드에서 분석합니다. "지금 마이닝 중"에서 진행 상황을 확인하세요.`,
   },
 };
 
@@ -127,6 +136,17 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const remineFn = useServerFn(remineFromScratch);
+  const remine = useMutation({
+    mutationFn: (contentId: string) => remineFn({ data: { contentId } }),
+    onSuccess: (r) => {
+      toast.success(t.remineStarted(r.parts));
+      void client.invalidateQueries({ queryKey: ["mining-jobs"] });
+      void client.invalidateQueries({ queryKey: ["subtitle-health"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Only this persona's videos. Videos never filed under a persona show up in
   // the "All personas" view, so nothing is ever silently hidden.
   const rows = useMemo(() => {
@@ -198,6 +218,22 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
                   </span>
 
                   <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <button
+                      type="button"
+                      disabled={remine.isPending || !row.canRemine}
+                      title={row.canRemine ? t.remine : t.noRecord}
+                      onClick={() => {
+                        if (window.confirm(t.remineConfirm)) remine.mutate(row.contentId);
+                      }}
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 sm:flex-none"
+                    >
+                      {remine.isPending && remine.variables === row.contentId ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      {t.remine}
+                    </button>
                     {row.problems.some((p) => p.kind !== "unfinished") && (
                       <button
                         type="button"
