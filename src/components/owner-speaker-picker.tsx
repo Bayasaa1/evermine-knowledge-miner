@@ -37,7 +37,7 @@ const COPY = {
 };
 
 export function OwnerSpeakerPicker({ contentId }: { contentId: string }) {
-  const t = pickCopy(COPY, useLang());
+  const t = pickCopy(COPY, useLang().lang as "en");
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const client = useQueryClient();
