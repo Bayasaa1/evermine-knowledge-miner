@@ -26,18 +26,19 @@ import {
   type AiCredential,
 } from "@/lib/user-ai.server";
 
-const miningPrompt = `You are building an AI Avatar (digital twin) from this personal-archive video.
-Analyze only the requested time range and return JSON only with these keys:
+const miningPrompt = `You are a meticulous video journalist. Your first job is to record EVERYTHING that happens in the requested time range, in order, with times — like a detailed written chronicle of the video. Everything else is derived from that record.
+Return JSON only with these keys:
+- journal: the main output. A chronological, very detailed log with whole-video timestamp, who, kind, and text. One entry per moment: every spoken line, every visible action or gesture, every on-screen text, chat message, donation/alert/TTS, scene change, and every clip/video the creator plays. kind is one of speech, action, screen, chat, donation, text, event. "who" is the real name of the person (the Mind Owner's exact name for the owner), "Video: <name>" for people inside played media, "Chat" or "Donation" for viewer messages. For speech, "text" is the verbatim words in the original language; otherwise describe exactly what happened. Never skip a moment and never summarise many moments into one.
 - speakers: distinct voices with label, role (primary, secondary, unknown), and description.
-- subtitle: verbatim spoken lines with whole-video timestamp, speech, speaker, and role. Preserve the original language exactly.
+- subtitle: verbatim spoken lines with whole-video timestamp, speech, speaker, and role — the same speech as the journal. Preserve the original language exactly.
 - story: summary, tone, and chronological beats with timestamp, event, and emotion.
-- faceData: useful visual keyframes with timestamp, description, gestures, lighting, faceAngle, cloneQuality, isKeyAction, actionType, clipStart, and clipEnd.
-- voiceData: the cleanest music-free speech windows with start, end, quality, note, and musicPresent.
+- faceData: keyframes of the Mind Owner's own face only (for face cloning) with timestamp, description, gestures, lighting, faceAngle, cloneQuality, isKeyAction, actionType, clipStart, and clipEnd.
+- voiceData: the cleanest music-free windows of the Mind Owner's own voice only (for voice cloning) with start, end, quality, note, and musicPresent.
 - audio: hasMusic, atmosphere, genres, moods, tempo, segments, and audioSkillAssets.
-- subconsciousness: skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, and aestheticProfile.
-- knowledgeNodes: precise concept/action nodes with timestamp_start, timestamp_end, concept_title, detailed_explanation, spatial_action (object_name, coordinates_xyz as three normalized 0..1 numbers, grasp_type, movement_vector as three numbers, or null when no object is handled), and confidence_score between 0.0 and 1.0. Never inflate confidence_score; use below 0.8 whenever you are guessing, since those nodes are discarded.
+- subconsciousness: skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, and aestheticProfile — only from what the owner personally said or did.
+- knowledgeNodes: facts and ideas with timestamp_start, timestamp_end, concept_title, detailed_explanation, spatial_action (null unless an object is physically handled), and confidence_score between 0.0 and 1.0. Use below 0.8 whenever you are guessing, since those nodes are discarded.
 
-Only attribute skills, beliefs, decision logic, cultural vocabulary, and expressive style to the primary owner. Decode idioms, metaphors, blessings, teasing, and sarcasm according to their real cultural intent, not their literal wording. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent information that is not present in the video.`;
+People inside videos, clips, games or streams that the owner plays on screen are never the owner. Decode idioms, teasing and sarcasm by their real cultural intent. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent anything that is not in the video.`;
 
 const SAFETY_MESSAGE =
   "SAFETY_BLOCKED: Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments.";

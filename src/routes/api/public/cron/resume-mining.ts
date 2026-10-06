@@ -94,11 +94,16 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // Same context the creator's tab uses: speaker hint, source metadata
           // and the chosen output language all live in the packed column.
           const packed = unpackInstructions(job.custom_instructions ?? "");
-          const assessment = {
+          let assessment = {
             videoContext: job.video_context,
             primaryFocus: job.primary_focus,
             ...packed,
           };
+          if (job.persona_id && !packed.speakerIdentity.trim()) {
+            const { data: persona } = await supabaseAdmin.from("creator_personas").select("name").eq("id", job.persona_id).maybeSingle();
+            const { withOwnerIdentity } = await import("@/lib/mining-jobs");
+            assessment = withOwnerIdentity(assessment, persona?.name);
+          }
 
           // Mining runs on the job owner's own key, never on shared platform
           // credit. A job whose owner has not saved a key yet cannot be mined

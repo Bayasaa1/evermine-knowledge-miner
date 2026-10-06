@@ -127,3 +127,8 @@
 - [x] Chat uses mined knowledge nodes; 3-letter creator names (CTS) recognised
 - [x] Vault "Subtitle timing" shows problems per part + one-press "Fix with Gemini"
 - [ ] Mine 2 parts at once (deferred: needs a safe claim per part so two runners never save over each other)
+
+## Miner journal and persona identity
+- [x] Miner writes a detailed timed journal (speech, actions, screen text, chat, donations)
+- [x] Persona name auto-passed as Mind Owner; reaction-video voices kept out of Mind, face and voice clone data
+- [x] "Who is the persona?" picker per video to assign heard voices to the persona

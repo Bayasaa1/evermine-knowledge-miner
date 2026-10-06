@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { fixMinedVideo, listSubtitleHealth, repairTimings, retimeContent, type SubtitleHealthRow } from "@/lib/retime.functions";
 import { pickCopy, useLang } from "@/lib/i18n";
 import type { MineProblem } from "@/lib/subtitle-health";
+import { OwnerSpeakerPicker } from "@/components/owner-speaker-picker";
 
 const FIX_COPY = {
   en: {
@@ -185,6 +186,7 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
                       {row.total} lines · {row.untimed} without a time · {row.outOfOrder} out of order
                     </p>
                     <ProblemList problems={row.problems} t={t} />
+                    <OwnerSpeakerPicker contentId={row.contentId} />
                   </div>
                   <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.tone}`}>
                     {row.status === "synced" ? (

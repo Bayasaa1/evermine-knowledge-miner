@@ -457,8 +457,18 @@ export type ChunkResult = {
   entities?: MinedEntity[];
   /** On-screen text: slides, code, charts, captions burned into the frame. */
   screenText?: ScreenText[];
+  /** Timed log of everything that happened: who said/did what, on-screen text, chat, donations. */
+  journal?: JournalEntry[];
   /** Whole-video seconds this checkpoint covered; every time in it must fall inside. */
   window?: { start: number; end: number };
+};
+
+/** One moment in the video journal. kind: speech | action | screen | chat | donation | text | event. */
+export type JournalEntry = {
+  timestamp: string;
+  who: string;
+  kind: string;
+  text: string;
 };
 
 export type QAPair = {
@@ -897,6 +907,19 @@ const responseSchema = {
         required: ["timestamp", "kind", "text", "language", "description"],
       },
     },
+    journal: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          timestamp: { type: "string" },
+          who: { type: "string" },
+          kind: { type: "string" },
+          text: { type: "string" },
+        },
+        required: ["timestamp", "who", "kind", "text"],
+      },
+    },
     // Only filled for the Gaming Mind category; omitted otherwise so other
     // categories don't pay tokens for gameplay fields.
     gaming: {
@@ -1084,6 +1107,9 @@ export function speakerIdentityDirective(identity: string | undefined): string {
   return `\n\nSPEAKER IDENTITY & DIARIZATION (STRICT)
 Known participants: ${who}.
 Map every diarized voice onto these names in "speakers". The Mind Owner / Host is the ONLY "primary" role; every guest, interviewer or caller is "secondary".
+- Use the Mind Owner's exact name (not "Host", "Speaker" or "Streamer") as "speaker" on every line they say and as "who" in "journal".
+- REACTION / STREAM VIDEOS: when the owner watches other videos, clips, games or streams, the people inside that played media are NOT guests and NEVER the owner. Label their lines "Video: <name or description>" with role "secondary". Only the person at the owner's own webcam/microphone is the owner.
+- "faceData" and "voiceData" must contain ONLY the Mind Owner's own face and own voice — never frames or audio from played media, guests or music.
 - "subconsciousness" (skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, aestheticProfile) must contain ONLY what the Mind Owner personally says. Never absorb a guest's opinions, expertise or phrasing into the owner's identity.
 - QUESTION → ANSWER PAIRING (keeps meaning intact): never cut the owner's words away from what prompted them. Whenever the owner answers or reacts to a guest's question, statement or challenge, the owner's "knowledgeNodes" entry must be self-contained: begin "detailed_explanation" with "Asked by <guest>: <the question or prompt, briefly paraphrased>" and then give the owner's full answer in the owner's own reasoning, so the answer reads as a complete, meaningful thought on its own. Resolve pronouns and fragments ("yes", "that one", "because it's cheaper") into the concrete subject from the question.
 - Guest questions and statements stay as context only: record them as "knowledgeNodes" whose "concept_title" is prefixed with "Guest context: " and whose explanation names the guest. They never shape the owner's identity, tone or beliefs.
@@ -1335,6 +1361,14 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
       description: String(t?.['description'] ?? ""),
     }))
     .filter((t) => t.text.trim() || t.description.trim());
+  const journal: JournalEntry[] = arr<Record<string, unknown>>(v['journal'])
+    .map((j) => ({
+      timestamp: String(j?.['timestamp'] ?? ""),
+      who: String(j?.['who'] ?? "").trim(),
+      kind: String(j?.['kind'] ?? "event").toLowerCase(),
+      text: String(j?.['text'] ?? "").trim(),
+    }))
+    .filter((j) => j.text);
   return {
 
     speakers,
@@ -1370,6 +1404,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     qaPairs,
     entities,
     screenText,
+    journal,
   };
 }
 
