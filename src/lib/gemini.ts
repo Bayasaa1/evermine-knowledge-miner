@@ -1107,6 +1107,9 @@ export function speakerIdentityDirective(identity: string | undefined): string {
   return `\n\nSPEAKER IDENTITY & DIARIZATION (STRICT)
 Known participants: ${who}.
 Map every diarized voice onto these names in "speakers". The Mind Owner / Host is the ONLY "primary" role; every guest, interviewer or caller is "secondary".
+- Use the Mind Owner's exact name (not "Host", "Speaker" or "Streamer") as "speaker" on every line they say and as "who" in "journal".
+- REACTION / STREAM VIDEOS: when the owner watches other videos, clips, games or streams, the people inside that played media are NOT guests and NEVER the owner. Label their lines "Video: <name or description>" with role "secondary". Only the person at the owner's own webcam/microphone is the owner.
+- "faceData" and "voiceData" must contain ONLY the Mind Owner's own face and own voice — never frames or audio from played media, guests or music.
 - "subconsciousness" (skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, aestheticProfile) must contain ONLY what the Mind Owner personally says. Never absorb a guest's opinions, expertise or phrasing into the owner's identity.
 - QUESTION → ANSWER PAIRING (keeps meaning intact): never cut the owner's words away from what prompted them. Whenever the owner answers or reacts to a guest's question, statement or challenge, the owner's "knowledgeNodes" entry must be self-contained: begin "detailed_explanation" with "Asked by <guest>: <the question or prompt, briefly paraphrased>" and then give the owner's full answer in the owner's own reasoning, so the answer reads as a complete, meaningful thought on its own. Resolve pronouns and fragments ("yes", "that one", "because it's cheaper") into the concrete subject from the question.
 - Guest questions and statements stay as context only: record them as "knowledgeNodes" whose "concept_title" is prefixed with "Guest context: " and whose explanation names the guest. They never shape the owner's identity, tone or beliefs.
@@ -1358,6 +1361,14 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
       description: String(t?.['description'] ?? ""),
     }))
     .filter((t) => t.text.trim() || t.description.trim());
+  const journal: JournalEntry[] = arr<Record<string, unknown>>(v['journal'])
+    .map((j) => ({
+      timestamp: String(j?.['timestamp'] ?? ""),
+      who: String(j?.['who'] ?? "").trim(),
+      kind: String(j?.['kind'] ?? "event").toLowerCase(),
+      text: String(j?.['text'] ?? "").trim(),
+    }))
+    .filter((j) => j.text);
   return {
 
     speakers,
@@ -1393,6 +1404,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     qaPairs,
     entities,
     screenText,
+    journal,
   };
 }
 
