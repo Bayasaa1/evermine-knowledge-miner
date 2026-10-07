@@ -37,3 +37,51 @@ export function journalFromTranscript(result: ChunkResult): JournalEntry[] {
   });
   return buildJournal(lines, result.journal);
 }
+
+/**
+ * Step 1 after mining: subtitles are read straight out of the journal's speech
+ * lines — no AI, so they always match the journal second for second.
+ */
+export function subtitlesFromJournal(
+  journal: JournalEntry[] | undefined,
+  previous: ChunkResult["transcript"] | undefined,
+  ownerName: string,
+): ChunkResult["transcript"] {
+  const speech = (journal ?? []).filter((e) => SPEECH.has(String(e.kind).toLowerCase()) && e.text?.trim());
+  if (!speech.length) return previous ?? [];
+  const roleOf = new Map((previous ?? []).map((t) => [t.speaker, t.role]));
+  return speech.map((e) => ({
+    timestamp: e.timestamp,
+    speech: e.text.trim(),
+    speaker: e.who,
+    role: isOwner(e.who, ownerName) ? "primary" : roleOf.get(e.who) ?? "secondary",
+  }));
+}
+
+function isOwner(who: string, ownerName: string): boolean {
+  const w = who.trim().toLowerCase();
+  const o = ownerName.trim().toLowerCase();
+  if (!w || /^(video|guest|chat|donation)\b|^зочин/i.test(w)) return false;
+  return !!o && (w === o || w.includes(o) || o.includes(w));
+}
+
+export type OwnerBrain = {
+  owner: string;
+  said: { timestamp: string; text: string }[];
+  did: { timestamp: string; kind: string; text: string }[];
+};
+
+/**
+ * Step 2 after mining: the Core Brain only ever receives the creator's own
+ * words and actions, in order. Played media, guests and chat stay out.
+ */
+export function ownerBrainFromJournal(journal: JournalEntry[] | undefined, ownerName: string): OwnerBrain {
+  const said: OwnerBrain["said"] = [];
+  const did: OwnerBrain["did"] = [];
+  for (const e of journal ?? []) {
+    if (!e.text?.trim() || !isOwner(e.who, ownerName)) continue;
+    if (SPEECH.has(String(e.kind).toLowerCase())) said.push({ timestamp: e.timestamp, text: e.text.trim() });
+    else did.push({ timestamp: e.timestamp, kind: e.kind, text: e.text.trim() });
+  }
+  return { owner: ownerName, said, did };
+}
