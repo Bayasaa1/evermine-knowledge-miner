@@ -74,23 +74,12 @@ export type Assessment = {
   miningMode?: "auto" | "fast" | "watch";
 };
 
-/** Video types whose value is entirely in the words. */
-const TALKING_CONTEXTS = [
-  "Podcast",
-  "Interview",
-  "Conversation",
-  "Phone call",
-  "Talk / lecture",
-  "Lecture / Tutorial",
-  "Speech",
-  "Sales call",
-];
-
+/**
+ * Captions are always read first when they exist, whatever the video type —
+ * only an explicit "watch" mode sends the part to the video model.
+ */
 function readsFromSubtitles(a: Assessment | undefined): boolean {
-  const mode = a?.miningMode ?? "auto";
-  if (mode === "watch") return false;
-  if (mode === "fast") return true;
-  return TALKING_CONTEXTS.includes((a?.videoContext ?? "").trim());
+  return (a?.miningMode ?? "auto") !== "watch";
 }
 
 async function hasUploadedCaptions(videoId: string, userId: string): Promise<boolean> {
@@ -113,16 +102,13 @@ const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
 );
 
 /**
- * The Core Brain is stored in English for AI stability and graph-schema
- * integrity; the UI translates it into the viewer's language at render time.
- * `code` is kept only so the model knows the creator's audience.
+ * The Core Brain is stored in the language the creator actually speaks, so
+ * viewers asking in that language find the knowledge.
  */
 function languageDirective(code: string | undefined): string {
   const audience = LANGUAGE_NAMES[(code ?? "en").toLowerCase()];
-  return `\n\nCORE STORAGE LANGUAGE — ENGLISH\nWrite every human-readable JSON value in clear English, even when the video is spoken in another language. This English core is the canonical brain; the app translates it for display. The exceptions are the "journal" text, the verbatim "subtitle" speech and culturalVocabulary "phrase" fields, which stay in the original spoken language word for word — NEVER translate them; meanings, intents and usage notes must still be English.${
-    audience && (code ?? "en").toLowerCase() !== "en"
-      ? ` The creator's audience speaks ${audience}; keep names and culture-specific terms accurate in transliteration, but do not translate the JSON values.`
-      : ""
+  return `\n\nSTORAGE LANGUAGE — THE SPOKEN LANGUAGE\nWrite every human-readable JSON value (titles, explanations, beliefs, journal, subtitles, Q&A) in the same language the main speaker speaks in the video. NEVER translate speech into English. Keep names and technical terms exactly as spoken.${
+    audience ? ` The creator's audience speaks ${audience}.` : ""
   }`;
 }
 

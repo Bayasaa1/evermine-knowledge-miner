@@ -182,7 +182,7 @@ Return JSON only with these keys:
 
 Rules:
 - Every timestamp must be copied from a line above.
-- Keep the original spoken language for quotes and for culturalVocabulary "phrase"; write explanations in English.
+- Write everything (titles, explanations, beliefs, answers) in the original spoken language of the lines above. NEVER translate into English.
 - This is audio only: say nothing about faces, gestures, lighting or what the screen shows.
 - Never invent anything that was not said.`;
 }
