@@ -12,6 +12,7 @@ import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
 import { unpackInstructions } from "@/lib/mining-jobs";
 import { extractConcepts } from "@/lib/concepts";
+import { ownerBrainFromJournal, subtitlesFromJournal, type OwnerBrain } from "@/lib/journal-build.server";
 
 type JobRow = {
   id: string;
@@ -22,6 +23,7 @@ type JobRow = {
   results: unknown;
   vault_id: string | null;
   persona_id: string | null;
+  persona_name?: string | null;
   project_id: string | null;
   content_kind: string | null;
   category: string | null;
@@ -106,6 +108,12 @@ export async function finalizeMiningJob(
     persona = data ?? null;
     personaId = persona?.id ?? personaId;
   }
+
+  // After the journal: (1) subtitles come straight from its speech lines,
+  // (2) the Core Brain gets only the persona's own words and actions, in order.
+  const ownerName = (job.persona_name || persona?.name || "").trim();
+  mined.transcript = subtitlesFromJournal(mined.journal, mined.transcript, ownerName);
+  (mined as typeof mined & { ownerBrain?: OwnerBrain }).ownerBrain = ownerBrainFromJournal(mined.journal, ownerName);
 
   // 2. Destination project — only the creator's saved choice is valid. Mining
   //    must never invent a project or move a video between projects/personas.
