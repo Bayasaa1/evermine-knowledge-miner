@@ -57,28 +57,36 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
       const id = vaultYoutubeId(row.payload);
       if (id) inferredIds.add(id);
     }
-    for (const row of initialContent ?? []) if (row.youtube_id) inferredIds.add(row.youtube_id);
+    for (const row of initialContent ?? []) {
+      const id = youtubeIdFrom(row.youtube_id);
+      if (id) inferredIds.add(id);
+    }
     // One delete = one video. Refuse anything that would touch several videos.
     if (inferredIds.size > 1) throw new Error("Refusing to delete: request matched more than one video");
+    const videoId = [...inferredIds][0] ?? null;
 
     const { data: allOwnedContent, error: allContentError } = await context.supabase
       .from("project_content").select("id, project_id, mind_id, youtube_id, source_url").eq("user_id", context.userId);
     if (allContentError) throw new Error(allContentError.message);
+    // Only a valid 11-character id or the exact selected row can match — never an empty value.
     const contentRows = (allOwnedContent ?? []).filter((row) =>
-      row.id === data.contentId || inferredIds.has(row.youtube_id) || inferredIds.has(youtubeIdFrom(row.source_url) ?? ""),
+      (data.contentId && row.id === data.contentId) ||
+      (videoId !== null && (youtubeIdFrom(row.youtube_id) === videoId || youtubeIdFrom(row.source_url) === videoId)),
     );
+    if (new Set(contentRows.map((r) => youtubeIdFrom(r.youtube_id) ?? r.id)).size > 1) {
+      throw new Error("Refusing to delete: request matched more than one video");
+    }
 
+    // Only this video's own Mind ids. Project-wide chats, reviews and settings
+    // are never touched by deleting a video, even its last one.
     const mindIds = new Set<string>();
     for (const row of contentRows) {
-      if (row.mind_id) mindIds.add(row.mind_id);
-      const projectRows = (allOwnedContent ?? []).filter((candidate) => candidate.project_id === row.project_id);
-      const removesWholeProject = projectRows.length > 0 && projectRows.every((candidate) => contentRows.some((match) => match.id === candidate.id));
-      if (removesWholeProject) mindIds.add(`project:${row.project_id}`);
+      if (row.mind_id && !row.mind_id.startsWith("project:")) mindIds.add(row.mind_id);
     }
     const matchingVaultIds = new Set(requestedVaultIds);
     for (const row of ownedVaults ?? []) {
       const id = vaultYoutubeId(row.payload);
-      if (id && inferredIds.has(id)) matchingVaultIds.add(row.id);
+      if (videoId !== null && id === videoId) matchingVaultIds.add(row.id);
     }
 
     // Ownership is established above. Admin access removes public interactions
@@ -105,7 +113,7 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
     const { data: jobs, error: jobsReadError } = await supabaseAdmin
       .from("mining_jobs").select("id, source_url").eq("user_id", context.userId);
     if (jobsReadError) throw new Error(jobsReadError.message);
-    const jobIds = (jobs ?? []).filter((job) => inferredIds.has(youtubeIdFrom(job.source_url) ?? "")).map((job) => job.id);
+    const jobIds = videoId === null ? [] : (jobs ?? []).filter((job) => youtubeIdFrom(job.source_url) === videoId).map((job) => job.id);
     if (jobIds.length > 0) {
       const { error } = await supabaseAdmin.from("mining_jobs").delete().in("id", jobIds);
       if (error) throw new Error(error.message);

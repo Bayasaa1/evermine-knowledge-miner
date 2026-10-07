@@ -470,10 +470,13 @@ async function projectIsEmpty(projectId: string): Promise<boolean> {
   return (c ?? 0) === 0 && (v ?? 0) === 0;
 }
 
-/** Removes a project only when nothing (no video, no saved mind) is left in it. */
+/**
+ * Kept for old callers only: projects are never removed automatically.
+ * Only the creator deletes a project, with their own confirm.
+ */
 export async function deleteProjectIfEmpty(projectId: string | null | undefined): Promise<void> {
   if (!projectId) return;
-  if (await projectIsEmpty(projectId)) await deleteProject(projectId);
+  void projectIsEmpty;
 }
 
 /**
