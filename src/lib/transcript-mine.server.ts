@@ -219,23 +219,30 @@ export async function analyzeTranscript(input: {
       : ""
   }${speakerIdentityDirective(input.assessment?.speakerIdentity).trim()}\n\n`;
 
-  const reply = await generateRoleText({
-    userId: input.usage.userId,
-    role: "mine_write",
-    system: EXTRACT_SYSTEM,
-    prompt: extractPrompt(labelled, input.assessment, speakerNote),
-    json: true,
-    maxTokens: 16384,
-    subjectKind: "video",
-    ...(input.usage.videoId ? { subjectId: input.usage.videoId } : {}),
-    subjectLabel: input.usage.videoLabel ?? "Transcript mining",
-  });
-  const parsed = parseJson<Record<string, unknown>>(reply.text);
-  if (!parsed) return null;
+  // The measured caption lines are never thrown away: if the knowledge pass
+  // fails or returns unreadable JSON, the part is still saved with its full
+  // verbatim journal and subtitles (knowledge stays empty for that part).
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    const reply = await generateRoleText({
+      userId: input.usage.userId,
+      role: "mine_write",
+      system: EXTRACT_SYSTEM,
+      prompt: extractPrompt(labelled, input.assessment, speakerNote),
+      json: true,
+      maxTokens: 16384,
+      subjectKind: "video",
+      ...(input.usage.videoId ? { subjectId: input.usage.videoId } : {}),
+      subjectLabel: input.usage.videoLabel ?? "Transcript mining",
+    });
+    parsed = parseJson<Record<string, unknown>>(reply.text);
+  } catch {
+    parsed = null;
+  }
 
   const result = normalizeChunkResult({
-    ...parsed,
-    speakers: (parsed['speakers'] as unknown[] | undefined)?.length ? parsed['speakers'] : speakers,
+    ...(parsed ?? {}),
+    speakers: (parsed?.['speakers'] as unknown[] | undefined)?.length ? parsed!['speakers'] : speakers,
   });
 
   // Caption-only mining: nobody listened to the audio here, so every line is
