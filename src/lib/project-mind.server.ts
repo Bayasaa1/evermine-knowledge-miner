@@ -115,14 +115,25 @@ async function loadMinedPersona(projectId: string) {
         if (title || detail) merged.facts.push(detail ? `${title}: ${detail.slice(0, 280)}` : title);
       }
       merged.facts.push(...strings(result["knowledge"], 200));
-      // Timed journal moments — what actually happened, citable by time.
-      const journal = Array.isArray(result["journal"]) ? (result["journal"] as Record<string, unknown>[]) : [];
-      for (const j of journal.slice(0, 300)) {
-        const text = String(j?.["text"] ?? "").trim();
-        if (!text) continue;
-        const who = String(j?.["who"] ?? "").trim();
-        if (/^video:/i.test(who)) continue; // played media is never the persona's own words
-        merged.facts.push(`[${String(j?.["timestamp"] ?? "").trim()}] ${who ? `${who}: ` : ""}${text.slice(0, 240)}`);
+      // The persona's own words and actions, in order — guests and played media never enter.
+      const brain = (result["ownerBrain"] ?? null) as
+        | { owner?: string; said?: { timestamp: string; text: string }[]; did?: { timestamp: string; text: string }[] }
+        | null;
+      const own = [...(brain?.said ?? []), ...(brain?.did ?? [])];
+      if (own.length) {
+        for (const m of own.slice(0, 400)) {
+          if (m?.text) merged.facts.push(`[${m.timestamp}] ${brain?.owner || ""}: ${String(m.text).slice(0, 240)}`);
+        }
+      } else {
+        // Older Minds without an owner brain: fall back to the journal minus played media.
+        const journal = Array.isArray(result["journal"]) ? (result["journal"] as Record<string, unknown>[]) : [];
+        for (const j of journal.slice(0, 300)) {
+          const text = String(j?.["text"] ?? "").trim();
+          if (!text) continue;
+          const who = String(j?.["who"] ?? "").trim();
+          if (/^video:/i.test(who)) continue;
+          merged.facts.push(`[${String(j?.["timestamp"] ?? "").trim()}] ${who ? `${who}: ` : ""}${text.slice(0, 240)}`);
+        }
       }
     }
     return {
