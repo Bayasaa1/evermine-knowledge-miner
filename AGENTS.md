@@ -23,3 +23,4 @@
 - Playback stamp parsing reads whole minute groups ("373:19") and treats any backwards stamp not near 0 as untimed, because one mis-read clock used to shift every later caption.
 - The miner's primary output is a timed `journal` (who/kind/text per moment) and the persona a job is filed under is passed as the Mind Owner when no speaker hint exists, because reaction streams otherwise absorb played-media voices into the owner's Mind, face and voice data.
 - Creators fix speaker attribution with the per-video "Who is the persona?" picker, which only renames speaker labels and never touches words or times.
+- Journal speech lines are built 1:1 from the measured caption/transcript lines (verbatim, original language) via journal-build.server; the AI contributes only non-speech moments and the tidy-up pass never sees journal/transcript, because AI-written journals skipped minutes and translated speech.
