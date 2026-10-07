@@ -37,12 +37,18 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
     const requestedVaultRows = (ownedVaults ?? []).filter((row) => requestedVaultIds.includes(row.id));
     if (requestedVaultRows.length !== requestedVaultIds.length) throw new Error("Saved Mind not found");
 
-    let ownedContentQuery = context.supabase
-      .from("project_content").select("id, project_id, mind_id, youtube_id, source_url").eq("user_id", context.userId);
-    if (data.contentId) ownedContentQuery = ownedContentQuery.eq("id", data.contentId);
-    const { data: initialContent, error: contentReadError } = await ownedContentQuery;
-    if (contentReadError) throw new Error(contentReadError.message);
-    if (data.contentId && !(initialContent ?? []).length) throw new Error("Video not found");
+    // Only the one requested video row may seed the match list. Without a
+    // contentId this must stay empty — reading every owned row here used to
+    // add every video's id and wipe the creator's whole library.
+    let initialContent: { id: string; project_id: string; mind_id: string; youtube_id: string; source_url: string }[] = [];
+    if (data.contentId) {
+      const { data: rows, error: contentReadError } = await context.supabase
+        .from("project_content").select("id, project_id, mind_id, youtube_id, source_url")
+        .eq("user_id", context.userId).eq("id", data.contentId);
+      if (contentReadError) throw new Error(contentReadError.message);
+      if (!(rows ?? []).length) throw new Error("Video not found");
+      initialContent = rows ?? [];
+    }
 
     const inferredIds = new Set<string>();
     const explicitId = youtubeIdFrom(data.youtubeId) ?? youtubeIdFrom(data.sourceUrl);
