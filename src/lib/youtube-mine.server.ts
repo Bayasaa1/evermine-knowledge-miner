@@ -119,7 +119,7 @@ const LANGUAGE_NAMES: Record<string, string> = Object.fromEntries(
  */
 function languageDirective(code: string | undefined): string {
   const audience = LANGUAGE_NAMES[(code ?? "en").toLowerCase()];
-  return `\n\nCORE STORAGE LANGUAGE — ENGLISH\nWrite every human-readable JSON value in clear English, even when the video is spoken in another language. This English core is the canonical brain; the app translates it for display. The only exceptions are the verbatim "subtitle" speech and culturalVocabulary "phrase" fields, which stay in the original spoken language — their meanings, intents and usage notes must still be English.${
+  return `\n\nCORE STORAGE LANGUAGE — ENGLISH\nWrite every human-readable JSON value in clear English, even when the video is spoken in another language. This English core is the canonical brain; the app translates it for display. The exceptions are the "journal" text, the verbatim "subtitle" speech and culturalVocabulary "phrase" fields, which stay in the original spoken language word for word — NEVER translate them; meanings, intents and usage notes must still be English.${
     audience && (code ?? "en").toLowerCase() !== "en"
       ? ` The creator's audience speaks ${audience}; keep names and culture-specific terms accurate in transliteration, but do not translate the JSON values.`
       : ""
@@ -285,18 +285,21 @@ export async function analyzeYoutubeVideo(input: {
   if (input.usage) {
     try {
       const { generateRoleText } = await import("@/lib/user-ai.server");
+      // The timed record (journal, transcript, subtitles) never goes through the
+      // tidy-up pass: "remove repetition" used to delete and translate lines.
+      const { journal, transcript, ...notes } = result;
       const written = await generateRoleText({
         userId: input.usage.userId,
         role: "mine_write",
-        system: "You organize video-mining JSON. Preserve every timestamp, quote, fact and JSON key. Remove repetition and improve clarity. Return only valid JSON with exactly the same structure.",
-        prompt: JSON.stringify(result),
+        system: "You organize video-mining JSON. Preserve every timestamp, quote, fact and JSON key. Never translate quotes. Return only valid JSON with exactly the same structure.",
+        prompt: JSON.stringify(notes),
         json: true,
         maxTokens: 16384,
         subjectKind: "video",
         subjectId: input.usage.videoId ?? url,
         subjectLabel: input.usage.videoLabel ?? url,
       });
-      result = normalizeChunkResult(parseLooseJson(written.text));
+      result = { ...normalizeChunkResult(parseLooseJson(written.text)), journal, transcript, window: result.window } as ChunkResult;
     } catch {
       // The watched result is complete and remains usable when the optional
       // writing engine is unavailable.
@@ -313,6 +316,9 @@ export async function analyzeYoutubeVideo(input: {
       result.speakers ?? [],
     );
   }
+  // Every spoken line enters the journal verbatim; the AI adds only actions/screen/chat.
+  const { journalFromTranscript } = await import("@/lib/journal-build.server");
+  result.journal = journalFromTranscript(result);
   result.speakers = nameEverySpeaker(result.speakers ?? []);
   return result;
 }
