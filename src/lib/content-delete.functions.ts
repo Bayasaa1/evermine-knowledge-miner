@@ -58,6 +58,8 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
       if (id) inferredIds.add(id);
     }
     for (const row of initialContent ?? []) if (row.youtube_id) inferredIds.add(row.youtube_id);
+    // One delete = one video. Refuse anything that would touch several videos.
+    if (inferredIds.size > 1) throw new Error("Refusing to delete: request matched more than one video");
 
     const { data: allOwnedContent, error: allContentError } = await context.supabase
       .from("project_content").select("id, project_id, mind_id, youtube_id, source_url").eq("user_id", context.userId);
