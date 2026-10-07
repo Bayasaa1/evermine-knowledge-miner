@@ -65,32 +65,28 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
     if (inferredIds.size > 1) throw new Error("Refusing to delete: request matched more than one video");
     const videoId = [...inferredIds][0] ?? null;
 
+    // Strict scope: never sweep the library by YouTube id. Only the exact
+    // selected row, or — for a Saved Minds card — the row of that same video
+    // inside the same project as the selected vaults.
+    const vaultProjectIds = new Set(requestedVaultRows.map((r) => r.project_id).filter(Boolean) as string[]);
     const { data: allOwnedContent, error: allContentError } = await context.supabase
       .from("project_content").select("id, project_id, mind_id, youtube_id, source_url").eq("user_id", context.userId);
     if (allContentError) throw new Error(allContentError.message);
-    // Only a valid 11-character id or the exact selected row can match — never an empty value.
-    const contentRows = (allOwnedContent ?? []).filter((row) =>
-      (data.contentId && row.id === data.contentId) ||
-      (videoId !== null && (youtubeIdFrom(row.youtube_id) === videoId || youtubeIdFrom(row.source_url) === videoId)),
-    );
-    if (new Set(contentRows.map((r) => youtubeIdFrom(r.youtube_id) ?? r.id)).size > 1) {
-      throw new Error("Refusing to delete: request matched more than one video");
-    }
+    const contentRows = data.contentId
+      ? (allOwnedContent ?? []).filter((row) => row.id === data.contentId)
+      : (allOwnedContent ?? []).filter((row) =>
+          videoId !== null && vaultProjectIds.has(row.project_id) &&
+          (youtubeIdFrom(row.youtube_id) === videoId || youtubeIdFrom(row.source_url) === videoId),
+        );
+    if (contentRows.length > 1) throw new Error("Refusing to delete: request matched more than one video");
 
-    // Only this video's own Mind ids. Project-wide chats, reviews and settings
-    // are never touched by deleting a video, even its last one.
     const mindIds = new Set<string>();
     for (const row of contentRows) {
       if (row.mind_id && !row.mind_id.startsWith("project:")) mindIds.add(row.mind_id);
     }
+    // Only the vaults the user explicitly selected.
     const matchingVaultIds = new Set(requestedVaultIds);
-    for (const row of ownedVaults ?? []) {
-      const id = vaultYoutubeId(row.payload);
-      if (videoId !== null && id === videoId) matchingVaultIds.add(row.id);
-    }
 
-    // Ownership is established above. Admin access removes public interactions
-    // and purchase links made by other users, leaving no reference behind.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const deleteIds = async (table: "chat_messages" | "mind_comments" | "mind_reviews" | "mind_purchases" | "mind_specs" | "robot_packages") => {
       if (mindIds.size === 0) return;
@@ -104,18 +100,23 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
 
     if (matchingVaultIds.size > 0) {
       const ids = [...matchingVaultIds];
-      const { error: versionsError } = await supabaseAdmin.from("mind_versions").delete().in("vault_id", ids);
+      const { error: versionsError } = await supabaseAdmin.from("mind_versions").delete().eq("user_id", context.userId).in("vault_id", ids);
       if (versionsError) throw new Error(versionsError.message);
       const { error: vaultError } = await supabaseAdmin.from("mind_vaults").delete().eq("user_id", context.userId).in("id", ids);
       if (vaultError) throw new Error(vaultError.message);
     }
 
+    // Only mining jobs tied to a deleted vault, or to this video in the same project.
+    const projectIds = new Set([...vaultProjectIds, ...contentRows.map((r) => r.project_id)]);
     const { data: jobs, error: jobsReadError } = await supabaseAdmin
-      .from("mining_jobs").select("id, source_url").eq("user_id", context.userId);
+      .from("mining_jobs").select("id, source_url, vault_id, project_id").eq("user_id", context.userId);
     if (jobsReadError) throw new Error(jobsReadError.message);
-    const jobIds = videoId === null ? [] : (jobs ?? []).filter((job) => youtubeIdFrom(job.source_url) === videoId).map((job) => job.id);
+    const jobIds = (jobs ?? []).filter((job) =>
+      (job.vault_id && matchingVaultIds.has(job.vault_id)) ||
+      (videoId !== null && job.project_id && projectIds.has(job.project_id) && youtubeIdFrom(job.source_url) === videoId),
+    ).map((job) => job.id);
     if (jobIds.length > 0) {
-      const { error } = await supabaseAdmin.from("mining_jobs").delete().in("id", jobIds);
+      const { error } = await supabaseAdmin.from("mining_jobs").delete().eq("user_id", context.userId).in("id", jobIds);
       if (error) throw new Error(error.message);
     }
 
