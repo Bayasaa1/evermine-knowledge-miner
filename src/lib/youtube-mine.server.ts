@@ -49,7 +49,7 @@ SCRIPT FIDELITY
 
 People inside videos, clips, games or streams that the owner plays on screen are never the owner. Decode idioms, teasing and sarcasm by their real cultural intent. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent anything that is not in the video.`;
 
-const FINAL_RULES = `\n\nFINAL HARD RULES (override everything above)\n1. Mongolian speech MUST be written in Mongolian Cyrillic letters (А-Я, Ө, Ү). Writing Mongolian in Latin letters (e.g. "bolovch", "yaagaad") is WRONG and will be rejected. Correct: "боловч", "яагаад".\n2. Speech entries are whole sentences, never single words.\n3. Fill screenItems and knowledgeNodes too; return [] only if truly nothing was shown or taught.`;
+const FINAL_RULES = `\n\nFINAL HARD RULES (override everything above)\n1. Mongolian speech MUST be written in Mongolian Cyrillic letters (А-Я, Ө, Ү). Writing Mongolian in Latin letters (e.g. "bolovch", "yaagaad") is WRONG and will be rejected. Correct: "боловч", "яагаад".\n2. Speech entries are whole sentences, never single words.\n3. Fill screenItems and knowledgeNodes too; return [] only if truly nothing was shown or taught. Even when speech is long, still record every link, handle, chat, overlay, warning or UI shown on screen as screenItems.\n4. Every timestamp is whole-video time written as MM:SS or HH:MM:SS (e.g. "13:25", "01:02:03"). Never write seconds like "805s".\n5. Stay inside the requested time range; never write moments after its end.`;
 
 const SAFETY_MESSAGE =
   "SAFETY_BLOCKED: Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments.";
@@ -254,7 +254,7 @@ export async function analyzeYoutubeVideo(input: {
 
   let text: string;
   try {
-    text = await geminiGenerate({
+    text = await withGeminiRetry(() => geminiGenerate({
       credential: input.credential,
       model: "gemini-3.1-flash-lite",
       json: true,
@@ -271,7 +271,7 @@ export async function analyzeYoutubeVideo(input: {
           ],
         },
       ],
-    });
+    }));
   } catch (err) {
     if (err instanceof GeminiHttpError && err.message === "SAFETY_BLOCKED") throw new Error(SAFETY_MESSAGE);
     if (err instanceof GeminiHttpError) throw new Error(gatewayMessage(err.status, err.message));
@@ -392,4 +392,17 @@ export function parseLooseJson(text: string): unknown {
     }
   }
   throw new Error("unreadable JSON");
+}
+
+/** Gemini 503/429 are usually momentary; retry a few times before failing the part. */
+async function withGeminiRetry<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (err) {
+      const transient = err instanceof GeminiHttpError && (err.status === 503 || err.status === 429 || err.status === 500);
+      if (!transient || attempt >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 3500 * attempt + Math.random() * 1000));
+    }
+  }
 }
