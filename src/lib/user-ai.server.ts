@@ -273,9 +273,8 @@ export async function runGeminiRoleWithFallback<T>(
           } catch (error) {
             if (!isLimitError(error)) throw error;
             lastError = error;
-            const minute = error instanceof UserAiError && error.code === "rate_minute";
-            const cooldown = new Date(Date.now() + (minute ? Math.max(20, error.retryAfterSec) * 1000 : 60 * 60 * 1000)).toISOString();
-            await markKeyUnavailable(key.id, minute ? "ok" : "exhausted", cooldown);
+            const rest = limitCooldown(error);
+            await markKeyUnavailable(key.id, rest.status, rest.until);
             skipped.push(key.id);
           }
         }
@@ -302,9 +301,8 @@ export async function runGeminiRoleWithFallback<T>(
     } catch (error) {
       lastError = error;
       if (!isLimitError(error)) throw error;
-      const minute = error instanceof UserAiError && error.code === "rate_minute";
-      const cooldown = new Date(Date.now() + (minute ? Math.max(20, error.retryAfterSec) * 1000 : 60 * 60 * 1000)).toISOString();
-      await markKeyUnavailable(key.id, minute ? "ok" : "exhausted", cooldown);
+      const rest = limitCooldown(error);
+      await markKeyUnavailable(key.id, rest.status, rest.until);
       skipped.push(key.id);
       if (!key.autoFallback) throw error;
     }
@@ -347,7 +345,20 @@ function isRejectedKeyError(error: unknown): boolean {
 
 function isLimitError(error: unknown): boolean {
   return error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")
-    || error instanceof GeminiHttpError && (error.status === 402 || error.status === 429);
+    || error instanceof GeminiHttpError && (error.status === 402 || error.status === 429 || isBusyError(error));
+}
+
+/** Gemini "high demand" 503 / 500: the key is fine, the model is momentarily busy. */
+function isBusyError(error: unknown): boolean {
+  return error instanceof GeminiHttpError && (error.status === 503 || error.status === 500);
+}
+
+/** Short rest for a busy key, an hour for a used-up one. */
+function limitCooldown(error: unknown): { status: "ok" | "exhausted"; until: string } {
+  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 3 * 60 * 1000).toISOString() };
+  const minute = error instanceof UserAiError && error.code === "rate_minute";
+  const ms = minute ? Math.max(20, (error as UserAiError).retryAfterSec) * 1000 : 60 * 60 * 1000;
+  return { status: minute ? "ok" : "exhausted", until: new Date(Date.now() + ms).toISOString() };
 }
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };

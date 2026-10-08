@@ -402,7 +402,7 @@ async function withGeminiRetry<T>(run: () => Promise<T>): Promise<T> {
     } catch (err) {
       const transient = err instanceof GeminiHttpError && (err.status === 503 || err.status === 429 || err.status === 500);
       if (!transient || attempt >= 3) throw err;
-      await new Promise((r) => setTimeout(r, 3500 * attempt + Math.random() * 1000));
+      await new Promise((r) => setTimeout(r, 5000 * attempt + Math.random() * 1500));
     }
   }
 }
