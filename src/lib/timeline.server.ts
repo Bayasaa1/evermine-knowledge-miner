@@ -36,7 +36,7 @@ export function secondsToStamp(seconds: number): string {
 }
 
 export function stampToSeconds(raw: unknown): number | null {
-  const first = String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/)[0]?.trim() ?? "";
+  const first = (String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/)[0]?.trim() ?? "").replace(/(\d)\s*s(?:ec)?$/i, "$1");
   if (!first) return null;
   const parts = first.split(":").map(Number);
   if (!parts.length || parts.some((p) => !Number.isFinite(p))) return null;

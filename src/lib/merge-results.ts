@@ -1,9 +1,9 @@
 import type { ChunkResult } from "@/lib/gemini";
 
-const CHUNK_SECONDS = 300;
+const CHUNK_SECONDS = 900;
 
 function stampSeconds(raw: string): number | null {
-  const first = String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/)[0]?.trim() ?? "";
+  const first = (String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/)[0]?.trim() ?? "").replace(/(\d)\s*s(?:ec)?$/i, "$1");
   const parts = first.split(":").map(Number);
   if (!parts.length || parts.some((part) => !Number.isFinite(part))) return null;
   if (parts.length === 3) return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
@@ -106,15 +106,15 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     },
     transcript: result.transcript.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     story: { ...result.story, beats: result.story.beats.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
-    faceData: result.faceData.map((item) => ({ ...item, timestamp: stamp(item.timestamp), clipStart: stamp(item.clipStart), clipEnd: stamp(item.clipEnd) })),
-    voiceData: result.voiceData.map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })),
+    faceData: (result.faceData ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp), clipStart: stamp(item.clipStart), clipEnd: stamp(item.clipEnd) })),
+    voiceData: (result.voiceData ?? []).map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })),
     audio: { ...result.audio, segments: result.audio.segments.map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })) },
     subconsciousness: {
       ...result.subconsciousness,
       culturalVocabulary: result.subconsciousness.culturalVocabulary.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     },
-    knowledgeNodes: result.knowledgeNodes.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
-    emotionTimeline: result.emotionTimeline.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+    knowledgeNodes: (result.knowledgeNodes ?? []).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+    emotionTimeline: (result.emotionTimeline ?? []).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
     copyright: { ...result.copyright, signals: result.copyright.signals.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
     qaPairs: (result.qaPairs ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     entities: (result.entities ?? []).map((item) => ({ ...item, timestamps: item.timestamps.map(stamp) })),
@@ -254,7 +254,7 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
     qaPairs: normalized.flatMap((r) => r.qaPairs ?? []),
     entities: mergeEntities(normalized.flatMap((r) => r.entities ?? [])),
     screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${t.text.trim()}`),
-    journal: normalized.flatMap((r) => r.journal ?? []),
+    journal: normalized.flatMap((r, i) => confineToWindow(r.journal ?? [], windowOf(r, i))),
     screenItems: uniqueBy(normalized.flatMap((r) => r.screenItems ?? []), (i) => `${i.kind}|${i.url}|${i.content.trim()}`),
     emotionTimeline: normalized.flatMap((r) => r.emotionTimeline),
     copyright: {
@@ -290,4 +290,12 @@ function mergeEntities(list: import("@/lib/gemini").MinedEntity[]): import("@/li
     for (const r of e.relations) if (!seen.has(`${r.target.toLowerCase()}|${r.relation.toLowerCase()}`)) prev.relations.push(r);
   }
   return [...map.values()];
+}
+
+/** Parts may run past their end (a 0–15 min part writing up to 17:06); keep each moment only in its own part. */
+function confineToWindow<T extends { timestamp: string }>(items: T[], win: Window): T[] {
+  return items.filter((item) => {
+    const sec = stampSeconds(item.timestamp);
+    return sec == null || (sec >= win.start - 2 && sec < win.end + 2);
+  });
 }
