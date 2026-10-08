@@ -37,6 +37,14 @@ Return JSON only with these keys:
 - audio: hasMusic, atmosphere, genres, moods, tempo, segments, and audioSkillAssets.
 - subconsciousness: skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, and aestheticProfile — only from what the owner personally said or did.
 - knowledgeNodes: facts and ideas with timestamp_start, timestamp_end, concept_title, detailed_explanation, spatial_action (null unless an object is physically handled), and confidence_score between 0.0 and 1.0. Use below 0.8 whenever you are guessing, since those nodes are discarded.
+- screenItems: every distinct piece of information shown on screen, typed — never blended into a sentence. Each item: timestamp, kind (link, code, formula, lesson, text, chat, image, ui), title, content (verbatim as shown: the exact URL, code, formula, handle or text), url (or null), language (for code, or null), steps (array, for lessons), interaction (what the owner did with it, e.g. "read it aloud", "clicked it", "typed it", or null).
+
+WATCH AND LISTEN TOGETHER
+- You receive the video with its audio. Transcribe speech from the audio yourself, every sentence, in order, with the exact second it starts. Do not skip quiet or music-covered speech you can still understand.
+- Link each action and screen item to the moment it happens, next to the words spoken at that time.
+
+SCRIPT FIDELITY
+- Write each spoken word in the script of the language it was spoken in. Mongolian speech is written in Mongolian Cyrillic — never in Latin transliteration. English words spoken inside Mongolian speech stay in English Latin letters (e.g. "my computer", not "май компьютер"). Same for any other language mixed in.
 
 People inside videos, clips, games or streams that the owner plays on screen are never the owner. Decode idioms, teasing and sarcasm by their real cultural intent. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent anything that is not in the video.`;
 
@@ -165,8 +173,11 @@ export async function tryTranscriptMine(input: {
   const url = normalizeYoutubeUrl(input.url);
   const videoId = url ? youtubeId(url) : "";
   if (!videoId || input.endSec <= input.startSec) return null;
-  // Subtitles the creator uploaded are always read, whatever the video type.
-  if (!readsFromSubtitles(input.assessment) && !(await hasUploadedCaptions(videoId, input.usage.userId))) return null;
+  // Only subtitles the creator uploaded are read as text. YouTube's automatic
+  // captions are skipped: Gemini watches video + audio together instead,
+  // because auto-ASR was empty or garbled in real tests.
+  void readsFromSubtitles;
+  if (!(await hasUploadedCaptions(videoId, input.usage.userId))) return null;
   try {
     const { analyzeTranscript } = await import("@/lib/transcript-mine.server");
     const fast = await analyzeTranscript({
@@ -220,24 +231,12 @@ export async function analyzeYoutubeVideo(input: {
   // Subtitle reading is done once by the caller (tryTranscriptMine) before
   // this runs, so it is never repeated per backup key.
 
-  // Step 1 — measure the clock before anything is described. Captions are the
-  // measured clock when they exist, and they cost nothing.
-  let cues: Cue[] = [];
-  if (videoId) {
-    try {
-      const { fetchCaptionCues } = await import("@/lib/youtube-captions.server");
-      cues = tidyCues((await fetchCaptionCues(videoId, input.startSec, input.endSec)).cues);
-    } catch {
-      // Fall through to listening.
-    }
-  }
-  if (!cues.length) {
-    try {
-      cues = await buildTimeline(url, input.startSec, input.endSec, input.credential);
-    } catch (err) {
-      if (err instanceof UserAiError) throw err;
-    }
-  }
+  // Video + audio are watched together in one Gemini call. YouTube auto-captions
+  // are not used as a clock or wording reference any more (often empty/wrong).
+  void videoId;
+  const cues: Cue[] = [];
+  void buildTimeline;
+  void tidyCues;
 
   const usageMeta = input.usage
     ? {
