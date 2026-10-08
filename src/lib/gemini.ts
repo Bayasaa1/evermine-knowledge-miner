@@ -459,9 +459,46 @@ export type ChunkResult = {
   screenText?: ScreenText[];
   /** Timed log of everything that happened: who said/did what, on-screen text, chat, donations. */
   journal?: JournalEntry[];
+  /** Typed on-screen items (link, code, formula, lesson…) and what the creator did with each. */
+  screenItems?: ScreenItem[];
   /** Whole-video seconds this checkpoint covered; every time in it must fall inside. */
   window?: { start: number; end: number };
 };
+
+/** One thing shown on screen, kept as its own typed record — never blended into a sentence. */
+export type ScreenItem = {
+  timestamp: string;
+  /** link | code | formula | lesson | text | chat | image | ui */
+  kind: string;
+  title: string;
+  content: string;
+  url: string;
+  language: string;
+  steps: string[];
+  interaction: string;
+};
+
+const SCREEN_KINDS = new Set(["link", "code", "formula", "lesson", "text", "chat", "image", "ui"]);
+
+export function normalizeScreenItems(raw: unknown): ScreenItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r) => {
+      const o = (r ?? {}) as Record<string, unknown>;
+      const kind = String(o['kind'] ?? "text").toLowerCase().trim();
+      return {
+        timestamp: String(o['timestamp'] ?? ""),
+        kind: SCREEN_KINDS.has(kind) ? kind : "text",
+        title: String(o['title'] ?? "").trim(),
+        content: String(o['content'] ?? ""),
+        url: String(o['url'] ?? "").trim(),
+        language: String(o['language'] ?? "").trim(),
+        steps: Array.isArray(o['steps']) ? (o['steps'] as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean) : [],
+        interaction: String(o['interaction'] ?? "").trim(),
+      };
+    })
+    .filter((i) => i.title || i.content.trim() || i.url);
+}
 
 /** One moment in the video journal. kind: speech | action | screen | chat | donation | text | event. */
 export type JournalEntry = {
@@ -1405,6 +1442,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     entities,
     screenText,
     journal,
+    screenItems: normalizeScreenItems(v['screenItems']),
     ...(v['window'] && typeof v['window'] === 'object' && Number.isFinite((v['window'] as { start?: number }).start) && Number.isFinite((v['window'] as { end?: number }).end)
       ? { window: { start: Number((v['window'] as { start: number }).start), end: Number((v['window'] as { end: number }).end) } }
       : {}),

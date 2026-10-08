@@ -176,7 +176,26 @@ export async function tryTranscriptMine(input: {
       ...(input.assessment ? { assessment: input.assessment } : {}),
       usage: input.usage,
     });
-    return fast?.result ?? null;
+    if (!fast) return null;
+    // Screen pass: links, code, formulas, lessons and what the creator did with
+    // them. Optional — any failure leaves the caption result untouched.
+    try {
+      const { runGeminiRoleWithFallback } = await import("@/lib/user-ai.server");
+      const { mineScreenItems, screenJournal } = await import("@/lib/screen-mine.server");
+      const owner = (fast.result.speakers ?? []).find((s) => s.role === "primary")?.label ?? "";
+      const { value: items } = await runGeminiRoleWithFallback(input.usage.userId, "mine", (credential) =>
+        mineScreenItems({ url: url!, startSec: input.startSec, endSec: input.endSec, credential, ownerName: owner, usage: input.usage }),
+      );
+      if (items.length) {
+        const { stampToSeconds } = await import("@/lib/timeline.server");
+        const at = (t: string) => stampToSeconds(t) ?? Number.MAX_SAFE_INTEGER;
+        fast.result.screenItems = items;
+        fast.result.journal = [...(fast.result.journal ?? []), ...screenJournal(items, owner)].sort((a, b) => at(a.timestamp) - at(b.timestamp));
+      }
+    } catch {
+      // No Gemini key or quota — words are still saved.
+    }
+    return fast.result;
   } catch {
     // The writing engine is out of tokens or refused — the caller falls back
     // to watching the video with Gemini instead of failing the job.
