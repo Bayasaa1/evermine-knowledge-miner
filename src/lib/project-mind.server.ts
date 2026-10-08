@@ -126,6 +126,16 @@ async function loadMinedPersona(projectId: string) {
         if (title || detail) merged.facts.push(detail ? `${title}: ${detail.slice(0, 280)}` : title);
       }
       merged.facts.push(...strings(result["knowledge"], 200));
+      // On-screen items stay typed so the chat can quote the exact link/code/formula.
+      const screen = Array.isArray(result["screenItems"]) ? (result["screenItems"] as Record<string, unknown>[]) : [];
+      for (const it of screen.slice(0, 200)) {
+        const kind = String(it?.["kind"] ?? "text");
+        const title = String(it?.["title"] ?? "").trim();
+        const content = String(it?.["content"] ?? "").trim().slice(0, 400);
+        const url = String(it?.["url"] ?? "").trim();
+        const did = String(it?.["interaction"] ?? "").trim();
+        merged.facts.push(`[${String(it?.["timestamp"] ?? "")}] SCREEN ${kind}: ${title}${content ? ` | ${content}` : ""}${url ? ` | ${url}` : ""}${did ? ` | owner: ${did}` : ""}`);
+      }
       // The persona's own words and actions, in order — guests and played media never enter.
       const brain = (result["ownerBrain"] ?? null) as
         | { owner?: string; said?: { timestamp: string; text: string }[]; did?: { timestamp: string; text: string }[] }
