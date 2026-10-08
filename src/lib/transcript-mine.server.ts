@@ -148,6 +148,60 @@ Rules:
   return { speakers: list, labels };
 }
 
+const SCRIPT_BATCH = 80;
+
+/**
+ * Automatic captions write every word in the track language's alphabet
+ * ("май компьютер" for "my computer"). This pass rewrites only those
+ * foreign-language words in their own script. Times, line count and the
+ * speaker's own-language words never change; any batch whose answer does not
+ * line up keeps its original text.
+ */
+async function restoreScripts(cues: Cue[], usage: TranscriptMineUsage): Promise<Cue[]> {
+  const out = cues.map((c) => ({ ...c }));
+  for (let offset = 0; offset < cues.length; offset += SCRIPT_BATCH) {
+    const slice = cues.slice(offset, offset + SCRIPT_BATCH);
+    const prompt = `These are automatic speech-recognition caption lines. The recogniser assumed ONE language, so words actually spoken in other languages (English, Russian, Korean, etc.) were spelled phonetically in the wrong alphabet.
+
+${slice.map((c, i) => `#${i + 1} ${c.text.slice(0, 400)}`).join("\n")}
+
+For each line, rewrite ONLY the words that were really spoken in another language into that language's own correct spelling and script (e.g. Mongolian "май компьютер" → "my computer", "стрим" → "stream", "викли шоу" → "weekly show", "окей" → "okay"). Whole sentences spoken in another language are written fully in that language.
+Rules:
+- Words of the main language stay exactly as they are — never translate, never fix grammar, never paraphrase, never add or remove words.
+- Established loanwords that native speakers normally write in their own alphabet stay unchanged.
+- When unsure, leave the word unchanged.
+Return JSON only: {"lines":[{"n":1,"text":"..."}]} with exactly one entry per numbered line.`;
+    try {
+      const reply = await generateRoleText({
+        userId: usage.userId,
+        role: "mine_write",
+        system: "You restore the correct writing script of mixed-language captions. You answer with JSON only.",
+        prompt,
+        json: true,
+        maxTokens: 8192,
+        subjectKind: "video",
+        ...(usage.videoId ? { subjectId: usage.videoId } : {}),
+        subjectLabel: usage.videoLabel ?? "Caption script",
+      });
+      const parsed = parseJson<{ lines?: { n?: number; text?: string }[] }>(reply.text);
+      const lines = parsed?.lines ?? [];
+      if (lines.length !== slice.length) continue;
+      for (const l of lines) {
+        const n = Number(l?.n);
+        const text = String(l?.text ?? "").trim();
+        if (!Number.isInteger(n) || n < 1 || n > slice.length || !text) continue;
+        const original = slice[n - 1]!.text;
+        // Guard against rewrites that changed far more than a few words.
+        if (text.length > original.length * 1.6 + 20 || text.length < original.length * 0.5) continue;
+        out[offset + n - 1]!.text = text;
+      }
+    } catch {
+      // Keep the original caption words for this batch.
+    }
+  }
+  return out;
+}
+
 const EXTRACT_SYSTEM =
   "You build a digital twin's knowledge from a transcript. You answer with valid JSON only, never with commentary.";
 
@@ -199,9 +253,12 @@ export async function analyzeTranscript(input: {
   assessment?: Assessment;
   usage: TranscriptMineUsage;
 }): Promise<{ result: ChunkResult; cues: Cue[] } | null> {
-  const { cues: raw } = await fetchCaptionCues(input.videoId, input.startSec, input.endSec, input.usage.userId);
-  const cues = tidyCues(raw);
-  if (cues.length < 3) return null;
+  const { cues: raw, track } = await fetchCaptionCues(input.videoId, input.startSec, input.endSec, input.usage.userId);
+  const tidied = tidyCues(raw);
+  if (tidied.length < 3) return null;
+  // Machine captions force every word into one language's alphabet; restore
+  // foreign words to their own script. Creator-uploaded subtitles are trusted.
+  const cues = track?.kind === "asr" ? await restoreScripts(tidied, input.usage) : tidied;
 
   const { speakers, labels } = await diarize(cues, input.assessment, input.usage);
   const roleOf = new Map<string, SpeakerRole>(
