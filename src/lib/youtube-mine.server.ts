@@ -322,7 +322,11 @@ export async function analyzeYoutubeVideo(input: {
   }
   // Every spoken line enters the journal verbatim; the AI adds only actions/screen/chat.
   const { journalFromTranscript } = await import("@/lib/journal-build.server");
-  result.journal = journalFromTranscript(result);
+  // Keep Gemini's own watched journal when it already holds at least as much
+  // speech as the subtitle list; otherwise rebuild speech from the subtitles.
+  const isSpeech = (k: unknown) => /^(speech|said|say|talk|dialogue)$/i.test(String(k));
+  const journalSpeech = (result.journal ?? []).filter((e) => isSpeech(e.kind)).length;
+  if (journalSpeech < (result.transcript ?? []).length) result.journal = journalFromTranscript(result);
   result.speakers = nameEverySpeaker(result.speakers ?? []);
   return result;
 }
