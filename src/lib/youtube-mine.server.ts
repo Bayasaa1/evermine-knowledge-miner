@@ -42,11 +42,14 @@ Return JSON only with these keys:
 WATCH AND LISTEN TOGETHER
 - You receive the video with its audio. Transcribe speech from the audio yourself, every sentence, in order, with the exact second it starts. Do not skip quiet or music-covered speech you can still understand.
 - Link each action and screen item to the moment it happens, next to the words spoken at that time.
+- One speech entry = one whole sentence or phrase (typically 3–15 seconds), never one word per entry. Timestamp = second the sentence starts.
 
 SCRIPT FIDELITY
 - Write each spoken word in the script of the language it was spoken in. Mongolian speech is written in Mongolian Cyrillic — never in Latin transliteration. English words spoken inside Mongolian speech stay in English Latin letters (e.g. "my computer", not "май компьютер"). Same for any other language mixed in.
 
 People inside videos, clips, games or streams that the owner plays on screen are never the owner. Decode idioms, teasing and sarcasm by their real cultural intent. Every culturalVocabulary item needs phrase, timestamp, kind, literal, meaning, intent, sentiment, and usage. Do not invent anything that is not in the video.`;
+
+const FINAL_RULES = `\n\nFINAL HARD RULES (override everything above)\n1. Mongolian speech MUST be written in Mongolian Cyrillic letters (А-Я, Ө, Ү). Writing Mongolian in Latin letters (e.g. "bolovch", "yaagaad") is WRONG and will be rejected. Correct: "боловч", "яагаад".\n2. Speech entries are whole sentences, never single words.\n3. Fill screenItems and knowledgeNodes too; return [] only if truly nothing was shown or taught.`;
 
 const SAFETY_MESSAGE =
   "SAFETY_BLOCKED: Google's AI safety filters stopped the analysis of this video. Try a different clip or trim out sensitive, adult or violent moments.";
@@ -262,7 +265,7 @@ export async function analyzeYoutubeVideo(input: {
           role: "user",
           parts: [
             {
-              text: `${miningPrompt}${assessmentDirective(input.assessment)}${timelineDirective(timelineForPrompt(cues))}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.`,
+              text: `${miningPrompt}${assessmentDirective(input.assessment)}${timelineDirective(timelineForPrompt(cues))}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.${FINAL_RULES}`,
             },
             youtubeVideoPart(url, input.credential, input.startSec, input.endSec),
           ],
