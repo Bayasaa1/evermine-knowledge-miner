@@ -71,6 +71,7 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
+import { TopicMapPanel } from "@/components/topic-map-panel";
 import { ProjectKnowledgeGraph } from "@/components/knowledge-graph";
 import { ProjectGraphOverview } from "@/components/project-graph-overview";
 import { ProjectContentTable } from "@/components/project-content-table";
@@ -902,6 +903,8 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
               personaName={project.creator_name || project.title}
             />
           )}
+
+          <TopicMapPanel lang={lang} projectId={project.id} />
 
           <VaultCoreBrain lang={lang} mindIds={mindIds} />
         </div>

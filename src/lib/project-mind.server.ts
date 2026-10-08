@@ -90,6 +90,17 @@ async function loadMinedPersona(projectId: string) {
       .limit(8);
     if (!data?.length) return empty;
     const merged = { ...empty };
+    // The topic map (built after mining) gives the chat an index of what this person talks about.
+    const { data: topicRow } = await supabaseAdmin
+      .from("mind_vaults")
+      .select("payload")
+      .eq("kind", "topics")
+      .eq("title", `topics:${projectId}`)
+      .maybeSingle();
+    if (topicRow?.payload) {
+      const { topicIndexText } = await import("@/lib/topic-map.server");
+      merged.facts.push(...topicIndexText(topicRow.payload as never).map((line) => `Topic: ${line}`));
+    }
     for (const row of data) {
       const payload = (row.payload ?? {}) as Record<string, unknown>;
       const result = (payload["result"] ?? {}) as Record<string, unknown>;
