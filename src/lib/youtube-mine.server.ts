@@ -184,7 +184,7 @@ export async function tryTranscriptMine(input: {
       const { mineScreenItems, screenJournal } = await import("@/lib/screen-mine.server");
       const owner = (fast.result.speakers ?? []).find((s) => s.role === "primary")?.label ?? "";
       const { value: items } = await runGeminiRoleWithFallback(input.usage.userId, "mine", (credential) =>
-        mineScreenItems({ url, startSec: input.startSec, endSec: input.endSec, credential, ownerName: owner, usage: input.usage }),
+        mineScreenItems({ url: url!, startSec: input.startSec, endSec: input.endSec, credential, ownerName: owner, usage: input.usage }),
       );
       if (items.length) {
         const { stampToSeconds } = await import("@/lib/timeline.server");
