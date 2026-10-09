@@ -1,5 +1,5 @@
-/** 15-minute parts: few enough seams for long videos, small enough to never truncate a reply. */
-export const CHUNK_SECONDS = 900;
+/** 5-minute parts: short enough that Gemini records both speech and the screen without dropping either. */
+export const CHUNK_SECONDS = 300;
 export const EPSILON = 1e-6;
 export const MIN_TAIL_SECONDS = 10;
 
