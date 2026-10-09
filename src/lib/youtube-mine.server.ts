@@ -333,7 +333,7 @@ export async function analyzeYoutubeVideo(input: {
   result.speakers = nameEverySpeaker(result.speakers ?? []);
   const owner = ownerNameFrom(input.assessment?.speakerIdentity);
   if (owner) lockOwnerName(result, owner);
-  await ensureScreenCoverage(result, { url, startSec: input.startSec, endSec: input.endSec, credential: input.credential, owner, usage: input.usage });
+  await ensureScreenCoverage(result, { url, startSec: input.startSec, endSec: input.endSec, credential: input.credential, owner, ...(input.usage ? { usage: input.usage } : {}) });
   return result;
 }
 
