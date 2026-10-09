@@ -59,9 +59,11 @@ export function subtitlesFromJournal(
 }
 
 function isOwner(who: string, ownerName: string): boolean {
-  const w = who.trim().toLowerCase();
-  const o = ownerName.trim().toLowerCase();
-  if (!w || /^(video|guest|chat|donation)\b|^зочин/i.test(w)) return false;
+  const clean = (v: string) => v.replace(/\(.*?\)/g, "").replace(/^@/, "").trim().toLowerCase();
+  const w = clean(who);
+  const o = clean(ownerName);
+  if (!w || /^(video|guest|chat|donation|caller)\b|^зочин/i.test(w)) return false;
+  if (/^(mind owner|host|creator|streamer|owner)$/.test(w)) return true;
   return !!o && (w === o || w.includes(o) || o.includes(w));
 }
 
