@@ -197,6 +197,13 @@
       "when": 1790998522208,
       "tag": "0027_profile_username",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791528253125,
+      "tag": "0028_user_media_read_owner_bound",
+      "breakpoints": true
     }
   ]
 }
