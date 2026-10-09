@@ -331,7 +331,93 @@ export async function analyzeYoutubeVideo(input: {
   const journalSpeech = (result.journal ?? []).filter((e) => isSpeech(e.kind)).length;
   if (journalSpeech < (result.transcript ?? []).length) result.journal = journalFromTranscript(result);
   result.speakers = nameEverySpeaker(result.speakers ?? []);
+  const owner = ownerNameFrom(input.assessment?.speakerIdentity);
+  if (owner) lockOwnerName(result, owner);
+  await ensureScreenCoverage(result, { url, startSec: input.startSec, endSec: input.endSec, credential: input.credential, owner, usage: input.usage });
   return result;
+}
+
+/** "Mind Owner: CTS (the person at…)" -> "CTS". */
+export function ownerNameFrom(identity: string | undefined): string {
+  const m = /Mind Owner:\s*([^(\n,.]+)/i.exec(identity ?? "");
+  return (m?.[1] ?? "").trim();
+}
+
+const GENERIC_OWNER = /^(mind owner|host|creator|streamer|owner|speaker|speaker 1|main speaker|narrator)$/i;
+const INVENTED_GUEST = /^(caller|guest|speaker|voice|person)\s*\d*$/i;
+
+/**
+ * One person at the microphone must stay one person across every part.
+ * Generic owner labels always become the persona name; invented "Caller 1" /
+ * "Guest 1" labels are folded back only when they are a small slice of the
+ * part's speech (a real guest talks far more than a shout or a voice change).
+ */
+export function lockOwnerName(result: ChunkResult, owner: string): void {
+  const isSpeech = (k: unknown) => /^(speech|said|say|talk|dialogue)$/i.test(String(k));
+  const journal = result.journal ?? [];
+  const transcript = result.transcript ?? [];
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const e of journal) {
+    if (!isSpeech(e.kind)) continue;
+    total += 1;
+    const who = String(e.who ?? "").trim();
+    counts.set(who, (counts.get(who) ?? 0) + 1);
+  }
+  const fold = (name: unknown): string | null => {
+    const who = String(name ?? "").trim();
+    if (!who || who === owner) return null;
+    if (GENERIC_OWNER.test(who)) return owner;
+    if (INVENTED_GUEST.test(who) && total > 0 && (counts.get(who) ?? 0) / total < 0.1) return owner;
+    return null;
+  };
+  for (const e of journal) {
+    const next = fold(e.who);
+    if (next) e.who = next;
+  }
+  for (const t of transcript as { speaker?: string }[]) {
+    const next = fold(t.speaker);
+    if (next) t.speaker = next;
+  }
+  if (result.speakers) {
+    const seen = new Set<string>();
+    result.speakers = result.speakers
+      .map((s) => {
+        const next = fold(s.label);
+        return next ? { ...s, label: next, role: "primary" as typeof s.role } : s;
+      })
+      .filter((s) => (seen.has(s.label) ? false : (seen.add(s.label), true)));
+  }
+}
+
+/**
+ * Visual guard: when the single pass came back with too few screen items for
+ * its length (Gemini spends its budget on speech), the screen is watched once
+ * more on its own and the typed items are added to the same timeline.
+ * Any failure keeps the speech result unchanged.
+ */
+async function ensureScreenCoverage(
+  result: ChunkResult,
+  opts: { url: string; startSec: number; endSec: number; credential: AiCredential; owner: string; usage?: { userId: string; videoLabel?: string; videoId?: string; jobId?: string } },
+): Promise<void> {
+  const minutes = Math.max(1, (opts.endSec - opts.startSec) / 60);
+  const have = (result.screenItems ?? []).length;
+  if (have >= Math.ceil(minutes)) return;
+  try {
+    const { mineScreenItems, screenJournal } = await import("@/lib/screen-mine.server");
+    const items = await withGeminiRetry(() =>
+      mineScreenItems({ url: opts.url, startSec: opts.startSec, endSec: opts.endSec, credential: opts.credential, ownerName: opts.owner, ...(opts.usage ? { usage: opts.usage } : {}) }),
+    );
+    if (!items.length) return;
+    const { stampToSeconds } = await import("@/lib/timeline.server");
+    const at = (t: string) => stampToSeconds(t) ?? Number.MAX_SAFE_INTEGER;
+    const known = new Set((result.screenItems ?? []).map((i) => `${i.kind}|${i.url ?? ""}|${i.content}`));
+    const fresh = items.filter((i) => !known.has(`${i.kind}|${i.url ?? ""}|${i.content}`));
+    result.screenItems = [...(result.screenItems ?? []), ...fresh];
+    result.journal = [...(result.journal ?? []), ...screenJournal(fresh, opts.owner || "Mind Owner")].sort((a, b) => at(a.timestamp) - at(b.timestamp));
+  } catch {
+    /* screen extra pass is optional */
+  }
 }
 /**
  * Reads the JSON an engine returned even when it wrapped it in ``` fences, a
