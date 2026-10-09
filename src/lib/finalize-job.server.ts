@@ -138,8 +138,11 @@ export async function finalizeMiningJob(
       .eq("id", projectId)
       .eq("user_id", job.user_id)
       .maybeSingle();
-    if (!data) return null;
-    if (!data.persona_id || (personaId && data.persona_id !== personaId)) return null;
+    if (!data) { console.warn("[finalize] project not found for job", job.id); return null; }
+    if (!data.persona_id || (personaId && data.persona_id !== personaId)) {
+      console.warn("[finalize] persona mismatch, saved parts kept on the job", job.id);
+      return null;
+    }
     personaId = data.persona_id;
   }
   if (!projectId || !personaId) return null;

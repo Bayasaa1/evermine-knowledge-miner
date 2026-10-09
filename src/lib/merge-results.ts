@@ -1,6 +1,6 @@
 import type { ChunkResult } from "@/lib/gemini";
 
-const CHUNK_SECONDS = 900;
+import { CHUNK_SECONDS } from "@/lib/chunking";
 
 function stampSeconds(raw: string): number | null {
   const first = (String(raw ?? "").split(/\s*(?:-|–|—|>)\s*/)[0]?.trim() ?? "").replace(/(\d)\s*s(?:ec)?$/i, "$1");
