@@ -286,6 +286,29 @@ export async function analyzeYoutubeVideo(input: {
     throw new Error("AI returned an unreadable video analysis.");
   }
 
+  // Script guard: Gemini sometimes writes Mongolian speech in Latin letters
+  // ("Yag odoo monuu"). When the creator's language is Mongolian and the speech
+  // is mostly Latin, the same part is watched once more with the rule first.
+  if (mostlyLatinSpeech(result) && (input.assessment?.outputLanguage ?? "").toLowerCase() === "mn") {
+    try {
+      const again = await withGeminiRetry(() => geminiGenerate({
+        credential: input.credential,
+        model: "gemini-3.1-flash-lite",
+        json: true,
+        maxTokens: 65536,
+        ...(usageMeta ? { usage: usageMeta } : {}),
+        turns: [{ role: "user", parts: [
+          { text: `${CYRILLIC_FIRST}\n\n${miningPrompt}${assessmentDirective(input.assessment)}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.${FINAL_RULES}\n\n${CYRILLIC_FIRST}` },
+          youtubeVideoPart(url, input.credential, input.startSec, input.endSec),
+        ] }],
+      }));
+      const fixed = normalizeChunkResult(parseLooseJson(again));
+      if (!mostlyLatinSpeech(fixed) && (fixed.journal ?? []).length) result = fixed;
+    } catch {
+      /* keep the first result */
+    }
+  }
+
   // Watching and organizing are separate jobs. Gemini remains responsible for
   // the actual video; the user's Mining — writing up assignment can clean the
   // structured notes with a text engine such as Groq or Mistral.
@@ -335,6 +358,16 @@ export async function analyzeYoutubeVideo(input: {
   if (owner) lockOwnerName(result, owner);
   await ensureScreenCoverage(result, { url, startSec: input.startSec, endSec: input.endSec, credential: input.credential, owner, ...(input.usage ? { usage: input.usage } : {}) });
   return result;
+}
+
+const CYRILLIC_FIRST = "MOST IMPORTANT RULE: the speaker talks Mongolian. Write every Mongolian spoken sentence in Mongolian CYRILLIC letters (Сайн байна уу, яагаад, боловч). Latin-letter Mongolian (\"Yag odoo\", \"bolovch\") is forbidden. Only genuinely English words stay in English. Every speech entry is a whole sentence, never one or two words.";
+
+/** True when most speech letters are Latin — Mongolian written in the wrong script. */
+export function mostlyLatinSpeech(result: ChunkResult): boolean {
+  const speech = (result.journal ?? []).filter((e) => /^(speech|said|say|talk|dialogue)$/i.test(String(e.kind))).map((e) => String(e.text)).join(" ");
+  const latin = (speech.match(/[A-Za-z]/g) ?? []).length;
+  const cyr = (speech.match(/[\u0400-\u04FF]/g) ?? []).length;
+  return latin + cyr > 50 && latin > cyr * 1.5;
 }
 
 /** "Mind Owner: CTS (the person at…)" -> "CTS". */
