@@ -94,9 +94,33 @@ function conversationStyleRules(name: string): string {
 
 const STOP = new Set("the a an and or but is are was were be to of in on at for with it this that you i me my we he she they what how why do does did not no yes so just like".split(" "));
 
-function words(text: string): string[] {
-  return (text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []).filter((w) => !STOP.has(w));
+/** Romanised Mongolian ("suuld yu hiiv") -> Cyrillic, so it can match Cyrillic memories. */
+const LATIN_MN: [string, string][] = [
+  ["sh", "ш"], ["ch", "ч"], ["ts", "ц"], ["kh", "х"], ["zh", "ж"], ["yu", "ю"], ["ya", "я"], ["yo", "ё"], ["ye", "е"],
+  ["a", "а"], ["b", "б"], ["v", "в"], ["w", "в"], ["g", "г"], ["d", "д"], ["e", "э"], ["j", "ж"], ["z", "з"], ["i", "и"],
+  ["k", "к"], ["l", "л"], ["m", "м"], ["n", "н"], ["o", "о"], ["p", "п"], ["r", "р"], ["s", "с"], ["t", "т"], ["u", "у"],
+  ["f", "ф"], ["h", "х"], ["c", "ц"], ["q", "к"], ["x", "х"], ["y", "й"],
+];
+function toCyrillic(word: string): string[] {
+  let out = "";
+  for (let i = 0; i < word.length; ) {
+    const pair = LATIN_MN.find(([l]) => word.startsWith(l, i));
+    if (!pair) return [];
+    out += pair[1];
+    i += pair[0].length;
+  }
+  // Latin "u" and "o" each cover two Mongolian vowels (у/ү, о/ө).
+  return [...new Set([out, out.replace(/у/g, "ү"), out.replace(/о/g, "ө")])];
 }
+
+function words(text: string): string[] {
+  const base = (text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []).filter((w) => !STOP.has(w));
+  const extra = base.filter((w) => /^[a-z]+$/.test(w)).flatMap(toCyrillic);
+  return [...new Set([...base, ...extra])];
+}
+
+/** Words that mean "lately / last / recently" — the person asks about recent videos. */
+const RECENT_RE = /(suul|сүүл|oird|ойр|saya|саяхан|lately|recent|last|latest|최근|요즘)/i;
 
 /**
  * Selective retrieval: only the pieces of the Core Brain that relate to what
@@ -161,13 +185,17 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
     block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
-    block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge, q, 10, 6)),
+    block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge, q, 14, 4)),
+    project.episodes?.length
+      ? `YOUR LATEST VIDEOS, NEWEST FIRST (this is what you actually did recently — when asked what you did lately, what's new, or about a video, name concrete things from here: what happened, items, places, people, numbers):\n${project.episodes.slice(0, RECENT_RE.test(queryText) ? 5 : 3).join("\n")}`
+      : "",
     `CONVERSATION FLOW: a real chat has a beginning, a build-up and a payoff. Answer what the person actually said first. Never jump to an unrelated person, story or joke out of nowhere. If you want to bring up a story or joke, first build a bridge to it from the current topic ("speaking of...", a question), and only then tell it. A greeting gets a greeting back, nothing more.`,
     (() => {
-      const lines = q.length ? pickRelevant(project.transcript, q, 12, 0) : [];
+      const lines = q.length ? pickRelevant(project.transcript, q, 20, 0) : [];
       return lines.length ? `YOUR OWN WORDS ON THIS TOPIC (memory, not a script):\n${lines.join("\n")}` : "";
     })(),
     conversationStyleRules(project.name),
+    `BE CONCRETE: when the person asks about your life, work or videos, answer with specific real details from the sections above (what happened, which item, which game, what number) — never with vague buzzwords repeated from your phrase list. Do not keep reusing the same phrase or topic across replies.`,
     `TRUTH RULE: do not invent hard facts, numbers or events you never spoke about. But you are always free to react, joke, give your opinion, ask questions and make small talk — that is not inventing, that is being yourself.`,
   ]
     .filter(Boolean)

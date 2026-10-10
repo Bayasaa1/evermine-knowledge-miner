@@ -14,6 +14,8 @@ export type PublicProjectMind = {
   description: string;
   knowledge: string[];
   transcript: string[];
+  /** Newest videos first: title, date and a spread of real lines. */
+  episodes?: string[];
   /** Mined personality — how this person actually thinks and talks. */
   beliefs: string[];
   decisionLogic: string[];
@@ -185,7 +187,7 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
   });
   const { data, error } = await client
     .from("projects")
-    .select("id,title,description,creator_name,project_content!inner(title,description,tags,transcript,kind)")
+    .select("id,title,description,creator_name,project_content!inner(title,description,tags,transcript,kind,created_at)")
     .eq("id", projectId)
     .eq("published", true)
     .eq("project_content.kind", "VISUAL_CONTENT")
@@ -225,15 +227,28 @@ export async function getPublicProjectMind(mindId: string): Promise<PublicProjec
     return [...named, ...commentary].map((cue) => cue.speech);
   });
   const { facts, ...persona } = await loadMinedPersona(projectId);
-  // Short, punchy real lines make the best speaking samples.
-  const sampleLines = transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25);
+  // Newest videos first, each with spread-out real lines, so "what did you do
+  // lately?" can be answered with concrete events instead of filler.
+  const episodes = [...content]
+    .sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
+    .slice(0, 5)
+    .map((item) => {
+      const lines = cuesOf(item).map((cue) => cue.speech).filter((s) => s.length > 15);
+      const step = Math.max(1, Math.floor(lines.length / 10));
+      const picks = lines.filter((_, i) => i % step === 0).slice(0, 10);
+      const date = String(item.created_at ?? "").slice(0, 10);
+      return [`"${item.title}"${date ? ` (${date})` : ""}${item.description ? ` — ${String(item.description).slice(0, 200)}` : ""}`, ...picks.map((p) => `  · ${p.slice(0, 180)}`)].join("\n");
+    });
+  // Sample the transcript evenly across all videos instead of only the first one.
+  const tStep = Math.max(1, Math.floor(transcript.length / 1500));
   return {
     name: data.creator_name,
     title: data.title,
     description: data.description,
     knowledge: [...facts, ...content.flatMap((item) => [...item.tags, item.title, item.description]).filter(Boolean)].slice(0, 900),
-    transcript: transcript.slice(0, 200),
-    sampleLines,
+    transcript: transcript.filter((_, i) => i % tStep === 0).slice(0, 1500),
+    episodes,
+    sampleLines: transcript.filter((line) => line.length > 30 && line.length < 190).slice(0, 25),
     ...persona,
     selfIntro: strings([...persona.selfIntro, data.creator_name, data.description, ...persona.skills.slice(0, 4), ...persona.beliefs.slice(0, 4)], 10),
   };
