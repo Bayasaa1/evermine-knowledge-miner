@@ -368,7 +368,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
       if (full) {
         await finalizeMiningJob(
           context.supabase,
-          full as never,
+          // A stale vault link from an earlier pass must never skip saving this one.
+          { ...full, vault_id: null } as never,
           status === "done" ? {} : { partial: { done: nextIndex, total: job.totalChunks } },
         ).catch(() => null);
       }
