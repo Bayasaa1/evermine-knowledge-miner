@@ -284,6 +284,8 @@ export const remineFromScratch = createServerFn({ method: "POST" })
         results: [] as never,
         next_index: 0,
         status: "queued",
+        // Cleared so the finished re-mine is saved; finalize reuses the same vault by video link.
+        vault_id: null,
         attempts: 0,
         last_error: null,
         retry_after: null,
