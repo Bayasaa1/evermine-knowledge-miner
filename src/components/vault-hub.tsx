@@ -44,7 +44,7 @@ import {
   createPersona,
   deletePersona,
   listPersonas,
-  personaHandle,
+
   switchPersona,
   updatePersona,
   type Persona,
@@ -243,7 +243,6 @@ export function VaultHub({
     setBusy(true);
     const { persona, error } = await createPersona(user.id, {
       name: draft,
-      handle: personaHandle(draft),
       avatarUrl: avatar || null,
     });
     setBusy(false);

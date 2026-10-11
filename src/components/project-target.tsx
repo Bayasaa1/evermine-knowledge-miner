@@ -229,8 +229,9 @@ export function ProjectTargetPicker({
   const addPersona = async () => {
     if (!userId || !personaName.trim()) return;
     setSavingPersona(true);
-    const { persona } = await createPersona(userId, { name: personaName.trim() });
+    const { persona, error } = await createPersona(userId, { name: personaName.trim() });
     setSavingPersona(false);
+    if (error) toast.error(error);
     if (persona) {
       await queryClient.invalidateQueries({ queryKey: ["my-personas"] });
       setPersonaName("");
