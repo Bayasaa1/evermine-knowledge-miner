@@ -52,12 +52,20 @@ export async function createPersona(
   const owner = await currentOwnerId();
   if (!owner || owner !== userId) return { persona: null, error: NOT_SIGNED_IN };
   const name = input.name.trim() || "New persona";
+  let handle = (input.handle?.trim() || personaHandle(name)).replace(/^@?/, "@");
+  // No handle typed: if another account owns the auto one, pick the next free @name2, @name3…
+  if (!input.handle?.trim() && (await isHandleTaken(handle))) {
+    const base = handle;
+    for (let n = 2; n < 100; n++) {
+      if (!(await isHandleTaken(`${base}${n}`))) { handle = `${base}${n}`; break; }
+    }
+  }
   const { data, error } = await supabase
     .from("creator_personas")
     .insert({
       user_id: userId,
       name,
-      handle: (input.handle?.trim() || personaHandle(name)).replace(/^@?/, "@"),
+      handle,
       avatar_url: input.avatarUrl?.trim() || null,
       bio: input.bio?.trim() ?? "",
     })
