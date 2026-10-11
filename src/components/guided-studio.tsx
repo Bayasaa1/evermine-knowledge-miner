@@ -1509,6 +1509,18 @@ function StepUpload({
                   <p className="truncate text-xs text-muted-foreground">
                     {[meta?.channel, meta?.durationLabel].filter(Boolean).join(" · ")}
                   </p>
+                  {meta?.playlistCount ? (
+                    <p className="text-xs font-semibold text-primary">
+                      {pickCopy(
+                        {
+                          en: `Playlist · ${meta.playlistCount} videos will be saved`,
+                          mn: `Playlist · ${meta.playlistCount} бичлэг бүгд хадгалагдана`,
+                          ko: `재생목록 · 영상 ${meta.playlistCount}개 저장`,
+                        },
+                        lang,
+                      )}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )}

@@ -20,17 +20,46 @@ async function fetchText(url: string): Promise<string> {
 
 /** Every unique video id inside a public YouTube playlist, in playlist order. */
 export async function fetchPlaylistVideoIds(list: string, limit = 50): Promise<string[]> {
-  const html = await fetchText(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}`);
   const ids: string[] = [];
   const seen = new Set<string>();
-  for (const m of html.matchAll(/"videoId":"([\w-]{11})"/g)) {
-    const id = m[1]!;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    ids.push(id);
-    if (ids.length >= limit) break;
+  const add = (text: string) => {
+    for (const m of text.matchAll(/"videoId":"([\w-]{11})"/g)) {
+      const id = m[1]!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+      if (ids.length >= limit) return;
+    }
+  };
+  // InnerTube browse: works from edge IPs and follows "load more" pages.
+  try {
+    const client = { clientName: "WEB", clientVersion: "2.20240101.00.00", hl: "en" };
+    let body: Record<string, unknown> = { browseId: `VL${list}`, context: { client } };
+    for (let page = 0; page < 10 && ids.length < limit; page++) {
+      const res = await fetch("https://www.youtube.com/youtubei/v1/browse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) break;
+      const text = await res.text();
+      const before = ids.length;
+      add(text);
+      const token = text.match(/"continuationCommand":\{"token":"([^"]+)"/)?.[1];
+      if (!token || ids.length === before) break;
+      body = { continuation: token, context: { client } };
+    }
+  } catch {
+    /* fall back to the page below */
   }
-  return ids;
+  if (ids.length === 0) {
+    try {
+      add(await fetchText(`https://www.youtube.com/playlist?list=${encodeURIComponent(list)}`));
+    } catch {
+      /* nothing */
+    }
+  }
+  return ids.slice(0, limit);
 }
 
 
