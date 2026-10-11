@@ -15,15 +15,19 @@ export const getYoutubeMetadata = createServerFn({ method: "POST" })
   .inputValidator((input) => schema.parse(input))
   .handler(async ({ data }): Promise<VideoMetadata | null> => {
     const { youtubeId, youtubePlaylistId } = await import("@/lib/import-sources");
-    const { fetchVideoDetails, fetchPlaylistVideoIds } = await import("@/lib/youtube-meta.server");
+    const { fetchVideoDetails, fetchPlaylistVideos } = await import("@/lib/youtube-meta.server");
 
     let id = youtubeId(data.url);
     const list = youtubePlaylistId(data.url);
     let playlistCount: number | undefined;
+    let playlistItems: VideoMetadata["playlistItems"];
     if (list) {
-      const ids = await fetchPlaylistVideoIds(list, 50);
-      if (ids.length > 0) playlistCount = ids.length;
-      if (!id) id = ids[0] ?? null;
+      const items = await fetchPlaylistVideos(list, 50);
+      if (items.length > 0) {
+        playlistCount = items.length;
+        playlistItems = items;
+      }
+      if (!id) id = items[0]?.videoId ?? null;
     }
     if (!id) return null;
 
@@ -39,5 +43,6 @@ export const getYoutubeMetadata = createServerFn({ method: "POST" })
       thumbnail: d.thumbnail,
       channel: d.channel,
       playlistCount,
+      playlistItems,
     };
   });

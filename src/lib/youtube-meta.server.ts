@@ -18,6 +18,71 @@ async function fetchText(url: string): Promise<string> {
   return res.text();
 }
 
+export type PlaylistItem = { videoId: string; title: string; thumbnail: string; durationLabel: string };
+
+/** Every video inside a public playlist with title, thumbnail and length, in order. */
+export async function fetchPlaylistVideos(list: string, limit = 50): Promise<PlaylistItem[]> {
+  const items: PlaylistItem[] = [];
+  const seen = new Set<string>();
+  const txt = (v: any): string =>
+    typeof v === "string" ? v : v?.simpleText ?? v?.content ?? (v?.runs ?? []).map((r: any) => r?.text ?? "").join("");
+  const push = (id: unknown, title: string, durationLabel: string) => {
+    if (typeof id !== "string" || !/^[\w-]{11}$/.test(id) || seen.has(id) || items.length >= limit) return;
+    seen.add(id);
+    items.push({ videoId: id, title, durationLabel, thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg` });
+  };
+  const findBadge = (node: any): string => {
+    let out = "";
+    const w = (n: any) => {
+      if (out || !n || typeof n !== "object") return;
+      if (n.thumbnailBadgeViewModel?.text) { out = String(n.thumbnailBadgeViewModel.text); return; }
+      for (const v of Object.values(n)) w(v);
+    };
+    w(node);
+    return out;
+  };
+  let token: string | undefined;
+  const walk = (n: any) => {
+    if (!n || typeof n !== "object") return;
+    if (Array.isArray(n)) { n.forEach(walk); return; }
+    if (n.playlistVideoRenderer) {
+      const r = n.playlistVideoRenderer;
+      push(r.videoId, txt(r.title), txt(r.lengthText) || "");
+      return;
+    }
+    if (n.lockupViewModel?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO") {
+      const l = n.lockupViewModel;
+      push(l.contentId, txt(l.metadata?.lockupMetadataViewModel?.title), findBadge(l.contentImage));
+      return;
+    }
+    if (n.continuationCommand?.token) token = n.continuationCommand.token;
+    for (const v of Object.values(n)) walk(v);
+  };
+  try {
+    const client = { clientName: "WEB", clientVersion: "2.20240101.00.00", hl: "en" };
+    let body: Record<string, unknown> = { browseId: `VL${list}`, context: { client } };
+    for (let page = 0; page < 10 && items.length < limit; page++) {
+      const res = await fetch("https://www.youtube.com/youtubei/v1/browse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) break;
+      const before = items.length;
+      token = undefined;
+      walk(await res.json());
+      if (!token || items.length === before) break;
+      body = { continuation: token, context: { client } };
+    }
+  } catch {
+    /* fall back below */
+  }
+  if (items.length === 0) {
+    for (const id of await fetchPlaylistVideoIds(list, limit)) push(id, "", "");
+  }
+  return items;
+}
+
 /** Every unique video id inside a public YouTube playlist, in playlist order. */
 export async function fetchPlaylistVideoIds(list: string, limit = 50): Promise<string[]> {
   const ids: string[] = [];

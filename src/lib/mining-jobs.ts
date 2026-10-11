@@ -40,6 +40,7 @@ export type VideoMetadata = {
   channel: string;
   /** Set when the pasted link is a playlist: how many videos will be saved. */
   playlistCount?: number | undefined;
+  playlistItems?: { videoId: string; title: string; thumbnail: string; durationLabel: string }[] | undefined;
 };
 
 /** Seconds -> HH:MM:SS (or MM:SS for videos under an hour). */
