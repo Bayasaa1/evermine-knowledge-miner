@@ -243,7 +243,6 @@ export function VaultHub({
     setBusy(true);
     const { persona, error } = await createPersona(user.id, {
       name: draft,
-      handle: personaHandle(draft),
       avatarUrl: avatar || null,
     });
     setBusy(false);
