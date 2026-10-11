@@ -167,7 +167,13 @@ async function loadMinedPersona(projectId: string) {
       aestheticProfile: strings(merged.aestheticProfile, 10),
       phrases: merged.phrases.slice(0, 30),
       selfIntro: strings(merged.selfIntro, 4),
-      facts: strings(merged.facts, 800),
+      // Spoken lines must not starve knowledge/screen facts: those go first with their own budget.
+      facts: (() => {
+        const isSpeech = (f: string) => /^\[[^\]]*\] [^:]*: /.test(f) && !/\] SCREEN /.test(f);
+        const core = strings(merged.facts.filter((f) => !isSpeech(f)), 600);
+        const speech = strings(merged.facts.filter(isSpeech), 300);
+        return [...core, ...speech];
+      })(),
     };
   } catch {
     return empty;
