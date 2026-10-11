@@ -288,8 +288,8 @@ export function ProjectTargetPicker({
     <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
       <p className="text-sm font-semibold text-foreground">{t.title}</p>
 
-      {/* ---- Who is posting: only shown when no name exists yet ---- */}
-      {!personaChosen && (
+      {/* ---- Who is posting: always visible so creators can switch or add names ---- */}
+      {(
       <>
       <p className="mt-5 text-[11px] font-semibold uppercase tracking-widest text-primary">{t.stepA}</p>
       <p className="mt-1 text-sm text-muted-foreground">{t.personaQ}</p>
