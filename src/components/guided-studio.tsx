@@ -1524,6 +1524,20 @@ function StepUpload({
                 </div>
               </div>
             )}
+            {!metaLoading && meta?.playlistItems && meta.playlistItems.length > 0 && (
+              <ol className="max-h-80 space-y-1.5 overflow-y-auto rounded-xl border border-border bg-card/50 p-2">
+                {meta.playlistItems.map((v, i) => (
+                  <li key={v.videoId} className="flex items-center gap-2.5 rounded-lg p-1.5">
+                    <span className="w-6 shrink-0 text-right text-xs text-muted-foreground">{i + 1}</span>
+                    <img src={v.thumbnail} alt="" loading="lazy" className="h-10 w-16 shrink-0 rounded-md object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-2 text-xs font-medium text-foreground">{v.title || v.videoId}</p>
+                      {v.durationLabel && <p className="text-[11px] text-muted-foreground">{v.durationLabel}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
             <button
               type="button"
               onClick={() => void saveLink(assessment)}
