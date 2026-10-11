@@ -18,11 +18,12 @@ export const getYoutubeMetadata = createServerFn({ method: "POST" })
     const { fetchVideoDetails, fetchPlaylistVideoIds } = await import("@/lib/youtube-meta.server");
 
     let id = youtubeId(data.url);
-    if (!id) {
-      const list = youtubePlaylistId(data.url);
-      if (!list) return null;
-      const ids = await fetchPlaylistVideoIds(list, 1);
-      id = ids[0] ?? null;
+    const list = youtubePlaylistId(data.url);
+    let playlistCount: number | undefined;
+    if (list) {
+      const ids = await fetchPlaylistVideoIds(list, 50);
+      if (ids.length > 0) playlistCount = ids.length;
+      if (!id) id = ids[0] ?? null;
     }
     if (!id) return null;
 
@@ -37,5 +38,6 @@ export const getYoutubeMetadata = createServerFn({ method: "POST" })
       durationLabel: formatDuration(d.durationSec),
       thumbnail: d.thumbnail,
       channel: d.channel,
+      playlistCount,
     };
   });

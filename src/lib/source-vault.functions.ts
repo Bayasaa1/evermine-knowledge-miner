@@ -92,12 +92,19 @@ export const saveSourcesToVault = createServerFn({ method: "POST" })
     let skipped = 0;
 
     if (ids.length > 0) {
-      for (const id of ids) {
+      const fresh = ids.filter((id) => {
         if (known.has(id)) {
           skipped += 1;
-          continue;
+          return false;
         }
-        const d = await fetchVideoDetails(id);
+        return true;
+      });
+      // Fetch details 6 at a time so a 50-video playlist does not take 30s.
+      const details: Awaited<ReturnType<typeof fetchVideoDetails>>[] = [];
+      for (let i = 0; i < fresh.length; i += 6) {
+        details.push(...(await Promise.all(fresh.slice(i, i + 6).map((id) => fetchVideoDetails(id)))));
+      }
+      for (const d of details) {
         payloads.push({
           kind: "source",
           status: "pending",
