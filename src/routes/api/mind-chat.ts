@@ -185,7 +185,8 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
     block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
-    block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge, q, 14, 4)),
+    block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge.filter((f) => !/\] SCREEN /.test(f)), q, 14, 4)),
+    block(`WHAT WAS ON YOUR SCREEN IN YOUR VIDEOS (exact links, numbers, chats, UI — quote exactly when asked):`, pickRelevant(project.knowledge.filter((f) => /\] SCREEN /.test(f)), q, 10, 2)),
     project.episodes?.length
       ? `YOUR LATEST VIDEOS, NEWEST FIRST (this is what you actually did recently — when asked what you did lately, what's new, or about a video, name concrete things from here: what happened, items, places, people, numbers):\n${project.episodes.slice(0, RECENT_RE.test(queryText) ? 5 : 3).join("\n")}`
       : "",
