@@ -44,7 +44,7 @@ import {
   createPersona,
   deletePersona,
   listPersonas,
-  personaHandle,
+
   switchPersona,
   updatePersona,
   type Persona,
