@@ -1406,7 +1406,7 @@ function StepUpload({
         </div>
       )}
 
-      <div className={`mt-4 rounded-xl border border-border bg-card p-4 sm:p-5 ${gate ? "" : "pointer-events-none opacity-40"}`} aria-disabled={!gate}>
+      <div className="mt-4 rounded-xl border border-border bg-card p-4 sm:p-5" data-ready={gate}>
         {saveMode && !busy && (
         <>
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted/50 p-1">
