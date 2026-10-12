@@ -11,7 +11,8 @@
 import { generateRoleText } from "@/lib/user-ai.server";
 
 export type TopicFact = { id: string; text: string; ts: string; videoId: string; vaultId: string };
-export type Topic = { id: string; title: string; summary: string; group: string; facts: TopicFact[] };
+/** parentId nests a topic under a broader one, so the map grows like roots. */
+export type Topic = { id: string; title: string; summary: string; group: string; parentId?: string; facts: TopicFact[] };
 export type TopicMap = {
   version: 1;
   projectId: string;
@@ -106,12 +107,13 @@ ${batch.map((f, i) => `#${i + 1} ${f.text.slice(0, 400)}`).join("\n")}
 
 File every fact under the best topic.
 - Reuse an existing topic whenever the fact is about the same subject. Open a new topic only for a genuinely new subject.
+- The index grows like tree roots: when a new topic is a narrower part of an existing topic, set "parent" to that existing id (e.g. "Raptor engine" under "Starship"). Leave "parent" empty for a broad subject.
 - Topics are specific subjects (e.g. "iPhone pricing", "Knife technique", "PvP tactics"), not vague buckets. Choose as many as the content needs; there is no fixed number.
 - "group" is a broad domain you choose freely (e.g. "Technology", "Cooking", "Gaming") that clusters related topics.
 - Write titles, summaries and groups in the main language of the facts.
 - Never rewrite the facts.
 Return JSON only:
-{"newTopics":[{"key":"n1","title":"...","group":"...","summary":"one sentence"}],
+{"newTopics":[{"key":"n1","title":"...","group":"...","parent":"<existing id or empty>","summary":"one sentence"}],
  "assign":[{"n":1,"topic":"<existing id or new key>"}],
  "updatedSummaries":[{"id":"<existing id>","summary":"one sentence that now covers the new facts"}]}
 Every numbered fact must appear in "assign" exactly once.`;
