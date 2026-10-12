@@ -277,6 +277,24 @@ export async function analyzeYoutubeVideo(input: {
     if (err instanceof GeminiHttpError) throw new Error(gatewayMessage(err.status, err.message));
     throw err;
   }
+  if (!text) {
+    // Empty answers (often Gemini's RECITATION filter on famous talks) get one
+    // more look with more varied wording before the part is reported empty.
+    try {
+      text = await withGeminiRetry(() => geminiGenerate({
+        credential: input.credential,
+        model: "gemini-3.1-flash-lite",
+        json: true,
+        maxTokens: 65536,
+        temperature: 1,
+        ...(usageMeta ? { usage: usageMeta } : {}),
+        turns: [{ role: "user", parts: [
+          { text: `${miningPrompt}${assessmentDirective(input.assessment)}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.${FINAL_RULES}` },
+          youtubeVideoPart(url, input.credential, input.startSec, input.endSec),
+        ] }],
+      }));
+    } catch { text = ""; }
+  }
   if (!text) throw new Error("AI returned an empty video analysis.");
 
   let result: ChunkResult;
