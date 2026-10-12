@@ -93,7 +93,7 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
   result = withGaming;
 
   const stamp = (value: string) => wholeVideoStamp(value, chunkIndex, win);
-  const g: any = result.gaming ?? {};
+  const g = (result.gaming ?? {}) as ChunkResult["gaming"];
   const arr = <T,>(v: T[] | undefined | null): T[] => (Array.isArray(v) ? v : []);
   const shifted: ChunkResult = {
     ...result,
