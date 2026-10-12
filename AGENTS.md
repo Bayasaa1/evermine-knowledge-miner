@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 $(cat AGENTS.md)
+- The project map shows the topic map as a root tree (groups → topics → nested sub-topics via parentId), with thickness = facts + Q&A under it; it replaces the old network graph because a weighted hierarchy shows where knowledge is richest.
