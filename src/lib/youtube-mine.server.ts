@@ -38,6 +38,7 @@ Return JSON only with these keys:
 - subconsciousness: skills, beliefs, decisionLogic, culturalVocabulary, expressiveStyle, and aestheticProfile — only from what the owner personally said or did.
 - knowledgeNodes: facts and ideas with timestamp_start, timestamp_end, concept_title, detailed_explanation, spatial_action (null unless an object is physically handled), and confidence_score between 0.0 and 1.0. Use below 0.8 whenever you are guessing, since those nodes are discarded.
 - screenItems: every distinct piece of information shown on screen, typed — never blended into a sentence. Each item: timestamp, kind (link, code, formula, lesson, text, chat, image, ui), title, content (verbatim as shown: the exact URL, code, formula, handle or text), url (or null), language (for code, or null), steps (array, for lessons), interaction (what the owner did with it, e.g. "read it aloud", "clicked it", "typed it", or null).
+- qaPairs: every real question asked in this range and its answer: timestamp, asker, question (verbatim, original language), answerer, answer (faithful self-contained summary in the original language). Skip rhetorical questions. Empty list if none.
 
 WATCH AND LISTEN TOGETHER
 - You receive the video with its audio. Transcribe speech from the audio yourself, every sentence, in order, with the exact second it starts. Do not skip quiet or music-covered speech you can still understand.

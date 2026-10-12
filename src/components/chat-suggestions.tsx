@@ -29,7 +29,7 @@ export function ChatSuggestions({
 
   const themes = Array.from(new Set([...(data?.topics ?? []), ...(data?.tags ?? []).map((x) => x.replace(/^#/, ""))]));
   const asked = new Set(used.map((u) => u.trim()));
-  const chips = Array.from(new Set([...(data?.creatorQuestions ?? []), ...themes.map(t.view), t.intro]))
+  const chips = Array.from(new Set([...(data?.creatorQuestions ?? []), ...(data?.videoQuestions ?? []), ...themes.map(t.view), t.intro]))
     .filter((c) => !asked.has(c.trim()))
     .slice(0, compact ? 3 : 5);
 
