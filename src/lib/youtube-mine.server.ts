@@ -475,10 +475,16 @@ export function lockOwnerName(result: ChunkResult, owner: string): void {
     const who = String(e.who ?? "").trim();
     counts.set(who, (counts.get(who) ?? 0) + 1);
   }
+  const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}]/gu, "");
+  const ownerKey = norm(owner);
   const fold = (name: unknown): string | null => {
-    const who = String(name ?? "").trim();
+    let who = String(name ?? "").trim();
     if (!who || who === owner) return null;
+    who = who.replace(/^mind owner:\s*/i, "").trim();
     if (GENERIC_OWNER.test(who)) return owner;
+    // "Elonmusk1", "CTS Live", "elon musk" → the persona's own name.
+    const key = norm(who.replace(/\b(live|stream|official|tv)\b/gi, ""));
+    if (ownerKey && key === ownerKey) return owner;
     if (INVENTED_GUEST.test(who) && total > 0 && (counts.get(who) ?? 0) / total < 0.1) return owner;
     return null;
   };

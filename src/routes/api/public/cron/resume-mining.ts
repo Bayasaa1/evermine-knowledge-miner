@@ -71,7 +71,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         // Empty-AI-answer failures are recoverable (that part gets skipped),
         // so they are never abandoned by the attempt cap.
         const jobs = (allJobs ?? [])
-          .filter((j) => (j.attempts ?? 0) < MAX_ATTEMPTS || /empty video analysis/i.test(j.last_error ?? ""))
+          // Old code crashes ("Cannot read properties…") and key-quota stops are
+          // also recoverable now that merge is null-safe and keys cool down.
+          .filter((j) => (j.attempts ?? 0) < MAX_ATTEMPTS || /empty video analysis|cannot read properties|quota|gemini key/i.test(j.last_error ?? ""))
           .slice(0, MAX_JOBS_PER_RUN)
           .map((j) => ((j.attempts ?? 0) >= MAX_ATTEMPTS ? { ...j, attempts: MAX_ATTEMPTS - 2 } : j));
 
