@@ -31,3 +31,4 @@
 - Mongolian parts whose speech comes back mostly in Latin letters are re-watched once with the Cyrillic rule first; the first result is kept if the retry fails.
 
 - The project map shows the topic map as a root tree (groups → topics → nested sub-topics via parentId), with thickness = facts + Q&A under it; it replaces the old network graph because a weighted hierarchy shows where knowledge is richest.
+- Topic roots grow automatically at the end of finalizeMiningJob (owner's key, a few batches, failures swallowed) and root colour comes from viewer questions/reports matched read-only at view time, because creators should never have to hand-run the tree and stats must never alter mined data.
