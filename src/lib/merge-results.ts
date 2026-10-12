@@ -176,11 +176,11 @@ function confineTranscript(result: ChunkResult, win: Window): ChunkResult {
 }
 
 
-function uniqueStrings(values: string[]): string[] {
+function uniqueStrings(values: (string | undefined | null)[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const v of values) {
-    const k = v.trim();
+    const k = String(v ?? "").trim();
     if (!k || seen.has(k.toLowerCase())) continue;
     seen.add(k.toLowerCase());
     out.push(k);
@@ -214,67 +214,67 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
   const firstNonEmpty = (pick: (r: ChunkResult) => string): string =>
     normalized.map(pick).find((v) => !!v && v.trim().length > 0) ?? "";
 
-  const signals = normalized.flatMap((r) => r.copyright.signals);
-  const flagged = normalized.some((r) => r.copyright.flagged);
+  const signals = normalized.flatMap((r) => (r.copyright?.signals ?? []).filter(Boolean));
+  const flagged = normalized.some((r) => r.copyright?.flagged);
 
   return {
     speakers: uniqueBy(
-      normalized.flatMap((r) => r.speakers),
+      normalized.flatMap((r) => (r.speakers ?? []).filter(Boolean)),
       (s) => `${s.label}|${s.role}`,
     ),
-    transcript: normalized.flatMap((r) => r.transcript),
-    scenes: normalized.flatMap((r) => r.scenes),
-    knowledge: uniqueStrings(normalized.flatMap((r) => r.knowledge)),
+    transcript: normalized.flatMap((r) => (r.transcript ?? []).filter(Boolean)),
+    scenes: normalized.flatMap((r) => (r.scenes ?? []).filter(Boolean)),
+    knowledge: uniqueStrings(normalized.flatMap((r) => (r.knowledge ?? []).filter(Boolean))),
     story: {
-      summary: uniqueStrings(normalized.map((r) => r.story.summary)).join(" "),
-      tone: firstNonEmpty((r) => r.story.tone),
-      beats: normalized.flatMap((r) => r.story.beats),
+      summary: uniqueStrings(normalized.map((r) => r.story?.summary)).join(" "),
+      tone: firstNonEmpty((r) => r.story?.tone),
+      beats: normalized.flatMap((r) => (r.story?.beats ?? []).filter(Boolean)),
     },
-    faceData: normalized.flatMap((r) => r.faceData),
-    voiceData: normalized.flatMap((r) => r.voiceData),
+    faceData: normalized.flatMap((r) => (r.faceData ?? []).filter(Boolean)),
+    voiceData: normalized.flatMap((r) => (r.voiceData ?? []).filter(Boolean)),
     audio: {
-      hasMusic: normalized.some((r) => r.audio.hasMusic),
-      atmosphere: firstNonEmpty((r) => r.audio.atmosphere),
-      genres: uniqueStrings(normalized.flatMap((r) => r.audio.genres)),
-      moods: uniqueStrings(normalized.flatMap((r) => r.audio.moods)),
-      tempo: firstNonEmpty((r) => r.audio.tempo),
-      segments: normalized.flatMap((r) => r.audio.segments),
-      audioSkillAssets: uniqueStrings(normalized.flatMap((r) => r.audio.audioSkillAssets)),
+      hasMusic: normalized.some((r) => r.audio?.hasMusic),
+      atmosphere: firstNonEmpty((r) => r.audio?.atmosphere),
+      genres: uniqueStrings(normalized.flatMap((r) => (r.audio?.genres ?? []).filter(Boolean))),
+      moods: uniqueStrings(normalized.flatMap((r) => (r.audio?.moods ?? []).filter(Boolean))),
+      tempo: firstNonEmpty((r) => r.audio?.tempo),
+      segments: normalized.flatMap((r) => (r.audio?.segments ?? []).filter(Boolean)),
+      audioSkillAssets: uniqueStrings(normalized.flatMap((r) => (r.audio?.audioSkillAssets ?? []).filter(Boolean))),
     },
     subconsciousness: {
-      skills: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.skills)),
-      beliefs: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.beliefs)),
-      decisionLogic: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.decisionLogic)),
+      skills: uniqueStrings(normalized.flatMap((r) => (r.subconsciousness?.skills ?? []).filter(Boolean))),
+      beliefs: uniqueStrings(normalized.flatMap((r) => (r.subconsciousness?.beliefs ?? []).filter(Boolean))),
+      decisionLogic: uniqueStrings(normalized.flatMap((r) => (r.subconsciousness?.decisionLogic ?? []).filter(Boolean))),
       culturalVocabulary: uniqueBy(
-        normalized.flatMap((r) => r.subconsciousness.culturalVocabulary),
+        normalized.flatMap((r) => (r.subconsciousness?.culturalVocabulary ?? []).filter(Boolean)),
         (c) => `${c.phrase}|${c.timestamp}`,
       ),
-      expressiveStyle: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.expressiveStyle)),
-      aestheticProfile: uniqueStrings(normalized.flatMap((r) => r.subconsciousness.aestheticProfile)),
+      expressiveStyle: uniqueStrings(normalized.flatMap((r) => (r.subconsciousness?.expressiveStyle ?? []).filter(Boolean))),
+      aestheticProfile: uniqueStrings(normalized.flatMap((r) => (r.subconsciousness?.aestheticProfile ?? []).filter(Boolean))),
     },
-    knowledgeNodes: normalized.flatMap((r) => r.knowledgeNodes),
+    knowledgeNodes: normalized.flatMap((r) => (r.knowledgeNodes ?? []).filter(Boolean)),
     qaPairs: normalized.flatMap((r) => r.qaPairs ?? []),
     entities: mergeEntities(normalized.flatMap((r) => r.entities ?? [])),
-    screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${t.text.trim()}`),
+    screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${String(t?.text ?? "").trim()}`),
     journal: normalized.flatMap((r, i) => confineToWindow(r.journal ?? [], windowOf(r, i))),
-    screenItems: uniqueBy(normalized.flatMap((r) => r.screenItems ?? []), (i) => `${i.kind}|${i.url}|${i.content.trim()}`),
-    emotionTimeline: normalized.flatMap((r) => r.emotionTimeline),
+    screenItems: uniqueBy(normalized.flatMap((r) => r.screenItems ?? []), (i) => `${i.kind}|${i.url}|${String(i?.content ?? "").trim()}`),
+    emotionTimeline: normalized.flatMap((r) => (r.emotionTimeline ?? []).filter(Boolean)),
     copyright: {
       flagged,
-      originality: flagged ? "third-party" : firstNonEmpty((r) => r.copyright.originality) || "original",
+      originality: flagged ? "third-party" : firstNonEmpty((r) => r.copyright?.originality) || "original",
       signals,
-      summary: uniqueStrings(normalized.map((r) => r.copyright.summary)).join(" "),
+      summary: uniqueStrings(normalized.map((r) => r.copyright?.summary)).join(" "),
     },
     gaming: {
-      skills: uniqueBy(normalized.flatMap((r) => r.gaming.skills), (s) => s.name.toLowerCase()),
-      tactics: uniqueBy(normalized.flatMap((r) => r.gaming.tactics), (t) => t.name.toLowerCase()),
-      decisions: normalized.flatMap((r) => r.gaming.decisions),
-      tutorials: uniqueBy(normalized.flatMap((r) => r.gaming.tutorials), (t) => t.title.toLowerCase()),
-      commentaryStyle: uniqueStrings(normalized.flatMap((r) => r.gaming.commentaryStyle)),
-      mistakes: uniqueStrings(normalized.flatMap((r) => r.gaming.mistakes)),
-      communication: normalized.flatMap((r) => r.gaming.communication),
-      mindset: uniqueStrings(normalized.flatMap((r) => r.gaming.mindset)),
-      emotions: normalized.flatMap((r) => r.gaming.emotions),
+      skills: uniqueBy(normalized.flatMap((r) => (r.gaming?.skills ?? []).filter(Boolean)), (s) => String(s?.name ?? "").toLowerCase()),
+      tactics: uniqueBy(normalized.flatMap((r) => (r.gaming?.tactics ?? []).filter(Boolean)), (t) => String(t?.name ?? "").toLowerCase()),
+      decisions: normalized.flatMap((r) => (r.gaming?.decisions ?? []).filter(Boolean)),
+      tutorials: uniqueBy(normalized.flatMap((r) => (r.gaming?.tutorials ?? []).filter(Boolean)), (t) => String(t?.title ?? "").toLowerCase()),
+      commentaryStyle: uniqueStrings(normalized.flatMap((r) => (r.gaming?.commentaryStyle ?? []).filter(Boolean))),
+      mistakes: uniqueStrings(normalized.flatMap((r) => (r.gaming?.mistakes ?? []).filter(Boolean))),
+      communication: normalized.flatMap((r) => (r.gaming?.communication ?? []).filter(Boolean)),
+      mindset: uniqueStrings(normalized.flatMap((r) => (r.gaming?.mindset ?? []).filter(Boolean))),
+      emotions: normalized.flatMap((r) => (r.gaming?.emotions ?? []).filter(Boolean)),
     },
   };
 }
@@ -283,7 +283,7 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
 function mergeEntities(list: import("@/lib/gemini").MinedEntity[]): import("@/lib/gemini").MinedEntity[] {
   const map = new Map<string, import("@/lib/gemini").MinedEntity>();
   for (const e of list) {
-    const k = e.name.toLowerCase().trim();
+    const k = String(e?.name ?? "").toLowerCase().trim();
     const prev = map.get(k);
     if (!prev) { map.set(k, { ...e, timestamps: [...e.timestamps], relations: [...e.relations] }); continue; }
     if (!prev.description && e.description) prev.description = e.description;
