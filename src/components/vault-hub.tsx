@@ -72,7 +72,7 @@ import { permanentlyDeleteVideo } from "@/lib/content-delete.functions";
 import { youtubeId } from "@/lib/import-sources";
 import { VaultCoreBrain } from "@/components/vault-core-brain";
 import { TopicMapPanel } from "@/components/topic-map-panel";
-import { ProjectKnowledgeGraph } from "@/components/knowledge-graph";
+import { RootTree } from "@/components/root-tree";
 import { ProjectGraphOverview } from "@/components/project-graph-overview";
 import { ProjectContentTable } from "@/components/project-content-table";
 import { MindReviews } from "@/components/mind-reviews";
@@ -890,7 +890,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
       {tab === "map" ? (
         <div className="space-y-4">
           {/* Map and table are two views of the same project — never mixed with another. */}
-          <ProjectKnowledgeGraph lang={lang} userId={userId ?? ""} project={{ id: project.id, title: project.title }} />
+          <RootTree lang={lang} projectId={project.id} title={project.creator_name || project.title} />
           <ProjectContentTable lang={lang} userId={userId ?? ""} project={project} onChanged={() => { void load(); onChanged(); }} />
         </div>
       ) : tab === "brain" ? (
