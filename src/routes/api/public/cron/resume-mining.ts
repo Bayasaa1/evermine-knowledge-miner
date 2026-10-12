@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         // Single-flight lease: a job touched in the last 3 minutes is being mined
         // by an open tab or a previous run, so this worker leaves it alone.
         const leaseIso = new Date(Date.now() - 3 * 60_000).toISOString();
-        const { data: jobs, error } = await supabaseAdmin
+        const { data: allJobs, error } = await supabaseAdmin
           .from("mining_jobs")
           // Creator-paused and stopped jobs are deliberately excluded.
           .select("*")
@@ -61,14 +61,19 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           .in("status", ["paused_quota", "queued", "running", "error"])
           // A video that keeps failing for a permanent reason is abandoned after
           // a few tries instead of re-mining itself forever.
-          .lt("attempts", MAX_ATTEMPTS)
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           // Playlist order: oldest added first, then its place in the playlist.
           .order("created_at", { ascending: true })
           .order("queue_position", { ascending: true })
-          .limit(MAX_JOBS_PER_RUN);
+          .limit(50);
         if (error) return json({ error: error.message }, 500);
+        // Empty-AI-answer failures are recoverable (that part gets skipped),
+        // so they are never abandoned by the attempt cap.
+        const jobs = (allJobs ?? [])
+          .filter((j) => (j.attempts ?? 0) < MAX_ATTEMPTS || /empty video analysis/i.test(j.last_error ?? ""))
+          .slice(0, MAX_JOBS_PER_RUN)
+          .map((j) => ((j.attempts ?? 0) >= MAX_ATTEMPTS ? { ...j, attempts: MAX_ATTEMPTS - 2 } : j));
 
         let resumed = 0;
         let paused = 0;
