@@ -432,6 +432,8 @@ export const Route = createFileRoute("/api/mind-chat")({
           seen?: string;
           /** 0-100: how much the AI may add on top of the mined knowledge. */
           aiLevel?: number;
+          /** Knowledge-root branch the viewer chose to talk about. */
+          topicId?: string;
         };
         try {
           body = (await request.json()) as typeof body;
@@ -444,7 +446,8 @@ export const Route = createFileRoute("/api/mind-chat")({
         // thread, so truncating here made the model forget what was just said.
         const history = Array.isArray(body.messages) ? body.messages.slice(-200) : [];
         const recentUser = history.filter((m) => m.role === "user").slice(-3).map((m) => m.text).join(" ");
-        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser) : null;
+        const topicId = typeof body.topicId === "string" ? body.topicId.slice(0, 80) : undefined;
+        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }
