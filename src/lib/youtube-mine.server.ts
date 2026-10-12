@@ -374,8 +374,67 @@ export async function analyzeYoutubeVideo(input: {
   result.speakers = nameEverySpeaker(result.speakers ?? []);
   const owner = ownerNameFrom(input.assessment?.speakerIdentity);
   if (owner) lockOwnerName(result, owner);
+  await fillSpeechGaps(result, { url, startSec: input.startSec, endSec: input.endSec, credential: input.credential, assessment: input.assessment, owner, usageMeta });
   await ensureScreenCoverage(result, { url, startSec: input.startSec, endSec: input.endSec, credential: input.credential, owner, ...(input.usage ? { usage: input.usage } : {}) });
   return result;
+}
+
+/** "H:MM:SS" / "MM:SS" / "373:19" → seconds; null when unusable. */
+function stampSec(raw: unknown): number | null {
+  const m = String(raw ?? "").trim().match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?/);
+  if (!m) return null;
+  return m[3] != null ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : Number(m[1]) * 60 + Number(m[2]);
+}
+
+/**
+ * Gemini sometimes stops writing speech for minutes in the middle of a part
+ * (a real test lost 17:07–19:43 of a TED talk). Any silence longer than
+ * GAP seconds is watched once more on its own and the missing lines are added.
+ * Never removes anything; on any failure the first result stays as it was.
+ */
+async function fillSpeechGaps(
+  result: ChunkResult,
+  ctx: { url: string; startSec: number; endSec: number; credential: AiCredential; assessment?: Assessment | undefined; owner: string; usageMeta: Parameters<typeof geminiGenerate>[0]["usage"] },
+): Promise<void> {
+  const GAP = 75;
+  const isSpeech = (k: unknown) => /^(speech|said|say|talk|dialogue)$/i.test(String(k));
+  const times = (result.journal ?? []).filter((e) => isSpeech(e.kind)).map((e) => stampSec(e.timestamp)).filter((s): s is number => s != null).sort((a, b) => a - b);
+  if (!times.length) return;
+  const gaps: [number, number][] = [];
+  for (let i = 1; i < times.length; i++) if (times[i]! - times[i - 1]! > GAP) gaps.push([times[i - 1]! + 1, times[i]!]);
+  for (const [from, to] of gaps.slice(0, 3)) {
+    try {
+      const text = await withGeminiRetry(() => geminiGenerate({
+        credential: ctx.credential,
+        model: "gemini-3.1-flash-lite",
+        json: true,
+        maxTokens: 32768,
+        ...(ctx.usageMeta ? { usage: ctx.usageMeta } : {}),
+        turns: [{ role: "user", parts: [
+          { text: `${miningPrompt}${assessmentDirective(ctx.assessment)}\n\nRequested time range: ${from}s to ${to}s. Write EVERY spoken sentence in this range as its own speech entry with its whole-video timestamp. Do not summarize or skip any speech.${FINAL_RULES}` },
+          youtubeVideoPart(ctx.url, ctx.credential, from, to),
+        ] }],
+      }));
+      if (!text) continue;
+      const extra = normalizeChunkResult(parseLooseJson(text));
+      if (ctx.owner) lockOwnerName(extra, ctx.owner);
+      const inGap = (s: number | null) => s != null && s > from - 1 && s < to;
+      let lines = (extra.journal ?? []).filter((e) => isSpeech(e.kind) && inGap(stampSec(e.timestamp)));
+      if (!lines.length) {
+        // Some answers count time from the start of the requested range.
+        const fmt = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
+        const shift = <T extends { timestamp: string }>(e: T): T => ({ ...e, timestamp: fmt((stampSec(e.timestamp) ?? -9999) + from) });
+        lines = (extra.journal ?? []).filter((e) => isSpeech(e.kind)).map(shift).filter((e) => inGap(stampSec(e.timestamp)));
+        extra.transcript = (extra.transcript ?? []).map(shift);
+      }
+      if (!lines.length) continue;
+      result.journal = [...(result.journal ?? []), ...lines].sort((a, b) => (stampSec(a.timestamp) ?? 0) - (stampSec(b.timestamp) ?? 0));
+      const tr = (extra.transcript ?? []).filter((l) => inGap(stampSec(l.timestamp)));
+      if (tr.length) result.transcript = [...(result.transcript ?? []), ...tr].sort((a, b) => (stampSec(a.timestamp) ?? 0) - (stampSec(b.timestamp) ?? 0));
+    } catch {
+      /* keep what we have */
+    }
+  }
 }
 
 const CYRILLIC_FIRST = "MOST IMPORTANT RULE: the speaker talks Mongolian. Write every Mongolian spoken sentence in Mongolian CYRILLIC letters (Сайн байна уу, яагаад, боловч). Latin-letter Mongolian (\"Yag odoo\", \"bolovch\") is forbidden. Only genuinely English words stay in English. Every speech entry is a whole sentence, never one or two words.";
