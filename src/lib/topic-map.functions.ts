@@ -39,8 +39,71 @@ export const getTopicMap = createServerFn({ method: "POST" })
         n + factsOfVault(v.id as string, (v.payload ?? {}) as Record<string, unknown>).filter((f) => !filed.has(f.id)).length,
       0,
     );
-    return { map, total, pending };
+    const stats = map ? await topicStats(context.supabase, context.userId, data.projectId, map) : {};
+    return { map, total, pending, stats };
   });
+
+export type TopicStat = { questions: { text: string; count: number }[]; qCount: number; reports: string[]; rCount: number };
+
+const words = (s: string) =>
+  new Set(
+    s
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length > 2),
+  );
+
+/** Matches viewer questions and reports to the topic they talk about most. Read-only. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function topicStats(sb: any, userId: string, projectId: string, map: TopicMap): Promise<Record<string, TopicStat>> {
+  const { data: content } = await sb.from("project_content").select("mind_id").eq("project_id", projectId);
+  const mindIds = [`project:${projectId}`, ...((content ?? []) as { mind_id: string }[]).map((c) => c.mind_id).filter(Boolean)];
+  const [{ data: signals }, { data: chats }] = await Promise.all([
+    sb.from("viewer_signals").select("kind,body,topic").eq("creator_user_id", userId).in("mind_id", mindIds).limit(2000),
+    sb.from("chat_messages").select("body").eq("user_id", userId).eq("role", "user").in("mind_id", mindIds).limit(2000),
+  ]);
+  const index = map.topics.map((t) => ({
+    id: t.id,
+    title: t.title.toLowerCase(),
+    w: words(`${t.title} ${t.title} ${t.summary} ${t.facts.slice(0, 30).map((f) => f.text).join(" ")}`),
+  }));
+  const best = (text: string): string | null => {
+    const lower = text.toLowerCase();
+    const q = words(text);
+    let top: string | null = null;
+    let score = 0;
+    for (const t of index) {
+      let s = lower.includes(t.title) ? 5 : 0;
+      for (const w of q) if (t.w.has(w)) s++;
+      if (s > score) { score = s; top = t.id; }
+    }
+    return score >= 2 ? top : null;
+  };
+  const out: Record<string, TopicStat> = {};
+  const get = (id: string) => (out[id] ??= { questions: [], qCount: 0, reports: [], rCount: 0 });
+  const ask = (text: string, topic?: string | null) => {
+    const id = (topic && map.topics.find((t) => t.title.toLowerCase() === topic.toLowerCase())?.id) || best(text);
+    if (!id) return;
+    const st = get(id);
+    st.qCount++;
+    const key = text.trim().slice(0, 200);
+    const hit = st.questions.find((x) => x.text.toLowerCase() === key.toLowerCase());
+    if (hit) hit.count++;
+    else st.questions.push({ text: key, count: 1 });
+  };
+  for (const s of (signals ?? []) as { kind: string; body: string; topic: string | null }[]) {
+    if (s.kind === "report") {
+      const id = (s.topic && map.topics.find((t) => t.title.toLowerCase() === s.topic!.toLowerCase())?.id) || best(s.body);
+      if (!id) continue;
+      const st = get(id);
+      st.rCount++;
+      if (st.reports.length < 20) st.reports.push(s.body.slice(0, 300));
+    } else if (s.kind === "question") ask(s.body, s.topic);
+  }
+  for (const c of (chats ?? []) as { body: string }[]) if (c.body.trim().length > 6) ask(c.body);
+  for (const st of Object.values(out)) st.questions = st.questions.sort((a, b) => b.count - a.count).slice(0, 15);
+  return out;
+}
 
 /** Files one batch of new facts. The client calls it again until `remaining` is 0. */
 export const growTopicMap = createServerFn({ method: "POST" })

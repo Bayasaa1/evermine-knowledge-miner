@@ -292,6 +292,12 @@ export async function finalizeMiningJob(
     .update({ vault_id: savedVault.id, status: "done" })
     .eq("id", job.id);
 
+  // Roots grow by themselves once a video is fully mined; never blocks the save.
+  if (!partial && projectId) {
+    const { growProjectTopics } = await import("@/lib/topic-map.server");
+    await growProjectTopics(admin, job.user_id, projectId).catch(() => 0);
+  }
+
   return savedVault.id as string;
 }
 

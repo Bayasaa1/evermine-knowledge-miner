@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star } from "lucide-react";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag } from "lucide-react";
+import { toast } from "sonner";
+import { reportMindReply } from "@/lib/viewer-signals.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { apiFetch } from "@/lib/api-fetch";
 import { useDisplayTexts, useLang, type Lang } from "@/lib/i18n";
@@ -35,6 +37,7 @@ export function TalkToMindModal({
   lang?: Lang;
 }) {
   const { lang: activeLang } = useLang();
+  const reportFn = useServerFn(reportMindReply);
   const lang: Lang = langProp ?? activeLang;
   const [heading, empty, placeholder, newChatLabel, resetConfirm, holdLabel, listeningLabel, speakingLabel] = useDisplayTexts([
     "Talk to",
@@ -477,6 +480,22 @@ export function TalkToMindModal({
               )}
             </div>
             <div className="flex shrink-0 gap-0.5 opacity-60 group-hover:opacity-100">
+              {m.role === "agent" && isAuthenticated && mindId && m.text && i > 0 && (
+                <button
+                  type="button"
+                  aria-label={lang === "mn" ? "Буруу хариулт гэж мэдэгдэх" : lang === "ko" ? "잘못된 답변 신고" : "Report wrong answer"}
+                  title={lang === "mn" ? "Буруу хариулт гэж мэдэгдэх" : lang === "ko" ? "잘못된 답변 신고" : "Report wrong answer"}
+                  onClick={() => {
+                    const q = [...messages.slice(0, i)].reverse().find((x) => x.role === "user")?.text ?? "";
+                    reportFn({ data: { mindId, question: q, answer: m.text } })
+                      .then(() => toast.success(lang === "mn" ? "Бүтээгчид мэдэгдлээ" : lang === "ko" ? "제작자에게 알렸습니다" : "Creator notified"))
+                      .catch((e: Error) => toast.error(e.message));
+                  }}
+                  className="rounded p-1 text-muted-foreground hover:text-warn"
+                >
+                  <Flag className="h-3.5 w-3.5" />
+                </button>
+              )}
               {m.role === "user" && (
                 <button type="button" aria-label="Edit" onClick={() => { setEditIndex(i); setInput(splitAttachments(m.text).body); }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
                   <Pencil className="h-3 w-3" />

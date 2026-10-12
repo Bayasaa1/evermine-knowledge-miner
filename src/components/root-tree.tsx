@@ -7,10 +7,10 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, MessageCircleQuestion, Play, Sprout } from "lucide-react";
+import { AlertTriangle, Flame, Loader2, MessageCircleQuestion, Play, Sprout } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { getTopicMap } from "@/lib/topic-map.functions";
+import { getTopicMap, type TopicStat } from "@/lib/topic-map.functions";
 import type { Topic, TopicFact } from "@/lib/topic-map.server";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -28,7 +28,23 @@ const C = {
   },
   facts: { en: "facts", mn: "баримт", ko: "사실" },
   qa: { en: "Q&A", mn: "асуулт-хариулт", ko: "Q&A" },
+  all: { en: "All", mn: "Бүгд", ko: "전체" },
+  hot: { en: "Most asked", mn: "Их асуугдсан", ko: "많이 질문됨" },
+  issues: { en: "Reported", mn: "Асуудалтай", ko: "신고됨" },
+  thin: { en: "Thin", mn: "Нимгэн", ko: "얇음" },
+  asked: { en: "asked", mn: "асуулт", ko: "질문" },
+  reports: { en: "reports", mn: "report", ko: "신고" },
+  viewerQ: { en: "What people asked", mn: "Хүмүүс юу асуусан бэ", ko: "사람들이 물은 것" },
+  reportList: { en: "Reported problems", mn: "Ирсэн асуудлууд", ko: "신고된 문제" },
+  factsTab: { en: "Facts", mn: "Баримтууд", ko: "사실" },
+  thinHint: {
+    en: "Few facts here — a new video on this subject would strengthen this root.",
+    mn: "Баримт цөөн — энэ сэдвээр бичлэг нэмбэл үндэс бүдүүрнэ.",
+    ko: "사실이 적습니다 — 이 주제의 영상을 추가하면 뿌리가 굵어집니다.",
+  },
 } as const;
+
+type Filter = "all" | "hot" | "issues" | "thin";
 
 type Node = {
   id: string;
@@ -39,11 +55,13 @@ type Node = {
   weight: number;
   facts: number;
   qa: number;
+  asked: number;
+  reports: number;
 };
 
 const isQa = (f: TopicFact) => f.text.startsWith("Q:");
 
-function buildTree(topics: Topic[], mindLabel: string): Node {
+function buildTree(topics: Topic[], mindLabel: string, stats: Record<string, TopicStat>): Node {
   const byId = new Map(topics.map((t) => [t.id, t]));
   const kids = new Map<string, Topic[]>();
   const rootsByGroup = new Map<string, Topic[]>();
@@ -60,17 +78,23 @@ function buildTree(topics: Topic[], mindLabel: string): Node {
     const children = (kids.get(t.id) ?? []).filter((c) => !seen.has(c.id)).map(topicNode);
     const qa = t.facts.filter(isQa).length + children.reduce((n, c) => n + c.qa, 0);
     const facts = t.facts.length + children.reduce((n, c) => n + c.facts, 0);
-    return { id: t.id, label: t.title, kind: "topic", topic: t, children: sortW(children), facts, qa, weight: facts + qa };
+    const asked = (stats[t.id]?.qCount ?? 0) + children.reduce((n, c) => n + c.asked, 0);
+    const reports = (stats[t.id]?.rCount ?? 0) + children.reduce((n, c) => n + c.reports, 0);
+    return { id: t.id, label: t.title, kind: "topic", topic: t, children: sortW(children), facts, qa, asked, reports, weight: facts + qa };
   };
   const groups: Node[] = [...rootsByGroup.entries()].map(([g, ts]) => {
     const children = sortW(ts.map(topicNode));
     const facts = children.reduce((n, c) => n + c.facts, 0);
     const qa = children.reduce((n, c) => n + c.qa, 0);
-    return { id: `g:${g}`, label: g, kind: "group", children, facts, qa, weight: facts + qa };
+    const asked = children.reduce((n, c) => n + c.asked, 0);
+    const reports = children.reduce((n, c) => n + c.reports, 0);
+    return { id: `g:${g}`, label: g, kind: "group", children, facts, qa, asked, reports, weight: facts + qa };
   });
   const facts = groups.reduce((n, c) => n + c.facts, 0);
   const qa = groups.reduce((n, c) => n + c.qa, 0);
-  return { id: "mind", label: mindLabel, kind: "mind", children: sortW(groups), facts, qa, weight: facts + qa };
+  const asked = groups.reduce((n, c) => n + c.asked, 0);
+  const reports = groups.reduce((n, c) => n + c.reports, 0);
+  return { id: "mind", label: mindLabel, kind: "mind", children: sortW(groups), facts, qa, asked, reports, weight: facts + qa };
 }
 
 const sortW = (n: Node[]) => n.sort((a, b) => b.weight - a.weight);
@@ -86,7 +110,23 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
   const { data, isLoading } = useQuery({ queryKey: ["topic-map", projectId], queryFn: () => load({ data: { projectId } }) });
   const [path, setPath] = useState<string[]>(["mind"]);
 
-  const tree = useMemo(() => buildTree(data?.map?.topics ?? [], title), [data, title]);
+  const [filter, setFilter] = useState<Filter>("all");
+  const stats = (data?.stats ?? {}) as Record<string, TopicStat>;
+  const tree = useMemo(() => buildTree(data?.map?.topics ?? [], title, stats), [data, title]); // eslint-disable-line react-hooks/exhaustive-deps
+  const maxAsked = Math.max(1, ...tree.children.flatMap((g) => [g.asked, ...g.children.map((c) => c.asked)]));
+  const thinLimit = Math.max(3, Math.round(tree.weight / Math.max(1, (data?.map?.topics ?? []).length) / 3));
+  const state = (n: Node): "issue" | "hot" | "thin" | "ok" =>
+    n.reports > 0 ? "issue" : n.asked > 0 && n.asked >= maxAsked * 0.4 ? "hot" : n.kind === "topic" && n.weight <= thinLimit ? "thin" : "ok";
+  const tone = (n: Node) => {
+    const st = state(n);
+    return st === "issue" ? "text-warn" : st === "hot" ? "text-hot" : "text-primary";
+  };
+  const dimmed = (n: Node) => {
+    if (filter === "all" || n.kind === "mind") return false;
+    const has = (x: Node): boolean =>
+      (filter === "issues" ? x.reports > 0 : filter === "hot" ? state(x) === "hot" : state(x) === "thin") || x.children.some(has);
+    return !has(n);
+  };
 
   // Lay out only the open path: every node on the path shows its children.
   const { placed, maxW, rows } = useMemo(() => {
@@ -132,6 +172,23 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <>
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "hot", "issues", "thin"] as Filter[]).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${
+                  filter === f ? "border-foreground bg-secondary text-foreground" : "border-border text-muted-foreground"
+                }`}
+              >
+                {f === "hot" ? <Flame className="h-3 w-3 text-hot" /> : null}
+                {f === "issues" ? <AlertTriangle className="h-3 w-3 text-warn" /> : null}
+                {f === "thin" ? <Sprout className="h-3 w-3" /> : null}
+                {t(f)}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
             {path.map((id, i) => {
               const n = placed.find((p) => p.node.id === id)?.node;
@@ -154,12 +211,13 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
                   const onPath = path[p.depth] === p.node.id;
                   return (
                     <path
+                      className={tone(p.node)}
                       key={`e-${p.node.id}`}
                       d={`M ${a.x} ${a.y} C ${a.x} ${my}, ${p.x} ${my}, ${p.x} ${p.y}`}
                       fill="none"
                       stroke="currentColor"
                       strokeLinecap="round"
-                      strokeOpacity={onPath ? 0.9 : 0.4}
+                      strokeOpacity={dimmed(p.node) ? 0.08 : onPath ? 0.9 : 0.45}
                       strokeWidth={stroke(p.node.weight)}
                     />
                   );
@@ -167,12 +225,12 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
               {placed.map((p) => {
                 const onPath = path[p.depth] === p.node.id;
                 return (
-                  <g key={p.node.id} onClick={() => open(p)} className="cursor-pointer">
+                  <g key={p.node.id} onClick={() => open(p)} className={`cursor-pointer ${tone(p.node)}`} opacity={dimmed(p.node) ? 0.2 : 1}>
                     <circle
                       cx={p.x}
                       cy={p.y}
                       r={p.depth === 0 ? 14 : 5 + Math.sqrt(p.node.weight / maxW) * 10}
-                      className={onPath ? "fill-primary" : "fill-card stroke-primary"}
+                      className={onPath ? "fill-current" : "fill-card stroke-current"}
                       strokeWidth={2}
                     />
                     <text
@@ -187,6 +245,8 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
                     </text>
                     <text x={p.x} y={p.y + (p.depth === 0 ? 32 : 40)} textAnchor="middle" className="fill-muted-foreground" fontSize={10}>
                       {p.node.weight}
+                      {p.node.asked ? ` · ?${p.node.asked}` : ""}
+                      {p.node.reports ? ` · !${p.node.reports}` : ""}
                     </text>
                   </g>
                 );
@@ -203,7 +263,43 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
               <Badge variant="secondary">
                 {selected.qa} {t("qa")}
               </Badge>
+              {selected.asked ? (
+                <Badge variant="outline" className="border-hot text-hot">
+                  <Flame className="mr-1 h-3 w-3" />
+                  {selected.asked} {t("asked")}
+                </Badge>
+              ) : null}
+              {selected.reports ? (
+                <Badge variant="outline" className="border-warn text-warn">
+                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  {selected.reports} {t("reports")}
+                </Badge>
+              ) : null}
             </div>
+            {state(selected) === "thin" ? <p className="mt-1 text-xs text-muted-foreground">{t("thinHint")}</p> : null}
+            {selected.topic && stats[selected.topic.id]?.reports.length ? (
+              <div className="mt-2 rounded-md border border-warn/40 p-2">
+                <p className="mb-1 text-xs font-semibold text-warn">{t("reportList")}</p>
+                <ul className="space-y-1">
+                  {stats[selected.topic.id]!.reports.map((r, i) => (
+                    <li key={i} className="text-xs text-foreground">• {r}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {selected.topic && stats[selected.topic.id]?.questions.length ? (
+              <div className="mt-2 rounded-md border border-hot/40 p-2">
+                <p className="mb-1 text-xs font-semibold text-hot">{t("viewerQ")}</p>
+                <ul className="space-y-1">
+                  {stats[selected.topic.id]!.questions.map((q, i) => (
+                    <li key={i} className="flex gap-2 text-xs text-foreground">
+                      <span className="shrink-0 font-mono text-hot">×{q.count}</span>
+                      <span className="min-w-0">{q.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {selected.topic?.summary ? <p className="mt-1 text-xs text-muted-foreground">{selected.topic.summary}</p> : null}
             {selected.topic ? (
               <ul className="mt-2 space-y-1.5">

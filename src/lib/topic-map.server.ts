@@ -218,3 +218,41 @@ export function topicIndexText(map: TopicMap | null, limit = 60): string[] {
     .slice(0, limit)
     .map((t) => `${t.group} › ${t.title} (${t.facts.length}): ${t.summary}`);
 }
+
+/**
+ * Grows a project's topic map in the background right after mining, using the
+ * owner's own key. Failures never touch mined data; unsorted facts simply wait
+ * for the next run or the creator's button.
+ */
+export async function growProjectTopics(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  userId: string,
+  projectId: string,
+  maxBatches = 3,
+): Promise<number> {
+  const title = `topics:${projectId}`;
+  const [{ data: project }, { data: vaults }] = await Promise.all([
+    admin.from("projects").select("title").eq("id", projectId).eq("user_id", userId).maybeSingle(),
+    admin.from("mind_vaults").select("id,payload").eq("user_id", userId).eq("project_id", projectId).eq("kind", "mine").order("updated_at", { ascending: true }),
+  ]);
+  if (!project) return 0;
+  const allFacts = ((vaults ?? []) as { id: string; payload: Record<string, unknown> }[]).flatMap((v) => factsOfVault(v.id, v.payload ?? {}));
+  const { data: row } = await admin.from("mind_vaults").select("id,payload").eq("user_id", userId).eq("kind", "topics").eq("title", title).maybeSingle();
+  let rowId: string | null = row?.id ?? null;
+  let map: TopicMap = (row?.payload as TopicMap | null) ?? { version: 1, projectId, updatedAt: new Date().toISOString(), topics: [], filed: [] };
+  let total = 0;
+  for (let i = 0; i < maxBatches; i++) {
+    const r = await fileNextBatch({ userId, map, allFacts, label: `Topics · ${project.title}` });
+    if (r.filedNow === 0) break;
+    map = r.map;
+    total += r.filedNow;
+    if (rowId) await admin.from("mind_vaults").update({ payload: map }).eq("id", rowId).eq("user_id", userId);
+    else {
+      const { data: ins } = await admin.from("mind_vaults").insert({ user_id: userId, kind: "topics", title, payload: map }).select("id").single();
+      rowId = ins?.id ?? null;
+    }
+    if (r.remaining === 0) break;
+  }
+  return total;
+}
