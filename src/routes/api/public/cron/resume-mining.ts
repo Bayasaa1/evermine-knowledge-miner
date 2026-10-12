@@ -181,6 +181,38 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               const quota = isQuotaMessage(message);
+              // An empty AI answer on one part must never strand the whole
+              // video: after repeated empty answers, mark that one part as
+              // skipped (flagged for later repair) and continue with the next.
+              const empty = /empty video analysis/i.test(message);
+              if (empty && (job.attempts ?? 0) + 1 >= MAX_ATTEMPTS - 1) {
+                const nextResults = [
+                  ...results,
+                  {
+                    journal: [], transcript: [], knowledge: [], screenItems: [],
+                    skipped: true, skipReason: message.slice(0, 200),
+                    window: { start: chunk.start, end: chunk.end },
+                  },
+                ];
+                const { data: skippedRow } = await supabaseAdmin
+                  .from("mining_jobs")
+                  .update({
+                    results: nextResults as never,
+                    next_index: index + 1,
+                    status: index + 1 >= chunks.length ? "done" : "running",
+                    last_error: `Part ${index + 1} skipped: AI returned nothing for it.`,
+                    retry_after: null,
+                    attempts: 0,
+                  })
+                  .eq("id", job.id)
+                  .eq("next_index", index)
+                  .select("id");
+                if (!skippedRow || skippedRow.length === 0) break;
+                results = nextResults;
+                index += 1;
+                job.attempts = 0;
+                continue;
+              }
               // Quota is transient and does not count against the budget;
               // every other failure does, with growing backoff between tries.
               const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
