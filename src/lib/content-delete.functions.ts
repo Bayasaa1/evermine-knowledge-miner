@@ -120,6 +120,40 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
+    // Remove only this video's facts from its project's root tree; every
+    // other video's facts stay exactly as filed.
+    const deletedVaultIds = new Set(matchingVaultIds);
+    for (const projectId of projectIds) {
+      const { data: topicRows } = await supabaseAdmin.from("mind_vaults").select("id, payload")
+        .eq("user_id", context.userId).eq("kind", "topics").eq("title", `topics:${projectId}`);
+      for (const row of topicRows ?? []) {
+        const map = row.payload as { topics?: { id: string; parentId?: string; facts?: { id: string; videoId?: string; vaultId?: string }[] }[]; filed?: string[] } | null;
+        if (!map?.topics) continue;
+        const removed = new Set<string>();
+        let topics = map.topics.map((t) => ({
+          ...t,
+          facts: (t.facts ?? []).filter((f) => {
+            const hit = deletedVaultIds.has(f.vaultId ?? "") || (videoId !== null && f.videoId === videoId);
+            if (hit) removed.add(f.id);
+            return !hit;
+          }),
+        }));
+        if (removed.size === 0) continue;
+        // Drop topics left empty with no children, repeatedly up the tree.
+        for (let changed = true; changed;) {
+          const before = topics.length;
+          topics = topics.filter((t) => t.facts.length > 0 || topics.some((c) => c.parentId === t.id));
+          changed = topics.length !== before;
+        }
+        const ids = new Set(topics.map((t) => t.id));
+        topics = topics.map((t) => (t.parentId && !ids.has(t.parentId) ? (({ parentId: _p, ...rest }) => rest)(t) : t));
+        const payload = { ...map, topics, filed: (map.filed ?? []).filter((id) => !removed.has(id)), updatedAt: new Date().toISOString() };
+        const { error } = await supabaseAdmin.from("mind_vaults").update({ payload: payload as never }).eq("id", row.id).eq("user_id", context.userId);
+        if (error) throw new Error(error.message);
+      }
+    }
+
+
     const contentIds = contentRows.map((row) => row.id);
     if (contentIds.length > 0) {
       const { error } = await supabaseAdmin.from("project_content").delete().eq("user_id", context.userId).in("id", contentIds);
