@@ -144,9 +144,36 @@ function pickRelevant(items: string[], query: string[], relevant: number, always
   return scored.filter((s) => chosen.has(s.i)).map((s) => s.text);
 }
 
-async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "") {
+/** The knowledge-root branch this question belongs to, read-only. */
+async function rootBranchBlock(mindId: string, queryText: string, topicId?: string): Promise<string> {
+  if (!mindId.startsWith("project:")) return "";
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("mind_vaults")
+      .select("payload")
+      .eq("kind", "topics")
+      .eq("title", `topics:${mindId.slice(8)}`)
+      .maybeSingle();
+    if (!data?.payload) return "";
+    const { branchFactsFor } = await import("@/lib/topic-map.server");
+    const { titles, facts } = branchFactsFor(data.payload as never, queryText, topicId, 30);
+    if (!facts.length) return "";
+    return [
+      `THIS QUESTION BELONGS TO YOUR KNOWLEDGE ROOT: ${titles.join(" | ")}`,
+      topicId ? `The person chose to talk about this branch: keep the conversation centred on it.` : "",
+      `Everything you said on this branch (most reliable source — prefer these facts over anything else):`,
+      ...facts.map((f) => `- ${f}`),
+    ].filter(Boolean).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "", topicId?: string) {
   const builtIn = buildSystemPrompt(mindId, lang);
   if (builtIn) return builtIn;
+  const branch = await rootBranchBlock(mindId, queryText, topicId);
   let project: Awaited<ReturnType<typeof getPublicProjectMind>> = null;
   let extras: Awaited<ReturnType<typeof import("@/lib/mind-qa.server").loadCreatorExtras>> = null;
   if (mindId.startsWith("persona:")) {
@@ -185,6 +212,7 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
     block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
+    branch,
     block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge.filter((f) => !/\] SCREEN /.test(f)), q, 14, 4)),
     block(`WHAT WAS ON YOUR SCREEN IN YOUR VIDEOS (exact links, numbers, chats, UI — quote exactly when asked):`, pickRelevant(project.knowledge.filter((f) => /\] SCREEN /.test(f)), q, 10, 2)),
     project.episodes?.length
@@ -404,6 +432,8 @@ export const Route = createFileRoute("/api/mind-chat")({
           seen?: string;
           /** 0-100: how much the AI may add on top of the mined knowledge. */
           aiLevel?: number;
+          /** Knowledge-root branch the viewer chose to talk about. */
+          topicId?: string;
         };
         try {
           body = (await request.json()) as typeof body;
@@ -416,7 +446,8 @@ export const Route = createFileRoute("/api/mind-chat")({
         // thread, so truncating here made the model forget what was just said.
         const history = Array.isArray(body.messages) ? body.messages.slice(-200) : [];
         const recentUser = history.filter((m) => m.role === "user").slice(-3).map((m) => m.text).join(" ");
-        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser) : null;
+        const topicId = typeof body.topicId === "string" ? body.topicId.slice(0, 80) : undefined;
+        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }

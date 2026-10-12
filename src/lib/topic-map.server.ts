@@ -219,6 +219,77 @@ export function topicIndexText(map: TopicMap | null, limit = 60): string[] {
     .map((t) => `${t.group} › ${t.title} (${t.facts.length}): ${t.summary}`);
 }
 
+const tok = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 2);
+
+/**
+ * Root-guided recall: picks the branches a question belongs to (or the branch
+ * the viewer chose) and returns that branch's facts plus its sub-branches, so
+ * the chat answers from the whole relevant root instead of loose word hits.
+ * Read-only: never changes the map.
+ */
+export function branchFactsFor(
+  map: TopicMap | null,
+  query: string,
+  focusTopicId?: string | null,
+  maxFacts = 30,
+): { titles: string[]; facts: string[] } {
+  if (!map?.topics.length) return { titles: [], facts: [] };
+  const byId = new Map(map.topics.map((t) => [t.id, t]));
+  const kids = (id: string) => map.topics.filter((t) => t.parentId === id);
+  let roots: Topic[] = [];
+  const focus = focusTopicId ? byId.get(focusTopicId) : undefined;
+  if (focus) roots = [focus];
+  else {
+    const q = new Set(tok(query));
+    if (!q.size) return { titles: [], facts: [] };
+    const hit = (w: string) => q.has(w) || [...q].some((k) => k.length > 4 && w.startsWith(k.slice(0, 5)));
+    roots = map.topics
+      .map((t) => {
+        const head = tok(`${t.title} ${t.summary} ${t.group}`).filter(hit).length * 3;
+        const body = t.facts.reduce((n, f) => n + tok(f.text).filter(hit).length, 0);
+        return { t, score: head + Math.min(body, 12) };
+      })
+      .filter((x) => x.score >= 3)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2)
+      .map((x) => x.t);
+  }
+  if (!roots.length) return { titles: [], facts: [] };
+  const seen = new Set<string>();
+  const facts: string[] = [];
+  const walk = (t: Topic, depth: number) => {
+    if (seen.has(t.id) || depth > 3) return;
+    seen.add(t.id);
+    for (const f of t.facts) {
+      if (facts.length >= maxFacts) return;
+      facts.push(`${f.ts ? `[${f.ts}] ` : ""}${f.text}`);
+    }
+    for (const c of kids(t.id)) walk(c, depth + 1);
+  };
+  for (const r of roots) walk(r, 0);
+  const titles = roots.map((r) => {
+    const parent = r.parentId ? byId.get(r.parentId) : undefined;
+    return [r.group, parent?.title, r.title].filter(Boolean).join(" › ");
+  });
+  return { titles, facts };
+}
+
+/** Projects whose topic map still has unsorted facts, for the background grower. */
+export async function growPendingTopicMaps(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  deadline: number,
+): Promise<number> {
+  const { data: projects } = await admin.from("projects").select("id,user_id").limit(50);
+  let grown = 0;
+  for (const p of (projects ?? []) as { id: string; user_id: string }[]) {
+    if (Date.now() > deadline - 60_000) break;
+    const n = await growProjectTopics(admin, p.user_id, p.id, 1).catch(() => 0);
+    grown += n;
+  }
+  return grown;
+}
+
 /**
  * Grows a project's topic map in the background right after mining, using the
  * owner's own key. Failures never touch mined data; unsorted facts simply wait

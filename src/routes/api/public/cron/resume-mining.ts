@@ -258,7 +258,14 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
         }
 
-        return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused, saved }, 200);
+        // Leftover time grows knowledge roots that still have unsorted facts,
+        // one batch per project on each owner's own key. Never alters mined data.
+        let rooted = 0;
+        if (Date.now() < deadline - 60_000) {
+          const { growPendingTopicMaps } = await import("@/lib/topic-map.server");
+          rooted = await growPendingTopicMaps(supabaseAdmin, deadline).catch(() => 0);
+        }
+        return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused, saved, rooted }, 200);
       },
     },
   },
