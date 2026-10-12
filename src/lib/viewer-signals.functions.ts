@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export type SignalKind = "question" | "reaction" | "request";
+export type SignalKind = "question" | "reaction" | "request" | "report";
 
 export const sendSignal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
