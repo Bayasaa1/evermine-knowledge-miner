@@ -28,6 +28,7 @@ export function TalkToMindModal({
   mindName,
   lang: langProp,
   onReview,
+  topicId,
 }: {
   onReview?: (() => void) | undefined;
   open: boolean;
@@ -35,6 +36,8 @@ export function TalkToMindModal({
   mindId: string | null;
   mindName: string;
   lang?: Lang;
+  /** Knowledge-root branch to centre the chat on. */
+  topicId?: string;
 }) {
   const { lang: activeLang } = useLang();
   const reportFn = useServerFn(reportMindReply);
@@ -260,6 +263,7 @@ export function TalkToMindModal({
           stream: live,
           seen: call.sees || undefined,
           aiLevel,
+          topicId,
         }),
       });
 

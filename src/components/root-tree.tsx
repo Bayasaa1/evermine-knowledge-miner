@@ -7,9 +7,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Flame, Loader2, MessageCircleQuestion, Play, Sprout } from "lucide-react";
+import { AlertTriangle, Flame, Loader2, MessageCircleQuestion, MessagesSquare, Play, Sprout } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { getTopicMap, type TopicStat } from "@/lib/topic-map.functions";
 import type { Topic, TopicFact } from "@/lib/topic-map.server";
 import { pickCopy, type Lang } from "@/lib/i18n";
@@ -28,6 +30,7 @@ const C = {
   },
   facts: { en: "facts", mn: "баримт", ko: "사실" },
   qa: { en: "Q&A", mn: "асуулт-хариулт", ko: "Q&A" },
+  chatBranch: { en: "Chat about this branch", mn: "Энэ салаагаар чатлах", ko: "이 가지로 대화하기" },
   all: { en: "All", mn: "Бүгд", ko: "전체" },
   hot: { en: "Most asked", mn: "Их асуугдсан", ko: "많이 질문됨" },
   issues: { en: "Reported", mn: "Асуудалтай", ko: "신고됨" },
@@ -109,6 +112,7 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
   const load = useServerFn(getTopicMap);
   const { data, isLoading } = useQuery({ queryKey: ["topic-map", projectId], queryFn: () => load({ data: { projectId } }) });
   const [path, setPath] = useState<string[]>(["mind"]);
+  const [chatTopic, setChatTopic] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<Filter>("all");
   const stats = (data?.stats ?? {}) as Record<string, TopicStat>;
@@ -301,6 +305,12 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
               </div>
             ) : null}
             {selected.topic?.summary ? <p className="mt-1 text-xs text-muted-foreground">{selected.topic.summary}</p> : null}
+            {selected.topic ? (
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => setChatTopic(selected.topic!.id)}>
+                <MessagesSquare className="mr-1 h-3.5 w-3.5" />
+                {t("chatBranch")}
+              </Button>
+            ) : null}
             {selected.topic ? (
               <ul className="mt-2 space-y-1.5">
                 {[...selected.topic.facts].sort((a, b) => Number(isQa(b)) - Number(isQa(a))).map((f) => (
