@@ -146,7 +146,7 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
           changed = topics.length !== before;
         }
         const ids = new Set(topics.map((t) => t.id));
-        topics = topics.map((t) => (t.parentId && !ids.has(t.parentId) ? { ...t, parentId: undefined } : t));
+        topics = topics.map((t) => (t.parentId && !ids.has(t.parentId) ? (({ parentId: _p, ...rest }) => rest)(t) : t));
         const payload = { ...map, topics, filed: (map.filed ?? []).filter((id) => !removed.has(id)), updatedAt: new Date().toISOString() };
         const { error } = await supabaseAdmin.from("mind_vaults").update({ payload: payload as never }).eq("id", row.id).eq("user_id", context.userId);
         if (error) throw new Error(error.message);
