@@ -419,7 +419,14 @@ async function fillSpeechGaps(
       const extra = normalizeChunkResult(parseLooseJson(text));
       if (ctx.owner) lockOwnerName(extra, ctx.owner);
       const inGap = (s: number | null) => s != null && s > from - 1 && s < to;
-      const lines = (extra.journal ?? []).filter((e) => isSpeech(e.kind) && inGap(stampSec(e.timestamp)));
+      let lines = (extra.journal ?? []).filter((e) => isSpeech(e.kind) && inGap(stampSec(e.timestamp)));
+      if (!lines.length) {
+        // Some answers count time from the start of the requested range.
+        const fmt = (n: number) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
+        const shift = <T extends { timestamp: string }>(e: T): T => ({ ...e, timestamp: fmt((stampSec(e.timestamp) ?? -9999) + from) });
+        lines = (extra.journal ?? []).filter((e) => isSpeech(e.kind)).map(shift).filter((e) => inGap(stampSec(e.timestamp)));
+        extra.transcript = (extra.transcript ?? []).map(shift);
+      }
       if (!lines.length) continue;
       result.journal = [...(result.journal ?? []), ...lines].sort((a, b) => (stampSec(a.timestamp) ?? 0) - (stampSec(b.timestamp) ?? 0));
       const tr = (extra.transcript ?? []).filter((l) => inGap(stampSec(l.timestamp)));
