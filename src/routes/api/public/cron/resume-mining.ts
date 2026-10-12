@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         // Single-flight lease: a job touched in the last 3 minutes is being mined
         // by an open tab or a previous run, so this worker leaves it alone.
         const leaseIso = new Date(Date.now() - 3 * 60_000).toISOString();
-        const { data: jobs, error } = await supabaseAdmin
+        const { data: allJobs, error } = await supabaseAdmin
           .from("mining_jobs")
           // Creator-paused and stopped jobs are deliberately excluded.
           .select("*")
@@ -61,14 +61,19 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           .in("status", ["paused_quota", "queued", "running", "error"])
           // A video that keeps failing for a permanent reason is abandoned after
           // a few tries instead of re-mining itself forever.
-          .lt("attempts", MAX_ATTEMPTS)
           .lt("updated_at", leaseIso)
           .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
           // Playlist order: oldest added first, then its place in the playlist.
           .order("created_at", { ascending: true })
           .order("queue_position", { ascending: true })
-          .limit(MAX_JOBS_PER_RUN);
+          .limit(50);
         if (error) return json({ error: error.message }, 500);
+        // Empty-AI-answer failures are recoverable (that part gets skipped),
+        // so they are never abandoned by the attempt cap.
+        const jobs = (allJobs ?? [])
+          .filter((j) => (j.attempts ?? 0) < MAX_ATTEMPTS || /empty video analysis/i.test(j.last_error ?? ""))
+          .slice(0, MAX_JOBS_PER_RUN)
+          .map((j) => ((j.attempts ?? 0) >= MAX_ATTEMPTS ? { ...j, attempts: MAX_ATTEMPTS - 2 } : j));
 
         let resumed = 0;
         let paused = 0;
@@ -181,6 +186,38 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
             } catch (err) {
               const message = err instanceof Error ? err.message : String(err);
               const quota = isQuotaMessage(message);
+              // An empty AI answer on one part must never strand the whole
+              // video: after repeated empty answers, mark that one part as
+              // skipped (flagged for later repair) and continue with the next.
+              const empty = /empty video analysis/i.test(message);
+              if (empty && (job.attempts ?? 0) + 1 >= MAX_ATTEMPTS - 1) {
+                const nextResults = [
+                  ...results,
+                  {
+                    journal: [], transcript: [], knowledge: [], screenItems: [],
+                    skipped: true, skipReason: message.slice(0, 200),
+                    window: { start: chunk.start, end: chunk.end },
+                  },
+                ];
+                const { data: skippedRow } = await supabaseAdmin
+                  .from("mining_jobs")
+                  .update({
+                    results: nextResults as never,
+                    next_index: index + 1,
+                    status: index + 1 >= chunks.length ? "done" : "running",
+                    last_error: `Part ${index + 1} skipped: AI returned nothing for it.`,
+                    retry_after: null,
+                    attempts: 0,
+                  })
+                  .eq("id", job.id)
+                  .eq("next_index", index)
+                  .select("id");
+                if (!skippedRow || skippedRow.length === 0) break;
+                results = nextResults;
+                index += 1;
+                job.attempts = 0;
+                continue;
+              }
               // Quota is transient and does not count against the budget;
               // every other failure does, with growing backoff between tries.
               const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
