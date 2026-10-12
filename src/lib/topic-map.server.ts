@@ -135,7 +135,7 @@ Every numbered fact must appear in "assign" exactly once.`;
     throw new Error(e instanceof Error ? e.message : "Topic sorting failed");
   }
   const parsed = parseJson<{
-    newTopics?: { key?: string; title?: string; group?: string; summary?: string }[];
+    newTopics?: { key?: string; title?: string; group?: string; parent?: string; summary?: string }[];
     assign?: { n?: number; topic?: string }[];
     updatedSummaries?: { id?: string; summary?: string }[];
   }>(reply.text);
@@ -157,11 +157,14 @@ Every numbered fact must appear in "assign" exactly once.`;
       continue;
     }
     const id = `t_${hash(title.toLowerCase())}`;
+    const parentRef = String(nt.parent ?? "").trim();
+    const parent = parentRef && parentRef !== id && byId.has(parentRef) ? byId.get(parentRef)! : undefined;
     const topic: Topic = {
       id,
       title: title.slice(0, 120),
       summary: String(nt.summary ?? "").trim().slice(0, 400),
-      group: String(nt.group ?? "").trim().slice(0, 60) || "General",
+      group: parent?.group ?? (String(nt.group ?? "").trim().slice(0, 60) || "General"),
+      ...(parent ? { parentId: parent.id } : {}),
       facts: [],
     };
     topics.push(topic);
