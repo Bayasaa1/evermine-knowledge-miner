@@ -66,7 +66,7 @@ async function loadMinedQuestions(admin: any, projectId: string, personaName: st
     for (const row of (data ?? []) as { qa: unknown; journal: unknown }[]) {
       const found: string[] = [];
       for (const q of Array.isArray(row.qa) ? (row.qa as { question?: string }[]) : []) {
-        if (q?.question) found.push(q.question.trim());
+        if (q?.question) found.push(q.question.replace(/^Guest context:\s*/i, "").trim());
       }
       for (const l of Array.isArray(row.journal) ? (row.journal as Line[]) : []) {
         if ((l?.kind ?? "speech") !== "speech") continue;
