@@ -93,31 +93,33 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
   result = withGaming;
 
   const stamp = (value: string) => wholeVideoStamp(value, chunkIndex, win);
+  const g = (result.gaming ?? {}) as ChunkResult["gaming"];
+  const arr = <T,>(v: T[] | undefined | null): T[] => (Array.isArray(v) ? v : []);
   const shifted: ChunkResult = {
     ...result,
     gaming: {
-      ...result.gaming,
-      skills: result.gaming.skills.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
-      tactics: result.gaming.tactics.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
-      decisions: result.gaming.decisions.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
-      tutorials: result.gaming.tutorials.map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
-      communication: result.gaming.communication.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
-      emotions: result.gaming.emotions.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+      ...g,
+      skills: arr(g.skills).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+      tactics: arr(g.tactics).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+      decisions: arr(g.decisions).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+      tutorials: arr(g.tutorials).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
+      communication: arr(g.communication).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+      emotions: arr(g.emotions).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     },
-    transcript: result.transcript.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
-    story: { ...result.story, beats: result.story.beats.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
+    transcript: arr(result.transcript).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+    story: { ...result.story, beats: arr(result.story?.beats).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
     faceData: (result.faceData ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp), clipStart: stamp(item.clipStart), clipEnd: stamp(item.clipEnd) })),
     voiceData: (result.voiceData ?? []).map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })),
-    audio: { ...result.audio, segments: result.audio.segments.map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })) },
+    audio: { ...result.audio, segments: arr(result.audio?.segments).map((item) => ({ ...item, start: stamp(item.start), end: stamp(item.end) })) },
     subconsciousness: {
       ...result.subconsciousness,
-      culturalVocabulary: result.subconsciousness.culturalVocabulary.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+      culturalVocabulary: arr(result.subconsciousness?.culturalVocabulary).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     },
     knowledgeNodes: (result.knowledgeNodes ?? []).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
     emotionTimeline: (result.emotionTimeline ?? []).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
-    copyright: { ...result.copyright, signals: result.copyright.signals.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
+    copyright: { ...result.copyright, signals: arr(result.copyright?.signals).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
     qaPairs: (result.qaPairs ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
-    entities: (result.entities ?? []).map((item) => ({ ...item, timestamps: item.timestamps.map(stamp) })),
+    entities: (result.entities ?? []).map((item) => ({ ...item, timestamps: arr(item.timestamps).map(stamp) })),
     screenText: (result.screenText ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     journal: (result.journal ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     screenItems: (result.screenItems ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
