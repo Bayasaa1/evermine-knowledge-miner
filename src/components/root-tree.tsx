@@ -335,6 +335,14 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
           </div>
         </>
       )}
+      <TalkToMindModal
+        open={chatTopic !== null}
+        onClose={() => setChatTopic(null)}
+        mindId={`project:${projectId}`}
+        mindName={title}
+        lang={lang}
+        topicId={chatTopic ?? undefined}
+      />
     </section>
   );
 }
