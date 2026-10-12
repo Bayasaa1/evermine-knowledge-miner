@@ -37,7 +37,7 @@ export function TalkToMindModal({
   mindName: string;
   lang?: Lang;
   /** Knowledge-root branch to centre the chat on. */
-  topicId?: string;
+  topicId?: string | undefined;
 }) {
   const { lang: activeLang } = useLang();
   const reportFn = useServerFn(reportMindReply);
