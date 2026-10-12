@@ -29,3 +29,5 @@
 - Mining parts are 5 minutes, and analyzeYoutubeVideo adds a screen-only pass when screenItems are fewer than one per minute, because long parts made Gemini drop the screen.
 - Generic owner labels (Host/Creator/Mind Owner) and small invented "Caller/Guest N" labels are folded into the persona name after mining, because a streamer's shouting was being split into fake people.
 - Mongolian parts whose speech comes back mostly in Latin letters are re-watched once with the Cyrillic rule first; the first result is kept if the retry fails.
+
+- The project map shows the topic map as a root tree (groups → topics → nested sub-topics via parentId), with thickness = facts + Q&A under it; it replaces the old network graph because a weighted hierarchy shows where knowledge is richest.
