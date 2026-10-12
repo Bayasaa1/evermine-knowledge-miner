@@ -195,12 +195,18 @@ function parseStamp(raw: string): { start: number; end: number | null } | null {
  */
 function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   if (!cues?.length) return [];
-  // Drop duplicate lines the miner sometimes repeats with a coarser stamp.
-  const seen = new Set<string>();
+  // Drop only back-to-back repeats (same words within a few seconds). Common
+  // replies like "Yeah" or "Тийм ээ" are said many times and must all show.
+  const lastSeen = new Map<string, number | null>();
   const unique = cues.filter((c) => {
     const key = c.speech.trim();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
+    if (!key) return false;
+    const at = parseStamp(c.timestamp)?.start ?? null;
+    if (lastSeen.has(key)) {
+      const prev = lastSeen.get(key);
+      if (prev == null || at == null || Math.abs(at - prev) < 4) return false;
+    }
+    lastSeen.set(key, at);
     return true;
   });
   if (!unique.length) return [];

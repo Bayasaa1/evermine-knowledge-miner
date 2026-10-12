@@ -292,10 +292,16 @@ function mergeEntities(list: import("@/lib/gemini").MinedEntity[]): import("@/li
   return [...map.values()];
 }
 
-/** Parts may run past their end (a 0–15 min part writing up to 17:06); keep each moment only in its own part. */
+/** Parts may run past their end (a 0–15 min part writing up to 17:06); keep each moment only in its own part.
+ *  Moments that came back with no time are kept and spread evenly inside their own part,
+ *  so their subtitles land near the right place instead of being guessed against the whole video. */
 function confineToWindow<T extends { timestamp: string }>(items: T[], win: Window): T[] {
-  return items.filter((item) => {
+  const kept = items.filter((item) => {
     const sec = stampSeconds(item.timestamp);
     return sec == null || (sec >= win.start - 2 && sec < win.end + 2);
   });
+  const untimed = kept.filter((item) => stampSeconds(item.timestamp) == null).length;
+  if (!untimed || untimed < kept.length) return kept; // mixed: player fills gaps between real anchors
+  const span = Math.max(1, win.end - win.start);
+  return kept.map((item, i) => ({ ...item, timestamp: stampAt(win.start + (span * i) / kept.length) }));
 }
