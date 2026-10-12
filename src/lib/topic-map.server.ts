@@ -201,7 +201,7 @@ Every numbered fact must appear in "assign" exactly once.`;
   return {
     map: {
       ...opts.map,
-      topics: topics.filter((t) => t.facts.length > 0),
+      topics: topics.filter((t) => t.facts.length > 0 || topics.some((c) => c.parentId === t.id)),
       filed: [...opts.map.filed, ...newFiled],
       updatedAt: new Date().toISOString(),
     },
