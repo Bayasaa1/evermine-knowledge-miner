@@ -176,11 +176,11 @@ function confineTranscript(result: ChunkResult, win: Window): ChunkResult {
 }
 
 
-function uniqueStrings(values: string[]): string[] {
+function uniqueStrings(values: (string | undefined | null)[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const v of values) {
-    const k = v.trim();
+    const k = String(v ?? "").trim();
     if (!k || seen.has(k.toLowerCase())) continue;
     seen.add(k.toLowerCase());
     out.push(k);
@@ -255,9 +255,9 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
     knowledgeNodes: normalized.flatMap((r) => (r.knowledgeNodes ?? []).filter(Boolean)),
     qaPairs: normalized.flatMap((r) => r.qaPairs ?? []),
     entities: mergeEntities(normalized.flatMap((r) => r.entities ?? [])),
-    screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${t.text.trim()}`),
+    screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${String(t?.text ?? "").trim()}`),
     journal: normalized.flatMap((r, i) => confineToWindow(r.journal ?? [], windowOf(r, i))),
-    screenItems: uniqueBy(normalized.flatMap((r) => r.screenItems ?? []), (i) => `${i.kind}|${i.url}|${i.content.trim()}`),
+    screenItems: uniqueBy(normalized.flatMap((r) => r.screenItems ?? []), (i) => `${i.kind}|${i.url}|${String(i?.content ?? "").trim()}`),
     emotionTimeline: normalized.flatMap((r) => (r.emotionTimeline ?? []).filter(Boolean)),
     copyright: {
       flagged,
@@ -266,10 +266,10 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
       summary: uniqueStrings(normalized.map((r) => r.copyright?.summary)).join(" "),
     },
     gaming: {
-      skills: uniqueBy(normalized.flatMap((r) => (r.gaming?.skills ?? []).filter(Boolean)), (s) => s.name.toLowerCase()),
-      tactics: uniqueBy(normalized.flatMap((r) => (r.gaming?.tactics ?? []).filter(Boolean)), (t) => t.name.toLowerCase()),
+      skills: uniqueBy(normalized.flatMap((r) => (r.gaming?.skills ?? []).filter(Boolean)), (s) => String(s?.name ?? "").toLowerCase()),
+      tactics: uniqueBy(normalized.flatMap((r) => (r.gaming?.tactics ?? []).filter(Boolean)), (t) => String(t?.name ?? "").toLowerCase()),
       decisions: normalized.flatMap((r) => (r.gaming?.decisions ?? []).filter(Boolean)),
-      tutorials: uniqueBy(normalized.flatMap((r) => (r.gaming?.tutorials ?? []).filter(Boolean)), (t) => t.title.toLowerCase()),
+      tutorials: uniqueBy(normalized.flatMap((r) => (r.gaming?.tutorials ?? []).filter(Boolean)), (t) => String(t?.title ?? "").toLowerCase()),
       commentaryStyle: uniqueStrings(normalized.flatMap((r) => (r.gaming?.commentaryStyle ?? []).filter(Boolean))),
       mistakes: uniqueStrings(normalized.flatMap((r) => (r.gaming?.mistakes ?? []).filter(Boolean))),
       communication: normalized.flatMap((r) => (r.gaming?.communication ?? []).filter(Boolean)),
@@ -283,7 +283,7 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
 function mergeEntities(list: import("@/lib/gemini").MinedEntity[]): import("@/lib/gemini").MinedEntity[] {
   const map = new Map<string, import("@/lib/gemini").MinedEntity>();
   for (const e of list) {
-    const k = e.name.toLowerCase().trim();
+    const k = String(e?.name ?? "").toLowerCase().trim();
     const prev = map.get(k);
     if (!prev) { map.set(k, { ...e, timestamps: [...e.timestamps], relations: [...e.relations] }); continue; }
     if (!prev.description && e.description) prev.description = e.description;
