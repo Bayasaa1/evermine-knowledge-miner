@@ -271,12 +271,16 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
   const windows = list.map((c, idx) => {
     const start = starts[idx] ?? 0;
     const next = starts[idx + 1];
-    const fallback = start + Math.max(2, Math.min(8, c.speech.length / 14));
+    // Reading time grows with the line (~15 chars/s), so long speech no longer
+    // vanishes after 8-12 s while the speaker is still talking.
+    const readTime = Math.max(2, Math.min(30, c.speech.length / 15));
     const explicitEnd = ends[idx];
-    const end = explicitEnd != null
-      ? Math.min(explicitEnd, next ?? explicitEnd, start + Math.max(3, Math.min(12, c.speech.length / 12)))
-      : next != null ? Math.min(next, fallback) : fallback;
-    return { start, end: Math.max(end, start + 1.2), speech: c.speech, speaker: c.speaker };
+    const limit = next != null ? next : start + readTime;
+    let end = explicitEnd != null ? Math.min(explicitEnd, limit) : Math.min(start + readTime, limit);
+    // Overlapping talk: keep each line readable for at least 2 s.
+    end = Math.max(end, next != null ? Math.min(start + 2, next + 0.8) : start + 2);
+    const speaker = String(c.speaker ?? "").replace(/^\s*video\s*:\s*/i, "").trim();
+    return { start, end, speech: c.speech, speaker };
   }).sort((a, b) => a.start - b.start);
 
   return windows.flatMap((cue) => {
