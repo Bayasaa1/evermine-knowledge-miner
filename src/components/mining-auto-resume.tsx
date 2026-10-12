@@ -14,7 +14,7 @@ import { listMiningJobs, miningLaneCount, runNextChunk } from "@/lib/mining-jobs
 import type { MiningJob } from "@/lib/mining-jobs";
 import { useAuth } from "@/hooks/use-auth";
 
-const RUNNABLE = new Set(["queued", "running", "paused_quota"]);
+const RUNNABLE = new Set(["queued", "running", "paused_quota", "error"]);
 
 function playlistOrder(jobs: MiningJob[]): MiningJob[] {
   return jobs
