@@ -278,7 +278,7 @@ function buildCues(cues: FeedItem["transcript"], duration: number): TimedCue[] {
     const limit = next != null ? next : start + readTime;
     let end = explicitEnd != null ? Math.min(explicitEnd, limit) : Math.min(start + readTime, limit);
     // Overlapping talk: keep each line readable for at least 2 s.
-    end = Math.max(end, start + 2);
+    end = Math.max(end, next != null ? Math.min(start + 2, next + 0.8) : start + 2);
     const speaker = String(c.speaker ?? "").replace(/^\s*video\s*:\s*/i, "").trim();
     return { start, end, speech: c.speech, speaker };
   }).sort((a, b) => a.start - b.start);
