@@ -56,7 +56,8 @@ type JobRow = {
   primary_focus: string;
   custom_instructions: string;
   chunks: unknown;
-  results: unknown;
+  /** Absent in list responses (see SELECT_LIST); present for single-job reads. */
+  results?: unknown;
   next_index: number;
   total_chunks: number;
   persona_id?: string | null;
@@ -442,7 +443,7 @@ export const listMiningJobs = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<MiningJob[]> => {
     const { data, error } = await context.supabase
       .from("mining_jobs")
-      .select(SELECT)
+      .select(SELECT_LIST)
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(50);
