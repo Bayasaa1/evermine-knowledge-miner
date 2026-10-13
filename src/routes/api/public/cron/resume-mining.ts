@@ -237,10 +237,14 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               // every other failure does, with growing backoff between tries.
               const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
               const backoffMin = quota ? 15 : Math.min(120, 15 * 2 ** (tries - 1));
+              // A permanent failure that used up its tries is abandoned so it
+              // never blocks the worker queue again; the creator can still
+              // retry it by hand from the Studio.
+              const giveUp = !quota && tries >= MAX_ATTEMPTS;
               await supabaseAdmin
                 .from("mining_jobs")
                 .update({
-                  status: quota ? "paused_quota" : "error",
+                  status: quota ? "paused_quota" : giveUp ? "abandoned" : "error",
                   last_error: message.slice(0, 500),
                   attempts: tries,
                   retry_after: quota
