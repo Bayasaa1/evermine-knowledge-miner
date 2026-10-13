@@ -448,7 +448,7 @@ export const listMiningJobs = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return (data as JobRow[]).map(toJob);
+    return (data as unknown as JobRow[]).map(toJob);
   });
 
 export const getMiningJobResults = createServerFn({ method: "POST" })
