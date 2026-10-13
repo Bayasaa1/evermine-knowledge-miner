@@ -9,6 +9,10 @@ import { FriendsPanel } from "@/components/friends-panel";
 import type { Graph } from "@/lib/friends";
 import { UsernameEditor } from "@/components/username-editor";
 import { SavedMinds } from "@/components/saved-minds";
+import { VaultMiningQueue } from "@/components/vault-mining-queue";
+import { SubtitleHealth } from "@/components/subtitle-health";
+import { VaultHub, type VaultPersonaSelection } from "@/components/vault-hub";
+import { CreatorProfileEditor } from "@/components/creator-profile-editor";
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { setProfilePicture } from "@/lib/community";
@@ -16,14 +20,14 @@ import { pickCopy, useLang } from "@/lib/i18n";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 const copy = {
-  en: { people: "People", subscribers: "Subscribers", following: "Following", vault: "Saved", api: "API", more: "More",
-    openVault: "Open Vault studio (projects, map, brain)", openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
+  en: { people: "People", subscribers: "Subscribers", following: "Following", vault: "Vault", api: "API", more: "More",
+    openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
     posts: "Posts & stories", earnings: "Earnings & unclaimed balance" },
-  mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Хадгалсан", api: "API", more: "Бусад",
-    openVault: "Vault студи нээх (төсөл, мод, тархи)", openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
+  mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
+    openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
     posts: "Пост & стори", earnings: "Орлого & үлдэгдэл" },
-  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "저장됨", api: "API", more: "더보기",
-    openVault: "볼트 스튜디오 열기", openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
+  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
+    openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
     posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액" },
 } as const;
 
@@ -46,6 +50,7 @@ function ProfilePage() {
   const { lang } = useLang();
   const t = pickCopy(copy, lang);
   const [tab, setTab] = useState<"people" | "vault" | "api" | "more">("vault");
+  const [persona, setPersona] = useState<VaultPersonaSelection>(null);
   const [peopleTab, setPeopleTab] = useState<"subscribers" | "following">("subscribers");
   const [counts, setCounts] = useState({ subscribers: 0, following: 0 });
   const onCounts = useCallback((g: Graph) => setCounts({ subscribers: g.subscribers.length + g.friends.length, following: g.following.length + g.friends.length }), []);
@@ -131,12 +136,17 @@ function ProfilePage() {
             <FriendsPanel onCounts={onCounts} initialTab={peopleTab} />
           </div>
           {tab === "vault" && (
-            <div className="space-y-4">
-              <Link to="/vaults" className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
-                <span className="flex items-center gap-3 text-sm font-medium"><Boxes className="h-5 w-5" />{t.openVault}</span>
-                <ArrowRight className="h-4 w-4" />
+            <div className="space-y-6">
+              <Link to="/mining" className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />Live mining progress
               </Link>
-              <SavedMinds lang={lang} />
+              <VaultHub lang={lang} selected={persona} onSelect={setPersona} />
+              <div className="space-y-6 border-t border-border pt-6">
+                <CreatorProfileEditor personaId={persona?.id ?? null} lang={lang} />
+                <VaultMiningQueue lang={lang} personaId={persona?.id ?? null} />
+                <SavedMinds lang={lang} forcedPersona={persona ?? undefined} />
+                <SubtitleHealth personaId={persona?.id ?? null} />
+              </div>
             </div>
           )}
           {tab === "api" && (
