@@ -230,6 +230,8 @@ export type MiningJobStatus =
   /** Stopped by the creator — finished checkpoints stay, nothing more is mined. */
   | "stopped"
   | "error"
+  /** Gave up after repeated permanent failures — the worker skips it; the creator can retry by hand. */
+  | "abandoned"
   | "done";
 
 export type MiningJob = {

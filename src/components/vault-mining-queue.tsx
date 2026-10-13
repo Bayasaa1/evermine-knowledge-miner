@@ -12,7 +12,7 @@ import { formatDuration } from "@/lib/chunking";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
-const SHOWN = ["queued", "running", "paused_quota", "paused_user", "error", "stopped"];
+const SHOWN = ["queued", "running", "paused_quota", "paused_user", "error", "abandoned", "stopped"];
 
 function ytId(url: string) {
   return /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(url ?? "")?.[1];
