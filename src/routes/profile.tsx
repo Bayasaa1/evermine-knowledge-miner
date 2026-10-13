@@ -4,7 +4,6 @@ import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, User
 import { toast } from "sonner";
 
 import { AccountMenu } from "@/components/account-menu";
-import { ViewerBrainHub } from "@/components/viewer-brain-hub";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { FriendsPanel } from "@/components/friends-panel";
 import type { Graph } from "@/lib/friends";
@@ -17,13 +16,13 @@ import { pickCopy, useLang } from "@/lib/i18n";
 import { initials, useAuth } from "@/hooks/use-auth";
 
 const copy = {
-  en: { people: "People", subscribers: "Subscribers", following: "Following", vault: "Vault", api: "API", more: "More",
-    openVault: "Open full Vault studio", openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
+  en: { people: "People", subscribers: "Subscribers", following: "Following", vault: "Saved", api: "API", more: "More",
+    openVault: "Open Vault studio (projects, map, brain)", openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
     posts: "Posts & stories", earnings: "Earnings & unclaimed balance" },
-  mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
-    openVault: "Vault студийг бүтнээр нээх", openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
+  mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Хадгалсан", api: "API", more: "Бусад",
+    openVault: "Vault студи нээх (төсөл, мод, тархи)", openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
     posts: "Пост & стори", earnings: "Орлого & үлдэгдэл" },
-  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
+  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "저장됨", api: "API", more: "더보기",
     openVault: "볼트 스튜디오 열기", openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
     posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액" },
 } as const;
@@ -138,7 +137,6 @@ function ProfilePage() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <SavedMinds lang={lang} />
-              <ViewerBrainHub />
             </div>
           )}
           {tab === "api" && (
