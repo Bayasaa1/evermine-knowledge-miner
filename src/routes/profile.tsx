@@ -24,10 +24,10 @@ const copy = {
     openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
     posts: "Posts & stories", earnings: "Earnings & unclaimed balance" },
   mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
-    openVault: "Vault студи нээх (төсөл, мод, тархи)", openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
+    openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
     posts: "Пост & стори", earnings: "Орлого & үлдэгдэл" },
-  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "저장됨", api: "API", more: "더보기",
-    openVault: "볼트 스튜디오 열기", openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
+  ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
+    openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
     posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액" },
 } as const;
 
