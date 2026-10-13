@@ -78,6 +78,7 @@ const STATUS_LABEL: Record<MiningJobStatus, { en: string; mn: string; ko: string
   queued: { en: "Queued", mn: "Дараалалд", ko: "대기 중" },
   running: { en: "Mining", mn: "Мining", ko: "마이닝 중" },
   paused_quota: { en: "Waiting for quota", mn: "Квот хүлээж байна", ko: "사용량 대기" },
+  abandoned: { en: "Gave up", mn: "Болисон", ko: "포기됨" },
   paused_user: { en: "Paused", mn: "Түр зогссон", ko: "일시정지됨" },
   stopped: { en: "Stopped", mn: "Зогссон", ko: "중지됨" },
   error: { en: "Error", mn: "Алдаа", ko: "오류" },

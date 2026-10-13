@@ -70,10 +70,23 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         if (error) return json({ error: error.message }, 500);
         // Empty-AI-answer failures are recoverable (that part gets skipped),
         // so they are never abandoned by the attempt cap.
+        // Empty-AI-answer failures are recoverable (that part gets skipped),
+        // so they are never abandoned by the attempt cap.
+        const recoverable = (j: { attempts?: number | null; last_error?: string | null }) =>
+          (j.attempts ?? 0) < MAX_ATTEMPTS ||
+          /empty video analysis|cannot read properties|quota|gemini key/i.test(j.last_error ?? "");
+        // Permanently failed videos (bad link, unsupported video) are marked
+        // abandoned so they stop matching this query — otherwise enough of
+        // them would fill all 50 oldest slots and starve every newer job.
+        const abandoned = (allJobs ?? []).filter((j) => !recoverable(j));
+        if (abandoned.length > 0) {
+          await supabaseAdmin
+            .from("mining_jobs")
+            .update({ status: "abandoned" })
+            .in("id", abandoned.map((j) => j.id));
+        }
         const jobs = (allJobs ?? [])
-          // Old code crashes ("Cannot read properties…") and key-quota stops are
-          // also recoverable now that merge is null-safe and keys cool down.
-          .filter((j) => (j.attempts ?? 0) < MAX_ATTEMPTS || /empty video analysis|cannot read properties|quota|gemini key/i.test(j.last_error ?? ""))
+          .filter(recoverable)
           .slice(0, MAX_JOBS_PER_RUN)
           .map((j) => ((j.attempts ?? 0) >= MAX_ATTEMPTS ? { ...j, attempts: MAX_ATTEMPTS - 2 } : j));
 
@@ -224,10 +237,14 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               // every other failure does, with growing backoff between tries.
               const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
               const backoffMin = quota ? 15 : Math.min(120, 15 * 2 ** (tries - 1));
+              // A permanent failure that used up its tries is abandoned so it
+              // never blocks the worker queue again; the creator can still
+              // retry it by hand from the Studio.
+              const giveUp = !quota && tries >= MAX_ATTEMPTS;
               await supabaseAdmin
                 .from("mining_jobs")
                 .update({
-                  status: quota ? "paused_quota" : "error",
+                  status: quota ? "paused_quota" : giveUp ? "abandoned" : "error",
                   last_error: message.slice(0, 500),
                   attempts: tries,
                   retry_after: quota

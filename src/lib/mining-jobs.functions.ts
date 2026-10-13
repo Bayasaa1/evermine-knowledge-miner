@@ -416,7 +416,7 @@ export const continueMiningNow = createServerFn({ method: "POST" })
       .update({ status: "queued", retry_after: null, last_error: null, attempts: 0 })
       .eq("id", data.jobId)
       .eq("user_id", context.userId)
-      .in("status", ["paused_quota", "error", "queued"]);
+      .in("status", ["paused_quota", "error", "queued", "abandoned"]);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -490,7 +490,7 @@ export const clearMiningHistory = createServerFn({ method: "POST" })
       .from("mining_jobs")
       .delete()
       .eq("user_id", context.userId)
-      .in("status", ["done", "stopped", "error"])
+      .in("status", ["done", "stopped", "error", "abandoned"])
       .select("id");
     if (error) throw new Error(error.message);
     return { removed: (data ?? []).length };

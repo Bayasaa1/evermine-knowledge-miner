@@ -12,7 +12,7 @@ import { formatDuration } from "@/lib/chunking";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 
-const SHOWN = ["queued", "running", "paused_quota", "paused_user", "error", "stopped"];
+const SHOWN = ["queued", "running", "paused_quota", "paused_user", "error", "abandoned", "stopped"];
 
 function ytId(url: string) {
   return /(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(url ?? "")?.[1];
@@ -85,7 +85,9 @@ function JobRow({ job, c }: { job: MiningJob; c: (en: string, mn: string, ko: st
             ? c("Stopped", "Зогсоосон", "중지됨")
             : job.status === "error"
               ? c("Failed", "Алдаа", "실패")
-              : c("In line", "Дараалалд", "대기열");
+              : job.status === "abandoned"
+                ? c("Gave up — retry by hand", "Болисон — гараар дахин эхлүүлэх", "포기됨 — 수동 재시도")
+                : c("In line", "Дараалалд", "대기열");
 
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -109,11 +111,11 @@ function JobRow({ job, c }: { job: MiningJob; c: (en: string, mn: string, ko: st
           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
           </div>
-          {job.status === "error" && job.lastError && <p className="mt-1 text-xs text-destructive">{job.lastError}</p>}
+          {(job.status === "error" || job.status === "abandoned") && job.lastError && <p className="mt-1 text-xs text-destructive">{job.lastError}</p>}
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {["paused_quota", "error", "queued"].includes(job.status) && (
+        {["paused_quota", "error", "abandoned", "queued"].includes(job.status) && (
           <button disabled={busy} onClick={() => act(() => cont({ data: { jobId: job.id } }))} className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-foreground hover:bg-muted">
             <Play className="h-3 w-3" /> {c("Continue now", "Одоо үргэлжлүүлэх", "지금 계속")}
           </button>
