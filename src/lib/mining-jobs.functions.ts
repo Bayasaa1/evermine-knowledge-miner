@@ -71,6 +71,13 @@ type JobRow = {
 const SELECT =
   "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at, persona_id";
 
+/**
+ * List view without the huge `results` column (full AI output per chunk).
+ * Fetching it for 50 rows at once used to time out the database query; the
+ * list only needs `chunks` (small per-part plan) for its progress display.
+ */
+const SELECT_LIST = SELECT.replace(", results", "");
+
 function toJob(row: JobRow): MiningJob {
   return {
     id: row.id,

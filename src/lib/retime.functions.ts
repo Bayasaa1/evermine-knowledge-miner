@@ -44,7 +44,8 @@ async function jobsByVideo(context: Ctx): Promise<Map<string, JobLite>> {
     .from("mining_jobs")
     .select("id, source_url, chunks, next_index, created_at")
     .eq("user_id", context.userId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
   const map = new Map<string, JobLite>();
   for (const j of (data ?? []) as JobLite[]) {
     const vid = videoIdOf(j.source_url);
