@@ -56,7 +56,8 @@ type JobRow = {
   primary_focus: string;
   custom_instructions: string;
   chunks: unknown;
-  results: unknown;
+  /** Absent in list responses (see SELECT_LIST); present for single-job reads. */
+  results?: unknown;
   next_index: number;
   total_chunks: number;
   persona_id?: string | null;
@@ -70,6 +71,13 @@ type JobRow = {
 
 const SELECT =
   "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at, persona_id";
+
+/**
+ * List view without the huge `results` column (full AI output per chunk).
+ * Fetching it for 50 rows at once used to time out the database query; the
+ * list only needs `chunks` (small per-part plan) for its progress display.
+ */
+const SELECT_LIST = SELECT.replace(", results", "");
 
 function toJob(row: JobRow): MiningJob {
   return {
@@ -435,12 +443,12 @@ export const listMiningJobs = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<MiningJob[]> => {
     const { data, error } = await context.supabase
       .from("mining_jobs")
-      .select(SELECT)
+      .select(SELECT_LIST)
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw new Error(error.message);
-    return (data as JobRow[]).map(toJob);
+    return (data as unknown as JobRow[]).map(toJob);
   });
 
 export const getMiningJobResults = createServerFn({ method: "POST" })
