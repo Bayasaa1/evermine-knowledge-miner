@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag } from "lucide-react";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play } from "lucide-react";
 import { toast } from "sonner";
 import { reportMindReply } from "@/lib/viewer-signals.functions";
 import { useServerFn } from "@tanstack/react-start";
@@ -19,6 +19,25 @@ import { ChatSuggestions } from "@/components/chat-suggestions";
 
 
 type Msg = { role: "user" | "agent"; text: string; id?: string };
+
+type Clip = { id: string; start: number; label: string };
+
+/** Pulls the [[yt:ID@TIME]] proof marker out of a reply. */
+function splitClip(text: string): { body: string; clip: Clip | null } {
+  let clip: Clip | null = null;
+  const body = text
+    .replace(/\[\[yt:([\w-]{11})@([\d:.]+)\]\]/g, (_, id: string, ts: string) => {
+      if (!clip) {
+        const parts = ts.split(":").map((n) => Number(n) || 0);
+        const start = Math.floor(parts.reduce((a, n) => a * 60 + n, 0));
+        const mm = Math.floor(start / 60), ss = String(start % 60).padStart(2, "0");
+        clip = { id, start, label: mm >= 60 ? `${Math.floor(mm / 60)}:${String(mm % 60).padStart(2, "0")}:${ss}` : `${mm}:${ss}` };
+      }
+      return "";
+    })
+    .trim();
+  return { body, clip };
+}
 
 /** Instant AI Q&A with the Mind behind a feed video. */
 export function TalkToMindModal({
@@ -55,6 +74,7 @@ export function TalkToMindModal({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [playClip, setPlayClip] = useState<Clip | null>(null);
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
   // How much the AI may add on top of what this mind actually learned.
   // 0 = only the mined records, 100 = the AI fills every gap.
@@ -321,7 +341,7 @@ export function TalkToMindModal({
         { role: "user", text },
         { role: "agent", text: answer },
       ]);
-      if (callMode !== "chat") call.speak(answer);
+      if (callMode !== "chat") call.speak(splitClip(answer).body);
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e);
       setMessages([...next, { role: "agent", text: err }]);
@@ -355,6 +375,24 @@ export function TalkToMindModal({
 
   return (
     <div className="dark fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      {playClip && (
+        <div className="fixed left-2 right-2 top-2 z-[90] mx-auto max-w-md overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+          <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground">
+            <span>▶ {playClip.label}</span>
+            <button type="button" aria-label="Close video" onClick={() => setPlayClip(null)} className="rounded p-1 hover:bg-muted">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <iframe
+            key={`${playClip.id}-${playClip.start}`}
+            title="Source clip"
+            className="aspect-video w-full"
+            src={`https://www.youtube.com/embed/${playClip.id}?start=${playClip.start}&autoplay=1&playsinline=1&rel=0`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
        <div className="flex h-[80vh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card sm:h-[70vh] sm:rounded-2xl">
         <div className="flex items-center gap-3 border-b border-border p-4">
           <Sparkles className="h-4 w-4 text-primary" />
@@ -464,9 +502,27 @@ export function TalkToMindModal({
               }`}
             >
               {m.role === "agent" ? (
-                <div className="prose prose-sm prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-                </div>
+                (() => {
+                  const { body, clip } = splitClip(m.text);
+                  return (
+                    <>
+                      <div className="prose prose-sm prose-invert max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+                      </div>
+                      {clip && (
+                        <button
+                          type="button"
+                          onClick={() => setPlayClip(clip)}
+                          className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-background/60 p-1 pr-3 text-xs text-foreground hover:bg-background"
+                        >
+                          <img src={`https://i.ytimg.com/vi/${clip.id}/default.jpg`} alt="" className="h-8 w-12 rounded object-cover" />
+                          <Play className="h-3 w-3 fill-current" />
+                          <span>{lang === "mn" ? "Бичлэгт" : lang === "ko" ? "영상에서" : "In the video"} · {clip.label}</span>
+                        </button>
+                      )}
+                    </>
+                  );
+                })()
               ) : (
                 (() => {
                   const { body, files } = splitAttachments(m.text);

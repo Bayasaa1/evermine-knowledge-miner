@@ -164,6 +164,7 @@ async function rootBranchBlock(mindId: string, queryText: string, topicId?: stri
       topicId ? `The person chose to talk about this branch: keep the conversation centred on it.` : "",
       `Everything you said on this branch (most reliable source — prefer these facts over anything else):`,
       ...facts.map((f) => `- ${f}`),
+      `VIDEO PROOF: when your answer really uses one of the facts above that carries (src=ID@TIME), END the answer with that exact marker on its own final line: [[yt:ID@TIME]]. At most one marker, never for greetings or small talk, and never mention it in your prose. This is the only allowed citation.`,
     ].filter(Boolean).join("\n");
   } catch {
     return "";
