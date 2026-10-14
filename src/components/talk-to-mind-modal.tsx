@@ -74,6 +74,7 @@ export function TalkToMindModal({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [playClip, setPlayClip] = useState<Clip | null>(null);
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
   // How much the AI may add on top of what this mind actually learned.
   // 0 = only the mined records, 100 = the AI fills every gap.
@@ -374,6 +375,24 @@ export function TalkToMindModal({
 
   return (
     <div className="dark fixed inset-0 z-[80] flex items-end justify-center bg-black/70 sm:items-center sm:p-4">
+      {playClip && (
+        <div className="fixed left-2 right-2 top-2 z-[90] mx-auto max-w-md overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+          <div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground">
+            <span>▶ {playClip.label}</span>
+            <button type="button" aria-label="Close video" onClick={() => setPlayClip(null)} className="rounded p-1 hover:bg-muted">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <iframe
+            key={`${playClip.id}-${playClip.start}`}
+            title="Source clip"
+            className="aspect-video w-full"
+            src={`https://www.youtube.com/embed/${playClip.id}?start=${playClip.start}&autoplay=1&playsinline=1&rel=0`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
        <div className="flex h-[80vh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card sm:h-[70vh] sm:rounded-2xl">
         <div className="flex items-center gap-3 border-b border-border p-4">
           <Sparkles className="h-4 w-4 text-primary" />
