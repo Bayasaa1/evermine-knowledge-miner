@@ -262,7 +262,8 @@ export function branchFactsFor(
     seen.add(t.id);
     for (const f of t.facts) {
       if (facts.length >= maxFacts) return;
-      facts.push(`${f.ts ? `[${f.ts}] ` : ""}${f.text}`);
+      const src = f.ts && /^[\w-]{11}$/.test(f.videoId ?? "") ? ` (src=${f.videoId}@${f.ts})` : "";
+      facts.push(`${f.ts ? `[${f.ts}] ` : ""}${f.text}${src}`);
     }
     for (const c of kids(t.id)) walk(c, depth + 1);
   };
