@@ -40,6 +40,17 @@ export type RoomMessage = {
   created_at: string;
 };
 
+/** Room transcripts have no clip player; keep proof metadata out of prose. */
+function stripProofMarkers(text: string): string {
+  return text.replace(/\[\[(?:clip|yt):[^\]]+\]\]/g, "").trim();
+}
+
+function cleanRoomMessage(message: RoomMessage): RoomMessage {
+  return message.sender_kind === "mind"
+    ? { ...message, body: stripProofMarkers(message.body) }
+    : message;
+}
+
 async function me(): Promise<string> {
   const id = await currentOwnerId();
   if (!id) throw new Error(NOT_SIGNED_IN);
@@ -111,7 +122,7 @@ export async function loadRoom(roomId: string) {
     room: (room.data as Room | null) ?? null,
     members: (members.data ?? []) as RoomMember[],
     minds: (minds.data ?? []) as RoomMind[],
-    messages: (messages.data ?? []) as RoomMessage[],
+    messages: ((messages.data ?? []) as RoomMessage[]).map(cleanRoomMessage),
   };
 }
 
@@ -170,7 +181,7 @@ export async function postMessage(
     sender_kind: msg.kind ?? "user",
     mind_id: msg.mindId ?? null,
     author_name: msg.authorName.slice(0, 80),
-    body: msg.body.slice(0, 8000),
+    body: (msg.kind === "mind" ? stripProofMarkers(msg.body) : msg.body).slice(0, 8000),
     shared_url: msg.sharedUrl ?? null,
   });
   if (error) throw error;
@@ -223,7 +234,7 @@ export async function askMind(
   transcript: RoomMessage[],
   lang: string,
 ): Promise<string> {
-  const lines = transcript.slice(-60).map((m) => ({
+  const lines = transcript.slice(-60).map(cleanRoomMessage).map((m) => ({
     role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
     text: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? m.body : `${m.author_name}: ${m.body}`,
   }));
@@ -238,7 +249,7 @@ export async function askMind(
   });
   const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
   if (!res.ok) throw new Error(data.error || "The Mind could not answer.");
-  const text = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
+  const text = stripProofMarkers(data.text ?? "");
   if (!text) throw new Error("The Mind returned an empty answer.");
   return text;
 }
@@ -261,11 +272,12 @@ export function pickSpeakers(body: string, minds: RoomMind[], mode: string, limi
 }
 
 export function exportRoom(room: Room, messages: RoomMessage[], format: "md" | "json") {
+  const cleanMessages = messages.map(cleanRoomMessage);
   const content =
     format === "json"
-      ? JSON.stringify({ room: { title: room.title, id: room.id }, messages }, null, 2)
+      ? JSON.stringify({ room: { title: room.title, id: room.id }, messages: cleanMessages }, null, 2)
       : `# ${room.title}\n\n` +
-        messages.map((m) => `**${m.author_name}** (${new Date(m.created_at).toLocaleString()}):\n${m.body}\n`).join("\n");
+        cleanMessages.map((m) => `**${m.author_name}** (${new Date(m.created_at).toLocaleString()}):\n${m.body}\n`).join("\n");
   const blob = new Blob([content], { type: format === "json" ? "application/json" : "text/markdown" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
