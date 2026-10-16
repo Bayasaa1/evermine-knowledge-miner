@@ -1,8 +1,8 @@
 # Roadmap
 
 ## Visible chat translation
-- [ ] Translate displayed chat messages and suggestions only; preserve original saved text and proof links
-- [ ] Verify selected-language display and unchanged outgoing/saved messages
+- [x] Translate displayed chat messages and suggestions only; preserve original saved text and proof links
+- [x] Verify selected-language display and unchanged outgoing/saved messages
 
 ## Vault ownership and project stability
 - [x] Keep My Vaults scoped to the signed-in owner and selected persona
