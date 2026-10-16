@@ -104,7 +104,14 @@ export const getUserAiKeyStatus = createServerFn({ method: "GET" })
       .select("id, provider, api_key, label, rank, enabled, model, endpoint, cost_kind, monthly_limit_usd, spend_usd, status, cooldown_until, created_at, updated_at")
       .order("rank", { ascending: true })
       .order("updated_at", { ascending: false });
-    return (data ?? []).map((row) => ({
+    const now = new Date().toISOString();
+    const healIds = (data ?? [])
+      .filter((r) => r.status === "exhausted" && r.cooldown_until && r.cooldown_until <= now)
+      .map((r) => r.id);
+    if (healIds.length) {
+      await context.supabase.from("user_ai_keys").update({ status: "ok", cooldown_until: null }).in("id", healIds);
+    }
+    return (data ?? []).map((r) => (healIds.includes(r.id) ? { ...r, status: "ok", cooldown_until: null } : r)).map((row) => ({
       id: row.id,
       provider: row.provider,
       tail: row.api_key.slice(-4),
