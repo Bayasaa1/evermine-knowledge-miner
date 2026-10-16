@@ -130,8 +130,8 @@ const BRIDGE: [RegExp, string][] = [
   [/^(хөдөлгүүр|hudulgu|khudulgu)/, "engine raptor propulsion"],
   [/^(нислэг|nisleg)/, "flight launch"],
   [/^(хиймэл|hiimel|оюун|oyun)/, "intelligence digital safety"],
-  [/^(машин|mashin|тесла|tesla)/, "tesla car automotive"],
-  [/^(жолоо|joloo|автомат|avtomat)/, "fsd self driving autonomous"],
+  [/^(машин|mashin|тесла|tesla)/, "tesla automotive"],
+  [/^(жолоо|joloo|автомат|avtomat)/, "fsd autonomous"],
   [/^(тархи|tarhi|чип|chip|нейралинк|neiralink)/, "neuralink brain interface"],
   [/^(робот|robot)/, "robotics optimus"],
   [/^(нар|нарны|narni)/, "solar"],
@@ -150,11 +150,11 @@ const BRIDGE: [RegExp, string][] = [
   [/^(хиймэл дагуул|дагуул|daguul|интернет|internet)/, "starlink satellite"],
   [/^(тулаан|tulaan|бокс|boks|бөх)/, "martial arts combat"],
   [/^(хайрцаг|hairtsag|кейс|keis|case)/, "case opening cs2"],
-  [/^(скин|skin|магадлал|magadlal)/, "skin case probabilities"],
+  [/^(скин|skin|магадлал|magadlal)/, "skin case"],
   [/^(тоглоом|togloom|cs|кс)/, "cs2 gaming"],
   [/^(стрим|strim|стриймэр|streamer)/, "stream streamer content"],
   [/^(фен|fen|үзэгч|uzegch|донат|donat)/, "audience parasocial engagement"],
-  [/^(айфон|aifon|iphone|утас|utas|apple)/, "apple iphone hardware"],
+  [/^(айфон|aifon|iphone|утас|utas|apple)/, "apple iphone"],
   [/^(болзоо|bolzoo|хайр|hair|харилцаа|hariltsaa)/, "dating relationship"],
   [/^(фитнес|fitnes|эрүүл|eruul|спорт|sport)/, "fitness health"],
   [/^(буу|buu|зэвсэг|zevseg)/, "firearms ballistics"],
@@ -372,11 +372,12 @@ export function branchFactsFor(
     const hit = (w: string) => q.has(w) || [...q].some((k) => k.length > 4 && w.startsWith(k.slice(0, 5)));
     roots = map.topics
       .map((t) => {
-        const head = tok(`${t.title} ${t.summary} ${t.group}`).filter(hit).length * 3;
+        const head = tok(`${t.title} ${t.group}`).filter(hit).length * 3 + tok(t.summary).filter(hit).length;
         const body = t.facts.reduce((n, f) => n + tok(f.text).filter(hit).length, 0);
-        return { t, score: head + Math.min(body, 12) };
+        return { t, head, score: head + Math.min(body, 12) };
       })
-      .filter((x) => x.score >= 3)
+      // A branch must be named by the question, not just share loose words.
+      .filter((x) => x.head >= 3 && x.score >= 6)
       .sort((a, b) => b.score - a.score)
       .slice(0, 2)
       .map((x) => x.t);
