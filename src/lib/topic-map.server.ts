@@ -74,28 +74,33 @@ function timedLines(result: Record<string, unknown>): { ts: string; words: Set<s
  * Best source moment for an untimed fact: the 3-line window sharing the most
  * words with it. Read-only lookup over saved lines; "" when nothing matches well.
  */
+const stem = (w: string) => w.slice(0, 5);
+
 function guessTs(text: string, lines: { ts: string; words: Set<string> }[]): string {
-  const want = [...new Set(tok(text))];
+  const want = [...new Set(tok(text).filter((w) => w.length > 3).map(stem))];
   if (want.length < 3 || !lines.length) return "";
+  const stems = lines.map((l) => new Set([...l.words].map(stem)));
   let best = 0;
   let bestTs = "";
   for (let i = 0; i < lines.length; i++) {
     let hit = 0;
-    for (const w of want) if (lines[i]!.words.has(w) || lines[i + 1]?.words.has(w) || lines[i + 2]?.words.has(w)) hit++;
+    for (const w of want) if (stems[i]!.has(w) || stems[i + 1]?.has(w) || stems[i + 2]?.has(w) || stems[i + 3]?.has(w)) hit++;
     if (hit > best) { best = hit; bestTs = lines[i]!.ts; }
   }
-  return best >= Math.max(3, Math.ceil(want.length * 0.35)) ? bestTs : "";
+  return best >= Math.max(3, Math.ceil(want.length * 0.25)) ? bestTs : "";
 }
 
 /** Every fact a mined vault holds, with a stable id. */
 export function factsOfVault(vaultId: string, payload: Record<string, unknown>): TopicFact[] {
   const result = (payload["result"] ?? {}) as Record<string, unknown>;
   const videoId = videoIdOf(payload);
+  const lines = timedLines(result);
   const out: TopicFact[] = [];
   const push = (text: string, ts: string) => {
     const clean = text.replace(/\s+/g, " ").trim();
     if (clean.length < 4) return;
-    out.push({ id: `${vaultId.slice(0, 8)}_${hash(clean)}`, text: clean.slice(0, 600), ts, videoId, vaultId });
+    const at = /^\d{1,3}:\d{2}(:\d{2})?$/.test(ts.trim()) ? ts.trim() : guessTs(clean, lines);
+    out.push({ id: `${vaultId.slice(0, 8)}_${hash(clean)}`, text: clean.slice(0, 600), ts: at, videoId, vaultId });
   };
   for (const n of arr(result["knowledgeNodes"])) {
     const title = String(n["concept_title"] ?? "").trim();
@@ -108,11 +113,99 @@ export function factsOfVault(vaultId: string, payload: Record<string, unknown>):
     if (qq && a) push(`Q: ${qq} — A: ${a}`, String(q["timestamp"] ?? ""));
   }
   if (Array.isArray(result["knowledge"])) {
-    const lines = timedLines(result);
-    for (const k of result["knowledge"]) if (typeof k === "string") push(k, guessTs(k, lines));
+    for (const k of result["knowledge"]) if (typeof k === "string") push(k, "");
   }
   const seen = new Set<string>();
   return out.filter((f) => (seen.has(f.id) ? false : (seen.add(f.id), true)));
+}
+
+/**
+ * Mongolian (Cyrillic and Latin) question words mapped to the English words
+ * topic titles use, so a Mongolian question still finds its branch. Read-only.
+ */
+const BRIDGE: [RegExp, string][] = [
+  [/^(пуужин|puujin|пуужн)/, "rocket starship spacex launch"],
+  [/^(сансар|sansar|ангарag)/, "space starship mars colonization"],
+  [/^(ангараг|angarag)/, "mars colonization"],
+  [/^(хөдөлгүүр|hudulgu|khudulgu)/, "engine raptor propulsion"],
+  [/^(нислэг|nisleg)/, "flight launch"],
+  [/^(хиймэл|hiimel|оюун|oyun)/, "intelligence digital safety"],
+  [/^(машин|mashin|тесла|tesla)/, "tesla automotive"],
+  [/^(жолоо|joloo|автомат|avtomat)/, "fsd autonomous"],
+  [/^(тархи|tarhi|чип|chip|нейралинк|neiralink)/, "neuralink brain interface"],
+  [/^(робот|robot)/, "robotics optimus"],
+  [/^(нар|нарны|narni)/, "solar"],
+  [/^(батарей|batarei|зай)/, "battery energy"],
+  [/^(хонгил|hongil|туннел|tunnel)/, "boring tunnel transportation"],
+  [/^(үйлдвэр|uildver)/, "manufacturing factory production"],
+  [/^(зардал|zardal|өртөг|urtug|үнэ|une)/, "cost price"],
+  [/^(зарчим|zarchim|анхдагч|ankhdagch)/, "first principles methodology"],
+  [/^(инженер|injener)/, "engineering"],
+  [/^(компани|kompani|удирд|udird|ажилтан|ajiltan)/, "corporate leadership management"],
+  [/^(улс төр|улстөр|ulstur|засгийн|zasgiin|төр)/, "political government policy"],
+  [/^(эдийн|ediin|эдийн засаг|ажлын|ajliin)/, "economy work economic"],
+  [/^(крипто|kripto|биткойн|bitcoin|доге|doge)/, "cryptocurrency"],
+  [/^(хүн төрөлхтөн|хүн|hun|ирээдүй|irээдүй|irеedui)/, "humanity civilization future"],
+  [/^(орчлон|orchlon|ертөнц|yertunts)/, "cosmic cosmology philosophy"],
+  [/^(хиймэл дагуул|дагуул|daguul|интернет|internet)/, "starlink satellite"],
+  [/^(тулаан|tulaan|бокс|boks|бөх)/, "martial arts combat"],
+  [/^(хайрцаг|hairtsag|кейс|keis|case)/, "case opening cs2"],
+  [/^(скин|skin|магадлал|magadlal)/, "skin case"],
+  [/^(тоглоом|togloom|cs|кс)/, "cs2 gaming"],
+  [/^(стрим|strim|стриймэр|streamer)/, "stream streamer content"],
+  [/^(фен|fen|үзэгч|uzegch|донат|donat)/, "audience parasocial engagement"],
+  [/^(айфон|aifon|iphone|утас|utas|apple)/, "apple iphone"],
+  [/^(болзоо|bolzoo|хайр|hair|харилцаа|hariltsaa)/, "dating relationship"],
+  [/^(фитнес|fitnes|эрүүл|eruul|спорт|sport)/, "fitness health"],
+  [/^(буу|buu|зэвсэг|zevseg)/, "firearms ballistics"],
+  [/^(арилжаа|arilj|зах|zah|хөрөнгө|hurungu)/, "market trade investment"],
+  [/^(баг|bag|монголз|mongolz)/, "esports team mongolz"],
+];
+
+/** Question words plus their English bridge words. */
+export function bridgeQuery(query: string): string[] {
+  const words = tok(query);
+  const out = new Set(words);
+  for (const w of words) for (const [re, en] of BRIDGE) if (re.test(w)) for (const e of en.split(" ")) out.add(e);
+  return [...out];
+}
+
+/**
+ * Tucks a small topic under a bigger near-duplicate (same leading subject
+ * word or mostly shared title words). Facts are never moved or removed; it
+ * only sets parentId, so the tree reads as one root instead of scattered twins.
+ */
+export function nestNearDuplicates(map: TopicMap): number {
+  const byId = new Map(map.topics.map((t) => [t.id, t]));
+  const ancestors = (t: Topic) => {
+    const s = new Set<string>();
+    let p = t.parentId ? byId.get(t.parentId) : undefined;
+    while (p && !s.has(p.id)) { s.add(p.id); p = p.parentId ? byId.get(p.parentId) : undefined; }
+    return s;
+  };
+  const words = (t: Topic) => tok(t.title).filter((w) => !["and", "the", "for", "with"].includes(w));
+  const sorted = [...map.topics].sort((a, b) => b.facts.length - a.facts.length);
+  let moved = 0;
+  for (const small of [...sorted].reverse()) {
+    const sw = words(small);
+    if (!sw.length) continue;
+    for (const big of sorted) {
+      if (big.id === small.id || big.facts.length <= small.facts.length) continue;
+      if (small.parentId === big.id) break;
+      const bw = words(big);
+      const shared = sw.filter((w) => bw.includes(w)).length;
+      const sameLead = sw[0] === bw[0] && sw[0]!.length > 5;
+      const close = shared / Math.min(sw.length, bw.length) >= 0.6 && shared >= 2;
+      if (!sameLead && !close) continue;
+      if (ancestors(big).has(small.id)) continue;
+      if (map.topics.some((t) => t.parentId === small.id && t.id === big.id)) continue;
+      small.parentId = big.id;
+      small.group = big.group;
+      moved++;
+      break;
+    }
+  }
+  return moved;
 }
 
 /**
@@ -274,16 +367,17 @@ export function branchFactsFor(
   const focus = focusTopicId ? byId.get(focusTopicId) : undefined;
   if (focus) roots = [focus];
   else {
-    const q = new Set(tok(query));
+    const q = new Set(bridgeQuery(query));
     if (!q.size) return { titles: [], facts: [] };
     const hit = (w: string) => q.has(w) || [...q].some((k) => k.length > 4 && w.startsWith(k.slice(0, 5)));
     roots = map.topics
       .map((t) => {
-        const head = tok(`${t.title} ${t.summary} ${t.group}`).filter(hit).length * 3;
+        const head = tok(`${t.title} ${t.group}`).filter(hit).length * 3 + tok(t.summary).filter(hit).length;
         const body = t.facts.reduce((n, f) => n + tok(f.text).filter(hit).length, 0);
-        return { t, score: head + Math.min(body, 12) };
+        return { t, head, score: head + Math.min(body, 12) };
       })
-      .filter((x) => x.score >= 3)
+      // A branch must be named by the question, not just share loose words.
+      .filter((x) => x.head >= 3 && x.score >= 6)
       .sort((a, b) => b.score - a.score)
       .slice(0, 2)
       .map((x) => x.t);
@@ -352,6 +446,7 @@ export async function growProjectTopics(
   const tsById = new Map(allFacts.filter((f) => f.ts).map((f) => [f.id, f.ts]));
   let patched = 0;
   for (const t of map.topics) for (const f of t.facts) if (!f.ts && tsById.has(f.id)) { f.ts = tsById.get(f.id)!; patched++; }
+  patched += nestNearDuplicates(map);
   if (patched && rowId) await admin.from("mind_vaults").update({ payload: map }).eq("id", rowId).eq("user_id", userId);
   for (let i = 0; i < maxBatches; i++) {
     const r = await fileNextBatch({ userId, map, allFacts, label: `Topics · ${project.title}` });
