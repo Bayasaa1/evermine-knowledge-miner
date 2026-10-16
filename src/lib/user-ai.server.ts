@@ -125,7 +125,14 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
     .order("rank", { ascending: true })
     .order("updated_at", { ascending: false });
   const { data } = await query;
-  const rows = data ?? [];
+  // Self-heal: an "exhausted" key whose cooldown has passed is usable again.
+  const healIds = (data ?? [])
+    .filter((r) => r.status === "exhausted" && r.cooldown_until && r.cooldown_until <= now)
+    .map((r) => r.id);
+  if (healIds.length) {
+    await supabaseAdmin.from("user_ai_keys").update({ status: "ok", cooldown_until: null }).in("id", healIds);
+  }
+  const rows = (data ?? []).map((r) => (healIds.includes(r.id) ? { ...r, status: "ok", cooldown_until: null } : r));
   const unusableReason = (row: (typeof rows)[number]): SkippedAssigned["reason"] | null => {
     if (row.cooldown_until && row.cooldown_until > now) return row.status === "invalid" ? "rejected" : "resting";
     if (row.cost_kind === "paid" && Number(row.monthly_limit_usd) <= Number(row.spend_usd)) return "capped";
