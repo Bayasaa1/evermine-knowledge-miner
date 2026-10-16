@@ -1,5 +1,9 @@
 # Roadmap
 
+## Visible chat translation
+- [ ] Translate displayed chat messages and suggestions only; preserve original saved text and proof links
+- [ ] Verify selected-language display and unchanged outgoing/saved messages
+
 ## Vault ownership and project stability
 - [x] Keep My Vaults scoped to the signed-in owner and selected persona
 - [x] Show Step 3 mining choices only from the selected persona and saved project
