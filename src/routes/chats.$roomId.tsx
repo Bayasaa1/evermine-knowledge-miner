@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLang, pickCopy } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatDisplayText } from "@/components/chat-display-text";
+import { MessageResponse } from "@/components/ai-elements/message";
 import {
   addMind, askMind, deleteMessage, deleteRoom, exportRoom, leaveRoom, listInvitableMinds, loadRoom, markRead,
   pickSpeakers, postMessage, removeMember, removeMind, setMemberRole, setMindRole, updateRoom,
@@ -179,7 +180,7 @@ function RoomPage() {
             <div key={m.id} className={`group flex ${mine ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : m.sender_kind === "mind" ? "border border-border bg-card" : "bg-muted"}`}>
                 {!mine && <div className="mb-0.5 flex items-center gap-1 text-xs font-semibold opacity-80">{m.sender_kind === "mind" && <Bot className="h-3 w-3" />}{m.author_name}</div>}
-                <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang} /></div>
+                <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang}>{(shown) => m.sender_kind === "mind" ? <MessageResponse>{shown}</MessageResponse> : shown}</ChatDisplayText></div>
                 {(m.sender_user_id === userId || isAdmin) && (
                   <button aria-label={t.remove} onClick={() => void deleteMessage(m.id).then(reload).catch((e) => toast.error(e.message))} className="mt-1 hidden text-xs opacity-60 group-hover:inline"><Trash2 className="inline h-3 w-3" /></button>
                 )}

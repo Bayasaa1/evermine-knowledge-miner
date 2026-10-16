@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MessageResponse } from "@/components/ai-elements/message";
 import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play } from "lucide-react";
 import { toast } from "sonner";
 import { reportMindReply } from "@/lib/viewer-signals.functions";
@@ -508,7 +507,7 @@ export function TalkToMindModal({
                   return (
                     <>
                       <div className="prose prose-sm prose-invert max-w-none">
-                        <ChatDisplayText text={body} lang={lang} pending={busy && i === messages.length - 1}>{(shown) => <ReactMarkdown remarkPlugins={[remarkGfm]}>{shown}</ReactMarkdown>}</ChatDisplayText>
+                        <ChatDisplayText text={body} lang={lang} pending={busy && i === messages.length - 1}>{(shown) => <MessageResponse>{shown}</MessageResponse>}</ChatDisplayText>
                       </div>
                       {clip && (
                         <button

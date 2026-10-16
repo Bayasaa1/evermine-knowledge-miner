@@ -16,7 +16,7 @@ export function ChatDisplayText({ text, lang, pending = false, controls = true, 
   text: string; lang: Lang; pending?: boolean; controls?: boolean; children?: (shown: string) => ReactNode;
 }) {
   const { userId } = useAuth();
-  const ref = useRef<HTMLSpanElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [result, setResult] = useState<{ key: string; text: string } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -43,10 +43,10 @@ export function ChatDisplayText({ text, lang, pending = false, controls = true, 
   }, [key, visible, pending, retry, text, lang, userId]);
   const translated = result?.key === key ? result.text : null;
   const shown = !original && translated !== null ? translated : text;
-  return <span ref={ref} className="min-w-0 break-words">
+  return <div ref={ref} className="min-w-0 max-w-full break-words">
     {children ? children(shown) : shown}
     {controls && translated && translated !== text && <Button type="button" variant="ghost" size="icon" className="ml-1 h-6 w-6 align-middle text-muted-foreground" title={original ? copy.translated : copy.original} aria-label={original ? copy.translated : copy.original} onClick={() => setOriginal((value) => !value)}><Languages className="h-3 w-3" /></Button>}
     {failed === key && (controls ? <Button type="button" variant="ghost" size="icon" className="ml-1 h-6 w-6 align-middle text-muted-foreground" title={copy.retry} aria-label={copy.retry} onClick={() => setRetry((value) => value + 1)}><RotateCcw className="h-3 w-3" /></Button> : <span className="ml-1 text-xs text-muted-foreground" title={copy.retry}>!</span>)}
     {!pending && visible && !translated && failed !== key && <span className="ml-1 text-xs text-muted-foreground" role="status">{copy.waiting}</span>}
-  </span>;
+  </div>;
 }
