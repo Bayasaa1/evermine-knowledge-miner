@@ -46,6 +46,8 @@ function hash(seed: string): string {
   return h.toString(36);
 }
 
+const tok = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 2);
+
 const arr = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
 
 function videoIdOf(payload: Record<string, unknown>): string {
@@ -53,6 +55,36 @@ function videoIdOf(payload: Record<string, unknown>): string {
   const url = String(src["url"] ?? "");
   const m = url.match(/(?:v=|youtu\.be\/|shorts\/|live\/|embed\/)([A-Za-z0-9_-]{11})/);
   return m?.[1] ?? "";
+}
+
+/** Timed speech/journal lines of a mined result, tokenised once. */
+function timedLines(result: Record<string, unknown>): { ts: string; words: Set<string> }[] {
+  const src = arr(result["journal"]).length ? arr(result["journal"]) : arr(result["transcript"]);
+  const out: { ts: string; words: Set<string> }[] = [];
+  for (const l of src) {
+    const ts = String(l["timestamp"] ?? l["ts"] ?? l["t"] ?? "").trim();
+    const text = String(l["text"] ?? l["speech"] ?? "");
+    if (!/^\d{1,3}:\d{2}(:\d{2})?$/.test(ts) || !text) continue;
+    out.push({ ts, words: new Set(tok(text)) });
+  }
+  return out;
+}
+
+/**
+ * Best source moment for an untimed fact: the 3-line window sharing the most
+ * words with it. Read-only lookup over saved lines; "" when nothing matches well.
+ */
+function guessTs(text: string, lines: { ts: string; words: Set<string> }[]): string {
+  const want = [...new Set(tok(text))];
+  if (want.length < 3 || !lines.length) return "";
+  let best = 0;
+  let bestTs = "";
+  for (let i = 0; i < lines.length; i++) {
+    let hit = 0;
+    for (const w of want) if (lines[i]!.words.has(w) || lines[i + 1]?.words.has(w) || lines[i + 2]?.words.has(w)) hit++;
+    if (hit > best) { best = hit; bestTs = lines[i]!.ts; }
+  }
+  return best >= Math.max(3, Math.ceil(want.length * 0.35)) ? bestTs : "";
 }
 
 /** Every fact a mined vault holds, with a stable id. */
@@ -75,7 +107,10 @@ export function factsOfVault(vaultId: string, payload: Record<string, unknown>):
     const a = String(q["answer"] ?? "").trim();
     if (qq && a) push(`Q: ${qq} — A: ${a}`, String(q["timestamp"] ?? ""));
   }
-  if (Array.isArray(result["knowledge"])) for (const k of result["knowledge"]) if (typeof k === "string") push(k, "");
+  if (Array.isArray(result["knowledge"])) {
+    const lines = timedLines(result);
+    for (const k of result["knowledge"]) if (typeof k === "string") push(k, guessTs(k, lines));
+  }
   const seen = new Set<string>();
   return out.filter((f) => (seen.has(f.id) ? false : (seen.add(f.id), true)));
 }
@@ -219,7 +254,6 @@ export function topicIndexText(map: TopicMap | null, limit = 60): string[] {
     .map((t) => `${t.group} › ${t.title} (${t.facts.length}): ${t.summary}`);
 }
 
-const tok = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 2);
 
 /**
  * Root-guided recall: picks the branches a question belongs to (or the branch
@@ -314,6 +348,11 @@ export async function growProjectTopics(
   let rowId: string | null = row?.id ?? null;
   let map: TopicMap = (row?.payload as TopicMap | null) ?? { version: 1, projectId, updatedAt: new Date().toISOString(), topics: [], filed: [] };
   let total = 0;
+  // Backfill source moments for already-filed facts that had none (index only, no AI).
+  const tsById = new Map(allFacts.filter((f) => f.ts).map((f) => [f.id, f.ts]));
+  let patched = 0;
+  for (const t of map.topics) for (const f of t.facts) if (!f.ts && tsById.has(f.id)) { f.ts = tsById.get(f.id)!; patched++; }
+  if (patched && rowId) await admin.from("mind_vaults").update({ payload: map }).eq("id", rowId).eq("user_id", userId);
   for (let i = 0; i < maxBatches; i++) {
     const r = await fileNextBatch({ userId, map, allFacts, label: `Topics · ${project.title}` });
     if (r.filedNow === 0) break;
