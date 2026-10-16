@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 - AI chat providers receive the complete saved conversation as structured turns, because flattening or truncating history causes replies to target the wrong message.
+- Open-chat display translation uses a viewport-scoped Google client with account-scoped in-memory caching; originals remain the source for saving, editing, exports and AI history, because screen translation must not mutate knowledge or spend AI credits.
 - Empty provider output is an error, never a visible ellipsis, because silence must not look like a valid assistant reply.
 - Mined interview voice samples are restricted to the named persona's speaker-tagged lines, because host speech corrupts character identity.
 - Project video sequence is creator-controlled through project_content.sequence_index; horizontal feed navigation must respect it.

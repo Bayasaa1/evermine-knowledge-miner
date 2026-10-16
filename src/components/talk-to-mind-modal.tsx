@@ -16,6 +16,7 @@ import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
 import { ChatSuggestions } from "@/components/chat-suggestions";
+import { ChatDisplayText } from "@/components/chat-display-text";
 
 
 type Msg = { role: "user" | "agent"; text: string; id?: string };
@@ -507,7 +508,7 @@ export function TalkToMindModal({
                   return (
                     <>
                       <div className="prose prose-sm prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+                        <ChatDisplayText text={body} lang={lang} pending={busy && i === messages.length - 1}>{(shown) => <ReactMarkdown remarkPlugins={[remarkGfm]}>{shown}</ReactMarkdown>}</ChatDisplayText>
                       </div>
                       {clip && (
                         <button
@@ -533,7 +534,7 @@ export function TalkToMindModal({
                           <FileText className="h-3 w-3 shrink-0" /> <span className="truncate">{f.name}</span>
                         </span>
                       ))}
-                      {body}
+                      <ChatDisplayText text={body} lang={lang} />
                     </>
                   );
                 })()
