@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MessageResponse } from "@/components/ai-elements/message";
 import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play } from "lucide-react";
 import { toast } from "sonner";
 import { reportMindReply } from "@/lib/viewer-signals.functions";
@@ -16,6 +15,7 @@ import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
 import { ChatSuggestions } from "@/components/chat-suggestions";
+import { ChatDisplayText } from "@/components/chat-display-text";
 
 
 type Msg = { role: "user" | "agent"; text: string; id?: string };
@@ -507,7 +507,7 @@ export function TalkToMindModal({
                   return (
                     <>
                       <div className="prose prose-sm prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+                        <ChatDisplayText text={body} lang={lang} pending={busy && i === messages.length - 1}>{(shown) => <MessageResponse>{shown}</MessageResponse>}</ChatDisplayText>
                       </div>
                       {clip && (
                         <button
@@ -533,7 +533,7 @@ export function TalkToMindModal({
                           <FileText className="h-3 w-3 shrink-0" /> <span className="truncate">{f.name}</span>
                         </span>
                       ))}
-                      {body}
+                      <ChatDisplayText text={body} lang={lang} />
                     </>
                   );
                 })()
