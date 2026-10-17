@@ -17,16 +17,33 @@ export const Route = createFileRoute("/api/diagnose-chat")({
       POST: async ({ request }) => {
         const auth = await guardApi(request, "diagnose-chat", 20);
         if (auth instanceof Response) return auth;
-        let body: { system?: string; messages?: ChatMsg[] };
+        let body: { lang?: string; errors?: unknown; messages?: ChatMsg[] };
         try {
           body = (await request.json()) as typeof body;
         } catch {
           return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
         }
 
-        const system = typeof body.system === "string" ? body.system.slice(0, 12000) : "";
-        const history = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
-        if (!system || history.length === 0) {
+        const { diagnosticSystemPrompt } = await import("@/lib/diagnostic-prompt");
+        const { isLangCode } = await import("@/lib/languages");
+        const lang = isLangCode(body.lang) ? body.lang : "en";
+        const str = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : undefined);
+        const errors = (Array.isArray(body.errors) ? body.errors.slice(-10) : []).map((e) => {
+          const r = (e ?? {}) as Record<string, unknown>;
+          return {
+            at: str(r.at, 40),
+            source: str(r.source, 40),
+            status: typeof r.status === "number" ? r.status : null,
+            url: str(r.url, 300),
+            message: str(r.message, 500),
+            detail: str(r.detail, 400),
+          };
+        });
+        const system = diagnosticSystemPrompt(lang, errors);
+        const history = (Array.isArray(body.messages) ? body.messages.slice(-20) : [])
+          .filter((m) => m && (m.role === "user" || m.role === "model") && typeof m.text === "string")
+          .map((m) => ({ role: m.role, text: m.text.slice(0, 4000) }));
+        if (history.length === 0) {
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
 
