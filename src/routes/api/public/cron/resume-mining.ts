@@ -72,6 +72,13 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         void healed;
         // Keep one worker run well inside the platform request budget.
         const deadline = Date.now() + 4 * 60_000;
+        // Repair pass: finished videos with broken parts are re-mined silently.
+        try {
+          const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server");
+          await autoRepairFinishedVideos(supabaseAdmin, Date.now() + 90_000);
+        } catch {
+          /* best-effort */
+        }
 
         const nowIso = new Date().toISOString();
         // Single-flight lease: a job touched in the last 3 minutes is being mined
