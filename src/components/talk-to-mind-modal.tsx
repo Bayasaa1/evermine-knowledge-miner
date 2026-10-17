@@ -363,7 +363,7 @@ export function TalkToMindModal({
     if (busy || loadingHistory) return;
     if (topic) {
       const current = conversationProgress(messages, [topic], topicFocus);
-      if (current.topic !== topic) setTopicFocus({ title: topic, fromIndex: messages.length });
+      if (topicFocus?.title !== topic) setTopicFocus({ title: topic, fromIndex: !topicFocus && current.topic === topic ? current.fromIndex : messages.length });
     }
     void sendRef.current(text);
   };

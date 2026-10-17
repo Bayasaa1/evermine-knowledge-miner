@@ -369,6 +369,8 @@ export const Route = createFileRoute("/creator")({
       { title: "Evermind — Creator Dashboard" },
       { name: "description", content: "Evermind dashboard: configure your API key, upload a video, and mine structured knowledge." },
       { property: "og:title", content: "Evermind — Dashboard" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { property: "og:description", content: "Configure your API key, upload a video, and mine structured knowledge." },
     ],
   }),

@@ -13,7 +13,7 @@ import { topicSuggestions, type ConversationTurn, type TopicFocus } from "@/lib/
  */
 export function ChatSuggestions({
   mindId, lang, onPick, used = [], compact = false, messages = [], focus,
-}: { mindId: string | null; lang: Lang; onPick: (q: string, topic?: string) => void; used?: string[]; compact?: boolean; messages?: ConversationTurn[]; focus?: TopicFocus }) {
+}: { mindId: string | null; lang: Lang; onPick: (q: string, topic?: string) => void; used?: string[]; compact?: boolean; messages?: ConversationTurn[]; focus?: TopicFocus | undefined }) {
   const fetchFn = useServerFn(getChatSuggestions);
   const [data, setData] = useState<S | null>(null);
   useEffect(() => {

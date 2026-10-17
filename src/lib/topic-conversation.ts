@@ -2,7 +2,7 @@
 export type ConversationTurn = { role: "user" | "agent"; text: string };
 export type TopicFocus = { title: string; fromIndex: number };
 export type TopicStage = "opening" | "development" | "conclusion";
-export type TopicSuggestion = { text: string; topic?: string; stage: TopicStage };
+export type TopicSuggestion = { text: string; topic?: string | undefined; stage: TopicStage };
 type CopyLanguage = "en" | "mn" | "ko";
 
 const COPY = {
@@ -40,14 +40,15 @@ export function topicInText(text: string, topics: string[]): string | undefined 
   const haystack = ` ${normalize(text)} `;
   return [...topics].sort((a, b) => b.length - a.length).find((topic) => {
     const needle = normalize(topic);
-    return needle.length > 1 && haystack.includes(` ${needle} `);
+    return needle.length > 1 && (haystack.includes(` ${needle} `) ||
+      ["부터", "에", "을", "를", "은", "는", "이", "가", "ын", "ийн", "тай", "тэй"].some((suffix) => haystack.includes(` ${needle}${suffix} `)));
   });
 }
 
 /** Resolve only this topic's current stretch, never a global message counter. */
 export function conversationProgress(
   turns: ConversationTurn[], topics: string[], focus?: TopicFocus,
-): { topic?: string; stage: TopicStage; fromIndex: number } {
+): { topic: string | undefined; stage: TopicStage; fromIndex: number } {
   let topic = focus?.title;
   let fromIndex = focus?.fromIndex ?? turns.length;
   let completed = 0;
@@ -76,7 +77,7 @@ export function conversationProgress(
 export function topicSuggestions({
   turns, topics, lang, focus, creatorQuestions = [],
 }: {
-  turns: ConversationTurn[]; topics: string[]; lang: string; focus?: TopicFocus; creatorQuestions?: string[];
+  turns: ConversationTurn[]; topics: string[]; lang: string; focus?: TopicFocus | undefined; creatorQuestions?: string[] | undefined;
 }): TopicSuggestion[] {
   const copy = COPY[lang as CopyLanguage] ?? COPY.en;
   const progress = conversationProgress(turns, topics, focus);
