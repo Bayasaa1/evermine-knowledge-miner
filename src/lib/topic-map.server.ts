@@ -59,7 +59,8 @@ function videoIdOf(payload: Record<string, unknown>): string {
 
 /** Timed speech/journal lines of a mined result, tokenised once. */
 function timedLines(result: Record<string, unknown>): { ts: string; words: Set<string> }[] {
-  const src = arr(result["journal"]).length ? arr(result["journal"]) : arr(result["transcript"]);
+  // Journal and transcript both hold timed speech; read both so more facts find their moment.
+  const src = [...arr(result["journal"]), ...arr(result["transcript"])];
   const out: { ts: string; words: Set<string> }[] = [];
   for (const l of src) {
     const ts = String(l["timestamp"] ?? l["ts"] ?? l["t"] ?? "").trim();
@@ -175,6 +176,8 @@ export function bridgeQuery(query: string): string[] {
  * word or mostly shared title words). Facts are never moved or removed; it
  * only sets parentId, so the tree reads as one root instead of scattered twins.
  */
+const GENERIC = new Set(["development","engineering","technology","systems","future","strategy","strategies","management","industry","analysis","philosophy","design","impact","content","dynamics","production","challenges","general","personal","economics","culture"]);
+
 export function nestNearDuplicates(map: TopicMap): number {
   const byId = new Map(map.topics.map((t) => [t.id, t]));
   const ancestors = (t: Topic) => {
@@ -195,8 +198,10 @@ export function nestNearDuplicates(map: TopicMap): number {
       const bw = words(big);
       const shared = sw.filter((w) => bw.includes(w)).length;
       const sameLead = sw[0] === bw[0] && sw[0]!.length > 5;
+      // Same distinctive subject word (e.g. "Neuralink", "Starship") in both titles.
+      const subject = sw.some((w) => w.length > 5 && !GENERIC.has(w) && bw.includes(w));
       const close = shared / Math.min(sw.length, bw.length) >= 0.6 && shared >= 2;
-      if (!sameLead && !close) continue;
+      if (!sameLead && !close && !subject) continue;
       if (ancestors(big).has(small.id)) continue;
       if (map.topics.some((t) => t.parentId === small.id && t.id === big.id)) continue;
       small.parentId = big.id;
