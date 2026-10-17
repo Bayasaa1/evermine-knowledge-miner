@@ -5,12 +5,12 @@
 import { LANGUAGES, type LangCode } from "@/lib/languages";
 
 export type DiagnosticError = {
-  at?: string;
-  source?: string;
+  at?: string | undefined;
+  source?: string | undefined;
   status?: number | null;
-  url?: string;
-  message?: string;
-  detail?: string;
+  url?: string | undefined;
+  message?: string | undefined;
+  detail?: string | undefined;
 };
 
 /** Product documentation the assistant answers "how do I…" questions from. */

@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
         const lang = isLangCode(body.lang) ? body.lang : "en";
         const str = (v: unknown, n: number) => (typeof v === "string" ? v.slice(0, n) : undefined);
         const errors = (Array.isArray(body.errors) ? body.errors.slice(-10) : []).map((e) => {
-          const r = (e ?? {}) as Record<string, unknown>;
+          const r = (e ?? {}) as { at?: unknown; source?: unknown; status?: unknown; url?: unknown; message?: unknown; detail?: unknown };
           return {
             at: str(r.at, 40),
             source: str(r.source, 40),
