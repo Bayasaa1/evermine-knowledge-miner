@@ -13,6 +13,7 @@ import type { ChunkResult } from "@/lib/gemini";
 import { unpackInstructions } from "@/lib/mining-jobs";
 import { extractConcepts } from "@/lib/concepts";
 import { ownerBrainFromJournal, subtitlesFromJournal, type OwnerBrain } from "@/lib/journal-build.server";
+import { repairTimingsLocal } from "@/lib/repair-timings";
 
 type JobRow = {
   id: string;
@@ -112,7 +113,9 @@ export async function finalizeMiningJob(
   // After the journal: (1) subtitles come straight from its speech lines,
   // (2) the Core Brain gets only the persona's own words and actions, in order.
   const ownerName = (job.persona_name || persona?.name || "").trim();
-  mined.transcript = subtitlesFromJournal(mined.journal, mined.transcript, ownerName);
+  // Lines that came back without a clock get an estimated time automatically,
+  // so no creator ever has to press a "fix" button. Words are never touched.
+  mined.transcript = repairTimingsLocal(subtitlesFromJournal(mined.journal, mined.transcript, ownerName) as never) as never;
   (mined as typeof mined & { ownerBrain?: OwnerBrain }).ownerBrain = ownerBrainFromJournal(mined.journal, ownerName);
 
   // 2. Destination project — only the creator's saved choice is valid. Mining
