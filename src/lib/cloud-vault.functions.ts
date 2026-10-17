@@ -42,7 +42,7 @@ export const listVaults = createServerFn({ method: "POST" })
       .select("id, title, kind, payload, persona_id, project_id, updated_at")
       .eq("user_id", context.userId)
       // Uploaded subtitle files and topic maps are helper records, not minds.
-      .not("kind", "in", "(captions,topics)");
+      .not("kind", "in", "(captions,topics,review)");
     if (data.scoped) {
       // A persona sees its own minds plus anything not filed under a persona
       // yet — a saved video must never disappear just because it was mined
