@@ -59,8 +59,11 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
     supabaseAdmin.from("project_concepts").select("label, count").eq("project_id", projectId).order("count", { ascending: false }).limit(8),
     supabaseAdmin.from("mind_vaults").select("payload").eq("kind", "topics").eq("title", `topics:${projectId}`).limit(1).maybeSingle(),
   ]);
-  const topics = (concepts.data ?? []).map((c) => c.label).filter(Boolean);
   const mapTopics = ((map.data?.payload as { topics?: MapTopic[] } | null)?.topics ?? []);
+  // Real Root-map topics (richest first) lead; generic concept labels fill in after.
+  const rootTopics = mapTopics.filter((t) => t.title && !t.parentId)
+    .sort((a, b) => (b.facts?.length ?? 0) - (a.facts?.length ?? 0)).map((t) => t.title);
+  const topics = Array.from(new Set([...rootTopics.slice(0, 12), ...(concepts.data ?? []).map((c) => c.label).filter(Boolean)]));
   const p = persona.data as { name: string; bio: string; greeting: string; tags: string[] } | null;
   const personaName = p?.name ?? project.creator_name ?? "";
   return {
