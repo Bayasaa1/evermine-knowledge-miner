@@ -34,7 +34,7 @@ describe("per-topic progression", () => {
   });
   it("starts a different topic at its own beginning", () => {
     const changed: ConversationTurn[] = [...turns, { role: "user", text: "Let's talk about Energy." }];
-    assert.deepEqual(conversationProgress(changed, ["Space", "Energy"]), { topic: "Energy", stage: "opening", fromIndex: 4 });
+    assert.deepEqual(conversationProgress(changed, ["Space", "Energy"]), { topic: "Energy", stage: "opening", fromIndex: 4, completed: 0 });
   });
   it("does not count unrelated saved history for a selected Root branch", () => {
     assert.equal(conversationProgress(turns, ["Energy"], { title: "Energy", fromIndex: turns.length }).stage, "opening");
