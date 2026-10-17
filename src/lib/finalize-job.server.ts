@@ -70,9 +70,20 @@ export async function finalizeMiningJob(
   // when it is a real title rather than a bare link or video id.
   const label = (job.source_label || "").trim();
   const labelIsTitle = label.length > 0 && !/^https?:\/\//i.test(label) && !/^[A-Za-z0-9_-]{11}$/.test(label);
+  // The real YouTube title always wins; an AI summary is never used as a title.
+  let ytTitle = "";
+  if (!labelIsTitle) {
+    const vid = youtubeIdOf(job.source_url);
+    if (vid) {
+      try {
+        const { fetchVideoMeta } = await import("@/lib/youtube-meta.server");
+        ytTitle = ((await fetchVideoMeta(vid)).title || "").trim();
+      } catch { /* offline: fall back below */ }
+    }
+  }
   const title =
     (labelIsTitle ? label : "") ||
-    mined.story?.summary?.slice(0, 60) ||
+    ytTitle ||
     (meta.sourceTitle || "").trim() ||
     label ||
     "New Mind";
