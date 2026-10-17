@@ -12,21 +12,21 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export const auditWithBuiltIn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { prompt: string; brief: string; apiKey?: string }) => {
+  .inputValidator((input: { brief: string; apiKey?: string }) => {
     if (!input?.brief?.trim()) throw new Error("Nothing to audit.");
     return {
-      prompt: String(input.prompt).slice(0, 4000),
       brief: String(input.brief).slice(0, 20000),
       apiKey: typeof input.apiKey === "string" ? input.apiKey : undefined,
     };
   })
   .handler(async ({ data, context }): Promise<string> => {
     const { generateRoleText, UserAiError } = await import("@/lib/user-ai.server");
+    const { AUDIT_PROMPT } = await import("@/lib/audit-prompt");
     try {
       const result = await generateRoleText({
         userId: context.userId,
         role: "core_brain",
-        system: data.prompt,
+        system: AUDIT_PROMPT,
         json: true,
         maxTokens: 8192,
         prompt: data.brief,

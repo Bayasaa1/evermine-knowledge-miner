@@ -1,11 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { LANGUAGES } from "@/lib/languages";
+
+const LANGUAGE_NAMES = new Set(Object.values(LANGUAGES).map((l) => l.name));
 
 const schema = z.object({
   texts: z.array(z.string().max(4000)).min(1).max(60),
   target: z.string().min(2).max(8),
-  targetName: z.string().min(2).max(40),
+  targetName: z.string().min(2).max(40).refine((n) => LANGUAGE_NAMES.has(n), "Unsupported language"),
   /** Optional hint so the model keeps product terminology consistent. */
   domain: z.string().max(200).optional(),
 });
@@ -48,7 +51,7 @@ export const translateTexts = createServerFn({ method: "POST" })
       `Each input string may be in ANY language (English, Mongolian, Korean, Japanese, …).`,
       `Translate every string into ${data.targetName}, whatever its source language is.`,
       `If a string is already in ${data.targetName}, return it unchanged.`,
-      data.domain ? `Context: ${data.domain}.` : "",
+      `Context: AI video-mining app UI and subtitles.`,
       `Rules: keep the meaning and tone; keep product names (Evermind, YouTube, Gemini, JSON, Mind Vault) untranslated;`,
       `keep numbers, timestamps, URLs, emoji and placeholder tokens such as {n} exactly as they are;`,
       `never add explanations. Reply with ONLY a JSON array of translated strings, same length and order as the input array.`,
