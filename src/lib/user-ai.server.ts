@@ -1,3 +1,4 @@
+import { isSafeEndpoint } from "@/lib/safe-endpoint";
 /**
  * Per-user AI access — the one place every server-side AI call gets its
  * credentials from. Nothing here ever touches the platform's shared AI
@@ -481,6 +482,9 @@ async function generateRoleTextOnce(opts: {
   }
   const config = OPENAI_COMPATIBLE[resolved.provider];
   const base = (resolved.endpoint || config?.base || "").replace(/\/+$/, "");
+  if (resolved.endpoint && !isSafeEndpoint(resolved.endpoint)) {
+    throw new GeminiHttpError(400, "This key's custom address is not a public https:// address. Edit it in API Manager.");
+  }
   if (!base) throw new UserAiError("unsupported_task", "This AI has no valid connection address.");
   const model = await liveProviderModel(resolved, base, config?.model ?? "");
   if (!model) throw new UserAiError("unsupported_task", "This AI account did not return a usable text model.");
