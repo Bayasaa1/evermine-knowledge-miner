@@ -60,7 +60,7 @@ export function JournalReviewPanel({ contentId }: { contentId: string }) {
   );
 }
 
-function Highlighted({ text, word }: { text: string; word?: string }) {
+function Highlighted({ text, word }: { text: string; word?: string | undefined }) {
   const at = word ? text.indexOf(word) : -1;
   if (!word || at < 0) return <span>{text}</span>;
   return (
