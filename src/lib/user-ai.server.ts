@@ -364,8 +364,16 @@ function isBusyError(error: unknown): boolean {
 function limitCooldown(error: unknown): { status: "ok" | "exhausted"; until: string } {
   if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 3 * 60 * 1000).toISOString() };
   const minute = error instanceof UserAiError && error.code === "rate_minute";
-  const ms = minute ? Math.max(20, (error as UserAiError).retryAfterSec) * 1000 : 60 * 60 * 1000;
-  return { status: minute ? "ok" : "exhausted", until: new Date(Date.now() + ms).toISOString() };
+  if (minute) {
+    const ms = Math.max(20, (error as UserAiError).retryAfterSec) * 1000;
+    return { status: "ok", until: new Date(Date.now() + ms).toISOString() };
+  }
+  // Free-tier Gemini 429s are almost always per-minute bursts, not a used-up
+  // day: rest briefly and stay "ok" so the key is never shown as dead.
+  if (error instanceof GeminiHttpError && error.status === 429) {
+    return { status: "ok", until: new Date(Date.now() + 2 * 60 * 1000).toISOString() };
+  }
+  return { status: "exhausted", until: new Date(Date.now() + 20 * 60 * 1000).toISOString() };
 }
 
 type RoleTextRun = { text: string; inputTokens: number; outputTokens: number };
