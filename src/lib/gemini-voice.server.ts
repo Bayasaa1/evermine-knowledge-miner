@@ -38,7 +38,7 @@ export async function geminiSpeak(apiKey: string, text: string, lang: string, vo
 
 export async function geminiHear(apiKey: string, audioB64: string, mime: string, lang: string): Promise<string> {
   const { GEMINI_DEFAULT_MODEL } = await import("@/lib/gemini-models");
-  const models = ["gemini-2.5-flash", GEMINI_DEFAULT_MODEL];
+  const models = [GEMINI_DEFAULT_MODEL];
   let lastStatus = 0;
   for (const model of [...new Set(models)]) {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {

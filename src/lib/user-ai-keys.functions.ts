@@ -105,8 +105,9 @@ export const getUserAiKeyStatus = createServerFn({ method: "GET" })
       .order("rank", { ascending: true })
       .order("updated_at", { ascending: false });
     const now = new Date().toISOString();
+    const maxRest = new Date(Date.now() + 20 * 60 * 1000).toISOString();
     const healIds = (data ?? [])
-      .filter((r) => r.status === "exhausted" && r.cooldown_until && r.cooldown_until <= now)
+      .filter((r) => r.status === "exhausted" && (!r.cooldown_until || r.cooldown_until <= now || r.cooldown_until > maxRest))
       .map((r) => r.id);
     if (healIds.length) {
       await context.supabase.from("user_ai_keys").update({ status: "ok", cooldown_until: null }).in("id", healIds);
