@@ -768,6 +768,19 @@ function FeedCard({
   const [paused, setPaused] = useState(false);
   const [now, setNow] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Single active iframe rule: only the card that is mostly on screen
+  // (>65% visible) mounts a YouTube player; all others show a still image.
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined" || !item.youtubeId) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(!!entry && entry.intersectionRatio > 0.65),
+      { threshold: [0, 0.65, 1] },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [item.youtubeId]);
   const [captions, setCaptions] = useState(true);
   const [subtitleSize, setSubtitleSize] = useState(18);
   const [subtitlePosition, setSubtitlePosition] = useState(38);
@@ -1002,7 +1015,7 @@ function FeedCard({
           ) : (
             <div className="h-full w-full bg-black" />
           )
-        ) : item.youtubeId && near ? (
+        ) : item.youtubeId && isActive && inView ? (
           <YouTubeStage
             videoId={item.youtubeId}
             active={isActive}
@@ -1020,12 +1033,19 @@ function FeedCard({
             onNext={item.projectId ? () => onProjectSwipe("newer") : undefined}
           />
         ) : item.youtubeId ? (
-          <img
-            src={item.poster}
-            alt={item.title}
-            loading="lazy"
-            className="h-full w-full object-cover md:object-contain md:bg-black"
-          />
+          <div className="relative h-full w-full bg-black">
+            <img
+              src={`https://i.ytimg.com/vi/${item.youtubeId}/hqdefault.jpg`}
+              alt={item.title}
+              loading="lazy"
+              className="h-full w-full object-cover md:object-contain"
+            />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-black/70 text-white">
+                <Play className="h-7 w-7 fill-current" />
+              </span>
+            </div>
+          </div>
         ) : item.src ? (
 
           <video

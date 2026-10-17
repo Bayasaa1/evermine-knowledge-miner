@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, RotateCcw, RotateCw, SkipBack, SkipForward } from "lucide-react";
+import { ExternalLink, Pause, Play, RotateCcw, RotateCw, SkipBack, SkipForward } from "lucide-react";
 
 /**
  * TikTok-style YouTube stage. Plays the video straight from YouTube's Iframe
@@ -87,8 +87,9 @@ export function YouTubeStage({
   /** True only while frames are actually moving. Any other moment YouTube
       paints its own title bar, logo and video grid, so we cover the frame. */
   const [playing, setPlaying] = useState(false);
-  const blockedRef = useRef(onBlocked);
-  blockedRef.current = onBlocked;
+  const [failed, setFailed] = useState(false);
+  // Blocked videos now show a fallback card in place; the feed keeps them.
+  void onBlocked;
 
   activeRef.current = active;
   pausedRef.current = paused;
@@ -104,9 +105,10 @@ export function YouTubeStage({
         // `origin` in the address, which doubled our controls. Looping is
         // handled in onStateChange below instead.
         const frame = document.createElement("iframe");
+        const origin = encodeURIComponent(window.location.origin);
         frame.src =
-          `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&mute=1&controls=0` +
-          `&disablekb=1&fs=0&iv_load_policy=3&rel=0&playsinline=1`;
+          `https://www.youtube-nocookie.com/embed/${videoId}?enablejsapi=1&autoplay=1&mute=1&controls=0` +
+          `&disablekb=1&fs=0&iv_load_policy=3&rel=0&modestbranding=1&playsinline=1&origin=${origin}`;
         frame.allow = "autoplay; encrypted-media; picture-in-picture";
         frame.setAttribute("frameborder", "0");
         holder.current.replaceChildren(frame);
@@ -127,7 +129,11 @@ export function YouTubeStage({
               if (activeRef.current && !pausedRef.current) e.target.playVideo();
             },
             onError: () => {
-              if (!cancelled) blockedRef.current?.();
+              // Show a clean fallback card instead of YouTube's black error screen.
+              if (cancelled) return;
+              setFailed(true);
+              try { player.current?.destroy(); } catch { /* already gone */ }
+              player.current = null;
             },
           },
         });
@@ -223,6 +229,28 @@ export function YouTubeStage({
     flashUi();
   };
 
+
+  if (failed) {
+    return (
+      <div className="absolute inset-0 overflow-hidden bg-black">
+        <img
+          src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`}
+          alt=""
+          className="h-full w-full object-cover opacity-80"
+        />
+        <a
+          href={`https://www.youtube.com/watch?v=${videoId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute inset-0 z-[6] flex items-center justify-center"
+        >
+          <span className="flex items-center gap-2 rounded-full bg-black/80 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm">
+            <ExternalLink className="h-4 w-4" /> Watch on YouTube
+          </span>
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="absolute inset-0 overflow-hidden">

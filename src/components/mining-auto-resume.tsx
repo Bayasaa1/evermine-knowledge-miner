@@ -38,6 +38,8 @@ export function MiningAutoResume() {
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     let cancelled = false;
+    let idle = false;
+    let timer: number | null = null;
 
     const drive = async () => {
       if (running.current || cancelled) return;
@@ -45,6 +47,9 @@ export function MiningAutoResume() {
       try {
         const [jobs, laneCount] = await Promise.all([list(), lanes().catch(() => 1)]);
         const queue = playlistOrder(jobs);
+        // Nothing queued or running: back off so the feed isn't disturbed.
+        idle = !jobs.some((j) => j.status === "running" || j.status === "queued");
+        if (!queue.length) return;
         let outOfTokens = false;
         // Lane 0 is the Studio screen's own key; auto lanes start at 1 so a
         // video the creator is watching mine is never on the same key.
@@ -58,7 +63,10 @@ export function MiningAutoResume() {
               // driving is skipped, so no part is mined twice.
               const res = await step({ data: { jobId: current.id, respectLease: true, lane: n } });
               current = res.job;
-              void qc.invalidateQueries({ queryKey: ["mining-jobs", userId] });
+              // On the Home Feed nobody watches the mining list; skip refreshes there.
+              if (window.location.pathname !== "/") {
+                void qc.invalidateQueries({ queryKey: ["mining-jobs", userId] });
+              }
               if (res.busy || res.done || current.status !== "running") break;
             }
             if (current.status === "paused_quota" && laneCount <= 1) outOfTokens = true;
@@ -72,11 +80,20 @@ export function MiningAutoResume() {
       }
     };
 
-    void drive();
-    const timer = window.setInterval(() => void drive(), 2 * 60_000);
+    const schedule = () => {
+      if (cancelled) return;
+      const onHome = window.location.pathname === "/";
+      const delay = idle ? 10 * 60_000 : onHome ? 5 * 60_000 : 2 * 60_000;
+      timer = window.setTimeout(async () => {
+        if (document.visibilityState === "visible") await drive();
+        schedule();
+      }, delay);
+    };
+
+    void drive().then(schedule);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer !== null) window.clearTimeout(timer);
     };
   }, [isAuthenticated, userId, list, lanes, step, qc]);
 
