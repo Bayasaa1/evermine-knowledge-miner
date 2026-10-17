@@ -21,8 +21,12 @@ export type Persona = {
 
 const COLS = "id,user_id,name,handle,avatar_url,bio,is_active,created_at,updated_at";
 
+/** Longest auto-made @handle (letters/digits only, without the @). */
+export const MAX_HANDLE_LENGTH = 24;
+
+/** Builds an @handle from a persona / channel name only — never from a title or summary. */
 export function personaHandle(input: string): string {
-  const slug = input.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const slug = input.trim().toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, MAX_HANDLE_LENGTH);
   return slug ? `@${slug}` : "@persona";
 }
 
