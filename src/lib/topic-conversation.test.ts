@@ -52,9 +52,10 @@ describe("per-topic progression", () => {
     assert.equal(JSON.stringify(turns), before);
   });
 });
-import { topicInText as _tit } from "./topic-conversation";
-import { test as _t, expect as _e } from "vitest";
-_t("short word 'ai' reaches the AI topic", () => {
-  _e(_tit("lets talk about ai", ["Engineering", "AI Safety and Governance"])).toBe("AI Safety and Governance");
-  _e(_tit("tell me about starship", ["Engineering", "Starship Development"])).toBe("Starship Development");
+import { topicInText } from "./topic-conversation";
+describe("short topic words", () => {
+  it("'ai' reaches the AI topic and a key word reaches its topic", () => {
+    assert.equal(topicInText("lets talk about ai", ["Engineering", "AI Safety and Governance"]), "AI Safety and Governance");
+    assert.equal(topicInText("tell me about starship", ["Engineering", "Starship Development"]), "Starship Development");
+  });
 });
