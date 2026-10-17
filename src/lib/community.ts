@@ -45,14 +45,17 @@ export async function uploadUserMedia(file: File): Promise<string> {
   return path;
 }
 
-export async function mediaLink(path: string | null): Promise<string | null> {
+/** Story links last one hour, so expired or deleted stories stop being viewable. */
+const STORY_LINK_SECONDS = 60 * 60;
+
+export async function mediaLink(path: string | null, seconds = LINK_SECONDS): Promise<string | null> {
   if (!path) return null;
-  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, LINK_SECONDS);
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, seconds);
   return data?.signedUrl ?? null;
 }
 
-async function withLinks<T extends { media_path: string | null }>(rows: T[]) {
-  return Promise.all(rows.map(async (row) => ({ row, url: await mediaLink(row.media_path) })));
+async function withLinks<T extends { media_path: string | null }>(rows: T[], seconds = LINK_SECONDS) {
+  return Promise.all(rows.map(async (row) => ({ row, url: await mediaLink(row.media_path, seconds) })));
 }
 
 /** Replace the signed-in person's profile picture. */
@@ -150,7 +153,7 @@ export async function listStories(): Promise<UserStory[]> {
     .order("created_at", { ascending: false })
     .limit(60);
   if (error) throw new Error(error.message);
-  const linked = await withLinks(data ?? []);
+  const linked = await withLinks(data ?? [], STORY_LINK_SECONDS);
   return linked.map(({ row, url }) => ({
     id: row.id,
     userId: row.user_id,

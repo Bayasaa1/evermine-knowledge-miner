@@ -18,6 +18,7 @@ export const Route = createFileRoute("/api/mind-level")({
               .from("projects")
               .select("ai_level_default, ai_level_max")
               .eq("id", mindId.slice(8))
+              .eq("published", true)
               .maybeSingle();
             const clamp = (v: unknown, fallback: number) => {
               const n = Math.round(Number(v));

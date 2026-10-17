@@ -6,6 +6,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { isSafeEndpoint } from "@/lib/safe-endpoint";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const KEY_RE = /^[A-Za-z0-9_\-:.]{8,200}$/;
@@ -64,7 +65,7 @@ export const saveUserAiKey = createServerFn({ method: "POST" })
       rank: z.number().int().min(0).max(10000).optional(),
       enabled: z.boolean().optional(),
       model: z.string().max(160).optional(),
-      endpoint: z.string().url().max(500).optional(),
+      endpoint: z.string().url().max(500).refine((u) => isSafeEndpoint(u), "Use a public https:// address").optional(),
       costKind: z.enum(["free-tier", "free-model", "paid"]).optional(),
       monthlyLimitUsd: z.number().min(0).max(10000).optional(),
     }).parse(input),
