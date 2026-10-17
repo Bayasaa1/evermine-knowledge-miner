@@ -257,7 +257,7 @@ export function TalkToMindModal({
     }
   };
 
-  const send = async (spoken?: string) => {
+  const send = async (spoken?: string, selectedTopic?: string) => {
     const typed = (spoken ?? input).trim();
     const files = spoken ? "" : attachments.map((a) => a.block).join("");
     const text = `${typed || (files ? (lang === "mn" ? "Энэ файлыг хараарай." : lang === "ko" ? "이 파일을 봐 주세요." : "Take a look at this file.") : "")}${files}`;
@@ -289,7 +289,7 @@ export function TalkToMindModal({
           stream: live,
           seen: call.sees || undefined,
           aiLevel,
-          topicId,
+          topicId: (!selectedTopic && !topicFocus) || (selectedTopic ?? topicFocus?.title) === topicTitle ? topicId : undefined,
         }),
       });
 
@@ -365,7 +365,7 @@ export function TalkToMindModal({
       const current = conversationProgress(messages, [topic], topicFocus);
       if (topicFocus?.title !== topic) setTopicFocus({ title: topic, fromIndex: !topicFocus && current.topic === topic ? current.fromIndex : messages.length });
     }
-    void sendRef.current(text);
+    void send(text, topic);
   };
 
   const deleteMessage = (i: number) => {

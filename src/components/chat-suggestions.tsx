@@ -26,9 +26,12 @@ export function ChatSuggestions({
 
   const themes = Array.from(new Set([...(data?.topics ?? []), ...(data?.tags ?? []).map((x) => x.replace(/^#/, ""))]));
   const asked = new Set(used.map((u) => u.trim()));
-  const chips = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions })
-    .filter((c) => !asked.has(c.text.trim()))
-    .slice(0, compact ? 3 : 5);
+  const available = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions })
+    .filter((c) => !asked.has(c.text.trim()));
+  const limit = compact ? 3 : 5;
+  const chips = available.slice(0, limit);
+  const alternative = available.find((c) => c.stage === "opening" && c.topic && c.topic !== focus?.title);
+  if (compact && alternative && !chips.includes(alternative) && chips.length === limit) chips[limit - 1] = alternative;
 
   return (
     <div className="space-y-3">
