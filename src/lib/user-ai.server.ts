@@ -126,8 +126,10 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
     .order("updated_at", { ascending: false });
   const { data } = await query;
   // Self-heal: an "exhausted" key whose cooldown has passed is usable again.
+  // Also heals rests longer than 20 min left by the old one-hour rule.
+  const maxRest = new Date(Date.now() + 20 * 60 * 1000).toISOString();
   const healIds = (data ?? [])
-    .filter((r) => r.status === "exhausted" && r.cooldown_until && r.cooldown_until <= now)
+    .filter((r) => r.status === "exhausted" && (!r.cooldown_until || r.cooldown_until <= now || r.cooldown_until > maxRest))
     .map((r) => r.id);
   if (healIds.length) {
     await supabaseAdmin.from("user_ai_keys").update({ status: "ok", cooldown_until: null }).in("id", healIds);
