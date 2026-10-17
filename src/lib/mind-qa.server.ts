@@ -12,7 +12,33 @@ export type CreatorExtras = {
   topics: string[];
   /** Real questions asked in the mined videos. */
   minedQuestions: string[];
+  /** Root-map sub-branches per topic, so chat can dig deeper inside one branch. */
+  branches: Record<string, string[]>;
 };
+
+type MapTopic = { id: string; title: string; summary?: string; group?: string; parentId?: string; facts?: unknown[] };
+const words = (s: string) => new Set((s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length > 2));
+
+/** Read-only: maps each chat topic to the Root-map branches it covers. */
+export function branchesFor(topics: string[], mapTopics: MapTopic[]): Record<string, string[]> {
+  const size = (t: MapTopic) => t.facts?.length ?? 0;
+  const sorted = [...mapTopics].filter((t) => t.title).sort((a, b) => size(b) - size(a));
+  const out: Record<string, string[]> = {};
+  for (const topic of topics) {
+    const w = words(topic);
+    const exact = sorted.find((t) => t.title.toLowerCase() === topic.toLowerCase());
+    let subs = exact ? sorted.filter((t) => t.parentId === exact.id) : [];
+    if (!subs.length) {
+      subs = sorted.filter((t) => {
+        if (exact && t.id === exact.id) return false;
+        const tw = words(`${t.title} ${t.group ?? ""} ${t.summary ?? ""}`);
+        return [...w].some((x) => tw.has(x) || [...tw].some((y) => y.startsWith(x.slice(0, 5)) && x.length >= 5));
+      });
+    }
+    out[topic] = Array.from(new Set(subs.map((t) => t.title))).slice(0, 6);
+  }
+  return out;
+}
 
 export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras | null> {
   if (!mindId.startsWith("project:")) return null;
@@ -25,13 +51,16 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
     .eq("id", projectId)
     .maybeSingle();
   if (!project || !project.published) return null;
-  const [persona, qa, concepts] = await Promise.all([
+  const [persona, qa, concepts, map] = await Promise.all([
     project.persona_id
       ? supabaseAdmin.from("creator_personas").select("name, bio, greeting, tags").eq("id", project.persona_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("mind_qa").select("question, answer, suggest").eq("project_id", projectId).order("sort").limit(50),
     supabaseAdmin.from("project_concepts").select("label, count").eq("project_id", projectId).order("count", { ascending: false }).limit(8),
+    supabaseAdmin.from("mind_vaults").select("payload").eq("kind", "topics").eq("title", `topics:${projectId}`).limit(1).maybeSingle(),
   ]);
+  const topics = (concepts.data ?? []).map((c) => c.label).filter(Boolean);
+  const mapTopics = ((map.data?.payload as { topics?: MapTopic[] } | null)?.topics ?? []);
   const p = persona.data as { name: string; bio: string; greeting: string; tags: string[] } | null;
   const personaName = p?.name ?? project.creator_name ?? "";
   return {
@@ -40,7 +69,8 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
     greeting: p?.greeting ?? "",
     tags: p?.tags ?? [],
     qa: (qa.data ?? []).filter((r) => r.question.trim()),
-    topics: (concepts.data ?? []).map((c) => c.label).filter(Boolean),
+    topics,
+    branches: branchesFor(topics, mapTopics),
     minedQuestions: await loadMinedQuestions(supabaseAdmin, projectId, personaName),
   };
 }

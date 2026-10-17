@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { translateChatDisplay } from "@/lib/chat-display-translation";
 import { Send } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { getChatSuggestions, type ChatSuggestions as S } from "@/lib/chat-suggestions.functions";
@@ -24,9 +26,22 @@ export function ChatSuggestions({
     return () => { live = false; };
   }, [mindId, fetchFn]);
 
-  const themes = Array.from(new Set([...(data?.topics ?? []), ...(data?.tags ?? []).map((x) => x.replace(/^#/, ""))]));
+  const themes = useMemo(() => Array.from(new Set([...(data?.topics ?? []), ...(data?.tags ?? []).map((x) => x.replace(/^#/, ""))])), [data]);
+  const { userId } = useAuth();
+  // Topic names are translated on their own, because inside a mixed sentence
+  // the translator thinks the line is already in the target language.
+  const [labels, setLabels] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setLabels({});
+    if (lang === "en" || !data) return;
+    const names = Array.from(new Set([...themes, ...(focus ? [focus.title] : []), ...Object.values(data.branches ?? {}).flat()]));
+    let live = true;
+    void Promise.all(names.map((n) => translateChatDisplay(n, lang, userId ?? "visitor").then((t) => [n, t] as const).catch(() => [n, n] as const)))
+      .then((pairs) => { if (live) setLabels(Object.fromEntries(pairs)); });
+    return () => { live = false; };
+  }, [themes, data, lang, focus, userId]);
   const asked = new Set(used.map((u) => u.trim()));
-  const available = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions })
+  const available = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions, branches: data?.branches, labels })
     .filter((c) => !asked.has(c.text.trim()));
   const limit = compact ? 3 : 5;
   const chips = available.slice(0, limit);
