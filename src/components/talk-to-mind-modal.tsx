@@ -16,6 +16,7 @@ import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
 import { ChatSuggestions } from "@/components/chat-suggestions";
 import { ChatDisplayText } from "@/components/chat-display-text";
+import { conversationProgress, type TopicFocus } from "@/lib/topic-conversation";
 
 
 type Msg = { role: "user" | "agent"; text: string; id?: string };
@@ -48,6 +49,7 @@ export function TalkToMindModal({
   lang: langProp,
   onReview,
   topicId,
+  topicTitle,
 }: {
   onReview?: (() => void) | undefined;
   open: boolean;
@@ -57,6 +59,7 @@ export function TalkToMindModal({
   lang?: Lang;
   /** Knowledge-root branch to centre the chat on. */
   topicId?: string | undefined;
+  topicTitle?: string | undefined;
 }) {
   const { lang: activeLang } = useLang();
   const reportFn = useServerFn(reportMindReply);
@@ -72,6 +75,7 @@ export function TalkToMindModal({
     "Speaking…",
   ]);
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [topicFocus, setTopicFocus] = useState<TopicFocus | undefined>();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [playClip, setPlayClip] = useState<Clip | null>(null);
@@ -169,6 +173,7 @@ export function TalkToMindModal({
   useEffect(() => {
     if (open) {
       setMessages([]);
+      setTopicFocus(topicTitle ? { title: topicTitle, fromIndex: 0 } : undefined);
       sessionStartRef.current = new Date().toISOString();
       turnsRef.current = [];
       // Bring back everything already said with this mind.
@@ -179,6 +184,7 @@ export function TalkToMindModal({
           try {
             const rows = await loadHistory({ data: { mindId } });
             if (!cancelled) {
+              if (topicTitle) setTopicFocus({ title: topicTitle, fromIndex: rows.length });
               setMessages(
                 rows.map((r) => ({ id: r.id, role: r.role === "user" ? "user" : "agent", text: r.body }) as Msg),
               );
@@ -198,7 +204,7 @@ export function TalkToMindModal({
       call.stop();
     }
     return undefined;
-  }, [open, mindId, isAuthenticated]);
+  }, [open, mindId, isAuthenticated, topicId, topicTitle]);
 
   // The creator's own face, only when they built and consented to a face clone.
   useEffect(() => {
@@ -251,7 +257,7 @@ export function TalkToMindModal({
     }
   };
 
-  const send = async (spoken?: string) => {
+  const send = async (spoken?: string, selectedTopic?: string) => {
     const typed = (spoken ?? input).trim();
     const files = spoken ? "" : attachments.map((a) => a.block).join("");
     const text = `${typed || (files ? (lang === "mn" ? "Энэ файлыг хараарай." : lang === "ko" ? "이 파일을 봐 주세요." : "Take a look at this file.") : "")}${files}`;
@@ -283,7 +289,7 @@ export function TalkToMindModal({
           stream: live,
           seen: call.sees || undefined,
           aiLevel,
-          topicId,
+          topicId: (!selectedTopic && !topicFocus) || (selectedTopic ?? topicFocus?.title) === topicTitle ? topicId : undefined,
         }),
       });
 
@@ -353,6 +359,15 @@ export function TalkToMindModal({
   };
   sendRef.current = send;
 
+  const pickSuggestion = (text: string, topic?: string) => {
+    if (busy || loadingHistory) return;
+    if (topic) {
+      const current = conversationProgress(messages, [topic], topicFocus);
+      if (topicFocus?.title !== topic) setTopicFocus({ title: topic, fromIndex: !topicFocus && current.topic === topic ? current.fromIndex : messages.length });
+    }
+    void send(text, topic);
+  };
+
   const deleteMessage = (i: number) => {
     const m = messages[i];
     if (!m || !window.confirm("Delete this message?")) return;
@@ -364,6 +379,7 @@ export function TalkToMindModal({
     const target = mindId ?? lastMindRef.current;
     if (!window.confirm(resetConfirm)) return;
     setMessages([]);
+    setTopicFocus(topicTitle ? { title: topicTitle, fromIndex: 0 } : undefined);
     setEditIndex(null);
     turnsRef.current = [];
     if (isAuthenticated && target) {
@@ -488,7 +504,7 @@ export function TalkToMindModal({
             ) : (
               <>
                 <p className="text-xs text-muted-foreground">{empty}</p>
-                <ChatSuggestions mindId={mindId} lang={lang} onPick={(q) => void sendRef.current(q)} />
+                <ChatSuggestions mindId={mindId} lang={lang} messages={messages} focus={topicFocus} onPick={pickSuggestion} />
               </>
             )
           )}
@@ -573,8 +589,10 @@ export function TalkToMindModal({
               compact
               mindId={mindId}
               lang={lang}
+              messages={messages}
+              focus={topicFocus}
               used={messages.filter((m) => m.role === "user").map((m) => m.text)}
-              onPick={(q) => void sendRef.current(q)}
+              onPick={pickSuggestion}
             />
           )}
           <div ref={endRef} />

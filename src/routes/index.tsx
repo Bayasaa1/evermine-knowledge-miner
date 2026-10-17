@@ -396,6 +396,8 @@ export const Route = createFileRoute("/")({
           "A vertical video feed of AI Minds mined from real creators. Talk to any mind instantly, or unlock its VLA robot brain after purchase.",
       },
       { property: "og:title", content: "Evermind Feed — Talk to real minds" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       {
         property: "og:description",
         content: "Scroll real creators' minds, ask them anything, and unlock robot deployment after buying.",

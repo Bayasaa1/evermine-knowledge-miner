@@ -306,7 +306,7 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
             ) : null}
             {selected.topic?.summary ? <p className="mt-1 text-xs text-muted-foreground">{selected.topic.summary}</p> : null}
             {selected.topic ? (
-              <Button size="sm" variant="outline" className="mt-2" onClick={() => setChatTopic(selected.topic!.id)}>
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => { if (selected.topic) setChatTopic(selected.topic.id); }}>
                 <MessagesSquare className="mr-1 h-3.5 w-3.5" />
                 {t("chatBranch")}
               </Button>
@@ -342,6 +342,7 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
         mindName={title}
         lang={lang}
         topicId={chatTopic ?? undefined}
+        topicTitle={data?.map?.topics.find((topic) => topic.id === chatTopic)?.title}
       />
     </section>
   );

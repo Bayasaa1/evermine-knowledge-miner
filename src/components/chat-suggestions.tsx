@@ -5,24 +5,19 @@ import { getChatSuggestions, type ChatSuggestions as S } from "@/lib/chat-sugges
 import { ChatDisplayText } from "@/components/chat-display-text";
 import { Button } from "@/components/ui/button";
 import type { Lang } from "@/lib/i18n";
-
-const T = {
-  en: { intro: "Introduce yourself briefly", view: (t: string) => `What's your take on ${t}?` },
-  mn: { intro: "Өөрийгөө товч танилцуулаач", view: (t: string) => `${t}-ийн талаар таны байр суурь юу вэ?` },
-  ko: { intro: "간단히 자기소개 해주세요", view: (t: string) => `${t}에 대한 당신의 생각은?` },
-} as const;
+import { topicSuggestions, type ConversationTurn, type TopicFocus } from "@/lib/topic-conversation";
 
 /**
  * Messenger-style quick replies: right-aligned bubbles, one tap sends.
- * Creator questions first, then opinion prompts from mined topics. Never AI-written.
+ * Every topic opens before it develops or concludes. Never AI-written.
  */
 export function ChatSuggestions({
-  mindId, lang, onPick, used = [], compact = false,
-}: { mindId: string | null; lang: Lang; onPick: (q: string) => void; used?: string[]; compact?: boolean }) {
+  mindId, lang, onPick, used = [], compact = false, messages = [], focus,
+}: { mindId: string | null; lang: Lang; onPick: (q: string, topic?: string) => void; used?: string[]; compact?: boolean; messages?: ConversationTurn[]; focus?: TopicFocus | undefined }) {
   const fetchFn = useServerFn(getChatSuggestions);
   const [data, setData] = useState<S | null>(null);
-  const t = T[(lang as keyof typeof T)] ?? T.en;
   useEffect(() => {
+    setData(null);
     if (!mindId) return;
     let live = true;
     fetchFn({ data: { mindId } }).then((r) => live && setData(r)).catch(() => {});
@@ -31,22 +26,25 @@ export function ChatSuggestions({
 
   const themes = Array.from(new Set([...(data?.topics ?? []), ...(data?.tags ?? []).map((x) => x.replace(/^#/, ""))]));
   const asked = new Set(used.map((u) => u.trim()));
-  const chips = Array.from(new Set([...(data?.creatorQuestions ?? []), ...(data?.videoQuestions ?? []), ...themes.map(t.view), t.intro]))
-    .filter((c) => !asked.has(c.trim()))
-    .slice(0, compact ? 3 : 5);
+  const available = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions })
+    .filter((c) => !asked.has(c.text.trim()));
+  const limit = compact ? 3 : 5;
+  const chips = available.slice(0, limit);
+  const alternative = available.find((c) => c.stage === "opening" && c.topic && c.topic !== focus?.title);
+  if (compact && alternative && !chips.includes(alternative) && chips.length === limit) chips[limit - 1] = alternative;
 
   return (
     <div className="space-y-3">
-      {!compact && data?.greeting && (
+      {!compact && !focus && data?.greeting && (
         <div className="max-w-[85%] rounded-2xl bg-muted px-3 py-2 text-sm text-foreground"><ChatDisplayText text={data.greeting} lang={lang} /></div>
       )}
       {chips.length > 0 && (
         <div className="flex flex-col items-end gap-2">
           {chips.map((c) => (
-            <ChatDisplayText key={c} text={c} lang={lang} controls={false}>{(shown) => asked.has(shown.trim()) ? null : <Button
+            <ChatDisplayText key={c.text} text={c.text} lang={lang} controls={false}>{(shown) => asked.has(shown.trim()) ? null : <Button
               type="button"
               variant="ghost"
-              onClick={() => onPick(shown)}
+              onClick={() => onPick(shown, c.topic)}
               className="h-auto max-w-full whitespace-normal items-center gap-2 rounded-2xl bg-primary/15 px-4 py-2 text-right text-sm font-normal text-foreground transition-colors hover:bg-primary/25"
             >
               <span>{shown}</span>

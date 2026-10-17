@@ -1,5 +1,10 @@
 # Roadmap
 
+## Per-topic chat progression
+- [x] Replace contextless interview starters with topic openings
+- [x] Follow each topic through development and optional conclusion; restart on topic change
+- [x] Connect Root branch selection and verify multilingual progression without changing saved knowledge
+
 ## Visible chat translation
 - [x] Translate displayed chat messages and suggestions only; preserve original saved text and proof links
 - [x] Verify selected-language display and unchanged outgoing/saved messages
