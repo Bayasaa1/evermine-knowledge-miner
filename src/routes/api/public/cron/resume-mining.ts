@@ -45,6 +45,31 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           const vaultId = await finalizeMiningJob(supabaseAdmin, row as never).catch(() => null);
           if (vaultId) saved += 1;
         }
+        // Self-heal pass: finished videos whose subtitles still have lines
+        // without a clock get estimated times saved, with no creator action.
+        // Words are never changed — only empty timestamps are filled.
+        let healed = 0;
+        try {
+          const { repairTimingsLocal } = await import("@/lib/repair-timings");
+          const { data: untimed } = await supabaseAdmin
+            .from("project_content")
+            .select("id, transcript")
+            .contains("transcript", [{ timestamp: "" }] as never)
+            .limit(10);
+          for (const row of untimed ?? []) {
+            const lines = Array.isArray(row.transcript) ? (row.transcript as never[]) : [];
+            if (!lines.length) continue;
+            const fixed = repairTimingsLocal(lines);
+            const { error: upErr } = await supabaseAdmin
+              .from("project_content")
+              .update({ transcript: fixed as never })
+              .eq("id", row.id);
+            if (!upErr) healed += 1;
+          }
+        } catch {
+          /* healing is best-effort; mining continues */
+        }
+        void healed;
         // Keep one worker run well inside the platform request budget.
         const deadline = Date.now() + 4 * 60_000;
 
