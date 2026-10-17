@@ -33,7 +33,9 @@ function planOf(job: JobLite | undefined): PartPlan[] {
 
 function healthOf(transcript: TranscriptLine[], job: JobLite | undefined) {
   const timing = analyzeTiming(transcript);
-  const problems = job ? findMineProblems(transcript, planOf(job), job.next_index) : [];
+  // A part with no speech between talking parts is usually a real pause
+  // (lobby, break) — silence is not an error, so it is not reported.
+  const problems = job ? findMineProblems(transcript, planOf(job), job.next_index).filter((p) => p.kind !== "empty_part") : [];
   // A single stray clock used to read as "in sync" while every later caption vanished.
   const status: TimingHealth["status"] = problems.some((p) => p.kind !== "unfinished") && timing.status === "synced" ? "drifting" : timing.status;
   return { ...timing, status, problems, canRemine: Boolean(job) };
@@ -70,18 +72,32 @@ export const listSubtitleHealth = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     const jobs = await jobsByVideo(context as unknown as Ctx);
 
-    return (data ?? []).map((row) => {
+    const out: SubtitleHealthRow[] = [];
+    for (const row of data ?? []) {
       const project = (row as unknown as { projects?: { persona_id?: string | null } | null }).projects;
-      return {
+      let transcript = lines(row.transcript);
+      // Self-heal: lines without a clock get an estimated time right here,
+      // free and silent, so the creator never has to press "Fix".
+      if (transcript.some((l) => !String(l.timestamp ?? "").trim())) {
+        const healed = repairTimingsLocal(transcript);
+        try {
+          await saveTimings(context as unknown as Ctx, row, healed);
+          transcript = healed;
+        } catch {
+          /* keep showing the saved version */
+        }
+      }
+      out.push({
         contentId: row.id,
         title: row.title,
         youtubeId: row.youtube_id ?? "",
         sourceUrl: row.source_url ?? "",
         updatedAt: row.updated_at,
         personaId: project?.persona_id ?? null,
-        ...healthOf(lines(row.transcript), jobs.get(row.youtube_id ?? "")),
-      };
-    });
+        ...healthOf(transcript, jobs.get(row.youtube_id ?? "")),
+      });
+    }
+    return out;
   });
 
 async function loadContent(context: Ctx, contentId: string) {
