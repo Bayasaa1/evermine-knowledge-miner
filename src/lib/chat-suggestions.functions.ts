@@ -10,6 +10,7 @@ export type ChatSuggestions = {
   creatorQuestions: string[];
   /** Real questions asked to the persona inside the mined videos. */
   videoQuestions: string[];
+  branches: Record<string, string[]>;
 };
 
 /** Deterministic chat starters — no AI call, built from creator + mined data. */
@@ -26,5 +27,6 @@ export const getChatSuggestions = createServerFn({ method: "POST" })
       topics: x.topics.slice(0, 6),
       creatorQuestions: x.qa.filter((q) => q.suggest).map((q) => q.question).slice(0, 6),
       videoQuestions: x.minedQuestions.slice(0, 12),
+      branches: x.branches,
     };
   });
