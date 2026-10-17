@@ -27,7 +27,10 @@ export function ChatDisplayText({ text, lang, pending = false, controls = true, 
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const observer = new IntersectionObserver(([entry]) => setVisible(entry?.isIntersecting ?? false));
+    // Once seen, stay translated — toggling on scroll made text flicker.
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) { setVisible(true); observer.disconnect(); }
+    });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);

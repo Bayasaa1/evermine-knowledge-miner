@@ -1,3 +1,4 @@
+import { useScreenTranslations } from "@/hooks/use-screen-translations";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -846,7 +847,7 @@ function FeedCard({
   // "source" keeps the mined wording; any other choice runs through the same
   // cached translation path the rest of the app uses (the Translating job in
   // the API Manager, with its automatic key switching).
-  const shownCues = useDisplayTextsIn(cueTexts, subtitleLang === "app" ? lang : subtitleLang);
+  const shownCues = useScreenTranslations(cueTexts, subtitleLang === "app" ? lang : subtitleLang);
   const activeCueIndex = activeSubtitle ? timedCues.indexOf(activeSubtitle) : -1;
   const shownSubtitle =
     activeCueIndex >= 0 ? (shownCues[activeCueIndex] ?? activeSubtitle?.speech ?? "") : "";
