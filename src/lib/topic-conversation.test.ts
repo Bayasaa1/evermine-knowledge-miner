@@ -52,3 +52,10 @@ describe("per-topic progression", () => {
     assert.equal(JSON.stringify(turns), before);
   });
 });
+import { topicInText } from "./topic-conversation";
+describe("short topic words", () => {
+  it("'ai' reaches the AI topic and a key word reaches its topic", () => {
+    assert.equal(topicInText("lets talk about ai", ["Engineering", "AI Safety and Governance"]), "AI Safety and Governance");
+    assert.equal(topicInText("tell me about starship", ["Engineering", "Starship Development"]), "Starship Development");
+  });
+});

@@ -57,8 +57,26 @@ function mentions(haystack: string, name: string): boolean {
 
 export function topicInText(text: string, topics: string[], labels: TopicLabels = {}): string | undefined {
   const haystack = ` ${normalize(text)} `;
-  return [...topics].sort((a, b) => b.length - a.length)
+  const full = [...topics].sort((a, b) => b.length - a.length)
     .find((topic) => mentions(haystack, topic) || (labels[topic] ? mentions(haystack, labels[topic]) : false));
+  if (full) return full;
+  // Short words like "ai", "fsd" or one key word ("starship") reach a topic in its given order.
+  return topics.find((topic) => aliases(topic).some((a) => haystack.includes(` ${a} `)));
+}
+
+const STOP = new Set(["and", "the", "for", "with", "about", "from", "into", "that", "this", "your", "their"]);
+const ALIAS: Record<string, string[]> = { intelligence: ["ai"], artificial: ["ai"], ai: ["ai", "хиймэл оюун", "인공지능"] };
+function aliases(topic: string): string[] {
+  const ws = normalize(topic).split(" ").filter(Boolean);
+  const out = new Set<string>();
+  const initials = ws.filter((w) => !STOP.has(w)).map((w) => w[0]).join("");
+  if (initials.length >= 2 && initials.length <= 4) out.add(initials);
+  for (const w of ws) {
+    if (w.length >= 5 && !STOP.has(w)) out.add(w);
+    if (w.length >= 2 && w.length <= 4 && /^[a-z]+$/.test(w) && topic.includes(w.toUpperCase())) out.add(w);
+    for (const a of ALIAS[w] ?? []) out.add(a);
+  }
+  return [...out];
 }
 
 /** Resolve only this topic's current stretch, never a global message counter. */
@@ -115,7 +133,8 @@ export function topicSuggestions({
     suggestions = [
       ...(turns.length ? [] : [{ text: copy.intro, stage: "opening" as const }]),
       ...creatorQuestions.map((text): TopicSuggestion => ({ text, stage: "opening" })),
-      ...openings,
+      // Once the chat is underway, never flood it with fresh "let's start" chips.
+      ...(turns.length ? openings.slice(0, 1) : openings),
     ];
   } else {
     const topic = progress.topic;
