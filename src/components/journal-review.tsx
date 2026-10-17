@@ -6,8 +6,8 @@ import { getJournalReview } from "@/lib/journal-review.functions";
 import { pickCopy, useLang } from "@/lib/i18n";
 
 const TONE = {
-  typo: "border-l-2 border-chart-4 bg-chart-4/10",
-  meaning: "border-l-2 border-chart-2 bg-chart-2/10",
+  typo: "border-l-2 border-destructive bg-destructive/10",
+  meaning: "border-l-2 border-primary bg-primary/10",
   unclear: "border-l-2 border-muted-foreground bg-muted/40",
 } as const;
 
@@ -66,7 +66,7 @@ function Highlighted({ text, word }: { text: string; word?: string }) {
   return (
     <span>
       {text.slice(0, at)}
-      <span className="underline decoration-chart-4 decoration-wavy underline-offset-2">{word}</span>
+      <span className="underline decoration-destructive decoration-wavy underline-offset-2">{word}</span>
       {text.slice(at + word.length)}
     </span>
   );

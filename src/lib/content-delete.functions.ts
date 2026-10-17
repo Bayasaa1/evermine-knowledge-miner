@@ -126,6 +126,7 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
     for (const projectId of projectIds) {
       const { data: topicRows } = await supabaseAdmin.from("mind_vaults").select("id, payload")
         .eq("user_id", context.userId).eq("kind", "topics").eq("title", `topics:${projectId}`);
+      await supabaseAdmin.from("mind_vaults").delete().eq("user_id", context.userId).eq("kind", "review").in("title", contentRows.map((r) => `review:${r.id}`));
       for (const row of topicRows ?? []) {
         const map = row.payload as { topics?: { id: string; parentId?: string; facts?: { id: string; videoId?: string; vaultId?: string }[] }[]; filed?: string[] } | null;
         if (!map?.topics) continue;
