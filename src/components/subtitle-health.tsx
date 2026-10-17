@@ -7,6 +7,7 @@ import { fixMinedVideo, listSubtitleHealth, remineFromScratch, repairTimings, re
 import { pickCopy, useLang } from "@/lib/i18n";
 import type { MineProblem } from "@/lib/subtitle-health";
 import { OwnerSpeakerPicker } from "@/components/owner-speaker-picker";
+import { JournalReviewPanel } from "@/components/journal-review";
 
 const FIX_COPY = {
   en: {
@@ -207,6 +208,7 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
                     </p>
                     <ProblemList problems={row.problems} t={t} />
                     <OwnerSpeakerPicker contentId={row.contentId} />
+                    <JournalReviewPanel contentId={row.contentId} />
                   </div>
                   <span className={`rounded-full border px-2 py-0.5 text-[11px] ${badge.tone}`}>
                     {row.status === "synced" ? (

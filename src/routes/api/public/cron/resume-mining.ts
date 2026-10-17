@@ -79,6 +79,13 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         } catch {
           /* best-effort */
         }
+        // Proof-reading pass: only flags suspicious lines, never edits them.
+        try {
+          const { reviewFinishedJournals } = await import("@/lib/journal-review.server");
+          await reviewFinishedJournals(supabaseAdmin, Date.now() + 60_000);
+        } catch {
+          /* best-effort */
+        }
 
         const nowIso = new Date().toISOString();
         // Single-flight lease: a job touched in the last 3 minutes is being mined
