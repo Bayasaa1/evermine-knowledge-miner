@@ -872,20 +872,31 @@ async function raiseForGemini(res: Response): Promise<never> {
 }
 
 /**
- * Runs a Gemini call once, and when the answer is a per-MINUTE 429, waits the
- * delay Gemini asked for (capped) and retries exactly once. Daily-quota and
- * credential errors are never retried.
+ * Runs a Gemini call and retries briefly on the user's own key before anyone
+ * falls back to another provider: a per-MINUTE 429 waits the delay Gemini asked
+ * for (capped) once; a "busy" 503/500 gets up to 2 retries with 1.5s → 3s
+ * backoff. Daily-quota, retired-model and credential errors are never retried.
  */
 export async function withMinuteRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    if (err instanceof UserAiError && err.code === "rate_minute") {
-      const wait = Math.min(30_000, Math.max(3_000, err.retryAfterSec * 1000));
-      await new Promise((r) => setTimeout(r, wait));
+  let busyTries = 0;
+  let minuteTried = false;
+  for (;;) {
+    try {
       return await fn();
+    } catch (err) {
+      if (!minuteTried && err instanceof UserAiError && err.code === "rate_minute") {
+        minuteTried = true;
+        const wait = Math.min(30_000, Math.max(3_000, err.retryAfterSec * 1000));
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      if (busyTries < 2 && err instanceof GeminiHttpError && (err.status === 503 || err.status === 500)) {
+        await new Promise((r) => setTimeout(r, 1500 * 2 ** busyTries));
+        busyTries += 1;
+        continue;
+      }
+      throw err;
     }
-    throw err;
   }
 }
 
