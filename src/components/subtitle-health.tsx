@@ -167,7 +167,7 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
           Subtitle timing
         </span>
         <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          {open && rows.length > 0 && `${needWork.length} of ${rows.length} need work`}
+          {open && rows.length > 0 && `${rows.length - needWork.length}/${rows.length} ✓`}
           <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
         </span>
       </button>
@@ -247,40 +247,6 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
                         ) : (
                           <><Sparkles className="h-3.5 w-3.5" /> {t.fix}</>
                         )}
-                      </button>
-                    )}
-                    {row.status !== "synced" && (
-                      <button
-                        type="button"
-                        disabled={fixTimings.isPending}
-                        onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "free" })}
-                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-accent disabled:opacity-50 sm:flex-none"
-                      >
-                        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                        Fix (free)
-                      </button>
-                    )}
-
-                    {!paidVisible && (
-                      <button
-                        type="button"
-                        onClick={() => setShowPaid((v) => [...v, row.contentId])}
-                        className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                      >
-                        Still off while watching?
-                      </button>
-                    )}
-
-                    {paidVisible && (
-                      <button
-                        type="button"
-                        disabled={fixTimings.isPending}
-                        onClick={() => fixTimings.mutate({ contentId: row.contentId, mode: "ai" })}
-                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary/40 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50 sm:flex-none"
-                        title="Listens to the video again in short windows — uses AI credits"
-                      >
-                        {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        Re-listen (costs credits)
                       </button>
                     )}
                   </div>
