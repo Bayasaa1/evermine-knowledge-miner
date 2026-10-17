@@ -15,9 +15,22 @@ describe("per-topic progression", () => {
     assert.equal(conversationProgress(turns.slice(0, 1), ["Space"]).stage, "opening");
     assert.equal(conversationProgress(turns.slice(0, 2), ["Space"]).stage, "development");
   });
-  it("offers an optional conclusion after development", () => {
-    assert.equal(conversationProgress(turns, ["Space"]).stage, "conclusion");
-    assert.ok(topicSuggestions({ turns, topics: ["Space"], lang: "en" }).some((s) => s.stage === "development"));
+  it("keeps developing a topic for at least 3 answers before concluding", () => {
+    assert.equal(conversationProgress(turns, ["Space"]).stage, "development");
+    const more: ConversationTurn[] = [...turns, { role: "user", text: "More?" }, { role: "agent", text: "Yes." }];
+    assert.equal(conversationProgress(more, ["Space"]).stage, "conclusion");
+  });
+  it("stays inside the branch while developing and digs into its sub-branches", () => {
+    const out = topicSuggestions({ turns, topics: ["Space", "Energy"], lang: "en", branches: { Space: ["Starship"] } });
+    assert.ok(out.every((s) => s.topic === "Space"));
+    assert.ok(out[0]?.text.includes("Starship"));
+  });
+  it("uses separately translated topic names and still recognises them", () => {
+    const labels = { "Strategic communication": "Стратегийн харилцаа холбоо" };
+    const out = topicSuggestions({ turns: [], topics: ["Strategic communication"], lang: "mn", labels });
+    const opening = out.find((s) => s.topic);
+    assert.ok(opening && !/Strategic/.test(opening.text));
+    assert.equal(conversationProgress([{ role: "user", text: opening.text }, { role: "agent", text: "A" }], ["Strategic communication"], undefined, labels).topic, "Strategic communication");
   });
   it("starts a different topic at its own beginning", () => {
     const changed: ConversationTurn[] = [...turns, { role: "user", text: "Let's talk about Energy." }];
