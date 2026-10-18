@@ -75,7 +75,7 @@ const ErrorComponent: ErrorRouteComponent = ({ error, reset }) => {
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button
             onClick={() => {
-              if (/Importing a module script failed|Failed to fetch dynamically imported module|Loading chunk|error loading dynamically imported module/i.test(error.message)) {
+              if (/Importing a module script failed|Failed to fetch dynamically imported module|Loading chunk|error loading dynamically imported module/i.test(error instanceof Error ? error.message : String(error))) {
                 window.location.reload();
                 return;
               }
