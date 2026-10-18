@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Deep branch chat
-- [ ] Expose every nested Root branch and move focus to the selected child
-- [ ] Retrieve focused branch facts without unrelated generic-word matches
-- [ ] Verify nested progression and fact recall
+- [x] Expose every nested Root branch and move focus to the selected child
+- [x] Retrieve focused branch facts without unrelated generic-word matches
+- [x] Verify nested progression and fact recall
 
 ## Per-topic chat progression
 - [x] Replace contextless interview starters with topic openings
