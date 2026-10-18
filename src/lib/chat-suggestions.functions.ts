@@ -29,6 +29,6 @@ export const getChatSuggestions = createServerFn({ method: "POST" })
       creatorQuestions: x.qa.filter((q) => q.suggest).map((q) => q.question).slice(0, 6),
       videoQuestions: x.minedQuestions.slice(0, 12),
       branches: x.branches,
-      topicAliases: x.topicAliases,
+      topicAliases: x.topicAliases ?? {},
     };
   });

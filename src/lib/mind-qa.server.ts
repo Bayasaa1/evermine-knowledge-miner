@@ -80,7 +80,7 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
       const has = (word: string) => facts.some((f) => new RegExp(`\\b${word}\\b`, "i").test(f.text ?? ""));
       return [t.title, [...(has("grok") ? ["grok", "groq", "грок"] : []), ...(has("xai") ? ["xai", "x ai"] : [])]];
     }).sort((a, b) => {
-      const richness = (entry: (string | string[])[]) => mapTopics.find((t) => t.title === entry[0])?.facts?.length ?? 0;
+      const richness = (entry: (string | string[])[]) => (mapTopics.find((t) => t.title === entry[0])?.facts as { text?: string }[] | undefined)?.filter((f) => /\bgrok\b|\bxai\b/i.test(f.text ?? "")).length ?? 0;
       return richness(b) - richness(a);
     })),
     minedQuestions: await loadMinedQuestions(supabaseAdmin, projectId, personaName),
