@@ -9,6 +9,7 @@
  * source video and timestamp; the AI only decides where they belong.
  */
 import { generateRoleText } from "@/lib/user-ai.server";
+import { recallBranch } from "./topic-recall";
 
 export type TopicFact = { id: string; text: string; ts: string; videoId: string; vaultId: string };
 /** parentId nests a topic under a broader one, so the map grows like roots. */
@@ -364,48 +365,10 @@ export function branchFactsFor(
   query: string,
   focusTopicId?: string | null,
   maxFacts = 30,
+  focusTitle?: string,
 ): { titles: string[]; facts: string[] } {
   if (!map?.topics.length) return { titles: [], facts: [] };
-  const byId = new Map(map.topics.map((t) => [t.id, t]));
-  const kids = (id: string) => map.topics.filter((t) => t.parentId === id);
-  let roots: Topic[] = [];
-  const focus = focusTopicId ? byId.get(focusTopicId) : undefined;
-  if (focus) roots = [focus];
-  else {
-    const q = new Set(bridgeQuery(query));
-    if (!q.size) return { titles: [], facts: [] };
-    const hit = (w: string) => q.has(w) || [...q].some((k) => k.length > 4 && w.startsWith(k.slice(0, 5)));
-    roots = map.topics
-      .map((t) => {
-        const head = tok(`${t.title} ${t.group}`).filter(hit).length * 3 + tok(t.summary).filter(hit).length;
-        const body = t.facts.reduce((n, f) => n + tok(f.text).filter(hit).length, 0);
-        return { t, head, score: head + Math.min(body, 12) };
-      })
-      // A branch must be named by the question, not just share loose words.
-      .filter((x) => x.head >= 3 && x.score >= 6)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 2)
-      .map((x) => x.t);
-  }
-  if (!roots.length) return { titles: [], facts: [] };
-  const seen = new Set<string>();
-  const facts: string[] = [];
-  const walk = (t: Topic, depth: number) => {
-    if (seen.has(t.id) || depth > 3) return;
-    seen.add(t.id);
-    for (const f of t.facts) {
-      if (facts.length >= maxFacts) return;
-      const src = f.ts && /^[\w-]{11}$/.test(f.videoId ?? "") ? ` (src=${f.videoId}@${f.ts})` : "";
-      facts.push(`${f.ts ? `[${f.ts}] ` : ""}${f.text}${src}`);
-    }
-    for (const c of kids(t.id)) walk(c, depth + 1);
-  };
-  for (const r of roots) walk(r, 0);
-  const titles = roots.map((r) => {
-    const parent = r.parentId ? byId.get(r.parentId) : undefined;
-    return [r.group, parent?.title, r.title].filter(Boolean).join(" › ");
-  });
-  return { titles, facts };
+  return recallBranch(map.topics, query, bridgeQuery(query), focusTopicId, maxFacts, focusTitle);
 }
 
 /** Projects whose topic map still has unsorted facts, for the background grower. */

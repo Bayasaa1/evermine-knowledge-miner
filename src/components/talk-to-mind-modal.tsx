@@ -290,6 +290,7 @@ export function TalkToMindModal({
           seen: call.sees || undefined,
           aiLevel,
           topicId: (!selectedTopic && !topicFocus) || (selectedTopic ?? topicFocus?.title) === topicTitle ? topicId : undefined,
+          topicTitle: selectedTopic ?? topicFocus?.title,
         }),
       });
 

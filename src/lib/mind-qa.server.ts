@@ -14,6 +14,7 @@ export type CreatorExtras = {
   minedQuestions: string[];
   /** Root-map sub-branches per topic, so chat can dig deeper inside one branch. */
   branches: Record<string, string[]>;
+  topicAliases?: Record<string, string[]>;
 };
 
 type MapTopic = { id: string; title: string; summary?: string; group?: string; parentId?: string; facts?: unknown[] };
@@ -24,18 +25,17 @@ export function branchesFor(topics: string[], mapTopics: MapTopic[]): Record<str
   const size = (t: MapTopic) => t.facts?.length ?? 0;
   const sorted = [...mapTopics].filter((t) => t.title).sort((a, b) => size(b) - size(a));
   const out: Record<string, string[]> = {};
-  for (const topic of topics) {
+  for (const topic of Array.from(new Set([...topics, ...sorted.map((t) => t.title)]))) {
     const w = words(topic);
     const exact = sorted.find((t) => t.title.toLowerCase() === topic.toLowerCase());
     let subs = exact ? sorted.filter((t) => t.parentId === exact.id) : [];
-    if (!subs.length) {
+    if (!exact && !subs.length) {
       subs = sorted.filter((t) => {
-        if (exact && t.id === exact.id) return false;
         const tw = words(`${t.title} ${t.group ?? ""} ${t.summary ?? ""}`);
         return [...w].some((x) => tw.has(x) || [...tw].some((y) => y.startsWith(x.slice(0, 5)) && x.length >= 5));
       });
     }
-    out[topic] = Array.from(new Set(subs.map((t) => t.title))).slice(0, 6);
+    out[topic] = Array.from(new Set(subs.map((t) => t.title)));
   }
   return out;
 }
@@ -63,7 +63,7 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
   // Real Root-map topics (richest first) lead; generic concept labels fill in after.
   const rootTopics = mapTopics.filter((t) => t.title && !t.parentId)
     .sort((a, b) => (b.facts?.length ?? 0) - (a.facts?.length ?? 0)).map((t) => t.title);
-  const topics = Array.from(new Set([...rootTopics.slice(0, 12), ...(concepts.data ?? []).map((c) => c.label).filter(Boolean)]));
+  const topics = Array.from(new Set(rootTopics.length ? rootTopics : (concepts.data ?? []).map((c) => c.label).filter(Boolean)));
   const p = persona.data as { name: string; bio: string; greeting: string; tags: string[] } | null;
   const personaName = p?.name ?? project.creator_name ?? "";
   return {
@@ -74,6 +74,15 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
     qa: (qa.data ?? []).filter((r) => r.question.trim()),
     topics,
     branches: branchesFor(topics, mapTopics),
+    // Entity routing is metadata only; no saved facts are changed or sent.
+    topicAliases: Object.fromEntries(mapTopics.map((t) => {
+      const facts = (t.facts ?? []) as { text?: string }[];
+      const has = (word: string) => facts.some((f) => new RegExp(`\\b${word}\\b`, "i").test(f.text ?? ""));
+      return [t.title, [...(has("grok") ? ["grok", "groq", "грок"] : []), ...(has("xai") ? ["xai", "x ai"] : [])]];
+    }).sort((a, b) => {
+      const richness = (entry: (string | string[])[]) => (mapTopics.find((t) => t.title === entry[0])?.facts as { text?: string }[] | undefined)?.filter((f) => /\bgrok\b|\bxai\b/i.test(f.text ?? "")).length ?? 0;
+      return richness(b) - richness(a);
+    })),
     minedQuestions: await loadMinedQuestions(supabaseAdmin, projectId, personaName),
   };
 }
