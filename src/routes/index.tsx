@@ -404,6 +404,10 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  // The feed must always come fresh from the database, never from a CDN or browser cache.
+  headers: () => ({
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+  }),
   component: HomeFeed,
 });
 
