@@ -147,7 +147,7 @@ function pickRelevant(items: string[], query: string[], relevant: number, always
 }
 
 /** The knowledge-root branch this question belongs to, read-only. */
-async function rootBranchBlock(mindId: string, queryText: string, topicId?: string): Promise<string> {
+async function rootBranchBlock(mindId: string, queryText: string, topicId?: string, topicTitle?: string): Promise<string> {
   if (!mindId.startsWith("project:")) return "";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -159,11 +159,11 @@ async function rootBranchBlock(mindId: string, queryText: string, topicId?: stri
       .maybeSingle();
     if (!data?.payload) return "";
     const { branchFactsFor } = await import("@/lib/topic-map.server");
-    const { titles, facts } = branchFactsFor(data.payload as never, queryText, topicId, 30);
+    const { titles, facts } = branchFactsFor(data.payload as never, queryText, topicId, 30, topicTitle);
     if (!facts.length) return "";
     return [
       `THIS QUESTION BELONGS TO YOUR KNOWLEDGE ROOT: ${titles.join(" | ")}`,
-      topicId ? `The person chose to talk about this branch: keep the conversation centred on it.` : "",
+      topicId || topicTitle ? `The person chose this branch. Use its specific details and descendants; do not restart its parent or substitute another company's facts. Be honest if a detail is absent.` : "",
       `Everything you said on this branch (most reliable source — prefer these facts over anything else):`,
       ...facts.map((f) => `- ${f}`),
       `VIDEO PROOF: when your answer really uses one of the facts above that carries (src=ID@TIME), END the answer with that exact marker on its own final line: [[yt:ID@TIME]]. At most one marker, never for greetings or small talk, and never mention it in your prose. This is the only allowed citation.`,
@@ -173,10 +173,9 @@ async function rootBranchBlock(mindId: string, queryText: string, topicId?: stri
   }
 }
 
-async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "", topicId?: string) {
+async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "", topicId?: string, topicTitle?: string) {
   const builtIn = buildSystemPrompt(mindId, lang);
   if (builtIn) return builtIn;
-  const branch = await rootBranchBlock(mindId, queryText, topicId);
   let project: Awaited<ReturnType<typeof getPublicProjectMind>> = null;
   let extras: Awaited<ReturnType<typeof import("@/lib/mind-qa.server").loadCreatorExtras>> = null;
   if (mindId.startsWith("persona:")) {
@@ -189,6 +188,7 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
     extras = await loadCreatorExtras(mindId).catch(() => null);
   }
   if (!project) return null;
+  const branch = await rootBranchBlock(mindId, queryText, topicId, topicTitle);
   const q = words(queryText);
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
@@ -216,7 +216,7 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
     branch,
-    block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge.filter((f) => !/\] SCREEN /.test(f)), q, 14, 4)),
+    branch ? "" : block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge.filter((f) => !/\] SCREEN /.test(f)), q, 14, 4)),
     block(`WHAT WAS ON YOUR SCREEN IN YOUR VIDEOS (exact links, numbers, chats, UI — quote exactly when asked):`, pickRelevant(project.knowledge.filter((f) => /\] SCREEN /.test(f)), q, 10, 2)),
     project.episodes?.length
       ? `YOUR LATEST VIDEOS, NEWEST FIRST (this is what you actually did recently — when asked what you did lately, what's new, or about a video, name concrete things from here: what happened, items, places, people, numbers):\n${project.episodes.slice(0, RECENT_RE.test(queryText) ? 5 : 3).join("\n")}`
@@ -437,6 +437,7 @@ export const Route = createFileRoute("/api/mind-chat")({
           aiLevel?: number;
           /** Knowledge-root branch the viewer chose to talk about. */
           topicId?: string;
+          topicTitle?: string;
         };
         try {
           body = (await request.json()) as typeof body;
@@ -448,9 +449,10 @@ export const Route = createFileRoute("/api/mind-chat")({
         // Preserve the conversation as real turns. The browser loads the saved
         // thread, so truncating here made the model forget what was just said.
         const history = Array.isArray(body.messages) ? body.messages.slice(-200) : [];
-        const recentUser = history.filter((m) => m.role === "user").slice(-3).map((m) => m.text).join(" ");
+        const recentUser = history.filter((m) => m.role === "user").at(-1)?.text ?? "";
         const topicId = typeof body.topicId === "string" ? body.topicId.slice(0, 80) : undefined;
-        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId) : null;
+        const topicTitle = typeof body.topicTitle === "string" ? body.topicTitle.slice(0, 300) : undefined;
+        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId, topicTitle) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }
