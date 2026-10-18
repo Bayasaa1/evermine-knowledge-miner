@@ -225,6 +225,13 @@
       "when": 1792315526381,
       "tag": "0031_room_moderator_media",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792315682719,
+      "tag": "0032_room_turn_owner_guard",
+      "breakpoints": true
     }
   ]
 }
