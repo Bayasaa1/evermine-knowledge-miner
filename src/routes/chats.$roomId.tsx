@@ -260,7 +260,7 @@ function RoomPage() {
             <div key={m.id} className={`group flex ${mine ? "justify-end" : "justify-start"}`}>
               <div className={`min-w-0 max-w-[85%] rounded-lg px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : m.sender_kind === "mind" ? "border border-border bg-card" : "bg-muted"}`}>
                 {!mine && <div className="mb-0.5 flex items-center gap-1 text-xs font-semibold opacity-80">{m.sender_kind === "mind" && <Bot className="h-3 w-3" />}{m.author_name}</div>}
-                <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang}>{(shown) => m.sender_kind === "mind" ? <MessageResponse>{shown}</MessageResponse> : shown}</ChatDisplayText></div>
+                {m.body.trim() && <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang}>{(shown) => m.sender_kind === "mind" ? <MessageResponse>{shown}</MessageResponse> : shown}</ChatDisplayText></div>}
                 {m.attachment && <RoomMedia attachment={m.attachment} onMind={setOpenMind} openLabel={x.open} />}
                 {m.shared_url && <SharedLink url={m.shared_url} openLabel={x.open} />}
                 {m.moderator_pending && <div className="mt-1 text-xs opacity-60">{x.queued}</div>}
