@@ -186,7 +186,7 @@ export async function claimRoomTurn(roomId: string, messageId: string, mindId: s
 }
 
 export async function finishRoomTurn(roomId: string, token: string, messageId: string, body?: string) {
-  const { error } = await supabase.rpc("finish_room_turn", { _room: roomId, _token: token, _message: messageId, _body: body });
+  const { error } = await supabase.rpc("finish_room_turn", { _room: roomId, _token: token, _message: messageId, ...(body === undefined ? {} : { _body: body }) });
   if (error) throw error;
 }
 

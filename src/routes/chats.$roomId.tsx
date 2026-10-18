@@ -285,7 +285,7 @@ function RoomPage() {
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t.say} aria-label={t.say} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
         <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || sending || uploading || (!!speaking && !room.moderator_mode)} aria-label="Send"><Send /></Button>
       </form>
-      {openMind && <TalkToMindModal open={!!openMind} onClose={() => setOpenMind(null)} mindId={openMind} />}
+      {openMind && <TalkToMindModal open={!!openMind} onClose={() => setOpenMind(null)} mindId={openMind} mindName={invitable.find((m) => m.mindId === openMind)?.name || minds.find((m) => m.mind_id === openMind)?.mind_name || "Mind"} />}
 
       {showSettings && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-background p-4">
