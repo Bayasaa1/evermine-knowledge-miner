@@ -3,11 +3,11 @@ export type ShareContent = {
   id: string;
   title: string;
   url: string;
-  creator?: string;
-  image?: string | null;
-  handle?: string;
-  topics?: string[];
-  mindId?: string | null;
+  creator?: string | undefined;
+  image?: string | null | undefined;
+  handle?: string | undefined;
+  topics?: string[] | undefined;
+  mindId?: string | null | undefined;
 };
 
 export function shareUrl(raw: string): string {

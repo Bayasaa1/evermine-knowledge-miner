@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { scopedKey } from "@/lib/user-scope";
 import { toast } from "sonner";
 import { AccountMenu } from "@/components/account-menu";
+import { ShareTrigger } from "@/components/share-trigger";
 import { AnalyticsPanel } from "@/components/analytics-panel";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { SubscriptionPanel } from "@/components/subscription-panel";
@@ -2389,6 +2390,7 @@ function Index() {
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
               <span className="text-xs uppercase tracking-wider text-muted-foreground">{t.mindId}</span>
               <code className="rounded-md bg-muted px-2.5 py-1 font-mono text-xs text-primary">{ownership.mindId}</code>
+              <ShareTrigger content={{ kind: "mind", id: ownership.mindId, mindId: ownership.mindId, title: ownership.creatorName || ownership.mindId, url: `https://ever-mind.dev/search?q=${encodeURIComponent(ownership.creatorName)}` }} />
               <button
                 onClick={() => {
                   const mindId = newMindId();

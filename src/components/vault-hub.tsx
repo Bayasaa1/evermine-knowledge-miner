@@ -7,6 +7,7 @@
  * monetization show up in the same dashboard.
  */
 import { useMemo, useState } from "react";
+import { ShareTrigger } from "@/components/share-trigger";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -786,6 +787,7 @@ function ProjectListItem({
         {p.published ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
         {p.published ? t("published") : t("hidden")}
       </button>
+      <ShareTrigger content={{ kind: "project", id: p.id, title: p.title, creator: p.creator_name, image: p.cover_url, mindId: `project:${p.id}`, url: `https://ever-mind.dev/search?q=${encodeURIComponent(p.title)}` }} />
       {siblings.length > 0 ? (
         <select
           defaultValue=""
@@ -877,6 +879,7 @@ function ProjectWorkspace({ lang, project, onChanged }: { lang: Lang; project: P
   return (
     <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap gap-2">
+        <ShareTrigger content={{ kind: "project", id: project.id, title: project.title, creator: project.creator_name, image: project.cover_url, mindId: `project:${project.id}`, url: `https://ever-mind.dev/search?q=${encodeURIComponent(project.title)}` }} />
         {tabs.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
