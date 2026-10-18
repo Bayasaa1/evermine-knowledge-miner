@@ -288,7 +288,7 @@ function RoomPage() {
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t.say} aria-label={t.say} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
         <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || sending || uploading || (!!speaking && !room.moderator_mode)} aria-label="Send"><Send /></Button>
       </form>
-      {inviteContent && <ShareModal open onClose={() => { setInviteContent(null); void reload(); }} content={inviteContent} />}
+      {inviteContent && <ShareModal open onClose={() => { setInviteContent(null); void reload(); }} content={inviteContent} targetRoomId={roomId} />}
       {openMind && <TalkToMindModal open={!!openMind} onClose={() => setOpenMind(null)} mindId={openMind} mindName={messages.find((m) => m.attachment?.kind === "mind" && m.attachment.share?.mindId === openMind)?.attachment?.name || invitable.find((m) => m.mindId === openMind)?.name || minds.find((m) => m.mind_id === openMind)?.mind_name || "Mind"} />}
 
       {showSettings && (

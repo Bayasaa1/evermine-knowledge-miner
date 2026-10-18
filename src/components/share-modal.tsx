@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy, Send, Users, Globe, Plus, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, useLang } from "@/lib/i18n";
 import { loadGraph, openDm, type Person } from "@/lib/friends";
@@ -16,7 +16,7 @@ const COPY = {
   ko: { title: "Evermind 콘텐츠 공유", direct: "친구와 채팅", add: "채팅에 추가", external: "외부 공유", note: "메시지 추가…", friends: "친구", rooms: "최근 채팅", empty: "일치하는 친구나 채팅 없음", send: "보내기", sent: "보냄", drop: "채팅방에 추가", added: "마인드 추가됨", undo: "실행 취소", copy: "링크 복사", copied: "링크 복사됨", system: "기기 공유", signin: "친구 및 채팅 공유를 위해 로그인하세요", search: "친구 또는 채팅 검색", confirm: "이 마인드를 참여자로 추가할까요?", cancel: "취소", already: "이미 참여 중", failed: "채팅을 불러오지 못했습니다", retry: "다시 시도" },
 };
 
-export function ShareModal({ open, onClose, content }: { open: boolean; onClose: () => void; content: ShareContent }) {
+export function ShareModal({ open, onClose, content, targetRoomId }: { open: boolean; onClose: () => void; content: ShareContent; targetRoomId?: string }) {
   const { lang } = useLang(); const t = pickCopy(COPY, lang);
   const { isAuthenticated, userId, profile } = useAuth();
   const [tab, setTab] = useState("direct"); const [rooms, setRooms] = useState<Room[]>([]);
@@ -27,8 +27,8 @@ export function ShareModal({ open, onClose, content }: { open: boolean; onClose:
   const mindId = participantId(content); const url = shareUrl(content.url);
   useEffect(() => {
     if (!open) return;
-    setTab("direct"); setSent([]); setNote(""); setQuery(""); setConfirm(null);
-  }, [open, content.id]);
+    setTab(targetRoomId ? "add" : "direct"); setSent([]); setNote(""); setQuery(""); setConfirm(null);
+  }, [open, content.id, targetRoomId]);
   useEffect(() => {
     let live = true; setRooms([]); setFriends([]); setNames(new Map());
     if (!open || !isAuthenticated || !userId) return;
@@ -61,7 +61,7 @@ export function ShareModal({ open, onClose, content }: { open: boolean; onClose:
   };
   const filter = (s: string) => s.toLowerCase().includes(query.toLowerCase());
   const roomName = (r: Room) => r.kind === "dm" ? names.get(r.id) || r.title : r.title;
-  const roomList = rooms.filter((r) => filter(roomName(r)) && (tab !== "add" || (r.owner_id === userId && r.kind !== "dm")));
+  const roomList = rooms.filter((r) => filter(roomName(r)) && (tab !== "add" || (r.owner_id === userId && r.kind !== "dm" && (!targetRoomId || targetRoomId === r.id))));
   const row = (key: string, name: string, avatar: string | null, action: () => void, added = false) => <div key={key} className="flex items-center gap-3 border-b border-border py-3 last:border-0"><div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">{avatar ? <img src={shareUrl(avatar)} alt="" className="h-full w-full object-cover" /> : <Users className="h-4 w-4" />}</div><span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span><Button size="sm" variant={sent.includes(key) ? "secondary" : "outline"} disabled={!!busy || sent.includes(key)} onClick={action}>{busy === key ? <Loader2 className="h-4 w-4 animate-spin" /> : sent.includes(key) ? <Check className="h-4 w-4" /> : added ? <Plus className="h-4 w-4" /> : <Send className="h-4 w-4" />}{sent.includes(key) ? t.sent : added ? t.drop : t.send}</Button></div>;
   return <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}><DialogContent className="z-[100] max-h-[90dvh] w-[calc(100%-24px)] max-w-lg gap-0 overflow-hidden rounded-lg p-0" aria-describedby={undefined}>
     <div className="border-b border-border px-5 pb-4 pt-5 pr-12"><DialogTitle className="text-base">{t.title}</DialogTitle></div>
