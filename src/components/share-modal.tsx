@@ -24,6 +24,7 @@ export function ShareModal({ open, onClose, content, targetRoomId }: { open: boo
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false); const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState(""); const [sent, setSent] = useState<string[]>([]);
   const [note, setNote] = useState(""); const [query, setQuery] = useState(""); const [confirm, setConfirm] = useState<Room | null>(null);
+  const [undoInvite, setUndoInvite] = useState<{ id: string; roomId: string } | null>(null);
   const mindId = participantId(content); const url = shareUrl(content.url);
   useEffect(() => {
     if (!open) return;
@@ -56,6 +57,7 @@ export function ShareModal({ open, onClose, content, targetRoomId }: { open: boo
       await addMind(room.id, mindId, content.title, "debater", Math.max(-1, ...current.minds.map((m) => m.sort)) + 1);
       const updated = await loadRoom(room.id); const added = updated.minds.find((m) => m.mind_id === mindId);
       setSent((s) => [...s, `add:${room.id}`]); setConfirm(null);
+      if (added) setUndoInvite({ id: added.id, roomId: room.id });
       toast.success(t.added, { action: added ? { label: t.undo, onClick: () => { void removeMind(added.id).then(() => setSent((s) => s.filter((k) => k !== `add:${room.id}`))).catch((e) => toast.error(e.message)); } } : undefined });
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(""); }
   };
@@ -67,6 +69,7 @@ export function ShareModal({ open, onClose, content, targetRoomId }: { open: boo
     <div className="border-b border-border px-5 pb-4 pt-5 pr-12"><DialogTitle className="text-base">{t.title}</DialogTitle></div>
     <div className="max-h-[calc(90dvh-64px)] overflow-y-auto p-4">
       <SharedContentCard content={content} preview />
+      {undoInvite && <div className="mt-3 flex items-center justify-between border-b border-border pb-3 text-sm"><span>{t.added}</span><Button variant="outline" size="sm" onClick={() => { const undo = undoInvite; void removeMind(undo.id).then(() => { setSent((s) => s.filter((k) => k !== `add:${undo.roomId}`)); setUndoInvite(null); }).catch((e) => toast.error(e.message)); }}>{t.undo}</Button></div>}
       <div role="tablist" className="my-4 grid grid-cols-3 border-b border-border">{[{ id: "direct", label: t.direct, icon: MessageCircle }, ...(mindId ? [{ id: "add", label: t.add, icon: Plus }] : []), { id: "external", label: t.external, icon: Globe }].map((item) => <Button role="tab" aria-selected={tab === item.id} key={item.id} variant={tab === item.id ? "secondary" : "ghost"} className="h-auto min-h-12 whitespace-normal rounded-none px-2 py-2 text-xs" onClick={() => { setTab(item.id); setConfirm(null); }}><item.icon className="h-4 w-4 shrink-0" />{item.label}</Button>)}</div>
       {tab === "external" ? <div className="space-y-3"><input readOnly value={url} aria-label={t.copy} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" /><Button className="w-full" variant="outline" onClick={() => void navigator.clipboard.writeText(url).then(() => toast.success(t.copied)).catch((e) => toast.error(e.message))}><Copy className="h-4 w-4" />{t.copy}</Button><Button className="w-full" onClick={() => { if (navigator.share) void navigator.share({ title: content.title, url }).catch((e) => { if (e.name !== "AbortError") toast.error(e.message); }); else void navigator.clipboard.writeText(url).then(() => toast.success(t.copied)).catch((e) => toast.error(e.message)); }}><Globe className="h-4 w-4" />{t.system}</Button></div> : !isAuthenticated ? <p className="py-5 text-sm text-muted-foreground">{t.signin}</p> : <>
         {tab === "direct" && <textarea aria-label={t.note} placeholder={t.note} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} rows={2} className="mb-3 w-full resize-none rounded-md border border-input bg-background p-3 text-sm" />}
