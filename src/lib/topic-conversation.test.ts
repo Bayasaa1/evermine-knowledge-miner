@@ -22,7 +22,7 @@ describe("per-topic progression", () => {
   });
   it("stays inside the branch while developing and digs into its sub-branches", () => {
     const out = topicSuggestions({ turns, topics: ["Space", "Energy"], lang: "en", branches: { Space: ["Starship"] } });
-    assert.ok(out.every((s) => s.topic === "Space"));
+    assert.ok(out.every((s) => s.topic === "Space" || s.topic === "Starship"));
     assert.ok(out[0]?.text.includes("Starship"));
   });
   it("uses separately translated topic names and still recognises them", () => {
@@ -54,6 +54,20 @@ describe("per-topic progression", () => {
 });
 import { topicInText } from "./topic-conversation";
 describe("short topic words", () => {
+  it("descends through children and grandchildren rather than reopening roots", () => {
+    const branches = { Space: ["Starship"], Starship: ["Raptor Engine"], "Raptor Engine": ["Chamber Pressure"] };
+    const child = topicSuggestions({ turns: turns.slice(0, 2), topics: ["Space", "Energy"], branches, lang: "en" })[0];
+    assert.equal(child?.topic, "Starship");
+    const selected: ConversationTurn[] = [...turns.slice(0, 2), { role: "user", text: child?.text ?? "" }, { role: "agent", text: "Starship uses Raptor engines." }];
+    const deeper = topicSuggestions({ turns: selected, topics: ["Space", "Energy"], branches, lang: "en", focus: { title: "Starship", fromIndex: 2 } });
+    assert.equal(deeper[0]?.topic, "Raptor Engine");
+    assert.ok(deeper.every((s) => s.topic === "Starship" || s.topic === "Raptor Engine"));
+    assert.equal(topicSuggestions({ turns: [{ role: "user", text: "Within Starship, tell me about Raptor Engine." }, { role: "agent", text: "It uses methane." }], topics: ["Space"], branches, lang: "en", focus: { title: "Raptor Engine", fromIndex: 0 } })[0]?.topic, "Chamber Pressure");
+  });
+  it("recognizes a nested Grok question without matching a generic company word", () => {
+    const out = topicSuggestions({ turns: [{ role: "user", text: "Tell me about Grok at xAI company" }, { role: "agent", text: "Grok is a model." }], topics: ["The Boring Company", "AI"], branches: { AI: ["Grok and xAI"], "Grok and xAI": ["Training Data"] }, lang: "en" });
+    assert.equal(out[0]?.topic, "Training Data");
+  });
   it("'ai' reaches the AI topic and a key word reaches its topic", () => {
     assert.equal(topicInText("lets talk about ai", ["Engineering", "AI Safety and Governance"]), "AI Safety and Governance");
     assert.equal(topicInText("tell me about starship", ["Engineering", "Starship Development"]), "Starship Development");

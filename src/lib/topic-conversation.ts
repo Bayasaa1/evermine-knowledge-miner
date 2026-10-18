@@ -64,8 +64,8 @@ export function topicInText(text: string, topics: string[], labels: TopicLabels 
   return topics.find((topic) => aliases(topic).some((a) => haystack.includes(` ${a} `)));
 }
 
-const STOP = new Set(["and", "the", "for", "with", "about", "from", "into", "that", "this", "your", "their"]);
-const ALIAS: Record<string, string[]> = { intelligence: ["ai"], artificial: ["ai"], ai: ["ai", "хиймэл оюун", "인공지능"] };
+const STOP = new Set(["and", "the", "for", "with", "about", "from", "into", "that", "this", "your", "their", "company", "development", "future", "technology"]);
+const ALIAS: Record<string, string[]> = { intelligence: ["ai"], artificial: ["ai"], ai: ["ai", "хиймэл оюун", "인공지능"], grok: ["grok", "грок"], xai: ["xai", "x ai", "икс эй ай"] };
 function aliases(topic: string): string[] {
   const ws = normalize(topic).split(" ").filter(Boolean);
   const out = new Set<string>();
@@ -93,7 +93,9 @@ export function conversationProgress(
     if (!turn) continue;
     if (focus && i < focus.fromIndex) continue;
     if (turn.role === "user") {
-      const named = topicInText(turn.text, topics, labels);
+      // A clicked child question also names its parent; explicit focus wins
+      // on the selected turn, including translated questions.
+      const named = focus && i === focus.fromIndex ? focus.title : topicInText(turn.text, topics, labels);
       if (named && normalize(named) !== normalize(topic ?? "")) {
         topic = named; fromIndex = i; completed = 0; closed = false;
       }
@@ -119,7 +121,7 @@ export function topicSuggestions({
 }): TopicSuggestion[] {
   const copy = COPY[lang as CopyLanguage] ?? COPY.en;
   const name = (t: string) => labels[t] ?? t;
-  const allTopics = [...topics, ...(focus && !topics.includes(focus.title) ? [focus.title] : [])];
+  const allTopics = Array.from(new Set([...topics, ...Object.keys(branches), ...Object.values(branches).flat(), ...(focus ? [focus.title] : [])]));
   const subsOf = (t: string) => branches[t] ?? [];
   const progressBase = conversationProgress(turns, allTopics, focus, labels);
   const depth = progressBase.topic ? Math.max(MIN_DEPTH, Math.min(6, subsOf(progressBase.topic).length + 2)) : MIN_DEPTH;
@@ -141,7 +143,7 @@ export function topicSuggestions({
     const shown = name(topic);
     // Deeper branches first: sub-topics not yet discussed in this stretch.
     const deeper = subsOf(topic).filter((s) => !mentions(userSince, s) && !mentions(userSince, name(s)))
-      .map((s): TopicSuggestion => ({ text: copy.branch(shown, name(s)), topic, stage: "development" }));
+      .map((s): TopicSuggestion => ({ text: copy.branch(shown, name(s)), topic: s, stage: "development" }));
     const develop: TopicSuggestion[] = [
       ...deeper,
       { text: copy.development(shown), topic, stage: "development" },

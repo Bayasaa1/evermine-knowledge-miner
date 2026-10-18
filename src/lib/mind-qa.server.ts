@@ -24,18 +24,18 @@ export function branchesFor(topics: string[], mapTopics: MapTopic[]): Record<str
   const size = (t: MapTopic) => t.facts?.length ?? 0;
   const sorted = [...mapTopics].filter((t) => t.title).sort((a, b) => size(b) - size(a));
   const out: Record<string, string[]> = {};
-  for (const topic of topics) {
+  for (const topic of Array.from(new Set([...topics, ...sorted.map((t) => t.title)]))) {
     const w = words(topic);
     const exact = sorted.find((t) => t.title.toLowerCase() === topic.toLowerCase());
     let subs = exact ? sorted.filter((t) => t.parentId === exact.id) : [];
-    if (!subs.length) {
+    if (!exact && !subs.length) {
       subs = sorted.filter((t) => {
         if (exact && t.id === exact.id) return false;
         const tw = words(`${t.title} ${t.group ?? ""} ${t.summary ?? ""}`);
         return [...w].some((x) => tw.has(x) || [...tw].some((y) => y.startsWith(x.slice(0, 5)) && x.length >= 5));
       });
     }
-    out[topic] = Array.from(new Set(subs.map((t) => t.title))).slice(0, 6);
+    out[topic] = Array.from(new Set(subs.map((t) => t.title)));
   }
   return out;
 }
@@ -63,7 +63,7 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
   // Real Root-map topics (richest first) lead; generic concept labels fill in after.
   const rootTopics = mapTopics.filter((t) => t.title && !t.parentId)
     .sort((a, b) => (b.facts?.length ?? 0) - (a.facts?.length ?? 0)).map((t) => t.title);
-  const topics = Array.from(new Set([...rootTopics.slice(0, 12), ...(concepts.data ?? []).map((c) => c.label).filter(Boolean)]));
+  const topics = Array.from(new Set(rootTopics.length ? rootTopics : (concepts.data ?? []).map((c) => c.label).filter(Boolean)));
   const p = persona.data as { name: string; bio: string; greeting: string; tags: string[] } | null;
   const personaName = p?.name ?? project.creator_name ?? "";
   return {

@@ -26,7 +26,7 @@ export function ChatSuggestions({
     return () => { live = false; };
   }, [mindId, fetchFn]);
 
-  const themes = useMemo(() => Array.from(new Set([...(data?.topics ?? []), ...(data?.tags ?? []).map((x) => x.replace(/^#/, ""))])), [data]);
+  const themes = useMemo(() => data?.topics.length ? data.topics : (data?.tags ?? []).map((x) => x.replace(/^#/, "")), [data]);
   const { userId } = useAuth();
   // Topic names are translated on their own, because inside a mixed sentence
   // the translator thinks the line is already in the target language.
@@ -45,8 +45,6 @@ export function ChatSuggestions({
     .filter((c) => !asked.has(c.text.trim()));
   const limit = compact ? 3 : 5;
   const chips = available.slice(0, limit);
-  const alternative = available.find((c) => c.stage === "opening" && c.topic && c.topic !== focus?.title);
-  if (compact && alternative && !chips.includes(alternative) && chips.length === limit) chips[limit - 1] = alternative;
 
   return (
     <div className="space-y-3">

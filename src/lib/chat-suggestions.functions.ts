@@ -24,7 +24,7 @@ export const getChatSuggestions = createServerFn({ method: "POST" })
       bio: x.bio.slice(0, 400),
       greeting: x.greeting.slice(0, 400),
       tags: x.tags.slice(0, 12),
-      topics: x.topics.slice(0, 6),
+      topics: x.topics,
       creatorQuestions: x.qa.filter((q) => q.suggest).map((q) => q.question).slice(0, 6),
       videoQuestions: x.minedQuestions.slice(0, 12),
       branches: x.branches,
