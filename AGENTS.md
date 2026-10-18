@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 
 - AI chat providers receive the complete saved conversation as structured turns, because flattening or truncating history causes replies to target the wrong message.
-- Chat suggestion progression is a pure read-only per-topic projection of conversation turns with explicit topic focus for translated picks and Root branches; it never uses AI or writes mined data, so each topic can open, develop and conclude independently.
+- Chat progression is read-only per topic; every nested branch exposes its children and sends its source title for subtree recall across all depths, so parent facts cannot crowd out detail. No AI calls or mined-data writes for suggestions.
 - Open-chat display translation uses a viewport-scoped Google client with account-scoped in-memory caching; originals remain the source for saving, editing, exports and AI history, because screen translation must not mutate knowledge or spend AI credits.
 - Empty provider output is an error, never a visible ellipsis, because silence must not look like a valid assistant reply.
 - Mined interview voice samples are restricted to the named persona's speaker-tagged lines, because host speech corrupts character identity.
