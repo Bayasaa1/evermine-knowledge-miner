@@ -30,7 +30,6 @@ export function branchesFor(topics: string[], mapTopics: MapTopic[]): Record<str
     let subs = exact ? sorted.filter((t) => t.parentId === exact.id) : [];
     if (!exact && !subs.length) {
       subs = sorted.filter((t) => {
-        if (exact && t.id === exact.id) return false;
         const tw = words(`${t.title} ${t.group ?? ""} ${t.summary ?? ""}`);
         return [...w].some((x) => tw.has(x) || [...tw].some((y) => y.startsWith(x.slice(0, 5)) && x.length >= 5));
       });
