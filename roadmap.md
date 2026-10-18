@@ -1,5 +1,11 @@
 # Roadmap
 
+## Room moderator and sharing upgrade
+- [x] Owner-only manual turns and persistent message queue
+- [x] Room name/avatar settings and friend/Mind participant management
+- [x] Private image/video uploads and interactive shared Mind cards
+- [x] Verify database permission guards, queue rules, and signed-in room experience
+
 ## Deep branch chat
 - [x] Expose every nested Root branch and move focus to the selected child
 - [x] Retrieve focused branch facts without unrelated generic-word matches

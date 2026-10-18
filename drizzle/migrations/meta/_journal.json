@@ -218,6 +218,27 @@
       "when": 1792243618635,
       "tag": "0030_persona_clones_owner_check",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792315526381,
+      "tag": "0031_room_moderator_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792315682719,
+      "tag": "0032_room_turn_owner_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792315721259,
+      "tag": "0033_room_live_updates",
+      "breakpoints": true
     }
   ]
 }

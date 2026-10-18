@@ -10,6 +10,8 @@ import {
   type ErrorRouteComponent,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { MODULE_LOAD_RECOVERY_SCRIPT } from "@/lib/module-load-recovery";
 
 import { Toaster } from "@/components/ui/sonner";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
@@ -71,15 +73,19 @@ const ErrorComponent: ErrorRouteComponent = ({ error, reset }) => {
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
+          <Button
             onClick={() => {
+              if (/Importing a module script failed|Failed to fetch dynamically imported module|Loading chunk|error loading dynamically imported module/i.test(error instanceof Error ? error.message : String(error))) {
+                window.location.reload();
+                return;
+              }
               router.invalidate();
               reset();
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Try again
-          </button>
+          </Button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
@@ -138,6 +144,7 @@ function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: MODULE_LOAD_RECOVERY_SCRIPT }} />
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
@@ -213,7 +220,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       {showNav && !pathname.startsWith("/creator") && !pathname.startsWith("/vaults") && <LanguageSelector />}
-      {showNav && <BottomNav />}
+      {showNav && !/^\/chats\/[^/]+\/?$/.test(pathname) && <BottomNav />}
       <DiagnosticChat />
     </QueryClientProvider>
   );

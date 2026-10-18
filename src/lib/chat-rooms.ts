@@ -25,6 +25,10 @@ export type Room = {
   debate_mode: string;
   turn_limit: number;
   updated_at: string;
+  moderator_mode: boolean;
+  avatar_path: string | null;
+  active_mind_id: string | null;
+  turn_started_at: string | null;
 };
 export type RoomMember = { id: string; user_id: string; display_name: string; role: string; last_read_at: string };
 export type RoomMind = { id: string; mind_id: string; mind_name: string; role: string; sort: number };
@@ -38,7 +42,12 @@ export type RoomMessage = {
   body: string;
   shared_url: string | null;
   created_at: string;
+  moderator_pending: boolean;
+  reply_to_id: string | null;
+  attachment: RoomAttachment | null;
 };
+
+export type RoomAttachment = { kind: "image" | "video"; path: string; name: string } | { kind: "mind"; mindId: string; name: string };
 
 /** Room transcripts have no clip player; keep proof metadata out of prose. */
 function stripProofMarkers(text: string): string {
@@ -98,7 +107,7 @@ export async function deleteRoom(roomId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function updateRoom(roomId: string, patch: Partial<Pick<Room, "title" | "debate_mode" | "turn_limit" | "invite_enabled">>) {
+export async function updateRoom(roomId: string, patch: Partial<Pick<Room, "title" | "debate_mode" | "turn_limit" | "invite_enabled" | "moderator_mode" | "avatar_path">>) {
   await me();
   const { error } = await supabase.from("chat_rooms").update(patch).eq("id", roomId);
   if (error) throw error;
@@ -116,8 +125,9 @@ export async function loadRoom(roomId: string) {
     supabase.from("chat_rooms").select("*").eq("id", roomId).maybeSingle(),
     supabase.from("chat_room_members").select("id,user_id,display_name,role,last_read_at").eq("room_id", roomId),
     supabase.from("chat_room_minds").select("id,mind_id,mind_name,role,sort").eq("room_id", roomId).order("sort"),
-    supabase.from("chat_room_messages").select("*").eq("room_id", roomId).order("created_at").limit(500),
+    supabase.from("chat_room_messages").select("*").eq("room_id", roomId).order("created_at"),
   ]);
+  for (const result of [room, members, minds, messages]) if (result.error) throw result.error;
   return {
     room: (room.data as Room | null) ?? null,
     members: (members.data ?? []) as RoomMember[],
@@ -164,6 +174,45 @@ export async function setMindRole(id: string, role: MindRole) {
   if (error) throw error;
 }
 
+export async function addRoomFriend(roomId: string, friendId: string) {
+  const { error } = await supabase.rpc("add_room_friend", { _room: roomId, _friend: friendId });
+  if (error) throw error;
+}
+
+export async function claimRoomTurn(roomId: string, messageId: string, mindId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("claim_room_turn", { _room: roomId, _message: messageId, _mind: mindId });
+  if (error) throw error;
+  return data;
+}
+
+export async function finishRoomTurn(roomId: string, token: string, messageId: string, body?: string) {
+  const { error } = await supabase.rpc("finish_room_turn", { _room: roomId, _token: token, _message: messageId, ...(body === undefined ? {} : { _body: body }) });
+  if (error) throw error;
+}
+
+export async function completeRoomQuestion(roomId: string, messageId: string) {
+  const { error } = await supabase.rpc("complete_room_question", { _room: roomId, _message: messageId });
+  if (error) throw error;
+}
+
+export async function uploadRoomMedia(roomId: string, file: File): Promise<RoomAttachment> {
+  const uid = await me();
+  const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : null;
+  if (!kind || file.type === "image/svg+xml") throw new Error("Choose a photo or video.");
+  if (file.size > 50 * 1024 * 1024) throw new Error("Maximum file size: 50 MB.");
+  const ext = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").slice(0, 10) || kind;
+  const path = `${roomId}/${uid}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from("room-media").upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw error;
+  return { kind, path, name: file.name.slice(0, 160) };
+}
+
+export async function roomMediaUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from("room-media").createSignedUrl(path, 3600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 export async function removeMind(id: string) {
   await me();
   const { error } = await supabase.from("chat_room_minds").delete().eq("id", id);
@@ -172,7 +221,7 @@ export async function removeMind(id: string) {
 
 export async function postMessage(
   roomId: string,
-  msg: { body: string; authorName: string; kind?: "user" | "mind"; mindId?: string | null; sharedUrl?: string | null },
+  msg: { body: string; authorName: string; kind?: "user" | "mind"; mindId?: string | null; sharedUrl?: string | null; attachment?: RoomAttachment | null },
 ) {
   const uid = await me();
   const { error } = await supabase.from("chat_room_messages").insert({
@@ -183,6 +232,7 @@ export async function postMessage(
     author_name: msg.authorName.slice(0, 80),
     body: (msg.kind === "mind" ? stripProofMarkers(msg.body) : msg.body).slice(0, 8000),
     shared_url: msg.sharedUrl ?? null,
+    attachment: msg.attachment ?? null,
   });
   if (error) throw error;
 }
@@ -234,9 +284,9 @@ export async function askMind(
   transcript: RoomMessage[],
   lang: string,
 ): Promise<string> {
-  const lines = transcript.slice(-60).map(cleanRoomMessage).map((m) => ({
+  const lines = transcript.map(cleanRoomMessage).map((m) => ({
     role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
-    text: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? m.body : `${m.author_name}: ${m.body}`,
+    text: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? m.body : `${m.author_name}: ${m.body}${m.attachment ? `\n[Shared ${m.attachment.kind}: ${m.attachment.name}]` : ""}`,
   }));
   lines.push({
     role: "user",

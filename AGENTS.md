@@ -9,14 +9,15 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- AI chat providers receive the complete saved conversation as structured turns, because flattening or truncating history causes replies to target the wrong message.
+- AI receives complete structured history to address the right message.
+- Early module recovery reloads once/minute; its non-user timestamp survives account cleanup to prevent loops.
 - Chat progression is read-only per topic; every nested branch exposes its children and sends its source title for subtree recall across all depths, so parent facts cannot crowd out detail. No AI calls or mined-data writes for suggestions.
 - Open-chat display translation uses a viewport-scoped Google client with account-scoped in-memory caching; originals remain the source for saving, editing, exports and AI history, because screen translation must not mutate knowledge or spend AI credits.
 - Empty provider output is an error, never a visible ellipsis, because silence must not look like a valid assistant reply.
 - Mined interview voice samples are restricted to the named persona's speaker-tagged lines, because host speech corrupts character identity.
 - Project video sequence is creator-controlled through project_content.sequence_index; horizontal feed navigation must respect it.
 - Feed ranking is deterministic and signal-based, never an AI call, so recommendation does not spend anyone's credits.
-- Group chat rooms live in chat_rooms/_members/_minds/_messages; membership is checked by security-definer helpers and joining happens only via join_room_by_code, because members must never see rooms they were not invited to. Mind replies in rooms run on the sending user's own keys via /api/mind-chat.
+- Room membership uses database helpers and invite-code or owner-authorized mutual-friend RPCs. Moderator turns use owner-only atomic claim/finish RPCs and pending messages; private media is member-gated. Replies use the caller's own keys via /api/mind-chat, never another member's keys.
 - Group-room Mind prose strips hidden clip and video-proof markers on generation, writes, reads, and exports; legacy messages are cleaned without rewriting saved history, because rooms do not render proof metadata.
 - Friendship is mutual subscription (user_subscriptions both ways, no user_blocks); human DMs are chat_rooms kind 'dm' opened only via open_dm RPC, because one-way subscribers must never DM a creator directly.
 - Every mined part stores its `window` and merge confines all subtitle times to it, because one mis-read clock used to push every later caption past the video end.

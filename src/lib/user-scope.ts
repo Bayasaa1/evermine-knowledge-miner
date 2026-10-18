@@ -98,7 +98,10 @@ export function clearUserScopedLocalData(): void {
     }
   }
   drop.forEach((k) => window.localStorage.removeItem(k));
+  // Non-user timestamp only: preserve the module refresh circuit breaker.
+  const moduleReload = window.sessionStorage.getItem("evermind:module-reload");
   window.sessionStorage.clear();
+  if (moduleReload) window.sessionStorage.setItem("evermind:module-reload", moduleReload);
   void purgeDeviceData(leaving);
 }
 
