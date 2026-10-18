@@ -55,11 +55,13 @@ function mentions(haystack: string, name: string): boolean {
     ["부터", "에", "을", "를", "은", "는", "이", "가", "ын", "ийн", "тай", "тэй", "д", "т", "аас", "ээс"].some((suffix) => haystack.includes(` ${needle}${suffix} `)));
 }
 
-export function topicInText(text: string, topics: string[], labels: TopicLabels = {}): string | undefined {
+export function topicInText(text: string, topics: string[], labels: TopicLabels = {}, topicAliases: Record<string, string[]> = {}): string | undefined {
   const haystack = ` ${normalize(text)} `;
   const full = [...topics].sort((a, b) => b.length - a.length)
     .find((topic) => mentions(haystack, topic) || (labels[topic] ? mentions(haystack, labels[topic]) : false));
   if (full) return full;
+  const entity = Object.entries(topicAliases).find(([topic, names]) => topics.includes(topic) && names.some((n) => mentions(haystack, n)));
+  if (entity) return entity[0];
   // Short words like "ai", "fsd" or one key word ("starship") reach a topic in its given order.
   return topics.find((topic) => aliases(topic).some((a) => haystack.includes(` ${a} `)));
 }
@@ -81,7 +83,7 @@ function aliases(topic: string): string[] {
 
 /** Resolve only this topic's current stretch, never a global message counter. */
 export function conversationProgress(
-  turns: ConversationTurn[], topics: string[], focus?: TopicFocus, labels: TopicLabels = {}, depth = MIN_DEPTH,
+  turns: ConversationTurn[], topics: string[], focus?: TopicFocus, labels: TopicLabels = {}, depth = MIN_DEPTH, topicAliases: Record<string, string[]> = {},
 ): { topic: string | undefined; stage: TopicStage; fromIndex: number; completed: number } {
   let topic = focus?.title;
   let fromIndex = focus?.fromIndex ?? turns.length;
@@ -95,7 +97,7 @@ export function conversationProgress(
     if (turn.role === "user") {
       // A clicked child question also names its parent; explicit focus wins
       // on the selected turn, including translated questions.
-      const named = focus && i === focus.fromIndex ? focus.title : topicInText(turn.text, topics, labels);
+      const named = focus && i === focus.fromIndex ? focus.title : topicInText(turn.text, topics, labels, topicAliases);
       if (named && normalize(named) !== normalize(topic ?? "")) {
         topic = named; fromIndex = i; completed = 0; closed = false;
       }
@@ -112,20 +114,21 @@ export function conversationProgress(
 }
 
 export function topicSuggestions({
-  turns, topics, lang, focus, creatorQuestions = [], branches = {}, labels = {},
+  turns, topics, lang, focus, creatorQuestions = [], branches = {}, labels = {}, topicAliases = {},
 }: {
   turns: ConversationTurn[]; topics: string[]; lang: string; focus?: TopicFocus | undefined; creatorQuestions?: string[] | undefined;
   /** Sub-branches of each topic from the Root map, used to dig deeper. */
   branches?: Record<string, string[]> | undefined;
   labels?: TopicLabels | undefined;
+  topicAliases?: Record<string, string[]> | undefined;
 }): TopicSuggestion[] {
   const copy = COPY[lang as CopyLanguage] ?? COPY.en;
   const name = (t: string) => labels[t] ?? t;
   const allTopics = Array.from(new Set([...topics, ...Object.keys(branches), ...Object.values(branches).flat(), ...(focus ? [focus.title] : [])]));
   const subsOf = (t: string) => branches[t] ?? [];
-  const progressBase = conversationProgress(turns, allTopics, focus, labels);
+  const progressBase = conversationProgress(turns, allTopics, focus, labels, MIN_DEPTH, topicAliases);
   const depth = progressBase.topic ? Math.max(MIN_DEPTH, Math.min(6, subsOf(progressBase.topic).length + 2)) : MIN_DEPTH;
-  const progress = conversationProgress(turns, allTopics, focus, labels, depth);
+  const progress = conversationProgress(turns, allTopics, focus, labels, depth, topicAliases);
   const asked = new Set(turns.filter((t) => t.role === "user").map((t) => normalize(t.text)));
   const userSince = ` ${normalize(turns.slice(progress.fromIndex).filter((t) => t.role === "user").map((t) => t.text).join(" "))} `;
   const openings = topics.filter((t) => normalize(t) !== normalize(progress.topic ?? ""))

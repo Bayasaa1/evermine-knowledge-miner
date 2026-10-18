@@ -7,9 +7,9 @@ export function recallBranch(topics: RecallTopic[], query: string, bridged: stri
   const byId = new Map(topics.map((t) => [t.id, t]));
   const focus = (focusId ? byId.get(focusId) : undefined) ?? topics.find((t) => focusTitle && key(t.title) === key(focusTitle));
   const q = new Set([...tokens(query), ...bridged.flatMap(tokens)]);
-  const entities = ["grok", "xai"].filter((e) => ` ${key(query)} `.includes(` ${e} `) || (e === "grok" && /грок/iu.test(query)) || (e === "xai" && /\bx\s+ai\b/i.test(query)));
+  const entities = ["grok", "xai"].filter((e) => ` ${key(query)} `.includes(` ${e} `) || (e === "grok" && /грок|\bgroq\b/iu.test(query)) || (e === "xai" && /\bx\s+ai\b/i.test(query)));
   const score = (text: string) => tokens(text).filter((w) => q.has(w) || [...q].some((k) => k.length > 4 && w.startsWith(k.slice(0, 5)))).length;
-  const ranked = topics.map((t) => ({ t, head: score(t.title), entity: entities.some((e) => tokens(t.title).includes(e)), score: score(t.title) * 5 + Math.min(score(t.summary), 3) + Math.min(t.facts.reduce((n, f) => n + score(f.text), 0), 5) }))
+  const ranked = topics.map((t) => ({ t, head: score(t.title), entity: entities.some((e) => tokens(t.title).includes(e) || t.facts.some((f) => tokens(f.text).includes(e))), score: score(t.title) * 5 + Math.min(score(t.summary), 3) + Math.min(t.facts.reduce((n, f) => n + score(f.text), 0), 5) }))
     .filter((x) => x.head > 0 || x.entity).sort((a, b) => Number(b.entity) - Number(a.entity) || b.score - a.score);
   const roots = focus ? [focus] : ranked.filter((x) => !entities.length || x.entity).slice(0, 1).map((x) => x.t);
   const selected: RecallTopic[] = []; const seen = new Set<string>(); const queue = [...roots];

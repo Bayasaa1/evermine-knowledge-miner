@@ -14,6 +14,7 @@ export type CreatorExtras = {
   minedQuestions: string[];
   /** Root-map sub-branches per topic, so chat can dig deeper inside one branch. */
   branches: Record<string, string[]>;
+  topicAliases?: Record<string, string[]>;
 };
 
 type MapTopic = { id: string; title: string; summary?: string; group?: string; parentId?: string; facts?: unknown[] };
@@ -73,6 +74,15 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
     qa: (qa.data ?? []).filter((r) => r.question.trim()),
     topics,
     branches: branchesFor(topics, mapTopics),
+    // Entity routing is metadata only; no saved facts are changed or sent.
+    topicAliases: Object.fromEntries(mapTopics.map((t) => {
+      const facts = (t.facts ?? []) as { text?: string }[];
+      const has = (word: string) => facts.some((f) => new RegExp(`\\b${word}\\b`, "i").test(f.text ?? ""));
+      return [t.title, [...(has("grok") ? ["grok", "groq", "грок"] : []), ...(has("xai") ? ["xai", "x ai"] : [])]];
+    }).sort((a, b) => {
+      const richness = (entry: (string | string[])[]) => mapTopics.find((t) => t.title === entry[0])?.facts?.length ?? 0;
+      return richness(b) - richness(a);
+    })),
     minedQuestions: await loadMinedQuestions(supabaseAdmin, projectId, personaName),
   };
 }

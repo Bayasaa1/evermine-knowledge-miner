@@ -41,7 +41,7 @@ export function ChatSuggestions({
     return () => { live = false; };
   }, [themes, data, lang, focus, userId]);
   const asked = new Set(used.map((u) => u.trim()));
-  const available = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions, branches: data?.branches, labels })
+  const available = topicSuggestions({ turns: messages, topics: themes, lang, focus, creatorQuestions: data?.creatorQuestions, branches: data?.branches, labels, topicAliases: data?.topicAliases })
     .filter((c) => !asked.has(c.text.trim()));
   const limit = compact ? 3 : 5;
   const chips = available.slice(0, limit);

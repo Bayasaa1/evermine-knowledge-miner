@@ -11,6 +11,13 @@ const topics: RecallTopic[] = [
   { id: "deep", title: "Deduplication", parentId: "quality", group: "Technology", summary: "", facts: [fact("Deduplication removes repeated training examples.")] },
 ];
 describe("branch fact recall", () => {
+  it("finds Grok inside a broader topic even when no topic is named Grok", () => {
+    const broader = topics.filter((t) => t.id !== "grok").map((t) => t.id === "ai" ? { ...t, facts: [fact("Grok AI on X: integrated into the X app.")] } : t);
+    const r = recallBranch(broader, "groq ursuldugch company haritsuul", []);
+    assert.ok(r.titles[0]?.includes("Artificial Intelligence"));
+    assert.ok(r.facts.some((f) => f.includes("integrated into the X app")));
+    assert.ok(!r.facts.some((f) => f.includes("tunnels")));
+  });
   it("Grok/xAI company questions never retrieve Boring Company", () => {
     const r = recallBranch(topics, "Tell me about Grok at xAI company", []);
     assert.ok(r.titles[0]?.includes("Grok and xAI")); assert.ok(r.facts.some((f) => f.includes("curated data"))); assert.ok(!r.facts.some((f) => f.includes("tunnels")));

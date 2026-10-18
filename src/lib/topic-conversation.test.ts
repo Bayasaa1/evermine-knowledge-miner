@@ -54,6 +54,10 @@ describe("per-topic progression", () => {
 });
 import { topicInText } from "./topic-conversation";
 describe("short topic words", () => {
+  it("routes saved groq spelling to the branch that actually contains Grok facts", () => {
+    const out = topicSuggestions({ turns: [{ role: "user", text: "groq ursuldugch company" }, { role: "agent", text: "Grok is candid." }], topics: ["AI Safety and Governance", "Digital Intelligence"], branches: { "Digital Intelligence": ["AI in Medical Diagnostics"] }, topicAliases: { "Digital Intelligence": ["grok", "groq"] }, lang: "en" });
+    assert.equal(out[0]?.topic, "AI in Medical Diagnostics");
+  });
   it("descends through children and grandchildren rather than reopening roots", () => {
     const branches = { Space: ["Starship"], Starship: ["Raptor Engine"], "Raptor Engine": ["Chamber Pressure"] };
     const child = topicSuggestions({ turns: turns.slice(0, 2), topics: ["Space", "Energy"], branches, lang: "en" })[0];
