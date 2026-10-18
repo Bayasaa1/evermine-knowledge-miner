@@ -1,4 +1,5 @@
 import { otherVideo } from "@/lib/import-sources";
+import { cleanHandle } from "@/lib/handle";
 /**
  * Global Home Feed: the TikTok/Reels-style content stream. Seeded from the
  * public Mind marketplace, plus everything the signed-in creator publishes
@@ -120,9 +121,10 @@ export async function projectFeed(): Promise<FeedItem[]> {
       id: `project:${row.id}`,
       contentId: row.id,
       mindId: `project:${row.project_id}`,
-      creator: row.project?.creator_name ?? "Evermind creator",
+      creator: (row.project?.creator_name || "").trim() || "Creator",
       avatarUrl: row.project?.creator_avatar_url ?? null,
-      handle: `@${(row.project?.title ?? "project").toLowerCase().replace(/\s+/g, "")}`,
+      // Handle comes only from the creator's name, never from a video/project title.
+      handle: cleanHandle(row.project?.creator_name),
       title: row.title,
       description: row.description,
       category: (row.category ?? "knowledge") as CreationCategory,

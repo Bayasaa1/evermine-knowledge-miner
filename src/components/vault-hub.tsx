@@ -77,6 +77,7 @@ import { ProjectGraphOverview } from "@/components/project-graph-overview";
 import { ProjectContentTable } from "@/components/project-content-table";
 import { MindReviews } from "@/components/mind-reviews";
 import { CloneStudio } from "@/components/clone-studio";
+import { FeedRepairPanel } from "@/components/feed-repair-panel";
 
 
 const C = {
@@ -263,6 +264,9 @@ export function VaultHub({
         <h2 className="text-lg font-semibold text-foreground">{t("personas")}</h2>
         <p className="mt-1 text-xs text-muted-foreground">{t("personasDesc")}</p>
       </header>
+
+      <FeedRepairPanel lang={lang} userId={user.id} />
+
 
       <div className="grid gap-3 sm:grid-cols-2">
         <PersonaCard
