@@ -213,7 +213,7 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       {showNav && !pathname.startsWith("/creator") && !pathname.startsWith("/vaults") && <LanguageSelector />}
-      {showNav && <BottomNav />}
+      {showNav && !/^\/chats\/[^/]+\/?$/.test(pathname) && <BottomNav />}
       <DiagnosticChat />
     </QueryClientProvider>
   );
