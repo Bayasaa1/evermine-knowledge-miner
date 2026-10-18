@@ -232,6 +232,13 @@
       "when": 1792315682719,
       "tag": "0032_room_turn_owner_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792315721259,
+      "tag": "0033_room_live_updates",
+      "breakpoints": true
     }
   ]
 }
