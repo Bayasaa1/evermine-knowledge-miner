@@ -9,7 +9,8 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- AI chat providers receive the complete saved conversation as structured turns, because flattening or truncating history causes replies to target the wrong message.
+- AI receives complete structured history to address the right message.
+- Early module recovery reloads once/minute; its non-user timestamp survives account cleanup to prevent loops.
 - Chat progression is read-only per topic; every nested branch exposes its children and sends its source title for subtree recall across all depths, so parent facts cannot crowd out detail. No AI calls or mined-data writes for suggestions.
 - Open-chat display translation uses a viewport-scoped Google client with account-scoped in-memory caching; originals remain the source for saving, editing, exports and AI history, because screen translation must not mutate knowledge or spend AI credits.
 - Empty provider output is an error, never a visible ellipsis, because silence must not look like a valid assistant reply.
