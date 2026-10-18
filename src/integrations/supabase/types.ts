@@ -186,39 +186,55 @@ export type Database = {
       }
       chat_room_messages: {
         Row: {
+          attachment: Json | null
           author_name: string
           body: string
           created_at: string
           id: string
           mind_id: string | null
+          moderator_pending: boolean
+          reply_to_id: string | null
           room_id: string
           sender_kind: string
           sender_user_id: string
           shared_url: string | null
         }
         Insert: {
+          attachment?: Json | null
           author_name?: string
           body: string
           created_at?: string
           id?: string
           mind_id?: string | null
+          moderator_pending?: boolean
+          reply_to_id?: string | null
           room_id: string
           sender_kind?: string
           sender_user_id: string
           shared_url?: string | null
         }
         Update: {
+          attachment?: Json | null
           author_name?: string
           body?: string
           created_at?: string
           id?: string
           mind_id?: string | null
+          moderator_pending?: boolean
+          reply_to_id?: string | null
           room_id?: string
           sender_kind?: string
           sender_user_id?: string
           shared_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "chat_room_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "chat_room_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "chat_room_messages_room_id_fkey"
             columns: ["room_id"]
@@ -271,39 +287,54 @@ export type Database = {
       }
       chat_rooms: {
         Row: {
+          active_mind_id: string | null
+          avatar_path: string | null
           created_at: string
           debate_mode: string
           id: string
           invite_code: string
           invite_enabled: boolean
           kind: string
+          moderator_mode: boolean
           owner_id: string
           title: string
           turn_limit: number
+          turn_started_at: string | null
+          turn_token: string | null
           updated_at: string
         }
         Insert: {
+          active_mind_id?: string | null
+          avatar_path?: string | null
           created_at?: string
           debate_mode?: string
           id?: string
           invite_code?: string
           invite_enabled?: boolean
           kind?: string
+          moderator_mode?: boolean
           owner_id: string
           title?: string
           turn_limit?: number
+          turn_started_at?: string | null
+          turn_token?: string | null
           updated_at?: string
         }
         Update: {
+          active_mind_id?: string | null
+          avatar_path?: string | null
           created_at?: string
           debate_mode?: string
           id?: string
           invite_code?: string
           invite_enabled?: boolean
           kind?: string
+          moderator_mode?: boolean
           owner_id?: string
           title?: string
           turn_limit?: number
+          turn_started_at?: string | null
+          turn_token?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1593,8 +1624,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_room_friend: {
+        Args: { _friend: string; _room: string }
+        Returns: undefined
+      }
       author_is_banned: { Args: { _user_id: string }; Returns: boolean }
       block_user: { Args: { _other: string }; Returns: boolean }
+      claim_room_turn: {
+        Args: { _message: string; _mind: string; _room: string }
+        Returns: string
+      }
+      complete_room_question: {
+        Args: { _message: string; _room: string }
+        Returns: undefined
+      }
+      finish_room_turn: {
+        Args: {
+          _body?: string
+          _message: string
+          _room: string
+          _token: string
+        }
+        Returns: undefined
+      }
       get_published_mind_package: {
         Args: { _token: string }
         Returns: {
