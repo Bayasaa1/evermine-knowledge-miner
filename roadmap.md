@@ -1,10 +1,10 @@
 # Roadmap
 
 ## Universal in-app sharing
-- [ ] Friends and recent rooms, optional message, external sharing
-- [ ] Explicit Mind invitation to owned rooms with Undo
-- [ ] Rich shared content cards and share triggers across content surfaces
-- [ ] Verify signed-in sending and mobile share sheet
+- [x] Friends and recent rooms, optional message, external sharing
+- [x] Explicit Mind invitation to owned rooms with Undo
+- [x] Rich shared content cards and share triggers across content surfaces
+- [x] Verify signed-in room sending, invitation/Undo, and mobile share sheet
 
 ## Room moderator and sharing upgrade
 - [x] Owner-only manual turns and persistent message queue
