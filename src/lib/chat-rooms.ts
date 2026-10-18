@@ -25,6 +25,10 @@ export type Room = {
   debate_mode: string;
   turn_limit: number;
   updated_at: string;
+  moderator_mode: boolean;
+  avatar_path: string | null;
+  active_mind_id: string | null;
+  turn_started_at: string | null;
 };
 export type RoomMember = { id: string; user_id: string; display_name: string; role: string; last_read_at: string };
 export type RoomMind = { id: string; mind_id: string; mind_name: string; role: string; sort: number };
@@ -38,7 +42,12 @@ export type RoomMessage = {
   body: string;
   shared_url: string | null;
   created_at: string;
+  moderator_pending: boolean;
+  reply_to_id: string | null;
+  attachment: RoomAttachment | null;
 };
+
+export type RoomAttachment = { kind: "image" | "video"; path: string; name: string } | { kind: "mind"; mindId: string; name: string };
 
 /** Room transcripts have no clip player; keep proof metadata out of prose. */
 function stripProofMarkers(text: string): string {
@@ -98,7 +107,7 @@ export async function deleteRoom(roomId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function updateRoom(roomId: string, patch: Partial<Pick<Room, "title" | "debate_mode" | "turn_limit" | "invite_enabled">>) {
+export async function updateRoom(roomId: string, patch: Partial<Pick<Room, "title" | "debate_mode" | "turn_limit" | "invite_enabled" | "moderator_mode" | "avatar_path">>) {
   await me();
   const { error } = await supabase.from("chat_rooms").update(patch).eq("id", roomId);
   if (error) throw error;
@@ -116,8 +125,9 @@ export async function loadRoom(roomId: string) {
     supabase.from("chat_rooms").select("*").eq("id", roomId).maybeSingle(),
     supabase.from("chat_room_members").select("id,user_id,display_name,role,last_read_at").eq("room_id", roomId),
     supabase.from("chat_room_minds").select("id,mind_id,mind_name,role,sort").eq("room_id", roomId).order("sort"),
-    supabase.from("chat_room_messages").select("*").eq("room_id", roomId).order("created_at").limit(500),
+    supabase.from("chat_room_messages").select("*").eq("room_id", roomId).order("created_at"),
   ]);
+  for (const result of [room, members, minds, messages]) if (result.error) throw result.error;
   return {
     room: (room.data as Room | null) ?? null,
     members: (members.data ?? []) as RoomMember[],
@@ -172,7 +182,7 @@ export async function removeMind(id: string) {
 
 export async function postMessage(
   roomId: string,
-  msg: { body: string; authorName: string; kind?: "user" | "mind"; mindId?: string | null; sharedUrl?: string | null },
+  msg: { body: string; authorName: string; kind?: "user" | "mind"; mindId?: string | null; sharedUrl?: string | null; attachment?: RoomAttachment | null },
 ) {
   const uid = await me();
   const { error } = await supabase.from("chat_room_messages").insert({
@@ -183,6 +193,7 @@ export async function postMessage(
     author_name: msg.authorName.slice(0, 80),
     body: (msg.kind === "mind" ? stripProofMarkers(msg.body) : msg.body).slice(0, 8000),
     shared_url: msg.sharedUrl ?? null,
+    attachment: msg.attachment ?? null,
   });
   if (error) throw error;
 }
@@ -234,9 +245,9 @@ export async function askMind(
   transcript: RoomMessage[],
   lang: string,
 ): Promise<string> {
-  const lines = transcript.slice(-60).map(cleanRoomMessage).map((m) => ({
+  const lines = transcript.map(cleanRoomMessage).map((m) => ({
     role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
-    text: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? m.body : `${m.author_name}: ${m.body}`,
+    text: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? m.body : `${m.author_name}: ${m.body}${m.attachment ? `\n[Shared ${m.attachment.kind}: ${m.attachment.name}]` : ""}`,
   }));
   lines.push({
     role: "user",
