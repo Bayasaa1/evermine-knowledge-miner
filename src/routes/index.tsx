@@ -659,6 +659,7 @@ function HomeFeed() {
         open={!!sharing}
         onClose={() => setSharing(null)}
         title={sharing ? `${sharing.creator} — ${sharing.title}` : ""}
+        content={sharing ? { kind: "video", id: sharing.contentId || sharing.id, title: sharing.title, creator: sharing.creator, image: sharing.poster, handle: sharing.handle, topics: sharing.tags, mindId: sharing.mindId, url: sharing.youtubeId ? `https://www.youtube.com/watch?v=${sharing.youtubeId}` : sharing.src || "https://ever-mind.dev" } : undefined}
         url={sharing ? (sharing.youtubeId ? `https://www.youtube.com/watch?v=${sharing.youtubeId}` : typeof window !== "undefined" ? window.location.origin : "") : ""}
       />
 
