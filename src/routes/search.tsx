@@ -6,9 +6,11 @@ import { Search as SearchIcon, Users, FolderOpen, Video, Tag } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { listPublicVisualContent } from "@/lib/projects";
 import { Localized } from "@/components/localized";
+import { ShareTrigger } from "@/components/share-trigger";
 import { pickCopy, useLang } from "@/lib/i18n";
 
 export const Route = createFileRoute("/search")({
+  validateSearch: (search: Record<string, unknown>) => ({ q: typeof search['q'] === "string" ? search['q'] : "" }),
   head: () => ({
     meta: [
       { title: "Search Evermind — Personas, projects and mined topics" },
@@ -80,6 +82,7 @@ type Hit = {
   subtitle: string;
   tags: string[];
   avatar?: string | null;
+  url?: string;
 };
 
 async function loadIndex(): Promise<Hit[]> {
@@ -129,6 +132,7 @@ async function loadIndex(): Promise<Hit[]> {
       subtitle: c.project?.creator_name ?? "",
       tags: c.tags.slice(0, 4),
       avatar: c.youtube_id ? `https://i.ytimg.com/vi/${c.youtube_id}/default.jpg` : null,
+      url: c.source_url || (c.youtube_id ? `https://www.youtube.com/watch?v=${c.youtube_id}` : `https://ever-mind.dev/search?q=${encodeURIComponent(c.title)}`),
     });
     for (const tag of c.tags) topics.set(tag, (topics.get(tag) ?? 0) + 1);
   }
@@ -144,7 +148,7 @@ function SearchPage() {
   const { lang } = useLang();
   const t = pickCopy(COPY, lang);
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(Route.useSearch().q);
   const [filter, setFilter] = useState<Filter>("all");
 
   const { data: index = [], isLoading } = useQuery({
@@ -212,8 +216,8 @@ function SearchPage() {
           {results.map((hit) => {
             const Icon = ICONS[hit.kind];
             return (
+              <div key={hit.id} className="flex items-center gap-2 rounded-lg border border-border bg-card p-2">
               <button
-                key={hit.id}
                 type="button"
                 onClick={() => void navigate({ to: hit.kind === "personas" ? "/vaults" : "/" })}
                 className="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-muted"
@@ -234,6 +238,8 @@ function SearchPage() {
                   </span>
                 </span>
               </button>
+              {hit.kind !== "topics" && <ShareTrigger content={{ kind: hit.kind === "personas" ? "mind" : hit.kind === "projects" ? "project" : "video", id: hit.id.replace(/^[^:]+:/, ""), mindId: hit.kind !== "videos" ? hit.id : null, title: hit.title, creator: hit.kind === "personas" ? hit.title : hit.subtitle, handle: hit.kind === "personas" ? hit.subtitle : undefined, image: hit.avatar, topics: hit.tags, url: hit.url || `https://ever-mind.dev/search?q=${encodeURIComponent(hit.title)}` }} />}
+              </div>
             );
           })}
         </div>

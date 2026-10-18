@@ -6,6 +6,7 @@
  * by dragging a canvas around.
  */
 import { useMemo, useState } from "react";
+import { ShareTrigger } from "@/components/share-trigger";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Pencil, Search, Trash2 } from "lucide-react";
@@ -487,6 +488,7 @@ export function ProjectContentTable({
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
+                    <ShareTrigger content={{ kind: "video", id: row.id, title: row.title, creator: project.creator_name, topics: row.tags, mindId: `project:${project.id}`, image: row.youtubeId ? `https://i.ytimg.com/vi/${row.youtubeId}/hqdefault.jpg` : null, url: row.sourceUrl || (row.youtubeId ? `https://www.youtube.com/watch?v=${row.youtubeId}` : `https://ever-mind.dev/search?q=${encodeURIComponent(row.title)}`) }} />
                   </td>
                 </tr>
               ))}

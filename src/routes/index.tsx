@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { ShareSheet } from "@/components/share-sheet";
+import { ShareTrigger } from "@/components/share-trigger";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { YouTubeStage } from "@/components/youtube-stage";
@@ -621,6 +622,7 @@ function HomeFeed() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
+              {creator.mindId && <ShareTrigger content={{ kind: creator.mindId.startsWith("persona:") ? "mind" : "project", id: creator.mindId, mindId: creator.mindId, title: creator.creator, creator: creator.creator, handle: creator.handle, image: creator.avatarUrl, topics: creator.tags, url: `https://ever-mind.dev/search?q=${encodeURIComponent(creator.creator)}` }} />}
               {creatorVideos.map((v) => (
                 <button
                   key={v.id}
@@ -659,6 +661,7 @@ function HomeFeed() {
         open={!!sharing}
         onClose={() => setSharing(null)}
         title={sharing ? `${sharing.creator} — ${sharing.title}` : ""}
+        content={sharing ? { kind: "video", id: sharing.contentId || sharing.id, title: sharing.title, creator: sharing.creator, image: sharing.poster, handle: sharing.handle, topics: sharing.tags, mindId: sharing.mindId, url: sharing.youtubeId ? `https://www.youtube.com/watch?v=${sharing.youtubeId}` : sharing.src || "https://ever-mind.dev" } : undefined}
         url={sharing ? (sharing.youtubeId ? `https://www.youtube.com/watch?v=${sharing.youtubeId}` : typeof window !== "undefined" ? window.location.origin : "") : ""}
       />
 

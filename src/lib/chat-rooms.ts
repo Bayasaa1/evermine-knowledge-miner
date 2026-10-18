@@ -7,6 +7,7 @@
  * /api/mind-chat — no member ever spends another member's credentials.
  */
 import { supabase } from "@/integrations/supabase/client";
+import type { ShareContent } from "@/lib/share-content";
 import { apiFetch } from "@/lib/api-fetch";
 import { currentOwnerId, NOT_SIGNED_IN } from "@/lib/owner";
 import { findMind, MINDS } from "@/lib/minds";
@@ -47,7 +48,7 @@ export type RoomMessage = {
   attachment: RoomAttachment | null;
 };
 
-export type RoomAttachment = { kind: "image" | "video"; path: string; name: string } | { kind: "mind"; mindId: string; name: string };
+export type RoomAttachment = { kind: "image" | "video"; path: string; name: string } | { kind: "mind"; mindId: string; name: string; share?: ShareContent };
 
 /** Room transcripts have no clip player; keep proof metadata out of prose. */
 function stripProofMarkers(text: string): string {

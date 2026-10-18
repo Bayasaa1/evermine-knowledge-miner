@@ -7,6 +7,7 @@
  * re-assign it, and delete it together with its version history.
  */
 import { useEffect, useMemo, useState } from "react";
+import { ShareTrigger } from "@/components/share-trigger";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -806,6 +807,7 @@ export function SavedMinds({
 
                         {/* Actions live on their own wrapped row so nothing overflows on phones. */}
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <ShareTrigger content={{ kind: "video", id: v.id, title: g.title, image: g.thumb, creator: video?.channel, mindId: v.projectId ? `project:${v.projectId}` : null, url: g.sourceUrl || `https://ever-mind.dev/search?q=${encodeURIComponent(g.title)}` }} />
                           {busy ? (
                             <Link
                               to="/mining"

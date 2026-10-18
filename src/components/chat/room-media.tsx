@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Bot, ExternalLink, ImageOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ExternalLink, ImageOff } from "lucide-react";
 import { roomMediaUrl, type RoomAttachment } from "@/lib/chat-rooms";
+import { SharedContentCard } from "@/components/chat/shared-content-card";
+import type { ShareContent } from "@/lib/share-content";
 
-export function RoomMedia({ attachment, onMind, openLabel }: { attachment: RoomAttachment; onMind: (id: string) => void; openLabel: string }) {
+export function RoomMedia({ attachment, onMind, openLabel, onAdd }: { attachment: RoomAttachment; onMind: (id: string) => void; openLabel: string; onAdd?: (content: ShareContent) => void }) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState(false);
   const path = attachment.kind === "mind" ? "" : attachment.path;
@@ -15,7 +16,8 @@ export function RoomMedia({ attachment, onMind, openLabel }: { attachment: RoomA
     const timer = window.setInterval(refresh, 50 * 60 * 1000);
     return () => { live = false; window.clearInterval(timer); };
   }, [path]);
-  if (attachment.kind === "mind") return <Button variant="outline" className="my-2 h-auto w-full justify-start whitespace-normal p-3 text-left" onClick={() => onMind(attachment.mindId)}><Bot className="shrink-0" /><span className="min-w-0 flex-1 break-words">{attachment.name}</span><ExternalLink /></Button>;
+  if (attachment.kind === "mind" && attachment.share) return <div className="my-2"><SharedContentCard content={attachment.share} onMind={onMind} {...(onAdd ? { onAdd } : {})} /></div>;
+  if (attachment.kind === "mind") return <div className="my-2"><SharedContentCard content={{ kind: attachment.mindId.startsWith("project:") ? "project" : "mind", id: attachment.mindId, mindId: attachment.mindId, title: attachment.name, url: `https://ever-mind.dev/search?q=${encodeURIComponent(attachment.name)}` }} onMind={onMind} {...(onAdd ? { onAdd } : {})} /></div>;
   if (error) return <div className="flex items-center gap-2 py-3 text-muted-foreground"><ImageOff className="h-4 w-4" />{attachment.name}</div>;
   if (!url) return <div className="my-2 h-32 animate-pulse rounded-lg bg-muted" />;
   return attachment.kind === "image"

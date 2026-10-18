@@ -12,6 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { RoomAvatar, RoomMedia, SharedLink } from "@/components/chat/room-media";
 import { ModeratorBar } from "@/components/chat/moderator-bar";
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
+import { ShareModal } from "@/components/share-modal";
+import type { ShareContent } from "@/lib/share-content";
 import { loadGraph, type Person } from "@/lib/friends";
 import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion } from "@/lib/room-turns";
 import { MessageResponse } from "@/components/ai-elements/message";
@@ -117,6 +119,7 @@ function RoomPage() {
   const pending = pendingQuestions(messages);
 
   /** Let Minds speak one after another; pausing stops before the next one. */
+  const [inviteContent, setInviteContent] = useState<ShareContent | null>(null);
   const runQueue = async (list: RoomMind[]) => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -261,7 +264,7 @@ function RoomPage() {
               <div className={`min-w-0 max-w-[85%] rounded-lg px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : m.sender_kind === "mind" ? "border border-border bg-card" : "bg-muted"}`}>
                 {!mine && <div className="mb-0.5 flex items-center gap-1 text-xs font-semibold opacity-80">{m.sender_kind === "mind" && <Bot className="h-3 w-3" />}{m.author_name}</div>}
                 {m.body.trim() && <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang}>{(shown) => m.sender_kind === "mind" ? <MessageResponse>{shown}</MessageResponse> : shown}</ChatDisplayText></div>}
-                {m.attachment && <RoomMedia attachment={m.attachment} onMind={setOpenMind} openLabel={x.open} />}
+                {m.attachment && <RoomMedia attachment={m.attachment} onMind={setOpenMind} openLabel={x.open} {...(isOwner && room.kind !== "dm" ? { onAdd: setInviteContent } : {})} />}
                 {m.shared_url && <SharedLink url={m.shared_url} openLabel={x.open} />}
                 {m.moderator_pending && <div className="mt-1 text-xs opacity-60">{x.queued}</div>}
                 {(m.sender_user_id === userId || isAdmin) && (
@@ -285,7 +288,8 @@ function RoomPage() {
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t.say} aria-label={t.say} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
         <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || sending || uploading || (!!speaking && !room.moderator_mode)} aria-label="Send"><Send /></Button>
       </form>
-      {openMind && <TalkToMindModal open={!!openMind} onClose={() => setOpenMind(null)} mindId={openMind} mindName={invitable.find((m) => m.mindId === openMind)?.name || minds.find((m) => m.mind_id === openMind)?.mind_name || "Mind"} />}
+      {inviteContent && <ShareModal open onClose={() => { setInviteContent(null); void reload(); }} content={inviteContent} targetRoomId={roomId} />}
+      {openMind && <TalkToMindModal open={!!openMind} onClose={() => setOpenMind(null)} mindId={openMind} mindName={messages.find((m) => m.attachment?.kind === "mind" && m.attachment.share?.mindId === openMind)?.attachment?.name || invitable.find((m) => m.mindId === openMind)?.name || minds.find((m) => m.mind_id === openMind)?.mind_name || "Mind"} />}
 
       {showSettings && (
         <div className="fixed inset-0 z-[80] overflow-y-auto bg-background px-4 pb-4 pt-[calc(env(safe-area-inset-top)+16px)]">
