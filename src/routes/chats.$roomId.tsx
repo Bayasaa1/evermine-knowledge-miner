@@ -222,14 +222,14 @@ function RoomPage() {
 
   return (
     <main className="flex h-[100dvh] flex-col bg-background text-foreground">
-      <header className="flex items-center gap-2 border-b border-border px-3 pb-2 pt-[calc(env(safe-area-inset-top)+8px)]">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border pl-3 pr-16 pb-2 pt-[calc(env(safe-area-inset-top)+8px)]">
         <Link to="/chats" aria-label="Back" className="p-2"><ArrowLeft className="h-5 w-5" /></Link>
         <RoomAvatar path={room.avatar_path} title={room.title} />
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{room.title}</div>
           <div className="text-xs text-muted-foreground">👥 {members.length} · 🤖 {minds.length}</div>
         </div>
-        <Button aria-label={t.settings} onClick={() => { setShowSettings(true); setName(room.title); void listInvitableMinds().then(setInvitable); void loadGraph().then((g) => setFriends(g.friends)).catch((e) => toast.error(e.message)); }} className="p-2"><Settings className="h-5 w-5" /></Button>
+        <Button variant="ghost" size="icon" aria-label={t.settings} onClick={() => { setShowSettings(true); setName(room.title); void listInvitableMinds().then(setInvitable); void loadGraph().then((g) => setFriends(g.friends)).catch((e) => toast.error(e.message)); }}><Settings className="h-5 w-5" /></Button>
       </header>
 
       {isOwner && <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2"><label htmlFor="moderator-toggle" className="text-sm">{x.moderator}</label><Switch id="moderator-toggle" checked={room.moderator_mode} disabled={!!speaking} onCheckedChange={(checked) => { pausedRef.current = true; setQueue([]); void changeRoom({ moderator_mode: checked }); }} /></div>}
@@ -288,7 +288,7 @@ function RoomPage() {
       {openMind && <TalkToMindModal open={!!openMind} onClose={() => setOpenMind(null)} mindId={openMind} mindName={invitable.find((m) => m.mindId === openMind)?.name || minds.find((m) => m.mind_id === openMind)?.mind_name || "Mind"} />}
 
       {showSettings && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-background p-4">
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-background px-4 pb-4 pt-[calc(env(safe-area-inset-top)+16px)]">
           <div className="mx-auto max-w-xl space-y-5">
             <div className="flex items-center justify-between"><h2 className="text-lg font-bold">{t.settings}</h2><Button onClick={() => setShowSettings(false)} aria-label="Close"><X className="h-5 w-5" /></Button></div>
 
