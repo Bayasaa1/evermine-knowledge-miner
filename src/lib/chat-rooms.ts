@@ -174,6 +174,45 @@ export async function setMindRole(id: string, role: MindRole) {
   if (error) throw error;
 }
 
+export async function addRoomFriend(roomId: string, friendId: string) {
+  const { error } = await supabase.rpc("add_room_friend", { _room: roomId, _friend: friendId });
+  if (error) throw error;
+}
+
+export async function claimRoomTurn(roomId: string, messageId: string, mindId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("claim_room_turn", { _room: roomId, _message: messageId, _mind: mindId });
+  if (error) throw error;
+  return data;
+}
+
+export async function finishRoomTurn(roomId: string, token: string, messageId: string, body?: string) {
+  const { error } = await supabase.rpc("finish_room_turn", { _room: roomId, _token: token, _message: messageId, _body: body });
+  if (error) throw error;
+}
+
+export async function completeRoomQuestion(roomId: string, messageId: string) {
+  const { error } = await supabase.rpc("complete_room_question", { _room: roomId, _message: messageId });
+  if (error) throw error;
+}
+
+export async function uploadRoomMedia(roomId: string, file: File): Promise<RoomAttachment> {
+  const uid = await me();
+  const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : null;
+  if (!kind || file.type === "image/svg+xml") throw new Error("Choose a photo or video.");
+  if (file.size > 50 * 1024 * 1024) throw new Error("Maximum file size: 50 MB.");
+  const ext = file.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").slice(0, 10) || kind;
+  const path = `${roomId}/${uid}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await supabase.storage.from("room-media").upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw error;
+  return { kind, path, name: file.name.slice(0, 160) };
+}
+
+export async function roomMediaUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from("room-media").createSignedUrl(path, 3600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 export async function removeMind(id: string) {
   await me();
   const { error } = await supabase.from("chat_room_minds").delete().eq("id", id);
