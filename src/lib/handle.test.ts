@@ -1,18 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { cleanHandle, isBrokenHandle, looksLikeSummaryTitle } from "./handle";
 
 describe("handles", () => {
   it("never exceeds 24 chars and drops punctuation", () => {
     const h = cleanHandle("Европт сурахад racism || монголчууд");
-    expect(h.length).toBeLessThanOrEqual(25);
-    expect(h).not.toMatch(/[|,\s]/);
+    assert.ok(h.length <= 25);
+    assert.doesNotMatch(h, /[|,\s]/);
   });
   it("flags title-made handles", () => {
-    expect(isBrokenHandle("@thecreatorintroduceshisfirstvlogseries,explaininghis")).toBe(true);
-    expect(isBrokenHandle("@gremix")).toBe(false);
+    assert.equal(isBrokenHandle("@thecreatorintroduceshisfirstvlogseries,explaininghis"), true);
+    assert.equal(isBrokenHandle("@gremix"), false);
   });
   it("flags summary titles but not real titles", () => {
-    expect(looksLikeSummaryTitle("The creator recounts an eventful and clumsy day trying to vl")).toBe(true);
-    expect(looksLikeSummaryTitle("Joe Rogan Experience #1470 - Elon Musk")).toBe(false);
+    assert.equal(looksLikeSummaryTitle("The creator recounts an eventful and clumsy day trying to vl"), true);
+    assert.equal(looksLikeSummaryTitle("Joe Rogan Experience #1470 - Elon Musk"), false);
   });
 });
