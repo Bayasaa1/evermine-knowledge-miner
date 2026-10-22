@@ -5,6 +5,7 @@ import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 import { getPublicProjectMind } from "@/lib/project-mind.server";
 import { buildPromptContext, ensurePayload } from "@/lib/viewer-brain";
+import { budgetSections } from "@/lib/chat-context-budget";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
 
@@ -190,17 +191,19 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   if (!project) return null;
   const branch = await rootBranchBlock(mindId, queryText, topicId, topicTitle);
   const q = words(queryText);
-  const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.join("\n- ")}` : "");
+  const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.map((item) => item.slice(0, 500)).join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
   const stances = (extras?.qa ?? []).filter((s) => s.answer.trim());
-  return [
+  return budgetSections([
+    conversationStyleRules(project.name),
+    branch,
     `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind, a bot or an assistant.`,
     `WHO YOU ARE: when the person asks who you are or what you do, answer confidently as ${project.name} with your real work, projects and obsessions — the way you would introduce yourself at a dinner table, in one or two lively sentences, then ask about them.`,
     block(`YOUR IDENTITY CARD (use this for a lively, factual self-introduction):`, project.selfIntro),
     extras?.bio ? `YOUR OWN BIO (written by you): ${extras.bio.slice(0, 600)}` : "",
     extras?.tags.length ? `YOUR THEMES: ${extras.tags.join(", ")}` : "",
     stances.length
-      ? `YOUR OFFICIAL POSITIONS (you wrote these yourself — when a question touches one, hold exactly this position and its key points, said in your own natural voice; never contradict them):\n${stances.map((s) => `Q: ${s.question}\nA: ${s.answer.slice(0, 1200)}`).join("\n\n")}`
+      ? `YOUR OFFICIAL POSITIONS (you wrote these yourself — when a question touches one, hold exactly this position and its key points, said in your own natural voice; never contradict them):\n${pickRelevant(stances.map((s) => `Q: ${s.question.slice(0, 300)}\nA: ${s.answer.slice(0, 1200)}`), q, 4, 1).join("\n\n")}`
       : "",
 
 
@@ -215,23 +218,18 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
     block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
-    branch,
-    branch ? "" : block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts — use them when relevant, in the reply language):`, pickRelevant(project.knowledge.filter((f) => !/\] SCREEN /.test(f)), q, 14, 4)),
-    block(`WHAT WAS ON YOUR SCREEN IN YOUR VIDEOS (exact links, numbers, chats, UI — quote exactly when asked):`, pickRelevant(project.knowledge.filter((f) => /\] SCREEN /.test(f)), q, 10, 2)),
+    branch ? "" : block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts, including typed SCREEN observations — never confuse screen content with your beliefs):`, pickRelevant(project.knowledge, q, 6, 2).slice(0, 8)),
     project.episodes?.length
       ? `YOUR LATEST VIDEOS, NEWEST FIRST (this is what you actually did recently — when asked what you did lately, what's new, or about a video, name concrete things from here: what happened, items, places, people, numbers):\n${project.episodes.slice(0, RECENT_RE.test(queryText) ? 5 : 3).join("\n")}`
       : "",
     `CONVERSATION FLOW: a real chat has a beginning, a build-up and a payoff. Answer what the person actually said first. Never jump to an unrelated person, story or joke out of nowhere. If you want to bring up a story or joke, first build a bridge to it from the current topic ("speaking of...", a question), and only then tell it. A greeting gets a greeting back, nothing more.`,
     (() => {
-      const lines = q.length ? pickRelevant(project.transcript, q, 20, 0) : [];
+      const lines = !branch && q.length ? pickRelevant(project.transcript, q, 4, 0).map((line) => line.slice(0, 400)) : [];
       return lines.length ? `YOUR OWN WORDS ON THIS TOPIC (memory, not a script):\n${lines.join("\n")}` : "";
     })(),
-    conversationStyleRules(project.name),
     `BE CONCRETE: when the person asks about your life, work or videos, answer with specific real details from the sections above (what happened, which item, which game, what number) — never with vague buzzwords repeated from your phrase list. Do not keep reusing the same phrase or topic across replies.`,
     `TRUTH RULE: do not invent hard facts, numbers or events you never spoke about. But you are always free to react, joke, give your opinion, ask questions and make small talk — that is not inventing, that is being yourself.`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  ], 19000);
 }
 
 /**
@@ -449,7 +447,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         // Preserve the conversation as real turns. The browser loads the saved
         // thread, so truncating here made the model forget what was just said.
         const history = Array.isArray(body.messages) ? body.messages.slice(-200) : [];
-        const recentUser = history.filter((m) => m.role === "user").at(-1)?.text ?? "";
+        const recentUser = history.filter((m) => m.role === "user" && !m.text.startsWith("[Group room note — not from a person]")).at(-1)?.text ?? "";
         const topicId = typeof body.topicId === "string" ? body.topicId.slice(0, 80) : undefined;
         const topicTitle = typeof body.topicTitle === "string" ? body.topicTitle.slice(0, 300) : undefined;
         const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId, topicTitle) : null;
@@ -469,7 +467,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         const cap = await mindLevelCap(body.mindId ?? "");
         const asked = Math.max(0, Math.min(100, Math.round(Number(body.aiLevel ?? cap.def)) || 0));
         const level = Math.min(asked, cap.max);
-        const withMemory = brain.context ? `${system}\n\n${brain.context}` : system;
+        const withMemory = budgetSections([system, brain.context], 21500);
         const systemWithMemory = `${withMemory}\n\n${aiLevelRules(level)}\n\n${replyLanguageRule(history, lang)}\n\nSHARED FILES: when a user message contains [[file:NAME|KIND]] … [[/file]], the viewer just handed you a file (its text, transcript or a description of the picture/video). Before replying, silently: (1) study what is actually in it; (2) ask yourself how YOU — this creator, with your own beliefs, decision logic, taste, humour and experience above — would see it; (3) decide what the viewer wants: a reaction, your opinion, feedback/critique, or a concrete job (summarise, fix, translate, rate, plan, answer questions). Then reply in your own voice: react first like you really opened it, then give your take through your own lens (what you like, what you would change, what it reminds you of from your own life/work), and do the job if one was asked or clearly implied. Refer to specific details from the file. You may use up to 6 short sentences, or a short list only when the job needs it. Never quote the markers, never say you "received a file" like a system, and never invent content that is not in the file.`;
 
         const { generateRoleText, aiErrorResponse } = await import("@/lib/user-ai.server");
@@ -477,7 +475,8 @@ export const Route = createFileRoute("/api/mind-chat")({
         // On a video call the Mind is also told what it can see right now, so it
         // reacts to the person in front of it the way a caller would expect.
         const seen = typeof body.seen === "string" ? body.seen.trim().slice(0, 400) : "";
-        const systemText = seen ? `${systemWithMemory}\n\nRight now you can see on the video call: ${seen}` : systemWithMemory;
+        const rules = systemWithMemory.slice(withMemory.length);
+        const systemText = budgetSections([rules, seen ? `Right now you can see on the video call: ${seen}` : "", withMemory]);
         try {
           const turns = history.map((message) => ({
             role: message.role === "user" ? "user" as const : "assistant" as const,

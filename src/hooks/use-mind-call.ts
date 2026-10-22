@@ -6,7 +6,7 @@ import type { Lang } from "@/lib/i18n";
 import { toast } from "sonner";
 import { createCallLifecycle } from "@/lib/call-lifecycle";
 
-const HEAR_ERR: Record<string, { mic: string; fail: string; busy: string; auth: string }> = {
+const HEAR_ERR = {
   en: { mic: "Microphone access was blocked. Allow the microphone and try again.", fail: "Couldn't understand the recording. Check your Gemini key in API Manager, or type instead.", busy: "Too many voice turns this minute. Wait a moment and try again.", auth: "Sign in to use voice calls." },
   mn: { mic: "Микрофоны зөвшөөрөл хаалттай байна. Зөвшөөрөөд дахин оролдоно уу.", fail: "Бичлэгийг ойлгож чадсангүй. API Manager дахь Gemini түлхүүрээ шалгах эсвэл бичиж асуугаарай.", busy: "Нэг минутад хэт олон удаа ярилаа. Түр хүлээгээд дахин оролдоно уу.", auth: "Дуудлага ашиглахын тулд нэвтэрнэ үү." },
   ko: { mic: "마이크 권한이 차단되었습니다. 허용한 뒤 다시 시도하세요.", fail: "녹음을 이해하지 못했습니다. API Manager에서 Gemini 키를 확인하거나 입력해 주세요.", busy: "1분 동안 음성 요청이 너무 많습니다. 잠시 후 다시 시도하세요.", auth: "음성 통화를 사용하려면 로그인하세요." },
