@@ -298,12 +298,21 @@ export const runNextChunk = createServerFn({ method: "POST" })
       return { job: { ...job, status: "paused_quota" }, chunk: null, merged: null, done: false };
     }
 
-    // Claim the part so the background worker leaves it alone meanwhile.
-    await context.supabase
+    // Atomic claim: one conditional update, so two tabs/lanes or the
+    // background worker can never mine the same part at the same moment.
+    let claim = context.supabase
       .from("mining_jobs")
       .update({ status: "running" })
       .eq("id", job.id)
       .eq("user_id", context.userId);
+    if (data.respectLease) {
+      const leaseIso = new Date(Date.now() - 3 * 60_000).toISOString();
+      claim = claim.or(`status.neq.running,updated_at.lt.${leaseIso}`);
+    }
+    const { data: claimed } = await claim.select("id");
+    if (data.respectLease && !claimed?.length) {
+      return { job, chunk: null, merged: null, done: false, busy: true };
+    }
 
     const chunk = job.chunks[job.nextIndex]!;
     if (job.personaId && !job.assessment.speakerIdentity?.trim()) {

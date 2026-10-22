@@ -138,6 +138,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         for (const job of jobs ?? []) {
           if (Date.now() > deadline) break;
           if (quotaUsers.has(job.user_id)) continue;
+          // Atomic claim: only proceed if nobody touched the job since we read
+          // it, so an open tab and this worker never mine the same part twice.
+          const { data: claimed } = await supabaseAdmin
+            .from("mining_jobs")
+            .update({ status: "running" })
+            .eq("id", job.id)
+            .eq("updated_at", job.updated_at)
+            .select("id");
+          if (!claimed?.length) continue;
           const chunks = (Array.isArray(job.chunks) ? job.chunks : []) as {
             start: number;
             end: number;
