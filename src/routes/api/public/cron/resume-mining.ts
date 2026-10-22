@@ -142,7 +142,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           // it, so an open tab and this worker never mine the same part twice.
           const { data: claimed } = await supabaseAdmin
             .from("mining_jobs")
-            .update({ status: job.status === "error" ? "running" : job.status })
+            .update({ status: "running" })
             .eq("id", job.id)
             .eq("updated_at", job.updated_at)
             .select("id");
