@@ -15,7 +15,7 @@ import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { ShareModal } from "@/components/share-modal";
 import type { ShareContent } from "@/lib/share-content";
 import { loadGraph, type Person } from "@/lib/friends";
-import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion } from "@/lib/room-turns";
+import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnIsActive, withTurnDeadline, ROOM_TURN_TIMEOUT_MS } from "@/lib/room-turns";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
@@ -117,6 +117,24 @@ function RoomPage() {
   const isAdmin = me?.role === "owner" || me?.role === "admin";
   const isOwner = room?.owner_id === userId;
   const pending = pendingQuestions(messages);
+  const [turnClock, setTurnClock] = useState(Date.now());
+  useEffect(() => {
+    setTurnClock(Date.now());
+    if (!room?.turn_started_at || !room.turn_token) return;
+    const delay = Math.max(0, Date.parse(room.turn_started_at) + ROOM_TURN_TIMEOUT_MS - Date.now());
+    const timer = window.setTimeout(() => {
+      setTurnClock(Date.now());
+      // On reconnect, free the expired token without selecting another Mind.
+      if (room.owner_id === userId) {
+        const question = pendingQuestions(msgsRef.current)[0];
+        if (question && room.turn_token) void finishRoomTurn(roomId, room.turn_token, question.id).then(reload).catch(() => {});
+      }
+    }, delay + 10);
+    return () => window.clearTimeout(timer);
+  }, [room?.turn_started_at, room?.turn_token, room?.owner_id, userId, roomId, reload]);
+  const turnError = (error: unknown) => error instanceof Error && error.message === "TURN_TIMEOUT"
+    ? pickCopy({ en: "This Mind did not answer within 45 seconds. The turn is free again.", mn: "Энэ Mind 45 секундэд хариулсангүй. Ээлж чөлөөлөгдлөө.", ko: "이 마인드가 45초 안에 답하지 않았습니다. 차례가 해제되었습니다." }, lang)
+    : error instanceof Error ? error.message : String(error);
 
   /** Let Minds speak one after another; pausing stops before the next one. */
   const [inviteContent, setInviteContent] = useState<ShareContent | null>(null);
@@ -130,15 +148,13 @@ function RoomPage() {
       if (!mind) break;
       setSpeaking(mind.mind_name);
       try {
-        const text = await askMind(mind, msgsRef.current, lang);
+        const text = await withTurnDeadline((signal) => askMind(mind, msgsRef.current, lang, signal));
         await postMessage(roomId, { body: text, authorName: mind.mind_name, kind: "mind", mindId: mind.mind_id });
         const r = await loadRoom(roomId);
         setMessages(r.messages);
         msgsRef.current = r.messages;
       } catch (e) {
-        toast.error(`${mind.mind_name}: ${(e as Error).message}`);
-        rest = [];
-        break;
+        toast.error(`${mind.mind_name}: ${turnError(e)}`);
       }
       rest = rest.slice(1);
     }
@@ -160,16 +176,20 @@ function RoomPage() {
         const token = await claimRoomTurn(roomId, question.id, mind.mind_id);
         try {
           const fresh = await loadRoom(roomId);
-          const text = await askMind(mind, transcriptForQuestion(fresh.messages, question.id), lang);
+          const text = await withTurnDeadline((signal) => askMind(mind, transcriptForQuestion(fresh.messages, question.id), lang, signal));
           await finishRoomTurn(roomId, token, question.id, text);
         } catch (error) {
           await finishRoomTurn(roomId, token, question.id).catch(() => {});
+          if (error instanceof Error && error.message === "TURN_TIMEOUT") {
+            toast.error(`${mind.mind_name}: ${turnError(error)}`);
+            continue; // Only advances within the sequence the owner explicitly selected.
+          }
           throw error;
         }
         const fresh = await loadRoom(roomId);
         setMessages(fresh.messages); msgsRef.current = fresh.messages;
       }
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) { toast.error(turnError(e)); }
     finally { busyRef.current = false; setSpeaking(null); void reload(); }
   };
 
@@ -236,7 +256,7 @@ function RoomPage() {
       </header>
 
       {isOwner && <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2"><label htmlFor="moderator-toggle" className="text-sm">{x.moderator}</label><Switch id="moderator-toggle" checked={room.moderator_mode} disabled={!!speaking} onCheckedChange={(checked) => { pausedRef.current = true; setQueue([]); void changeRoom({ moderator_mode: checked }); }} /></div>}
-      {room.moderator_mode && isOwner && <ModeratorBar pending={pending} minds={minds} busy={!!speaking || (!!room.active_mind_id && !!room.turn_started_at && Date.now() - Date.parse(room.turn_started_at) < 600000)} paused={paused} onSpeak={(list) => void manualTurn(list)} onComplete={() => { const q = pending[0]; if (q) void completeRoomQuestion(roomId, q.id).then(reload).catch((e) => toast.error(e.message)); }} onPause={() => { pausedRef.current = true; setPaused(true); }} labels={{ ...x, pause: t.pause }} />}
+      {room.moderator_mode && isOwner && <ModeratorBar pending={pending} minds={minds} busy={!!speaking || (!!room.active_mind_id && turnIsActive(room.turn_started_at, turnClock))} paused={paused} onSpeak={(list) => void manualTurn(list)} onComplete={() => { const q = pending[0]; if (q) void completeRoomQuestion(roomId, q.id).then(reload).catch((e) => toast.error(e.message)); }} onPause={() => { pausedRef.current = true; setPaused(true); }} labels={{ ...x, pause: t.pause }} />}
       {room.moderator_mode && !isOwner && <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">{x.moderator} · {x.queued}: {pending.length}</p>}
       {!room.moderator_mode && minds.length > 1 && (
         <div className="flex items-center gap-2 border-b border-border px-3 py-2 text-xs">

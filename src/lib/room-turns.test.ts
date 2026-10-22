@@ -1,7 +1,20 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion } from "./room-turns";
+import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnIsActive, withTurnDeadline } from "./room-turns";
 describe("moderator turns", () => {
+  it("expires a disconnected turn at exactly 45 seconds", () => {
+    const started = "2026-10-22T11:00:00Z";
+    assert.equal(turnIsActive(started, Date.parse(started) + 44999), true);
+    assert.equal(turnIsActive(started, Date.parse(started) + 45000), false);
+    assert.equal(turnIsActive(null), false);
+  });
+  it("aborts timed-out AI work and rejects even if the provider never settles", async () => {
+    let aborted = false;
+    await assert.rejects(withTurnDeadline((signal) => new Promise(() => {
+      signal.addEventListener("abort", () => { aborted = true; });
+    }), 5), /TURN_TIMEOUT/);
+    assert.equal(aborted, true);
+  });
   it("never automatically replies in moderator mode", () => {
     assert.equal(automaticRepliesAllowed(true), false);
     assert.equal(automaticRepliesAllowed(false), true);
