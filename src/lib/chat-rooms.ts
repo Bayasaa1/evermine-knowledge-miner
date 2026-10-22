@@ -29,6 +29,7 @@ export type Room = {
   moderator_mode: boolean;
   avatar_path: string | null;
   active_mind_id: string | null;
+  turn_token: string | null;
   turn_started_at: string | null;
 };
 export type RoomMember = { id: string; user_id: string; display_name: string; role: string; last_read_at: string };

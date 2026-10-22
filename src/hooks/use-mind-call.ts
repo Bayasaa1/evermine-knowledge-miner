@@ -65,6 +65,7 @@ export function useMindCall(
   const requestsRef = useRef(new Set<AbortController>());
   const cameraRequestRef = useRef<AbortController | null>(null);
   const voiceId = opts?.voiceId;
+  const hearErrors = lang === "mn" ? HEAR_ERR.mn : lang === "ko" ? HEAR_ERR.ko : HEAR_ERR.en;
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -186,11 +187,11 @@ export function useMindCall(
           });
           const json = (await res.json().catch(() => ({}))) as { text?: string };
           if (!lifecycle.current.current(token)) return;
-          const msgs = HEAR_ERR[lang] ?? HEAR_ERR.en;
+          const msgs = hearErrors;
           if (!res.ok) toast.error(res.status === 429 ? msgs.busy : res.status === 401 ? msgs.auth : msgs.fail);
           else if (json.text) onTranscript(json.text);
         } catch {
-          if (lifecycle.current.current(token)) toast.error((HEAR_ERR[lang] ?? HEAR_ERR.en).fail);
+          if (lifecycle.current.current(token)) toast.error(hearErrors.fail);
         } finally {
           requestsRef.current.delete(controller);
           if (lifecycle.current.current(token)) setListening(false);
@@ -202,9 +203,9 @@ export function useMindCall(
     } catch {
       if (!lifecycle.current.current(token)) return;
       setListening(false);
-      toast.error((HEAR_ERR[lang] ?? HEAR_ERR.en).mic);
+      toast.error(hearErrors.mic);
     }
-  }, [lang, listening, onTranscript]);
+  }, [lang, listening, onTranscript, hearErrors]);
 
   const stopListening = useCallback(() => {
     releasePendingRef.current = true;

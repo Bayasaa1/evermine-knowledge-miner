@@ -12,7 +12,7 @@ const topics: RecallTopic[] = [
 ];
 describe("branch fact recall", () => {
   it("uses at most eight topic chunks and retains the latest-query deep match", () => {
-    const many: RecallTopic[] = Array.from({ length: 20 }, (_, i) => ({ id: String(i), parentId: i ? "0" : undefined, title: `Branch ${i}`, group: "Test", summary: "", facts: [fact(i === 19 ? "Deduplication concrete detail" : `record-${i}`)] }));
+    const many: RecallTopic[] = Array.from({ length: 20 }, (_, i) => ({ id: String(i), ...(i ? { parentId: "0" } : {}), title: `Branch ${i}`, group: "Test", summary: "", facts: [fact(i === 19 ? "Deduplication concrete detail" : `record-${i}`)] }));
     const before = JSON.stringify(many);
     const result = recallBranch(many, "deduplication", [], "0", 100);
     assert.equal(result.facts.length, 8);
