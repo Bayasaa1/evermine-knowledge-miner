@@ -1,4 +1,5 @@
 /** Read-only subtree recall. Never changes saved knowledge. */
+import { MAX_TOPIC_CHUNKS } from "./chat-context-budget";
 export type RecallTopic = { id: string; title: string; group: string; summary: string; parentId?: string; facts: { text: string; ts: string; videoId: string }[] };
 const STOP = new Set("the a an and or is are to of in on for with it this that you your what how why tell about more detail company companies technology development future please".split(" "));
 const tokens = (s: string) => (s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []).filter((w) => w.length >= 2 && !STOP.has(w));
@@ -17,7 +18,12 @@ export function recallBranch(topics: RecallTopic[], query: string, bridged: stri
     const t = queue[i]; if (!t || seen.has(t.id)) continue;
     seen.add(t.id); selected.push(t); queue.push(...topics.filter((c) => c.parentId === t.id));
   }
-  const buckets = selected.map((t) => t.facts.map((f) => ({ f, score: score(f.text) })).sort((a, b) => b.score - a.score));
+  // Rank across all depths before limiting chunks; a large parent cannot hide a relevant child.
+  const chunks = selected.map((t, order) => ({ t, order, score: score(t.title) * 5 + score(t.summary) + Math.max(0, ...t.facts.map((f) => score(f.text))) }))
+    .filter(({ t }) => t.facts.length > 0)
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .slice(0, MAX_TOPIC_CHUNKS);
+  const buckets = chunks.map(({ t }) => t.facts.map((f) => ({ f, score: score(f.text) })).sort((a, b) => b.score - a.score));
   const picked: RecallTopic["facts"] = []; const used = new Set<string>();
   const add = (f: RecallTopic["facts"][number]) => { const id = `${f.videoId}|${f.ts}|${f.text}`; if (!used.has(id) && picked.length < maxFacts) { used.add(id); picked.push(f); } };
   // Query hits across all depths first, then round-robin every branch.
@@ -28,5 +34,5 @@ export function recallBranch(topics: RecallTopic[], query: string, bridged: stri
     while (p && !visited.has(p.id)) { visited.add(p.id); path.unshift(p.title); p = p.parentId ? byId.get(p.parentId) : undefined; }
     return [r.group, ...path].filter(Boolean).join(" › ");
   });
-  return { titles, facts: picked.map((f) => `${f.ts ? `[${f.ts}] ` : ""}${f.text}${f.ts && /^[\w-]{11}$/.test(f.videoId) ? ` (src=${f.videoId}@${f.ts})` : ""}`) };
+  return { titles, facts: picked.map((f) => `${f.ts ? `[${f.ts}] ` : ""}${f.text.slice(0, 360)}${f.ts && /^[\w-]{11}$/.test(f.videoId) ? ` (src=${f.videoId}@${f.ts})` : ""}`) };
 }

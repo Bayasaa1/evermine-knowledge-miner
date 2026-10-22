@@ -11,6 +11,14 @@ const topics: RecallTopic[] = [
   { id: "deep", title: "Deduplication", parentId: "quality", group: "Technology", summary: "", facts: [fact("Deduplication removes repeated training examples.")] },
 ];
 describe("branch fact recall", () => {
+  it("uses at most eight topic chunks and retains the latest-query deep match", () => {
+    const many: RecallTopic[] = Array.from({ length: 20 }, (_, i) => ({ id: String(i), ...(i ? { parentId: "0" } : {}), title: `Branch ${i}`, group: "Test", summary: "", facts: [fact(i === 19 ? "Deduplication concrete detail" : `record-${i}`)] }));
+    const before = JSON.stringify(many);
+    const result = recallBranch(many, "deduplication", [], "0", 100);
+    assert.equal(result.facts.length, 8);
+    assert.ok(result.facts.some((f) => f.includes("concrete detail")));
+    assert.equal(JSON.stringify(many), before);
+  });
   it("finds Grok inside a broader topic even when no topic is named Grok", () => {
     const broader = topics.filter((t) => t.id !== "grok").map((t) => t.id === "ai" ? { ...t, facts: [fact("Grok AI on X: integrated into the X app.")] } : t);
     const r = recallBranch(broader, "groq ursuldugch company haritsuul", []);

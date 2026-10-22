@@ -94,12 +94,12 @@ export function TalkToMindModal({
   // Heard speech is shown first; it sends itself after 3s unless the user edits it.
   const [heard, setHeard] = useState<string | null>(null);
   const [heardEditing, setHeardEditing] = useState(false);
-  const call = useMindCall(mindId, lang, (text) => { setHeardEditing(false); setHeard(text); });
+  const call = useMindCall(mindId, lang, (text) => { setHeardEditing(false); setHeard(text); }, { active: open && callMode !== "chat" });
   useEffect(() => {
-    if (heard === null || heardEditing) return;
+    if (!open || callMode === "chat" || heard === null || heardEditing) return;
     const t = window.setTimeout(() => { const h = heard; setHeard(null); if (h.trim()) void sendRef.current(h); }, 3000);
     return () => window.clearTimeout(t);
-  }, [heard, heardEditing]);
+  }, [open, callMode, heard, heardEditing]);
   const [faceUrl, setFaceUrl] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
   const sessionStartRef = useRef<string | null>(null);
@@ -227,12 +227,21 @@ export function TalkToMindModal({
 
   // Video call: the Mind looks at the caller (frames are read live, never kept).
   useEffect(() => {
-    if (callMode !== "video" || !camRef.current) {
+    if (!open || callMode !== "video" || !camRef.current) {
       call.stopCamera();
       return;
     }
     void call.startCamera(camRef.current, mindName).catch(() => {});
-  }, [callMode, mindName]);
+    return () => call.stopCamera();
+  }, [open, callMode, mindName, call.startCamera, call.stopCamera]);
+
+  useEffect(() => {
+    if (!open || callMode === "chat") {
+      call.stop();
+      setHeard(null);
+    }
+    return () => call.stop();
+  }, [open, callMode, mindId, call.stop]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -47,6 +47,7 @@ export function startDub(opts: {
         }),
         signal: controller.signal,
       });
+      if (stopped) return;
 
       if (!res.ok || !res.body) {
         let message = `Voice dubbing failed (${res.status}).`;
@@ -74,6 +75,7 @@ export function startDub(opts: {
             });
             voices = window.speechSynthesis.getVoices();
           }
+          if (stopped) return;
           const match = voices.find((v) => v.lang.toLowerCase().startsWith(opts.lang));
           if (match) {
             utter.voice = match;
@@ -100,7 +102,7 @@ export function startDub(opts: {
           animate();
           await new Promise<void>((resolve) => {
             utter.onend = () => resolve();
-            utter.onerror = () => resolve();
+            utter.onerror = () => { clearInterval(watch); resolve(); };
             window.speechSynthesis.speak(utter);
             // A stop() during speech cancels the utterance.
             const watch = setInterval(() => {
@@ -134,6 +136,7 @@ export function startDub(opts: {
 
       ctx = new AudioCtor({ sampleRate: SAMPLE_RATE });
       if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+      if (stopped || !ctx) return;
 
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 1024;
@@ -146,7 +149,7 @@ export function startDub(opts: {
         analyser.getByteTimeDomainData(frame);
         let sum = 0;
         for (let i = 0; i < frame.length; i++) {
-          const v = (frame[i]! - 128) / 128;
+          const v = ((frame[i] ?? 128) - 128) / 128;
           sum += v * v;
         }
         const rms = Math.sqrt(sum / frame.length);
@@ -229,6 +232,12 @@ export function startDub(opts: {
     stop: () => {
       stopped = true;
       controller.abort();
+      window.clearTimeout(raf);
+      cancelAnimationFrame(raf);
+      window.speechSynthesis?.cancel();
+      void ctx?.close().catch(() => {});
+      ctx = null;
+      opts.onViseme?.(0);
     },
     done,
   };

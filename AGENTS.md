@@ -10,6 +10,9 @@
 <!-- LOVABLE:END -->
 
 - AI receives complete structured history to address the right message.
+- Call media permissions use generation guards and cancelled work cannot restart playback; this prevents streams granted after closing from surviving.
+- Chat prompt knowledge is query-ranked to eight topic chunks with a bounded system context, while structured conversation history remains separate and intact.
+- Room turn leases expire after 45 seconds in both RPCs and UI; token-checked cleanup rejects late replies and advances only an owner-selected sequence.
 - Early module recovery reloads once/minute; its non-user timestamp survives account cleanup to prevent loops.
 - Chat progression is read-only per topic; every nested branch exposes its children and sends its source title for subtree recall across all depths, so parent facts cannot crowd out detail. No AI calls or mined-data writes for suggestions.
 - Open-chat display translation uses a viewport-scoped Google client with account-scoped in-memory caching; originals remain the source for saving, editing, exports and AI history, because screen translation must not mutate knowledge or spend AI credits.

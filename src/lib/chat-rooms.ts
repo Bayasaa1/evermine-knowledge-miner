@@ -29,6 +29,7 @@ export type Room = {
   moderator_mode: boolean;
   avatar_path: string | null;
   active_mind_id: string | null;
+  turn_token: string | null;
   turn_started_at: string | null;
 };
 export type RoomMember = { id: string; user_id: string; display_name: string; role: string; last_read_at: string };
@@ -284,6 +285,7 @@ export async function askMind(
   mind: RoomMind,
   transcript: RoomMessage[],
   lang: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const lines = transcript.map(cleanRoomMessage).map((m) => ({
     role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
@@ -295,6 +297,7 @@ export async function askMind(
   });
   const res = await apiFetch("/api/mind-chat", {
     method: "POST",
+    ...(signal ? { signal } : {}),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ mindId: mind.mind_id, lang, messages: lines }),
   });

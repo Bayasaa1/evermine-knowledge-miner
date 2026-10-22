@@ -4,8 +4,9 @@ import { startDub, type DubHandle } from "@/lib/voice-dub";
 import { apiFetch } from "@/lib/api-fetch";
 import type { Lang } from "@/lib/i18n";
 import { toast } from "sonner";
+import { createCallLifecycle } from "@/lib/call-lifecycle";
 
-const HEAR_ERR: Record<string, { mic: string; fail: string; busy: string; auth: string }> = {
+const HEAR_ERR = {
   en: { mic: "Microphone access was blocked. Allow the microphone and try again.", fail: "Couldn't understand the recording. Check your Gemini key in API Manager, or type instead.", busy: "Too many voice turns this minute. Wait a moment and try again.", auth: "Sign in to use voice calls." },
   mn: { mic: "Микрофоны зөвшөөрөл хаалттай байна. Зөвшөөрөөд дахин оролдоно уу.", fail: "Бичлэгийг ойлгож чадсангүй. API Manager дахь Gemini түлхүүрээ шалгах эсвэл бичиж асуугаарай.", busy: "Нэг минутад хэт олон удаа ярилаа. Түр хүлээгээд дахин оролдоно уу.", auth: "Дуудлага ашиглахын тулд нэвтэрнэ үү." },
   ko: { mic: "마이크 권한이 차단되었습니다. 허용한 뒤 다시 시도하세요.", fail: "녹음을 이해하지 못했습니다. API Manager에서 Gemini 키를 확인하거나 입력해 주세요.", busy: "1분 동안 음성 요청이 너무 많습니다. 잠시 후 다시 시도하세요.", auth: "음성 통화를 사용하려면 로그인하세요." },
@@ -47,7 +48,7 @@ export function useMindCall(
   mindId: string | null,
   lang: Lang,
   onTranscript: (text: string) => void,
-  opts?: { voiceId?: string },
+  opts?: { voiceId?: string; active?: boolean },
 ) {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -58,8 +59,15 @@ export function useMindCall(
   const dubRef = useRef<DubHandle | null>(null);
   const queueRef = useRef<string[]>([]);
   const drainingRef = useRef(false);
-  const camRef = useRef<{ stream: MediaStream; timer: number } | null>(null);
+  const camRef = useRef<{ stream: MediaStream; timer: number; video: HTMLVideoElement } | null>(null);
+  const lifecycle = useRef(createCallLifecycle());
+  const cameraLifecycle = useRef(createCallLifecycle());
+  const requestsRef = useRef(new Set<AbortController>());
+  const cameraRequestRef = useRef<AbortController | null>(null);
   const voiceId = opts?.voiceId;
+  const activeRef = useRef(true);
+  activeRef.current = opts?.active ?? true;
+  const hearErrors = lang === "mn" ? HEAR_ERR.mn : lang === "ko" ? HEAR_ERR.ko : HEAR_ERR.en;
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -67,18 +75,31 @@ export function useMindCall(
   const releasePendingRef = useRef(false);
 
   const stopCamera = useCallback(() => {
+    cameraLifecycle.current.invalidate();
+    cameraRequestRef.current?.abort();
+    cameraRequestRef.current = null;
     if (!camRef.current) return;
     window.clearInterval(camRef.current.timer);
     camRef.current.stream.getTracks().forEach((t) => t.stop());
+    camRef.current.video.srcObject = null;
     camRef.current = null;
     setSees("");
   }, []);
 
   const stop = useCallback(() => {
+    lifecycle.current.invalidate();
+    requestsRef.current.forEach((controller) => controller.abort());
+    requestsRef.current.clear();
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = null;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
-    if (recorderRef.current?.state === "recording") {
-      recorderRef.current.stop();
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (recorder) {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+      if (recorder.state === "recording") recorder.stop();
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -92,13 +113,22 @@ export function useMindCall(
     setMouth(0);
   }, [stopCamera]);
 
-  useEffect(() => stop, [stop]);
+  useEffect(() => {
+    lifecycle.current.mount();
+    cameraLifecycle.current.mount();
+    return () => {
+      lifecycle.current.unmount();
+      cameraLifecycle.current.unmount();
+      stop();
+    };
+  }, [stop]);
 
   /**
    * Starts recording the caller. Push-to-talk style.
    */
   const startListening = useCallback(async () => {
-    if (listening) return;
+    if (listening || !activeRef.current) return;
+    const token = lifecycle.current.begin();
     if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       throw new Error("Voice input is not supported by this browser.");
     }
@@ -112,6 +142,7 @@ export function useMindCall(
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true },
         });
+        if (!lifecycle.current.accept(token, stream)) return;
         streamRef.current = stream;
       }
 
@@ -129,7 +160,9 @@ export function useMindCall(
       timerRef.current = timer;
 
       rec.onstop = async () => {
+        if (!lifecycle.current.current(token)) return;
         if (timerRef.current) window.clearTimeout(timerRef.current);
+        timerRef.current = null;
         recorderRef.current = null;
 
         if (Date.now() - began < 250 || chunks.length === 0) {
@@ -144,30 +177,37 @@ export function useMindCall(
           r.readAsDataURL(blob);
         });
 
+        if (!lifecycle.current.current(token)) return;
+        const controller = new AbortController();
+        requestsRef.current.add(controller);
         try {
           const res = await apiFetch("/api/mind-hear", {
             method: "POST",
+            signal: controller.signal,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ audio: b64, mime: blob.type.split(";")[0], lang }),
           });
           const json = (await res.json().catch(() => ({}))) as { text?: string };
-          const msgs = HEAR_ERR[lang] ?? HEAR_ERR["en"]!;
+          if (!lifecycle.current.current(token)) return;
+          const msgs = hearErrors;
           if (!res.ok) toast.error(res.status === 429 ? msgs.busy : res.status === 401 ? msgs.auth : msgs.fail);
           else if (json.text) onTranscript(json.text);
         } catch {
-          toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).fail);
+          if (lifecycle.current.current(token)) toast.error(hearErrors.fail);
         } finally {
-          setListening(false);
+          requestsRef.current.delete(controller);
+          if (lifecycle.current.current(token)) setListening(false);
         }
       };
 
       rec.start(250);
       if (releasePendingRef.current && rec.state === "recording") rec.stop();
     } catch {
+      if (!lifecycle.current.current(token)) return;
       setListening(false);
-      toast.error((HEAR_ERR[lang] ?? HEAR_ERR["en"]!).mic);
+      toast.error(hearErrors.mic);
     }
-  }, [lang, listening, onTranscript]);
+  }, [lang, listening, onTranscript, hearErrors]);
 
   const stopListening = useCallback(() => {
     releasePendingRef.current = true;
@@ -179,9 +219,11 @@ export function useMindCall(
   const drain = useCallback(async () => {
     if (drainingRef.current || !mindId) return;
     drainingRef.current = true;
+    const token = lifecycle.current.begin();
     setSpeaking(true);
-    while (queueRef.current.length > 0) {
-      const phrase = queueRef.current.shift()!;
+    while (queueRef.current.length > 0 && lifecycle.current.current(token)) {
+      const phrase = queueRef.current.shift();
+      if (!phrase) break;
       const nextEmotion = inferEmotion(phrase);
       setEmotion(nextEmotion);
       const dub = startDub({
@@ -194,6 +236,7 @@ export function useMindCall(
       });
       dubRef.current = dub;
       await dub.done;
+      if (!lifecycle.current.current(token)) return;
       if (dubRef.current === dub) dubRef.current = null;
     }
     drainingRef.current = false;
@@ -203,7 +246,7 @@ export function useMindCall(
 
   /** Speak a complete answer. */
   const speak = useCallback((text: string) => {
-    if (!mindId || !text.trim()) return;
+    if (!activeRef.current || !mindId || !text.trim()) return;
     queueRef.current.push(text.trim());
     void drain();
   }, [drain, mindId]);
@@ -214,9 +257,11 @@ export function useMindCall(
    * the whole answer is ready.
    */
   const speakStreaming = useCallback(() => {
+    const token = lifecycle.current.begin();
     let buffer = "";
     return {
       push(delta: string) {
+        if (!activeRef.current || !lifecycle.current.current(token)) return;
         buffer += delta;
         for (;;) {
           const [phrase, rest] = takePhrase(buffer, false);
@@ -227,6 +272,7 @@ export function useMindCall(
         }
       },
       end() {
+        if (!activeRef.current || !lifecycle.current.current(token)) return;
         const tail = buffer.trim();
         buffer = "";
         if (tail) {
@@ -242,13 +288,21 @@ export function useMindCall(
    * Nothing from the camera is stored.
    */
   const startCamera = useCallback(async (video: HTMLVideoElement, mindName: string) => {
-    if (camRef.current) return;
+    if (!activeRef.current || camRef.current) return;
+    cameraLifecycle.current.invalidate();
+    const token = cameraLifecycle.current.begin();
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360 }, audio: false });
+    if (!cameraLifecycle.current.accept(token, stream)) return;
     video.srcObject = stream;
+    // Register before play() awaits, so ending the call releases it immediately.
+    camRef.current = { stream, timer: 0, video };
     await video.play().catch(() => {});
+    if (!cameraLifecycle.current.current(token)) return;
     const canvas = document.createElement("canvas");
     const look = async () => {
-      if (!video.videoWidth) return;
+      if (!cameraLifecycle.current.current(token) || !video.videoWidth || cameraRequestRef.current) return;
+      const controller = new AbortController();
+      cameraRequestRef.current = controller;
       canvas.width = 320;
       canvas.height = Math.round((video.videoHeight / video.videoWidth) * 320);
       canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -256,17 +310,20 @@ export function useMindCall(
       try {
         const res = await apiFetch("/api/mind-vision", {
           method: "POST",
+          signal: controller.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image, name: mindName, lang }),
         });
         const data = (await res.json()) as { seen?: string };
-        if (res.ok && data.seen) setSees(data.seen);
+        if (cameraLifecycle.current.current(token) && res.ok && data.seen) setSees(data.seen);
       } catch {
         /* a missed frame never interrupts the call */
+      } finally {
+        if (cameraRequestRef.current === controller) cameraRequestRef.current = null;
       }
     };
     const timer = window.setInterval(() => void look(), 6000);
-    camRef.current = { stream, timer };
+    camRef.current = { stream, timer, video };
     void look();
   }, [lang]);
 
