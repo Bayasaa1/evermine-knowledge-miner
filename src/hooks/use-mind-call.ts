@@ -48,7 +48,7 @@ export function useMindCall(
   mindId: string | null,
   lang: Lang,
   onTranscript: (text: string) => void,
-  opts?: { voiceId?: string },
+  opts?: { voiceId?: string; active?: boolean },
 ) {
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -65,6 +65,8 @@ export function useMindCall(
   const requestsRef = useRef(new Set<AbortController>());
   const cameraRequestRef = useRef<AbortController | null>(null);
   const voiceId = opts?.voiceId;
+  const activeRef = useRef(true);
+  activeRef.current = opts?.active ?? true;
   const hearErrors = lang === "mn" ? HEAR_ERR.mn : lang === "ko" ? HEAR_ERR.ko : HEAR_ERR.en;
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -125,7 +127,7 @@ export function useMindCall(
    * Starts recording the caller. Push-to-talk style.
    */
   const startListening = useCallback(async () => {
-    if (listening) return;
+    if (listening || !activeRef.current) return;
     const token = lifecycle.current.begin();
     if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       throw new Error("Voice input is not supported by this browser.");
@@ -244,7 +246,7 @@ export function useMindCall(
 
   /** Speak a complete answer. */
   const speak = useCallback((text: string) => {
-    if (!mindId || !text.trim()) return;
+    if (!activeRef.current || !mindId || !text.trim()) return;
     queueRef.current.push(text.trim());
     void drain();
   }, [drain, mindId]);
@@ -259,7 +261,7 @@ export function useMindCall(
     let buffer = "";
     return {
       push(delta: string) {
-        if (!lifecycle.current.current(token)) return;
+        if (!activeRef.current || !lifecycle.current.current(token)) return;
         buffer += delta;
         for (;;) {
           const [phrase, rest] = takePhrase(buffer, false);
@@ -270,7 +272,7 @@ export function useMindCall(
         }
       },
       end() {
-        if (!lifecycle.current.current(token)) return;
+        if (!activeRef.current || !lifecycle.current.current(token)) return;
         const tail = buffer.trim();
         buffer = "";
         if (tail) {
@@ -286,7 +288,7 @@ export function useMindCall(
    * Nothing from the camera is stored.
    */
   const startCamera = useCallback(async (video: HTMLVideoElement, mindName: string) => {
-    if (camRef.current) return;
+    if (!activeRef.current || camRef.current) return;
     cameraLifecycle.current.invalidate();
     const token = cameraLifecycle.current.begin();
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 360 }, audio: false });

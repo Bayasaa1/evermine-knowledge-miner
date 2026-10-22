@@ -1,10 +1,10 @@
 # Roadmap
 
 ## Step 3 — Mind call and chat reliability
-- [ ] Stop late camera/microphone permission results and cancelled call work
-- [ ] Limit recalled knowledge to eight relevant topic chunks without trimming conversation history
-- [ ] Release stalled room turns after 45 seconds while preserving moderator control
-- [ ] Run focused tests and verify the signed-in interaction flow
+- [x] Stop late camera/microphone permission results and cancelled call work
+- [x] Limit recalled knowledge to eight relevant topic chunks without trimming conversation history
+- [x] Release stalled room turns after 45 seconds while preserving moderator control
+- [x] Run focused tests and verify signed-in late-permission cleanup and real 45-second RPC recovery
 
 ## Universal in-app sharing
 - [x] Friends and recent rooms, optional message, external sharing

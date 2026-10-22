@@ -94,7 +94,7 @@ export function TalkToMindModal({
   // Heard speech is shown first; it sends itself after 3s unless the user edits it.
   const [heard, setHeard] = useState<string | null>(null);
   const [heardEditing, setHeardEditing] = useState(false);
-  const call = useMindCall(mindId, lang, (text) => { setHeardEditing(false); setHeard(text); });
+  const call = useMindCall(mindId, lang, (text) => { setHeardEditing(false); setHeard(text); }, { active: open && callMode !== "chat" });
   useEffect(() => {
     if (!open || callMode === "chat" || heard === null || heardEditing) return;
     const t = window.setTimeout(() => { const h = heard; setHeard(null); if (h.trim()) void sendRef.current(h); }, 3000);
