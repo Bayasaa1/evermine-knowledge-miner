@@ -869,8 +869,9 @@ function FeedCard({
   // "source" keeps the mined wording; any other choice runs through the same
   // cached translation path the rest of the app uses (the Translating job in
   // the API Manager, with its automatic key switching).
-  const shownCues = useScreenTranslations(cueTexts, subtitleLang === "app" ? lang : subtitleLang);
   const activeCueIndex = activeSubtitle ? timedCues.indexOf(activeSubtitle) : -1;
+  // Only the lines just ahead of playback are translated, in batches.
+  const shownCues = useScreenTranslations(cueTexts, subtitleLang === "app" ? lang : subtitleLang, activeCueIndex);
   const shownSubtitle =
     activeCueIndex >= 0 ? (shownCues[activeCueIndex] ?? activeSubtitle?.speech ?? "") : "";
   // Spoken lines can be in a different language than the written ones.
