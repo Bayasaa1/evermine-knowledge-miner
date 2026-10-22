@@ -194,18 +194,32 @@ function parseTimedXml(xml: string): Json3 {
 const WHOLE_CACHE = new Map<string, { at: number; json: Json3 | null; track: CaptionTrack | null }>();
 const CACHE_MS = 6 * 60 * 60_000;
 
-async function wholeCaptions(videoId: string): Promise<{ json: Json3 | null; track: CaptionTrack | null }> {
+/** True when YouTube answered with a rate-limit or captcha page instead of subtitles. */
+export function isCaptionBlockPage(status: number, contentType: string, body: string): boolean {
+  if (status === 429 || status === 403) return true;
+  const head = body.trimStart().slice(0, 400).toLowerCase();
+  if (/text\/html/i.test(contentType) || head.startsWith("<!doctype html") || head.startsWith("<html")) return true;
+  return /captcha|unusual traffic|sorry\/index/.test(head);
+}
+
+async function wholeCaptions(
+  videoId: string,
+): Promise<{ json: Json3 | null; track: CaptionTrack | null; blocked?: boolean }> {
   const hit = WHOLE_CACHE.get(videoId);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit;
   const tracks = await listCaptionTracks(videoId);
+  let blocked = false;
   for (const track of tracks.slice(0, 3)) {
     try {
       const url = new URL(track.baseUrl);
       url.searchParams.set("fmt", "json3");
       const res = await fetch(url.toString(), { headers: { "User-Agent": UA } });
-      if (!res.ok) continue;
       const body = await res.text();
-      if (!body.trim()) continue;
+      if (isCaptionBlockPage(res.status, res.headers.get("content-type") ?? "", body)) {
+        blocked = true;
+        break;
+      }
+      if (!res.ok || !body.trim()) continue;
       const json = body.trimStart().startsWith("{") ? (JSON.parse(body) as Json3) : parseTimedXml(body);
       if (!json.events?.length) continue;
       const entry = { at: Date.now(), json, track };
@@ -217,9 +231,9 @@ async function wholeCaptions(videoId: string): Promise<{ json: Json3 | null; tra
     }
   }
   // Only remember "no captions" when YouTube actually listed none; a
-  // temporary failure is retried on the next part.
+  // temporary failure or block is retried on the next part.
   if (!tracks.length) WHOLE_CACHE.set(videoId, { at: Date.now(), json: null, track: null });
-  return { json: null, track: null };
+  return { json: null, track: null, blocked };
 }
 
 /** End time (seconds) of the last caption line — a real length when YouTube hides it. */
@@ -239,14 +253,14 @@ export async function fetchCaptionCues(
   startSec: number,
   endSec: number,
   userId?: string,
-): Promise<{ cues: Cue[]; track: CaptionTrack | null }> {
+): Promise<{ cues: Cue[]; track: CaptionTrack | null; status?: "CAPTION_BLOCKED" }> {
   // Subtitles the job owner uploaded themselves always win over YouTube.
   if (userId) {
     const own = await userCaptionCues(videoId, userId, startSec, endSec);
     if (own) return { cues: own, track: { baseUrl: "", languageCode: "", kind: "", name: "uploaded" } };
   }
-  const { json, track } = await wholeCaptions(videoId);
-  if (!json) return { cues: [], track: null };
+  const { json, track, blocked } = await wholeCaptions(videoId);
+  if (!json) return blocked ? { cues: [], track: null, status: "CAPTION_BLOCKED" } : { cues: [], track: null };
   return { cues: toCues(json, startSec, endSec), track };
 }
 
