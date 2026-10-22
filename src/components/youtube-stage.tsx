@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { ExternalLink, Pause, Play, RotateCcw, RotateCw, SkipBack, SkipForward } from "lucide-react";
 
 /**
@@ -49,7 +49,7 @@ function loadApi(): Promise<YTNamespace> {
   return apiPromise;
 }
 
-export function YouTubeStage({
+function YouTubeStageImpl({
   videoId,
   active,
   muted,
@@ -333,3 +333,6 @@ export function YouTubeStage({
     </div>
   );
 }
+
+/** Memoized so unrelated card updates never reload the player. */
+export const YouTubeStage = memo(YouTubeStageImpl);
