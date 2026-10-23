@@ -1,5 +1,10 @@
 # Roadmap
 
+## Community comments
+- [ ] Add comment/reply and like storage with owner-scoped writes
+- [ ] Add multilingual live comment threads to Community posts
+- [ ] Verify posting, replies, likes, deletion and permissions
+
 ## Step 3 — Mind call and chat reliability
 - [x] Stop late camera/microphone permission results and cancelled call work
 - [x] Limit recalled knowledge to eight relevant topic chunks without trimming conversation history
