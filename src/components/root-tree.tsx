@@ -35,6 +35,10 @@ const C = {
   hot: { en: "Most asked", mn: "Их асуугдсан", ko: "많이 질문됨" },
   issues: { en: "Reported", mn: "Асуудалтай", ko: "신고됨" },
   thin: { en: "Thin", mn: "Нимгэн", ko: "얇음" },
+  when: { en: "When", mn: "Хэзээ", ko: "언제" },
+  where: { en: "Where", mn: "Хаана", ko: "어디서" },
+  how: { en: "How", mn: "Хэрхэн", ko: "어떻게" },
+  factors: { en: "Drivers", mn: "Нөлөөлсөн хүчин зүйл", ko: "영향 요인" },
   asked: { en: "asked", mn: "асуулт", ko: "질문" },
   reports: { en: "reports", mn: "report", ko: "신고" },
   viewerQ: { en: "What people asked", mn: "Хүмүүс юу асуусан бэ", ko: "사람들이 물은 것" },
@@ -305,6 +309,18 @@ export function RootTree({ lang, projectId, title }: { lang: Lang; projectId: st
               </div>
             ) : null}
             {selected.topic?.summary ? <p className="mt-1 text-xs text-muted-foreground">{selected.topic.summary}</p> : null}
+            {selected.topic?.context ? (
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-xs">
+                {(["when", "where", "how"] as const).map((k) =>
+                  selected.topic?.context?.[k] ? (
+                    <><dt key={k + "t"} className="font-medium text-foreground">{t(k)}</dt><dd key={k} className="text-muted-foreground">{selected.topic.context[k]}</dd></>
+                  ) : null,
+                )}
+                {selected.topic.context.factors?.length ? (
+                  <><dt className="font-medium text-foreground">{t("factors")}</dt><dd className="text-muted-foreground">{selected.topic.context.factors.join(" · ")}</dd></>
+                ) : null}
+              </dl>
+            ) : null}
             {selected.topic ? (
               <Button size="sm" variant="outline" className="mt-2" onClick={() => { if (selected.topic) setChatTopic(selected.topic.id); }}>
                 <MessagesSquare className="mr-1 h-3.5 w-3.5" />
