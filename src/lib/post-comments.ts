@@ -3,20 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 
 export type PostComment = Database["public"]["Tables"]["post_comments"]["Row"];
 export type CommentLike = Pick<Database["public"]["Tables"]["comment_likes"]["Row"], "comment_id" | "user_id">;
-
-export function commentForest(rows: PostComment[]) {
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  const children = new Map<string, PostComment[]>();
-  const roots: PostComment[] = [];
-  for (const row of rows) {
-    if (row.parent_id && byId.has(row.parent_id)) {
-      const siblings = children.get(row.parent_id) ?? [];
-      siblings.push(row);
-      children.set(row.parent_id, siblings);
-    } else roots.push(row);
-  }
-  return { roots, children };
-}
+export { commentForest } from "./comment-tree";
 
 export async function listPostComments(postId: string): Promise<PostComment[]> {
   const { data, error } = await supabase.from("post_comments").select("*").eq("post_id", postId).order("created_at");
