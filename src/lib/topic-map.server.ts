@@ -13,7 +13,9 @@ import { recallBranch } from "./topic-recall";
 
 export type TopicFact = { id: string; text: string; ts: string; videoId: string; vaultId: string };
 /** parentId nests a topic under a broader one, so the map grows like roots. */
-export type Topic = { id: string; title: string; summary: string; group: string; parentId?: string; facts: TopicFact[] };
+/** The four axes that order recordings along a branch: when, where, how, and what drove it. */
+export type TopicContext = { when?: string; where?: string; how?: string; factors?: string[] };
+export type Topic = { id: string; title: string; summary: string; group: string; parentId?: string; context?: TopicContext; facts: TopicFact[] };
 export type TopicMap = {
   version: 1;
   projectId: string;
@@ -24,6 +26,18 @@ export type TopicMap = {
 };
 
 const BATCH = 100;
+
+/** Keeps only non-empty when/where/how/factors; undefined when nothing is known. */
+export function cleanContext(v: unknown): TopicContext | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const o = v as Record<string, unknown>;
+  const str = (x: unknown) => (typeof x === "string" ? x.trim().slice(0, 160) : "");
+  const out: TopicContext = {};
+  for (const k of ["when", "where", "how"] as const) { const s = str(o[k]); if (s) out[k] = s; }
+  const f = Array.isArray(o["factors"]) ? o["factors"].map(str).filter(Boolean).slice(0, 4) : [];
+  if (f.length) out.factors = f;
+  return Object.keys(out).length ? out : undefined;
+}
 
 function parseJson<T>(text: string): T | null {
   const t = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
@@ -246,10 +260,11 @@ File every fact under the best topic.
 - "group" is a broad domain you choose freely (e.g. "Technology", "Cooking", "Gaming") that clusters related topics.
 - Write titles, summaries and groups in the main language of the facts.
 - Never rewrite the facts.
+- "context" places the topic on its branch: "when" (time or stage, e.g. "2019, early prototype"), "where" (place or setting), "how" (method used), "factors" (up to 4 short drivers/constraints). Use only what the facts say; leave a field empty if unknown.
 Return JSON only:
-{"newTopics":[{"key":"n1","title":"...","group":"...","parent":"<existing id or empty>","summary":"one sentence"}],
+{"newTopics":[{"key":"n1","title":"...","group":"...","parent":"<existing id or empty>","summary":"one sentence","context":{"when":"","where":"","how":"","factors":[]}}],
  "assign":[{"n":1,"topic":"<existing id or new key>"}],
- "updatedSummaries":[{"id":"<existing id>","summary":"one sentence that now covers the new facts"}]}
+ "updatedSummaries":[{"id":"<existing id>","summary":"one sentence that now covers the new facts","context":{"when":"","where":"","how":"","factors":[]}}]}
 Every numbered fact must appear in "assign" exactly once.`;
 
   let reply;
@@ -269,9 +284,9 @@ Every numbered fact must appear in "assign" exactly once.`;
     throw new Error(e instanceof Error ? e.message : "Topic sorting failed");
   }
   const parsed = parseJson<{
-    newTopics?: { key?: string; title?: string; group?: string; parent?: string; summary?: string }[];
+    newTopics?: { key?: string; title?: string; group?: string; parent?: string; summary?: string; context?: unknown }[];
     assign?: { n?: number; topic?: string }[];
-    updatedSummaries?: { id?: string; summary?: string }[];
+    updatedSummaries?: { id?: string; summary?: string; context?: unknown }[];
   }>(reply.text);
   if (!parsed || !Array.isArray(parsed.assign) || parsed.assign.length === 0) {
     throw new Error("The AI returned no topic sorting. Nothing was changed — try again.");
@@ -293,12 +308,14 @@ Every numbered fact must appear in "assign" exactly once.`;
     const id = `t_${hash(title.toLowerCase())}`;
     const parentRef = String(nt.parent ?? "").trim();
     const parent = parentRef && parentRef !== id && byId.has(parentRef) ? byId.get(parentRef)! : undefined;
+    const ctx = cleanContext(nt.context);
     const topic: Topic = {
       id,
       title: title.slice(0, 120),
       summary: String(nt.summary ?? "").trim().slice(0, 400),
       group: parent?.group ?? (String(nt.group ?? "").trim().slice(0, 60) || "General"),
       ...(parent ? { parentId: parent.id } : {}),
+      ...(ctx ? { context: ctx } : {}),
       facts: [],
     };
     topics.push(topic);
@@ -309,6 +326,8 @@ Every numbered fact must appear in "assign" exactly once.`;
     const t = byId.get(String(u.id ?? ""));
     const s = String(u.summary ?? "").trim();
     if (t && s) t.summary = s.slice(0, 400);
+    const c = cleanContext(u.context);
+    if (t && c) t.context = { ...t.context, ...c };
   }
 
   const newFiled: string[] = [];
