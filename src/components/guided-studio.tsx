@@ -55,7 +55,6 @@ import {
 } from "@/lib/creation-category";
 import { mineYoutubeVideo } from "@/lib/youtube-mine.functions";
 import { useAuth } from "@/hooks/use-auth";
-import { loadApiKeys } from "@/lib/keystore";
 import { idbSet, STORES } from "@/lib/store";
 import { recordGrowth } from "@/lib/analytics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
