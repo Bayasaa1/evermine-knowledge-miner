@@ -90,7 +90,7 @@ export function CommentSection({ postId, userId }: { postId: string; userId: str
     const count = likes.filter((like) => like.comment_id === comment.id).length;
     return <li key={comment.id} className="min-w-0">
       <div className="flex items-start gap-2 py-3">
-        {comment.author_avatar && !comment.deleted_at ? <img src={comment.author_avatar} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" /> : <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">{comment.deleted_at ? "—" : comment.author_name.slice(0, 2).toUpperCase()}</span>}
+        <span className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-[10px] font-semibold">{comment.deleted_at ? "—" : comment.author_name.slice(0, 2).toUpperCase()}{comment.author_avatar && !comment.deleted_at && <img src={comment.author_avatar} alt="" className="absolute inset-0 h-full w-full object-cover" onError={(event) => { event.currentTarget.hidden = true; }} />}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><span className="break-words text-xs font-semibold">{comment.author_name}</span><time dateTime={comment.created_at} className="text-[10px] text-muted-foreground">{new Date(comment.created_at).toLocaleString()}</time></div>
           <p className={`mt-1 whitespace-pre-wrap break-words text-sm ${comment.deleted_at ? "italic text-muted-foreground" : "text-foreground"}`}>{comment.deleted_at ? c.deleted : comment.content}</p>

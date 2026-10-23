@@ -1,9 +1,9 @@
 # Roadmap
 
 ## Community comments
-- [ ] Add comment/reply and like storage with owner-scoped writes
-- [ ] Add multilingual live comment threads to Community posts
-- [ ] Verify posting, replies, likes, deletion and permissions
+- [x] Add comment/reply and like storage with owner-scoped writes
+- [x] Add multilingual live comment threads to Community posts
+- [x] Verify posting, replies, likes, deletion and RLS configuration
 
 ## Step 3 — Mind call and chat reliability
 - [x] Stop late camera/microphone permission results and cancelled call work
