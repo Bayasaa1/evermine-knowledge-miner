@@ -14,6 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AiRole } from "@/lib/ai-roles";
 import { GEMINI_DEFAULT_MODEL, GEMINI_PAID_MODEL } from "@/lib/gemini-models";
+import { httpStatusOf, isServerBusyStatus, withBackoff } from "@/lib/retry";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
@@ -588,7 +589,8 @@ export async function generateRoleText(opts: {
       throw lastError;
     }
     try {
-      const run = await call(resolved);
+      const current = resolved;
+      const run = await sameKeyRetry(() => call(current));
       await log(resolved, run);
       return {
         text: run.text,
@@ -610,7 +612,11 @@ export async function generateRoleText(opts: {
         // back on its own in case the refusal was temporary.
         await markKeyUnavailable(resolved.id, "invalid", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
       }
-      if (limit) {
+      if (limit && isBusyError(error)) {
+        // 5xx after same-key retries: brief rest, never "exhausted".
+        const rest = limitCooldown(error);
+        await markKeyUnavailable(resolved.id, rest.status, rest.until);
+      } else if (limit) {
         // A minute burst is not an exhausted key. Briefly cool it down, then
         // let it rejoin the fallback pool automatically. Only daily/provider
         // credit exhaustion receives the persistent exhausted status.
