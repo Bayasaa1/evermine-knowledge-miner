@@ -63,42 +63,16 @@ export function MindFeedback({
   /** Creator-side surfaces let the owner publish a new version + release notes. */
   canEditSpecs?: boolean;
 }) {
-  const t = pickCopy(copy, lang);
-  const [tab, setTab] = useState<"comments" | "reviews">("comments");
-
+  // Comments and reviews now live in one stream (stars optional) inside MindReviews.
+  void purchased;
   return (
     <div className="space-y-3">
       <MindSpecs mindId={mindId} lang={lang} canEdit={canEditSpecs} />
-      <section className="rounded-[12px] border border-border bg-card">
-      <div className="flex border-b border-border">
-
-        {(["comments", "reviews"] as const).map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-semibold transition-colors ${
-              tab === key
-                ? "border-b-2 border-primary text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {key === "comments" ? <MessageSquare className="h-3.5 w-3.5" /> : <Star className="h-3.5 w-3.5" />}
-            {key === "comments" ? t.comments : t.reviews}
-          </button>
-        ))}
-      </div>
-      <div className="p-4">
-        {tab === "comments" ? (
-          <CommentThread mindId={mindId} t={t} />
-        ) : (
-          <MindReviews mindId={mindId} lang={lang} />
-        )}
-      </div>
+      <section className="rounded-[12px] border border-border bg-card p-4">
+        <MindReviews mindId={mindId} lang={lang} />
       </section>
     </div>
   );
-
 }
 
 function CommentThread({ mindId, t }: { mindId: string; t: (typeof copy)["en"] }) {
