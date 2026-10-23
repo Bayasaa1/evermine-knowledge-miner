@@ -277,7 +277,7 @@ export async function runGeminiRoleWithFallback<T>(
         const key = await resolveUserAiKey(userId, role, ids.filter((id) => id !== preferred));
         if (key.id === preferred && key.provider === "gemini") {
           try {
-            const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+            const value = await sameKeyRetry(() => run({ kind: "gemini_key", value: key.apiKey }, key));
             await markKeyUnavailable(key.id, "ok", null);
             return { value, key };
           } catch (error) {
@@ -305,7 +305,7 @@ export async function runGeminiRoleWithFallback<T>(
       continue;
     }
     try {
-      const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+      const value = await sameKeyRetry(() => run({ kind: "gemini_key", value: key.apiKey }, key));
       await markKeyUnavailable(key.id, "ok", null);
       return { value, key };
     } catch (error) {
@@ -354,18 +354,26 @@ function isRejectedKeyError(error: unknown): boolean {
 }
 
 function isLimitError(error: unknown): boolean {
-  return error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")
-    || error instanceof GeminiHttpError && (error.status === 402 || error.status === 429 || isBusyError(error));
+  if (error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")) return true;
+  const status = httpStatusOf(error);
+  // Only 402/429 mean "limit". 400/404 are request/model errors and 5xx is the
+  // provider being busy — none of those may mark a key as used up.
+  return status === 402 || status === 429 || isBusyError(error);
 }
 
-/** Gemini "high demand" 503 / 500: the key is fine, the model is momentarily busy. */
+/** Provider 500/502/503/504: the key is fine, the model is momentarily busy. */
 function isBusyError(error: unknown): boolean {
-  return error instanceof GeminiHttpError && (error.status === 503 || error.status === 500);
+  return isServerBusyStatus(httpStatusOf(error));
+}
+
+/** Retries the SAME key with exponential backoff (1s, 2s) on 5xx before any failover. */
+function sameKeyRetry<T>(run: () => Promise<T>): Promise<T> {
+  return withBackoff(run, isBusyError, { retries: 2, baseMs: 1000 });
 }
 
 /** Short rest for a busy key, an hour for a used-up one. */
 function limitCooldown(error: unknown): { status: "ok" | "exhausted"; until: string } {
-  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 3 * 60 * 1000).toISOString() };
+  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 60 * 1000).toISOString() };
   const minute = error instanceof UserAiError && error.code === "rate_minute";
   if (minute) {
     const ms = Math.max(20, (error as UserAiError).retryAfterSec) * 1000;
