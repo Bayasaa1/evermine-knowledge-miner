@@ -43,6 +43,8 @@
 
 ## Anti-Regression & Surgical Edit Rules (apply on every prompt)
 
+- Community comments use post_comments/comment_likes with RLS-backed writes and soft-deleted parent tombstones, so deleting a comment never deletes another user's replies.
+
 - Never rewrite or regenerate an entire route or component file to fix a bug. Make the smallest diff that changes only the faulty behaviour and preserves every existing state, filter and handler, because whole-file rewrites silently drop the logic earlier work added. This covers large surfaces such as `src/routes/index.tsx`, `src/routes/creator.tsx`, `src/routes/chats.$roomId.tsx`, `src/routes/api/mind-chat.ts`, `src/components/saved-minds.tsx` and `src/components/vault-hub.tsx`.
 - Single source of truth for AI keys: server-side AI execution resolves keys and role teams only through `src/lib/user-ai.server.ts` and `src/lib/ai-roles.functions.ts` (backed by tables `user_ai_keys` and `user_ai_roles`). Never add another localStorage key store, and never read legacy `src/lib/keystore.ts` / `src/lib/key-vault.ts` for server calls, because a second key source splits quota state and re-creates the false "quota exhausted" failures.
 - Single source of truth for mining: every video mining job goes through `src/lib/mining-jobs.functions.ts` and `src/lib/youtube-mine.server.ts`, because the lease/claim guards that stop two workers mining the same part live only on that path.
