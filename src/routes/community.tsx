@@ -4,6 +4,7 @@ import { ImagePlus, Loader2, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { StoryBar } from "@/components/story-bar";
+import { CommentSection } from "@/components/comment-section";
 import { createPost, deletePost, listPosts, type UserPost } from "@/lib/community";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, useLang } from "@/lib/i18n";
@@ -194,6 +195,7 @@ function CommunityPage() {
               {p.mediaUrl && p.mediaKind === "image" && (
                 <img src={p.mediaUrl} alt="" className="mt-3 w-full rounded-xl object-cover" />
               )}
+              <CommentSection postId={p.id} userId={userId} />
             </article>
           ))}
         </div>
