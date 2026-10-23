@@ -16,10 +16,16 @@ import { useAuth } from "@/hooks/use-auth";
 
 const RUNNABLE = new Set(["queued", "running", "paused_quota", "error"]);
 
+/** Same 3-minute lease the server's runNextChunk claim uses. */
+const LEASE_MS = 3 * 60_000;
+
 function playlistOrder(jobs: MiningJob[]): MiningJob[] {
   return jobs
     .filter((j) => RUNNABLE.has(j.status) && j.nextIndex < j.totalChunks)
     .filter((j) => !j.retryAfter || new Date(j.retryAfter).getTime() <= Date.now())
+    // A job the background worker (or another tab) holds is left alone; the
+    // server's atomic claim still has the final say.
+    .filter((j) => !(j.status === "running" && Date.now() - new Date(j.updatedAt).getTime() < LEASE_MS))
     .sort((a, b) => {
       const ca = new Date(a.createdAt ?? a.updatedAt).getTime();
       const cb = new Date(b.createdAt ?? b.updatedAt).getTime();
