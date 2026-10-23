@@ -6,6 +6,7 @@ import {
   Heart,
   Loader2,
   MessageCircle,
+  MessageSquare,
   Play,
   Share2,
   Star,
@@ -1233,6 +1234,15 @@ function FeedCard({
         <button type="button" onClick={onLike} aria-label={c.like} className={railBtn}>
           <Heart className={`${railIcon} ${liked ? "fill-current" : ""}`} />
           <span className={railLabel}>{c.like}</span>
+        </button>
+        <button
+          type="button"
+          onClick={onFeedback}
+          aria-label={lang === "mn" ? "Сэтгэгдэл" : lang === "ko" ? "댓글" : "Comments"}
+          className={railBtn}
+        >
+          <MessageSquare className={railIcon} />
+          <span className={railLabel}>{lang === "mn" ? "Сэтгэгдэл" : lang === "ko" ? "댓글" : "Comments"}</span>
         </button>
         {has("chat") && (
           <button type="button" onClick={onTalk} aria-label={purchased ? c.textChat : c.previewChat} className={railBtn}>
