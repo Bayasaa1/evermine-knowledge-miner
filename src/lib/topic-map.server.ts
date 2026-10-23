@@ -34,7 +34,7 @@ export function cleanContext(v: unknown): TopicContext | undefined {
   const str = (x: unknown) => (typeof x === "string" ? x.trim().slice(0, 160) : "");
   const out: TopicContext = {};
   for (const k of ["when", "where", "how"] as const) { const s = str(o[k]); if (s) out[k] = s; }
-  const f = Array.isArray(o.factors) ? o.factors.map(str).filter(Boolean).slice(0, 4) : [];
+  const f = Array.isArray(o["factors"]) ? o["factors"].map(str).filter(Boolean).slice(0, 4) : [];
   if (f.length) out.factors = f;
   return Object.keys(out).length ? out : undefined;
 }
@@ -308,13 +308,14 @@ Every numbered fact must appear in "assign" exactly once.`;
     const id = `t_${hash(title.toLowerCase())}`;
     const parentRef = String(nt.parent ?? "").trim();
     const parent = parentRef && parentRef !== id && byId.has(parentRef) ? byId.get(parentRef)! : undefined;
+    const ctx = cleanContext(nt.context);
     const topic: Topic = {
       id,
       title: title.slice(0, 120),
       summary: String(nt.summary ?? "").trim().slice(0, 400),
       group: parent?.group ?? (String(nt.group ?? "").trim().slice(0, 60) || "General"),
       ...(parent ? { parentId: parent.id } : {}),
-      ...(cleanContext(nt.context) ? { context: cleanContext(nt.context) } : {}),
+      ...(ctx ? { context: ctx } : {}),
       facts: [],
     };
     topics.push(topic);
