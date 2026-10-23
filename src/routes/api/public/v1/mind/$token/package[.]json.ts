@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ipRateLimit } from "@/lib/api-guard.server";
 
 /**
  * Robot OTA endpoint. A physical robot scans the deployment QR code (or issues a
@@ -16,7 +17,9 @@ export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")(
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
-      GET: async ({ params }) => {
+      GET: async ({ params, request }) => {
+        const limited = ipRateLimit(request, "mind-package", 60, cors);
+        if (limited) return limited;
         const token = String(params.token ?? "").trim();
         if (!/^[a-f0-9]{8,64}$/i.test(token)) {
           return Response.json({ error: "Invalid deployment token" }, { status: 400, headers: cors });

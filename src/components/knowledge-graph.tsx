@@ -159,10 +159,10 @@ export function ProjectKnowledgeGraph({
     const concepts = graph.nodes.filter((n) => n.kind === "concept").sort((a, b) => b.weight - a.weight);
     const others = graph.nodes.filter((n) => n.kind !== "concept");
     const room = Math.max(0, DEFAULT_NODE_CAP - others.length);
-    const keep = new Set([...others, ...concepts.slice(0, room)].map((n) => n.id));
+    const keep = new Set([...others, ...concepts.slice(0, room)].map((n) => n.key));
     return {
       ...graph,
-      nodes: graph.nodes.filter((n) => keep.has(n.id)),
+      nodes: graph.nodes.filter((n) => keep.has(n.key)),
       links: graph.links.filter((l) => keep.has(l.source) && keep.has(l.target)),
     };
   }, [graph, showAllNodes]);

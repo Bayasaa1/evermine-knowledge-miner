@@ -89,3 +89,37 @@ export async function guardApi(
   const limited = rateLimit(scope, user.userId, limit);
   return limited ?? user;
 }
+
+/** Client IP from edge headers (Cloudflare first). */
+export function clientIp(request: Request): string {
+  const h = request.headers;
+  return (
+    h.get("cf-connecting-ip") ||
+    h.get("x-real-ip") ||
+    (h.get("x-forwarded-for") ?? "").split(",")[0]?.trim() ||
+    "unknown"
+  );
+}
+
+/**
+ * Best-effort in-memory sliding-window limit per IP (default 60/min).
+ * Each server instance keeps its own window, so this is partial protection,
+ * not a hard global cap. Returns a 429 Response when exceeded.
+ */
+export function ipRateLimit(request: Request, scope: string, limit = 60, headers: Record<string, string> = {}): Response | null {
+  const now = Date.now();
+  const key = `ip:${scope}:${clientIp(request)}`;
+  const hits = (buckets.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (hits.length >= limit) {
+    buckets.set(key, hits);
+    const retry = Math.max(1, Math.ceil((WINDOW_MS - (now - hits[0]!)) / 1000));
+    return new Response(JSON.stringify({ error: "Too many requests — try again in a minute." }), {
+      status: 429,
+      headers: { ...headers, "Content-Type": "application/json", "Retry-After": String(retry) },
+    });
+  }
+  hits.push(now);
+  buckets.set(key, hits);
+  if (buckets.size > 5000) buckets.clear();
+  return null;
+}
