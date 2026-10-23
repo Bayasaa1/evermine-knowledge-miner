@@ -5,6 +5,7 @@
  * what made the old view unreadable. Here each project is a card with its own
  * counts; the map opens inside a project.
  */
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Boxes, ChevronRight, Loader2 } from "lucide-react";
@@ -27,6 +28,8 @@ const C = {
   videos: { en: "videos", mn: "видео", ko: "영상" },
   concepts: { en: "concepts", mn: "ойлголт", ko: "개념" },
   private: { en: "Private", mn: "Хувийн", ko: "비공개" },
+  showAll: { en: "Show all", mn: "Бүгдийг харах", ko: "모두 보기" },
+  showTop: { en: "Show top 60", mn: "Шилдэг 60-г харах", ko: "상위 60개 보기" },
   live: { en: "In feed", mn: "Хуудсанд", ko: "피드에 공개" },
 } as const;
 
@@ -44,6 +47,7 @@ export function ProjectGraphOverview({
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const fetchOverviews = useServerFn(listProjectOverviews);
 
+  const [showAll, setShowAll] = useState(false);
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["project-overviews", userId, personaId],
     queryFn: () => fetchOverviews({ data: { personaId } }),
@@ -64,8 +68,9 @@ export function ProjectGraphOverview({
       ) : projects.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
+        <>
         <ul className="grid gap-2 sm:grid-cols-2">
-          {projects.map((p) => (
+          {(showAll ? projects : [...projects].sort((a, b) => b.videos + b.concepts - (a.videos + a.concepts)).slice(0, 60)).map((p) => (
             <li key={p.projectId}>
               <button
                 type="button"
@@ -84,6 +89,12 @@ export function ProjectGraphOverview({
             </li>
           ))}
         </ul>
+        {projects.length > 60 ? (
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-medium text-primary">
+            {showAll ? t("showTop") : t("showAll")} ({projects.length})
+          </button>
+        ) : null}
+        </>
       )}
     </section>
   );
