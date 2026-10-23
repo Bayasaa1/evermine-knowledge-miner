@@ -14,6 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AiRole } from "@/lib/ai-roles";
 import { GEMINI_DEFAULT_MODEL, GEMINI_PAID_MODEL } from "@/lib/gemini-models";
+import { httpStatusOf, isServerBusyStatus, withBackoff } from "@/lib/retry";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
@@ -277,7 +278,7 @@ export async function runGeminiRoleWithFallback<T>(
         const key = await resolveUserAiKey(userId, role, ids.filter((id) => id !== preferred));
         if (key.id === preferred && key.provider === "gemini") {
           try {
-            const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+            const value = await sameKeyRetry(() => run({ kind: "gemini_key", value: key.apiKey }, key));
             await markKeyUnavailable(key.id, "ok", null);
             return { value, key };
           } catch (error) {
@@ -305,7 +306,7 @@ export async function runGeminiRoleWithFallback<T>(
       continue;
     }
     try {
-      const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
+      const value = await sameKeyRetry(() => run({ kind: "gemini_key", value: key.apiKey }, key));
       await markKeyUnavailable(key.id, "ok", null);
       return { value, key };
     } catch (error) {
@@ -354,18 +355,26 @@ function isRejectedKeyError(error: unknown): boolean {
 }
 
 function isLimitError(error: unknown): boolean {
-  return error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")
-    || error instanceof GeminiHttpError && (error.status === 402 || error.status === 429 || isBusyError(error));
+  if (error instanceof UserAiError && (error.code === "quota" || error.code === "rate_minute")) return true;
+  const status = httpStatusOf(error);
+  // Only 402/429 mean "limit". 400/404 are request/model errors and 5xx is the
+  // provider being busy — none of those may mark a key as used up.
+  return status === 402 || status === 429 || isBusyError(error);
 }
 
-/** Gemini "high demand" 503 / 500: the key is fine, the model is momentarily busy. */
+/** Provider 500/502/503/504: the key is fine, the model is momentarily busy. */
 function isBusyError(error: unknown): boolean {
-  return error instanceof GeminiHttpError && (error.status === 503 || error.status === 500);
+  return isServerBusyStatus(httpStatusOf(error));
+}
+
+/** Retries the SAME key with exponential backoff (1s, 2s) on 5xx before any failover. */
+function sameKeyRetry<T>(run: () => Promise<T>): Promise<T> {
+  return withBackoff(run, isBusyError, { retries: 2, baseMs: 1000 });
 }
 
 /** Short rest for a busy key, an hour for a used-up one. */
 function limitCooldown(error: unknown): { status: "ok" | "exhausted"; until: string } {
-  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 3 * 60 * 1000).toISOString() };
+  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 60 * 1000).toISOString() };
   const minute = error instanceof UserAiError && error.code === "rate_minute";
   if (minute) {
     const ms = Math.max(20, (error as UserAiError).retryAfterSec) * 1000;
@@ -580,7 +589,8 @@ export async function generateRoleText(opts: {
       throw lastError;
     }
     try {
-      const run = await call(resolved);
+      const current = resolved;
+      const run = await sameKeyRetry(() => call(current));
       await log(resolved, run);
       return {
         text: run.text,
@@ -602,7 +612,11 @@ export async function generateRoleText(opts: {
         // back on its own in case the refusal was temporary.
         await markKeyUnavailable(resolved.id, "invalid", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
       }
-      if (limit) {
+      if (limit && isBusyError(error)) {
+        // 5xx after same-key retries: brief rest, never "exhausted".
+        const rest = limitCooldown(error);
+        await markKeyUnavailable(resolved.id, rest.status, rest.until);
+      } else if (limit) {
         // A minute burst is not an exhausted key. Briefly cool it down, then
         // let it rejoin the fallback pool automatically. Only daily/provider
         // credit exhaustion receives the persistent exhausted status.

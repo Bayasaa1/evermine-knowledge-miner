@@ -128,6 +128,24 @@ export type LiveDub = {
   dispose: () => void;
 };
 
+/**
+ * Stops the dub the moment the video pauses, seeks or the element goes away.
+ * Returns an unbind function for unmount (which also stops).
+ */
+export function bindDubToMedia(dub: LiveDub, media: HTMLMediaElement | null): () => void {
+  if (!media) return () => dub.stop();
+  const halt = () => dub.stop();
+  media.addEventListener("pause", halt);
+  media.addEventListener("seeking", halt);
+  media.addEventListener("emptied", halt);
+  return () => {
+    media.removeEventListener("pause", halt);
+    media.removeEventListener("seeking", halt);
+    media.removeEventListener("emptied", halt);
+    dub.stop();
+  };
+}
+
 export function createLiveDub(opts: {
   mindId: string;
   lang: LangCode;
@@ -165,6 +183,8 @@ export function createLiveDub(opts: {
   };
 
   const stop = () => {
+    // Cancel any queued browser speech too, so nothing keeps talking.
+    try { window.speechSynthesis?.cancel(); } catch { /* unsupported */ }
     controller?.abort();
     controller = null;
     currentId = null;

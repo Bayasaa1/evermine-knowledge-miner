@@ -16,6 +16,7 @@ import { idbGet, idbSet, STORES } from "./store";
 import { bestGeminiKey } from "./api-keys";
 import { scopedKey, whenScopeReady } from "./user-scope";
 import { loadStack, saveStack } from "./engines";
+import { isServerBusyStatus } from "./retry";
 
 export type Sense = "text" | "image" | "audio" | "video";
 export type MinerPrice = "free" | "paid" | "manual";
@@ -381,7 +382,7 @@ export async function testMinerKey(choice: MinerChoice, apiKey: string): Promise
   }
 
   if (choice.id === "gemini") {
-    const res = await fetch(
+    const call = () => fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${encodeURIComponent(key)}`,
       {
         method: "POST",
@@ -389,11 +390,22 @@ export async function testMinerKey(choice: MinerChoice, apiKey: string): Promise
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Reply with exactly: ok" }] }] }),
       },
     );
+    // 5xx: Google is busy, not the key — retry the same key (1s, 2s) first.
+    let res = await call();
+    for (let i = 0; i < 2 && isServerBusyStatus(res.status); i++) {
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+      res = await call();
+    }
     if (!res.ok) {
+      const raw = (await res.text().catch(() => "")).slice(0, 300);
+      let upstream = raw;
+      try { upstream = (JSON.parse(raw) as { error?: { message?: string } }).error?.message ?? raw; } catch { /* raw */ }
       throw new Error(
-        res.status === 400 || res.status === 403
+        res.status === 403 || (res.status === 400 && /api key|key not valid/i.test(upstream))
           ? "Gemini rejected this key. Check it and try again."
-          : `Gemini test failed (HTTP ${res.status}).`,
+          : res.status === 429
+            ? "Gemini limit reached for now (HTTP 429). The key is fine — try again shortly."
+            : `Gemini test failed (HTTP ${res.status}) — ${upstream || "no details"}`,
       );
     }
     return;

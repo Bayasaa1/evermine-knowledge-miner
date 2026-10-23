@@ -27,7 +27,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { pickCopy, useDisplayText, useDisplayTexts, useDisplayTextsIn, useLang } from "@/lib/i18n";
 import { LANGUAGES, type LangCode } from "@/lib/languages";
-import { createLiveDub, type LiveDub } from "@/lib/live-dub";
+import { bindDubToMedia, createLiveDub, type LiveDub } from "@/lib/live-dub";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -897,7 +897,10 @@ function FeedCard({
       stillCurrent: (id) => id === String(cueIndexRef.current),
     });
     dubRef.current = dub;
+    // Native video: pause/seek/unload cancel the voice queue immediately.
+    const unbind = bindDubToMedia(dub, videoRef.current);
     return () => {
+      unbind();
       dub.dispose();
       dubRef.current = null;
       setSpeaking(false);

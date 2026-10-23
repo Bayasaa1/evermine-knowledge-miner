@@ -33,7 +33,12 @@ import {
 } from "@/lib/knowledge-graph";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
+/** Default node budget so big projects stay smooth; "Show all" lifts it. */
+const DEFAULT_NODE_CAP = 60;
+
 const C = {
+  showAll: { en: "Show all nodes", mn: "Бүх цэгийг харах", ko: "모든 노드 보기" },
+  showTop: { en: "Show top 60", mn: "Шилдэг 60-г харах", ko: "상위 60개 보기" },
   title: { en: "Knowledge map", mn: "Мэдлэгийн зураглал", ko: "지식 지도" },
   desc: {
     en: "Start at the project, open a video, then open a topic to see the explained part.",
@@ -94,6 +99,7 @@ export function ProjectKnowledgeGraph({
   const rebuild = useServerFn(rebuildProjectConcepts);
 
   const [level, setLevel] = useState<GraphLevel>("project");
+  const [showAllNodes, setShowAllNodes] = useState(false);
   const [video, setVideo] = useState<VideoRow | null>(null);
   const [partIndex, setPartIndex] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -147,6 +153,19 @@ export function ProjectKnowledgeGraph({
       }),
     [project, level, summary, videoPage, partConcepts, video],
   );
+  // Keep structural nodes (project/video/cluster) and the 60 heaviest concepts.
+  const shown = useMemo(() => {
+    if (showAllNodes || graph.nodes.length <= DEFAULT_NODE_CAP) return graph;
+    const concepts = graph.nodes.filter((n) => n.kind === "concept").sort((a, b) => b.weight - a.weight);
+    const others = graph.nodes.filter((n) => n.kind !== "concept");
+    const room = Math.max(0, DEFAULT_NODE_CAP - others.length);
+    const keep = new Set([...others, ...concepts.slice(0, room)].map((n) => n.key));
+    return {
+      ...graph,
+      nodes: graph.nodes.filter((n) => keep.has(n.key)),
+      links: graph.links.filter((l) => keep.has(l.source) && keep.has(l.target)),
+    };
+  }, [graph, showAllNodes]);
 
   const openVideoRow = (id: string) => {
     const row = (videoPage?.rows ?? []).find((r) => r.id === id);
@@ -243,7 +262,21 @@ export function ProjectKnowledgeGraph({
       ) : (summary?.videos ?? 0) === 0 ? (
         <p className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
-        <GraphCanvas nodes={graph.nodes} links={graph.links} onOpen={openNode} />
+        <>
+          {graph.nodes.length > DEFAULT_NODE_CAP ? (
+            <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+              <span>{shown.nodes.length} / {graph.nodes.length}</span>
+              <button
+                type="button"
+                onClick={() => setShowAllNodes((v) => !v)}
+                className="rounded-md border border-border px-2 py-1 font-medium text-foreground hover:border-primary"
+              >
+                {showAllNodes ? t("showTop") : t("showAll")}
+              </button>
+            </div>
+          ) : null}
+          <GraphCanvas nodes={shown.nodes} links={shown.links} onOpen={openNode} />
+        </>
       )}
 
       <Sheet open={Boolean(part && parts)} onOpenChange={(o) => !o && setPartIndex(null)}>

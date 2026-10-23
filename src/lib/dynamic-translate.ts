@@ -96,6 +96,9 @@ export function getCachedTranslation(text: string, lang: LangCode): string | nul
   return loadCache(lang)[text] ?? null;
 }
 
+/** Subtitle cues per translation request (20–25 window). */
+export const LOOKAHEAD_BATCH = 24;
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function flush() {
@@ -124,10 +127,10 @@ async function flush() {
     if (!firstBatch) await sleep(1200);
     firstBatch = false;
     const queued = [...set].filter((t) => !inflight.has(`${lang}:${t}`));
-    const texts = queued.slice(0, 16);
+    const texts = queued.slice(0, LOOKAHEAD_BATCH);
     // Anything over one batch stays queued instead of being silently dropped —
     // that is why long pages used to stay half-translated.
-    const rest = queued.slice(16);
+    const rest = queued.slice(LOOKAHEAD_BATCH);
     if (rest.length) {
       const keep = pending.get(lang) ?? new Set<string>();
       for (const t of rest) keep.add(t);
@@ -283,6 +286,7 @@ export function requestTranslation(text: string, lang: LangCode): void {
 /** Clears every cached translation (used on logout / account switch). */
 export function clearTranslationCache(): void {
   memory.clear();
+  lookaheadMark.clear();
   pending.clear();
   inflight.clear();
   missed.clear();
@@ -293,4 +297,24 @@ export function clearTranslationCache(): void {
     /* ignore */
   }
   emit();
+}
+
+/**
+ * Lookahead for subtitles: queues the current cue plus the next
+ * LOOKAHEAD_BATCH-1 cues as one batch, served from the in-memory Map cache.
+ * Call from timeupdate — it only sends a request when the window holds lines
+ * not yet cached, so playback never fires single-line requests.
+ */
+const lookaheadMark = new Map<LangCode, number>();
+export function prefetchCueWindow(cues: readonly string[], index: number, lang: LangCode): void {
+  if (typeof window === "undefined" || index < 0 || !cues.length) return;
+  const last = lookaheadMark.get(lang) ?? -1;
+  // Re-plan only when within 5 cues of the end of the window already queued.
+  if (index <= last - 5 && index >= last - LOOKAHEAD_BATCH) return;
+  const end = Math.min(cues.length, index + LOOKAHEAD_BATCH);
+  for (let i = index; i < end; i++) {
+    const text = cues[i];
+    if (text) requestTranslation(text, lang);
+  }
+  lookaheadMark.set(lang, end);
 }
