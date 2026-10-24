@@ -149,3 +149,48 @@ export function toRos2Payload(topic: string, trajectories: VlaTrajectory[]) {
     })),
   };
 }
+
+/** One Pre-condition → Action → Post-condition step, derived only from mined key actions. */
+export type ActionStateStep = {
+  id: string;
+  timestamp: string;
+  sceneState: string;
+  actorMotion: string;
+  affordances: string[];
+  successCondition: string;
+  trajectoryId: string;
+};
+
+export type BehaviorTree = {
+  type: "sequence";
+  name: string;
+  children: { type: "action"; step: ActionStateStep; onFailure: "retry" }[];
+};
+
+/**
+ * Compiles the mined key actions into an ordered Action-State behavior tree.
+ * Read-only: never calls AI and never changes mined data — each step's
+ * pre-condition is the previous step's result, so order follows the video.
+ */
+export function compileBehaviorTree(name: string, trajectories: VlaTrajectory[]): BehaviorTree {
+  const sorted = [...trajectories].sort((a, b) => a.startSec - b.startSec);
+  const steps: ActionStateStep[] = sorted.map((t, i) => {
+    const prev = sorted[i - 1];
+    const mm = Math.floor(t.startSec / 60);
+    const ss = Math.floor(t.startSec % 60);
+    return {
+      id: `step_${i + 1}`,
+      timestamp: `${mm}:${String(ss).padStart(2, "0")}`,
+      sceneState: prev ? `after: ${prev.instruction}` : "start",
+      actorMotion: t.instruction,
+      affordances: t.object ? [`graspable:${t.object}`] : [],
+      successCondition: `${t.actionType} completed`,
+      trajectoryId: t.id,
+    };
+  });
+  return {
+    type: "sequence",
+    name,
+    children: steps.map((step) => ({ type: "action", step, onFailure: "retry" })),
+  };
+}

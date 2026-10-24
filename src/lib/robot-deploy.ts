@@ -3,7 +3,7 @@
  * robot can pull with one HTTP GET (or by scanning the deployment QR code).
  */
 import type { ChunkResult, KnowledgeNode } from "./gemini";
-import { extractTrajectories, toRos2Payload, type VlaTrajectory } from "./embodied";
+import { compileBehaviorTree, extractTrajectories, toRos2Payload, type BehaviorTree, type VlaTrajectory } from "./embodied";
 
 export type RobotMindPackage = {
   schema: "evermind.robot_mind/v1";
@@ -17,6 +17,8 @@ export type RobotMindPackage = {
   vla_trajectories: VlaTrajectory[];
   /** ROS 2-shaped action stream, ready to publish. */
   ros2: ReturnType<typeof toRos2Payload>;
+  /** Ordered Action-State behavior tree compiled from the trajectories. */
+  behavior_tree: BehaviorTree;
   stats: { nodes: number; trajectories: number; spatial_actions: number };
 };
 
@@ -41,6 +43,7 @@ export function buildRobotPackage(input: {
     knowledge_graph: knowledge,
     vla_trajectories: trajectories,
     ros2: toRos2Payload(input.topic, trajectories),
+    behavior_tree: compileBehaviorTree(input.title, trajectories),
     stats: {
       nodes: knowledge.length,
       trajectories: trajectories.length,
