@@ -22,6 +22,16 @@ function oauthApi(): OAuthApi {
 
 export const Route = createFileRoute("/.lovable/oauth/consent")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Approve an App Connection — Evermind" },
+      { name: "description", content: "Review and approve or deny an app's request to connect to your Evermind account." },
+      { property: "og:title", content: "Approve an App Connection — Evermind" },
+      { property: "og:description", content: "Review an app's request to connect to your Evermind account." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   validateSearch: (s: Record<string, unknown>) => ({
     authorization_id: typeof s['authorization_id'] === "string" ? s['authorization_id'] : "",
   }),

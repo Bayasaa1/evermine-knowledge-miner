@@ -1,5 +1,11 @@
 # Roadmap
 
+## SEO findings
+- [x] Inspect the stored Explore/Profile heading finding against current pages
+- [x] Add a multilingual descriptive Profile heading; preserve Explore's redirect
+- [x] Verify signed-in page headings, 43 existing tests and nine passing SEO foundations checks
+- [x] Inspect content-page metadata and fill missing app-connection page tags
+
 ## Community comments
 - [x] Add comment/reply and like storage with owner-scoped writes
 - [x] Add multilingual live comment threads to Community posts
