@@ -27,6 +27,7 @@ export function CommentSection({ postId, userId }: { postId: string; userId: str
   const [pending, setPending] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const generation = useRef(0);
+  const pendingLikeIds = useRef<Set<string>>(new Set());
   const mounted = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -59,7 +60,9 @@ export function CommentSection({ postId, userId }: { postId: string; userId: str
     return () => { mounted.current = false; generation.current++; clearTimeout(timer); void supabase.removeChannel(channel); };
   }, [refresh, postId, open]);
 
-  useEffect(() => { setDraft(""); setReplyTo(null); setPending(new Set()); }, [userId]);
+  useEffect(() => { setDraft(""); setReplyTo(null); setPending(new Set()); pendingLikeIds.current.clear(); }, [userId]);
+  // A new target never shows the previous post's thread; its channel is removed by the effect above.
+  useEffect(() => { setComments([]); setLikes([]); setReplyTo(null); setLoadError(false); setLoading(true); pendingLikeIds.current.clear(); setPending(new Set()); }, [postId]);
 
   const send = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -75,13 +78,15 @@ export function CommentSection({ postId, userId }: { postId: string; userId: str
 
   const react = async (comment: PostComment) => {
     if (!userId) { toast.error(c.signIn); return; }
-    if (pending.has(comment.id)) return;
+    // Synchronous guard: state updates lag behind rapid double-taps.
+    if (pendingLikeIds.current.has(comment.id)) return;
+    pendingLikeIds.current.add(comment.id);
     const liked = likes.some((like) => like.comment_id === comment.id && like.user_id === userId);
     setPending((prev) => new Set(prev).add(comment.id));
     setLikes((prev) => liked ? prev.filter((like) => !(like.comment_id === comment.id && like.user_id === userId)) : [...prev, { comment_id: comment.id, user_id: userId }]);
     try { await setCommentLiked(postId, comment.id, !liked); }
     catch { toast.error(c.failed); }
-    finally { await refresh(); setPending((prev) => { const next = new Set(prev); next.delete(comment.id); return next; }); }
+    finally { pendingLikeIds.current.delete(comment.id); await refresh(); setPending((prev) => { const next = new Set(prev); next.delete(comment.id); return next; }); }
   };
 
   const { roots, children } = commentForest(comments);
