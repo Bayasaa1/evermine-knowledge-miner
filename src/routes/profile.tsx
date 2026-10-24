@@ -103,7 +103,8 @@ function ProfilePage() {
             </span>
           </button>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold">
+            <h1 className="break-words text-lg font-semibold">
+              {pickCopy({ en: "Profile", mn: "Профайл", ko: "프로필" }, lang)} — {" "}
               {isAuthenticated && profile ? profile.displayName : "Guest"}
             </h1>
             {isAuthenticated ? <UsernameEditor /> : <p className="text-xs text-muted-foreground">A life becomes a mind.</p>}

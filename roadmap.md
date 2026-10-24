@@ -1,5 +1,10 @@
 # Roadmap
 
+## SEO findings
+- [x] Inspect the stored Explore/Profile heading finding against current pages
+- [x] Add a multilingual descriptive Profile heading; preserve Explore's redirect
+- [ ] Verify page headings, existing tests and fresh SEO foundations results
+
 ## Community comments
 - [x] Add comment/reply and like storage with owner-scoped writes
 - [x] Add multilingual live comment threads to Community posts
