@@ -17,4 +17,9 @@ describe("comment replies", () => {
   it("does not hide a reply whose parent is unavailable", () => {
     assert.deepEqual(commentForest([{ id: "reply", parent_id: "hidden" }]).roots.map((row) => row.id), ["reply"]);
   });
+  it("attaches orphaned replies at the root and keeps their own children", () => {
+    const tree = commentForest([{ id: "root", parent_id: null }, { id: "orphan", parent_id: "gone" }, { id: "child", parent_id: "orphan" }, { id: "self", parent_id: "self" }]);
+    assert.deepEqual(tree.roots.map((row) => row.id), ["root", "orphan", "self"]);
+    assert.deepEqual(tree.children.get("orphan")?.map((row) => row.id), ["child"]);
+  });
 });
