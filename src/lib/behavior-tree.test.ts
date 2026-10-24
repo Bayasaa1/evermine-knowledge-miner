@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { compileBehaviorTree, type VlaTrajectory } from "./embodied";
 
 const t = (id: string, start: number, instruction: string, object = ""): VlaTrajectory => ({
@@ -6,12 +7,12 @@ const t = (id: string, start: number, instruction: string, object = ""): VlaTraj
 });
 
 describe("compileBehaviorTree", () => {
-  test("orders steps by video time and chains pre-conditions", () => {
+  it("orders steps by video time and chains pre-conditions", () => {
     const tree = compileBehaviorTree("m", [t("b", 75, "pour water"), t("a", 10, "grab bottle", "bottle")]);
-    expect(tree.children.map((c) => c.step.trajectoryId)).toEqual(["a", "b"]);
-    expect(tree.children[0]!.step.sceneState).toBe("start");
-    expect(tree.children[1]!.step.sceneState).toBe("after: grab bottle");
-    expect(tree.children[1]!.step.timestamp).toBe("1:15");
-    expect(tree.children[0]!.step.affordances).toEqual(["graspable:bottle"]);
+    assert.deepEqual(tree.children.map((c) => c.step.trajectoryId), ["a", "b"]);
+    assert.equal(tree.children[0]!.step.sceneState, "start");
+    assert.equal(tree.children[1]!.step.sceneState, "after: grab bottle");
+    assert.equal(tree.children[1]!.step.timestamp, "1:15");
+    assert.deepEqual(tree.children[0]!.step.affordances, ["graspable:bottle"]);
   });
 });
