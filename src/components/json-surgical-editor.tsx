@@ -132,9 +132,9 @@ const HINT_FIX: Record<CardHint, string> = {
 function readCard(card: EditCard, lang: Lang): string {
   const f = card.fields;
   const L = (k: string) => pickCopy(FIELD_LABEL[k]!, lang);
-  if (card.kind === "claim") return `${f.title || "—"}\n${f.summary || "—"}${f.quote ? `\n“${f.quote}”` : ""}`;
-  if (card.kind === "faq") return `Q: ${f.question || "—"}\nA: ${f.answer || "—"}`;
-  if (card.kind === "rule") return `IF ${f.situation || "—"}\nTHEN ${f.action || "—"}\n${L("why")}: ${f.why || "—"}`;
+  if (card.kind === "claim") return `${f["title"] || "—"}\n${f["summary"] || "—"}${f["quote"] ? `\n“${f["quote"]}”` : ""}`;
+  if (card.kind === "faq") return `Q: ${f["question"] || "—"}\nA: ${f["answer"] || "—"}`;
+  if (card.kind === "rule") return `IF ${f["situation"] || "—"}\nTHEN ${f["action"] || "—"}\n${L("why")}: ${f["why"] || "—"}`;
   return CARD_FIELDS[card.kind].map((k, i) => `${i + 1}. ${L(k)}: ${f[k] || "—"}`).join("\n");
 }
 
@@ -192,7 +192,7 @@ export function JsonSurgicalEditor({
   const renderCard = (card: EditCard, movable: boolean) => (
     <li key={card.id} className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{card.kind === "drill" ? card.fields.skill_name || "drill" : card.kind}</Badge>
+        <Badge variant="secondary">{card.kind === "drill" ? card.fields["skill_name"] || "drill" : card.kind}</Badge>
         {card.timestamp && parseTimestamp(card.timestamp) !== null && videoId ? (
           <button type="button" onClick={() => setVideoAt(parseTimestamp(card.timestamp))}
             className="inline-flex items-center gap-1 rounded-md border border-primary/40 px-2 py-0.5 text-xs text-primary hover:bg-primary/10">
