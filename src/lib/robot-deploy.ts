@@ -52,7 +52,7 @@ function mergeGaming(chunks: Pick<ChunkResult, "gaming">[]): GamingExtraction | 
 export function detectMindKind(p: Pick<RobotMindPackage, "tactical_playbook" | "movement_drills" | "behavior_tree">): MindKind {
   if (p.tactical_playbook) return "gaming";
   if (p.movement_drills.length) return "movement";
-  if (p.behavior_tree.steps.length) return "robot";
+  if (p.behavior_tree.children.length) return "robot";
   return "knowledge";
 }
 
@@ -212,13 +212,13 @@ def main():
         except Exception:
             print("Camera unavailable — install opencv-python for live vision.")
 
-    steps = (mind.get("behavior_tree") or {}).get("steps") or []
+    steps = [c.get("step", {}) for c in ((mind.get("behavior_tree") or {}).get("children") or [])]
     i = 0
     while True:
         frame = grab_frame(cam)
         if frame and args.auth:
             try:
-                d = http_json(f"{BASE}/api/mind-vision", {"mode": "embodied", "image": frame, "mindId": mind.get("mind_id")}, args.auth)
+                d = http_json(f"{BASE}/api/mind-vision", {"mode": "embodied", "image": frame, "name": mind.get("title")}, args.auth)
                 act = d.get("embodied") or d
                 speak(act.get("speech"))
                 out.send(act.get("action_primitive"), act.get("target_object"))
@@ -226,8 +226,8 @@ def main():
                 print("vision error:", e)
         elif i < len(steps):
             s = steps[i]
-            speak(s.get("action") or s.get("instruction"))
-            out.send(s.get("actionPrimitive") or s.get("action"), s.get("targetObject"))
+            speak(s.get("actorMotion"))
+            out.send(s.get("actionPrimitive") or s.get("actorMotion"), s.get("targetObject"))
             i += 1
         else:
             print("Plan complete."); out.send("stop", None); break
