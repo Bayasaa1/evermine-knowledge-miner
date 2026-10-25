@@ -217,7 +217,7 @@ def main():
         if frame and args.auth:
             try:
                 d = http_json(f"{BASE}/api/mind-vision", {"mode": "embodied", "image": frame, "name": mind.get("title")}, args.auth)
-                act = d.get("embodied") or d
+                act = d.get("action") or d.get("embodied") or d
                 speak(act.get("speech"))
                 out.send(act.get("action_primitive"), act.get("target_object"))
             except Exception as e:
