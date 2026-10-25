@@ -13,7 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import type { SourcePayload } from "@/lib/source-vault.functions";
 
-import { CloudCheck, Columns3, Eye, FolderInput, Gavel, Loader2, Pencil, Send, Settings2, Trash2, Wrench } from "lucide-react";
+import { Rocket, CloudCheck, Columns3, Eye, FolderInput, Gavel, Loader2, Pencil, Send, Settings2, Trash2, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { MindExplorer } from "@/components/mind-explorer";
@@ -46,6 +46,9 @@ import {
 } from "@/lib/projects";
 import { rebuildProjectConcepts } from "@/lib/knowledge-graph.functions";
 import { FileThis, type FileTarget } from "@/components/file-this";
+import { RobotSyncModal } from "@/components/robot-sync-modal";
+import type { ChunkResult } from "@/lib/gemini";
+import type { FeedItem } from "@/lib/feed";
 import { useAuth } from "@/hooks/use-auth";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -165,7 +168,22 @@ export function SavedMinds({
     sendTo: pickCopy({ en: "Send to…", mn: "Илгээх…", ko: "보내기…" }, lang),
     filed: pickCopy({ en: "Filed", mn: "Бүртгэлээ", ko: "분류 완료" }, lang),
     undo: pickCopy({ en: "Undo", mn: "Буцаах", ko: "되돌리기" }, lang),
+    installRun: pickCopy({ en: "1-Click Install & Run", mn: "1 товчоор суулгаж ажиллуулах", ko: "원클릭 설치 및 실행" }, lang),
+    kind: {
+      knowledge: pickCopy({ en: "Knowledge Mind", mn: "Мэдлэгийн оюун", ko: "지식 마인드" }, lang),
+      movement: pickCopy({ en: "Movement Coach", mn: "Хөдөлгөөний багш", ko: "동작 코치" }, lang),
+      robot: pickCopy({ en: "Robot Brain", mn: "Роботын тархи", ko: "로봇 브레인" }, lang),
+      gaming: pickCopy({ en: "Gaming Mind", mn: "Тоглоомын оюун", ko: "게이밍 마인드" }, lang),
+    },
   };
+
+  /** Mind type comes from the category it was mined as (read-only). */
+  const kindOf = (row: VaultRow): "knowledge" | "movement" | "robot" | "gaming" => {
+    const c = String(((row.payload ?? {}) as Record<string, unknown>)["category"] ?? "");
+    return c === "gaming" || c === "movement" || c === "robot" ? c : "knowledge";
+  };
+  /** Mind open in the Complete Edition launcher. */
+  const [launch, setLaunch] = useState<{ item: FeedItem; chunks: ChunkResult[] } | null>(null);
 
   const { data: personas = [] } = useQuery<Persona[]>({
     queryKey: ["personas", userId],
@@ -828,6 +846,27 @@ export function SavedMinds({
                             </button>
                           ) : (
                             <>
+                              <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                                {t.kind[kindOf(openRow)]}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const result = ((openRow.payload ?? {}) as Record<string, unknown>)["result"] as ChunkResult | undefined;
+                                  setLaunch({
+                                    chunks: result ? [result] : [],
+                                    item: {
+                                      id: openRow.id, mindId: openRow.id, creator: video?.channel ?? g.title, handle: "",
+                                      title: g.title, description: "", category: "knowledge" as FeedItem["category"],
+                                      src: null, youtubeId: g.youtubeId ?? null, poster: g.thumb, tags: [], price: 0, currency: "USD",
+                                    } as unknown as FeedItem,
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                              >
+                                <Rocket className="h-3.5 w-3.5" />
+                                {t.installRun}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => setInspect(openRow)}
@@ -989,6 +1028,14 @@ export function SavedMinds({
         </Dialog>
       )}
 
+
+      <RobotSyncModal
+        open={!!launch}
+        onClose={() => setLaunch(null)}
+        item={launch?.item ?? null}
+        chunks={launch?.chunks ?? []}
+        lang={lang}
+      />
 
       {filing && (
         <FileThis

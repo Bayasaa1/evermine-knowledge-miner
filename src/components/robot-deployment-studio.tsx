@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Bot, Copy, Download, Link2, QrCode, Radio, RefreshCw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import type { ChunkResult } from "@/lib/gemini";
-import { buildRobotPackage, deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
+import { buildRobotPackage, deploymentUrl, evermindRunnerScript, quickStartCommand, rosClientScript } from "@/lib/robot-deploy";
 import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/robot-deploy.functions";
 import { loadEmbodiedSettings } from "@/lib/embodied";
 import { BehaviorTreePanel } from "@/components/behavior-tree-panel";
@@ -372,6 +372,23 @@ export function RobotDeploymentStudio({
                 className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
               >
                 <Download className="h-3.5 w-3.5" /> {t.downloadRos}
+              </button>
+              <button
+                type="button"
+                onClick={() => download("evermind_runner.py", evermindRunnerScript(origin, deployment.token), "text/x-python")}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+              >
+                <Download className="h-3.5 w-3.5" /> evermind_runner.py
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(quickStartCommand(deployment.token));
+                  toast.success(t.copied);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              >
+                <Copy className="h-3.5 w-3.5" /> <code className="font-mono">{quickStartCommand(deployment.token)}</code>
               </button>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
