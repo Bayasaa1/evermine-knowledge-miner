@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { GamingExtraction } from "@/lib/gemini";
 import { downloadBedrockAddon } from "@/lib/bedrock-addon";
-import { downloadTeammateBot } from "@/lib/game-bot";
+import { buildTacticalPlaybook, downloadBotPolicy, downloadTeammateBot } from "@/lib/game-bot";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 const C = {
@@ -41,7 +41,22 @@ const C = {
     mn: "Утас: файлаа дарахад Minecraft нээгдэнэ. Шинэ ертөнц үүсгээд Behavior Packs-д нэмэлтээ асааж, өндгөөр гаргаад номхруулна.",
     ko: "휴대폰: 파일을 누르면 Minecraft가 열립니다. 월드를 만들고 행동 팩에서 애드온을 켠 뒤 스폰 알로 소환하고 길들이세요.",
   },
+  playbook: { en: "Tactical Playbook", mn: "Тактикийн дэвтэр", ko: "전술 플레이북" },
+  genre: { en: "Game / genre", mn: "Тоглоом / төрөл", ko: "게임 / 장르" },
+  rules: { en: "When → do → why", mn: "Хэзээ → юу хийх → яагаад", ko: "상황 → 행동 → 이유" },
+  noRules: { en: "No mined rules yet.", mn: "Олборлосон дүрэм алга.", ko: "마이닝된 규칙이 없습니다." },
+  callouts: { en: "Callouts", mn: "Дуудлагууд", ko: "콜아웃" },
+  policy: { en: "Download bot policy (JSON / WebSocket)", mn: "Ботын бодлого татах (JSON / WebSocket)", ko: "봇 정책 다운로드 (JSON / WebSocket)" },
+  mcOnly: { en: "Minecraft downloads", mn: "Minecraft татах", ko: "Minecraft 다운로드" },
 } as const;
+
+const METRIC_LABEL: Record<string, Record<Lang, string>> = {
+  aggression: { en: "Aggression", mn: "Довтолгоо", ko: "공격성" },
+  risk_tolerance: { en: "Risk", mn: "Эрсдэл", ko: "위험 감수" },
+  resource_greed: { en: "Resource greed", mn: "Нөөц хураалт", ko: "자원 욕심" },
+  team_play: { en: "Team play", mn: "Багаар тоглох", ko: "팀플레이" },
+  mechanical_tempo: { en: "Tempo", mn: "Хурд", ko: "템포" },
+};
 
 const TAME = ["emerald", "diamond", "bone", "apple", "gold_ingot", "cookie"];
 
@@ -55,6 +70,7 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
         .join("\n"),
     [gaming],
   );
+  const playbook = useMemo(() => buildTacticalPlaybook(gaming), [gaming]);
   const [name, setName] = useState(mindName);
   const [health, setHealth] = useState(40);
   const [damage, setDamage] = useState(6);
@@ -113,6 +129,51 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
           <DialogDescription>{t("desc")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          <section className="space-y-3 rounded-lg border border-border bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-foreground">{t("playbook")}</h3>
+              <span className="text-xs text-muted-foreground">{t("genre")}: {playbook.detected_game_or_genre}</span>
+            </div>
+            <div className="space-y-1.5">
+              {Object.entries(playbook.playstyle_metrics).map(([k, v]) => (
+                <div key={k} className="flex items-center gap-2 text-xs">
+                  <span className="w-28 shrink-0 text-muted-foreground">{METRIC_LABEL[k]?.[lang] ?? k}</span>
+                  <div className="h-1.5 flex-1 rounded-full bg-muted"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${v}%` }} /></div>
+                  <span className="w-8 text-right tabular-nums">{v}</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{t("rules")}</Label>
+              {playbook.state_action_rules.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{t("noRules")}</p>
+              ) : (
+                <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
+                  {playbook.state_action_rules.slice(0, 12).map((r, i) => (
+                    <li key={i} className="rounded border border-border p-1.5">
+                      <span className="text-muted-foreground">{r.when_hud_or_map_state}</span> → <b>{r.do_micro_or_macro_action}</b>
+                      {r.creator_reason ? <span className="text-muted-foreground"> · {r.creator_reason}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {playbook.callout_vocabulary.length > 0 ? (
+              <div className="space-y-1">
+                <Label className="text-xs">{t("callouts")}</Label>
+                <div className="flex flex-wrap gap-1">
+                  {playbook.callout_vocabulary.slice(0, 12).map((c) => (
+                    <span key={c} className="rounded-full bg-muted px-2 py-0.5 text-xs">{c}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <Button className="w-full" variant={playbook.is_minecraft ? "outline" : "default"} onClick={() => downloadBotPolicy(name.trim() || mindName, gaming)}>
+              <Download className="mr-1.5 h-4 w-4" />{t("policy")}
+            </Button>
+          </section>
+          {playbook.is_minecraft ? <p className="text-xs font-semibold text-foreground">{t("mcOnly")}</p> : null}
+          <div className={playbook.is_minecraft ? "space-y-4" : "space-y-4 opacity-70"}>
           <div className="space-y-1">
             <Label className="text-xs">{t("name")}</Label>
             <Input value={name} maxLength={32} onChange={(e) => setName(e.target.value)} />
@@ -155,10 +216,11 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button className="flex-1" onClick={buildPhone}><Download className="mr-1.5 h-4 w-4" />{t("phone")}</Button>
+            <Button className="flex-1" variant={playbook.is_minecraft ? "default" : "outline"} onClick={buildPhone}><Download className="mr-1.5 h-4 w-4" />{t("phone")}</Button>
             <Button className="flex-1" variant="outline" onClick={buildPc}><Download className="mr-1.5 h-4 w-4" />{t("pc")}</Button>
           </div>
           <p className="text-xs text-muted-foreground">{t("steps")}</p>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
