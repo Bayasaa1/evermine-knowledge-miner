@@ -59,6 +59,10 @@ export const claimMind = createServerFn({ method: "POST" })
     await assertNotBanned(context.supabase, context.userId);
 
     const listed = catalogPrice(data.mindId) ?? (await projectPrice(data.mindId, data.plan));
+    // A project that is unpublished or unknown has no price to honour: never grant it.
+    if (!listed && data.mindId.startsWith("project:")) {
+      return { ok: false, error: "This Mind is not available." } as PurchaseResult;
+    }
     const price = listed?.price ?? 0;
     const currency = listed?.currency ?? "USD";
 

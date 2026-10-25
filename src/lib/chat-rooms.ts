@@ -210,7 +210,7 @@ export async function uploadRoomMedia(roomId: string, file: File): Promise<RoomA
 }
 
 export async function roomMediaUrl(path: string): Promise<string> {
-  const { data, error } = await supabase.storage.from("room-media").createSignedUrl(path, 3600);
+  const { data, error } = await supabase.storage.from("room-media").createSignedUrl(path, 300);
   if (error) throw error;
   return data.signedUrl;
 }

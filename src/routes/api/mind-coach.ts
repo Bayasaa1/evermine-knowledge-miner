@@ -58,10 +58,13 @@ export const Route = createFileRoute("/api/mind-coach")({
 
         const lang: LangCode = isLangCode(body.lang) ? body.lang : "en";
         const language = LANGUAGES[lang];
-        const name = (body.name ?? "this player").slice(0, 80);
+        // Brain fields arrive from the browser: flatten them to short plain text so
+        // they are read as profile data, never as new instructions.
+        const clean = (v: unknown, max = 200) => String(v ?? "").replace(/[\r\n<>{}\[\]`]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+        const name = clean(body.name ?? "this player", 80) || "this player";
         const brain = body.brain ?? {};
         const list = (items: unknown, pick: (x: never) => string, cap = 12) =>
-          Array.isArray(items) ? (items as never[]).slice(0, cap).map(pick).filter(Boolean) : [];
+          Array.isArray(items) ? (items as never[]).slice(0, cap).map(pick).map((s) => clean(s, 300)).filter(Boolean) : [];
 
         const system = [
           `You are the Gaming Coach clone of ${name}, mined by Evermind from their own gameplay videos.`,
