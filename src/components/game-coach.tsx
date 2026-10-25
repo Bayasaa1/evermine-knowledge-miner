@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Loader2, Mic, Square, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 import type { GamingExtraction } from "@/lib/gemini";
+import { buildTacticalPlaybook } from "@/lib/game-bot";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 const C = {
@@ -21,7 +22,7 @@ const C = {
     mn: "Дасгалжуулагч таны дэлгэцийг харж, дууг сонсоод энэ Оюуны хэв маягаар заана. Тоглохгүй — тоглох нь Хамтрагчийн ажил.",
     ko: "코치는 화면을 보고 목소리를 들은 뒤 이 마인드의 스타일로 가르칩니다. 직접 플레이하지는 않습니다.",
   },
-  start: { en: "Share screen & start coaching", mn: "Дэлгэц хуваалцаж эхлэх", ko: "화면 공유하고 코칭 시작" },
+  start: { en: "Live Screen-Share Coach", mn: "Шууд дэлгэц хуваалцах дасгалжуулагч", ko: "라이브 화면 공유 코치" },
   stop: { en: "Stop coaching", mn: "Зогсоох", ko: "코칭 중지" },
   watching: { en: "Watching… advice lands every few seconds.", mn: "Харж байна… зөвлөгөө хэд хэдэн секунд тутам ирнэ.", ko: "관전 중… 몇 초마다 조언이 옵니다." },
   micOn: { en: "Mic on — the coach hears you", mn: "Мик асаалттай — дасгалжуулагч таныг сонсож байна", ko: "마이크 켜짐 — 코치가 듣고 있습니다" },
@@ -38,7 +39,13 @@ const C = {
   },
 } as const;
 
-type Advice = { at: number; text: string };
+type Urgency = "calm" | "warn" | "critical";
+type Advice = { at: number; text: string; urgency?: Urgency; situation?: string; action?: string };
+const URGENCY_CLASS: Record<Urgency, string> = {
+  calm: "border-border",
+  warn: "border-primary",
+  critical: "border-destructive",
+};
 
 /**
  * Screen-watching coach. Frames are JPEG snapshots sent to /api/mind-coach,
@@ -68,10 +75,13 @@ export function GameCoach({
   const heardRef = useRef("");
   const recRef = useRef<{ stop: () => void } | null>(null);
 
+  const playbook = useMemo(() => buildTacticalPlaybook(brain), [brain]);
   const hasBrain =
     brain.skills.length > 0 || brain.tactics.length > 0 || brain.decisions.length > 0;
 
+  const genRef = useRef(0);
   const stop = useCallback(() => {
+    genRef.current += 1;
     timerRef.current && clearInterval(timerRef.current);
     timerRef.current = null;
     recRef.current?.stop();
@@ -89,7 +99,8 @@ export function GameCoach({
 
   const snapshot = useCallback(async () => {
     const video = videoRef.current;
-    if (!video || video.videoWidth === 0) return;
+    if (!video || video.videoWidth === 0 || !streamRef.current) return;
+    const gen = genRef.current;
     const canvas = document.createElement("canvas");
     const scale = Math.min(1, 960 / video.videoWidth);
     canvas.width = Math.round(video.videoWidth * scale);
@@ -105,28 +116,51 @@ export function GameCoach({
       const res = await apiFetch("/api/mind-coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: mindName, lang, image, heard, brain }),
+        body: JSON.stringify({ name: mindName, lang, image, heard, brain, playbook }),
       });
-      const data = (await res.json().catch(() => ({}))) as { advice?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        advice?: string;
+        error?: string;
+        callout?: string;
+        urgency?: Urgency;
+        detected_situation?: string;
+        recommended_action?: string;
+      };
+      if (gen !== genRef.current) return;
       if (!res.ok) {
         setError(data.error ?? `Coaching failed (${res.status}).`);
         if (res.status === 401 || res.status === 402 || res.status === 403) stop();
         return;
       }
-      if (data.advice) setAdvice((prev) => [{ at: Date.now(), text: data.advice! }, ...prev].slice(0, 30));
+      const text = data.callout || data.advice;
+      if (text) {
+        const item: Advice = {
+          at: Date.now(),
+          text,
+          ...(data.urgency ? { urgency: data.urgency } : {}),
+          ...(data.detected_situation ? { situation: data.detected_situation } : {}),
+          ...(data.recommended_action ? { action: data.recommended_action } : {}),
+        };
+        setAdvice((prev) => [item, ...prev].slice(0, 30));
+      }
       setError(null);
     } catch {
       setError("Could not reach the coach.");
     } finally {
       setBusy(false);
     }
-  }, [brain, lang, mindName, stop]);
+  }, [brain, lang, mindName, playbook, stop]);
 
   const start = async () => {
     setError(null);
     setAdvice([]);
+    const gen = genRef.current;
     try {
       const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      if (gen !== genRef.current) {
+        display.getTracks().forEach((tr) => tr.stop());
+        return;
+      }
       streamRef.current = display;
       const video = videoRef.current;
       if (video) {
@@ -138,6 +172,10 @@ export function GameCoach({
       // Mic: local speech-to-text so the coach can react to what you said.
       try {
         const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (!streamRef.current) {
+          mic.getTracks().forEach((tr) => tr.stop());
+          return;
+        }
         mic.getTracks().forEach((tr) => streamRef.current?.addTrack(tr));
         const Rec = (window as unknown as Record<string, unknown>)["SpeechRecognition"]
           ?? (window as unknown as Record<string, unknown>)["webkitSpeechRecognition"];
@@ -165,7 +203,7 @@ export function GameCoach({
 
       setRunning(true);
       void snapshot();
-      timerRef.current = setInterval(() => void snapshot(), 8000);
+      timerRef.current = setInterval(() => void snapshot(), 5000);
     } catch {
       setError("Screen share was cancelled or blocked.");
     }
@@ -218,9 +256,14 @@ export function GameCoach({
             </p>
           ) : (
             advice.map((a) => (
-              <p key={a.at} className="rounded-lg border border-border bg-card p-3 text-sm text-foreground">
-                {a.text}
-              </p>
+              <div key={a.at} className={`rounded-lg border-2 bg-card p-3 text-sm text-foreground ${URGENCY_CLASS[a.urgency ?? "calm"]}`}>
+                <p className={a.urgency === "critical" ? "font-bold" : "font-medium"}>{a.text}</p>
+                {a.situation || a.action ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {a.situation}{a.situation && a.action ? " → " : ""}{a.action}
+                  </p>
+                ) : null}
+              </div>
             ))
           )}
         </div>

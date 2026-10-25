@@ -37,6 +37,12 @@ export const Route = createFileRoute("/api/mind-coach")({
             mindset?: string[];
             emotions?: { trigger?: string; reaction?: string; quote?: string }[];
           };
+          playbook?: {
+            detected_game_or_genre?: string;
+            playstyle_metrics?: Record<string, number>;
+            state_action_rules?: { when_hud_or_map_state?: string; do_micro_or_macro_action?: string; creator_reason?: string }[];
+            callout_vocabulary?: string[];
+          };
           apiKey?: string;
         };
         try {
@@ -96,13 +102,32 @@ export const Route = createFileRoute("/api/mind-coach")({
                 ),
               ]
             : []),
+          ...(body.playbook
+            ? [
+                ``,
+                `GAME / GENRE: ${String(body.playbook.detected_game_or_genre ?? "unknown").slice(0, 80)}`,
+                `PLAYSTYLE (0-100): ${Object.entries(body.playbook.playstyle_metrics ?? {}).slice(0, 5).map(([k, v]) => `${k.slice(0, 20)}=${Number(v) || 0}`).join(", ")}`,
+                `STATE → ACTION RULES (match the frame against these first):`,
+                ...list(
+                  body.playbook.state_action_rules,
+                  (r: { when_hud_or_map_state?: string; do_micro_or_macro_action?: string; creator_reason?: string }) =>
+                    `- WHEN ${String(r.when_hud_or_map_state ?? "").slice(0, 160)} → DO ${String(r.do_micro_or_macro_action ?? "").slice(0, 160)} (because ${String(r.creator_reason ?? "").slice(0, 120)})`,
+                  20,
+                ),
+                ...(body.playbook.callout_vocabulary?.length
+                  ? [`CALLOUT WORDS: ${body.playbook.callout_vocabulary.slice(0, 15).map((c) => String(c).slice(0, 60)).join(" | ")}`]
+                  : []),
+              ]
+            : []),
           ``,
           `RULES:`,
           `- Look at the frame. Comment on what the player is doing RIGHT NOW: position, resources, danger, opportunity.`,
           `- Coach, never play: give one clear next move or correction. 1-3 short sentences, in first person as ${name}.`,
           `- When a mined skill or tactic fits the situation, name it.`,
           `- Answer entirely in ${language.name} (${language.native}).`,
-          `- If the frame shows no game (desktop, menus, black screen), say so in one line and wait.`,
+          `- If the frame shows no game (desktop, menus, black screen), say so in one line and wait (urgency calm).`,
+          `- Reply ONLY with JSON: {"callout": string (punchy, max 15 words, in ${name}'s voice), "urgency": "calm"|"warn"|"critical", "detected_situation": string, "recommended_action": string}.`,
+          `- critical = immediate danger/loss in seconds; warn = a mistake forming; calm = fine.`,
         ].join("\n");
 
         const heard = typeof body.heard === "string" ? body.heard.trim().slice(0, 500) : "";
@@ -131,7 +156,8 @@ export const Route = createFileRoute("/api/mind-coach")({
               },
             ],
           });
-          return new Response(JSON.stringify({ advice }), {
+          const parsed = parseCallout(advice);
+          return new Response(JSON.stringify({ advice: parsed.callout, ...parsed }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
@@ -142,3 +168,34 @@ export const Route = createFileRoute("/api/mind-coach")({
     },
   },
 });
+
+type Callout = {
+  callout: string;
+  urgency: "calm" | "warn" | "critical";
+  detected_situation: string;
+  recommended_action: string;
+};
+
+function parseCallout(raw: string): Callout {
+  const text = String(raw ?? "").trim();
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      const j = JSON.parse(match[0]) as Partial<Callout>;
+      const urgency = j.urgency === "warn" || j.urgency === "critical" ? j.urgency : "calm";
+      const callout = String(j.callout ?? "").trim();
+      if (callout) {
+        return {
+          callout: callout.slice(0, 240),
+          urgency,
+          detected_situation: String(j.detected_situation ?? "").slice(0, 240),
+          recommended_action: String(j.recommended_action ?? "").slice(0, 240),
+        };
+      }
+    } catch {
+      /* fall through to plain text */
+    }
+  }
+  if (!text) throw new Error("Empty coach reply");
+  return { callout: text.slice(0, 240), urgency: "calm", detected_situation: "", recommended_action: "" };
+}
