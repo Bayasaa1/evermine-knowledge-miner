@@ -142,7 +142,7 @@ export function RobotSyncModal({
       });
       if (run !== runRef.current) return;
       const body = (await res.json()) as Decision & { action?: Decision; embodied?: Decision; error?: string };
-...
+if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       const d = body.action ?? body.embodied ?? body;
       setDecision(d);
       if (d.speech && window.speechSynthesis) {
