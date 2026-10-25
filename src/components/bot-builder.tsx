@@ -50,7 +50,7 @@ const C = {
   mcOnly: { en: "Minecraft downloads", mn: "Minecraft татах", ko: "Minecraft 다운로드" },
 } as const;
 
-const METRIC_LABEL: Record<string, Record<Lang, string>> = {
+const METRIC_LABEL: Record<string, { en: string; mn: string; ko: string }> = {
   aggression: { en: "Aggression", mn: "Довтолгоо", ko: "공격성" },
   risk_tolerance: { en: "Risk", mn: "Эрсдэл", ko: "위험 감수" },
   resource_greed: { en: "Resource greed", mn: "Нөөц хураалт", ko: "자원 욕심" },
@@ -137,7 +137,7 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
             <div className="space-y-1.5">
               {Object.entries(playbook.playstyle_metrics).map(([k, v]) => (
                 <div key={k} className="flex items-center gap-2 text-xs">
-                  <span className="w-28 shrink-0 text-muted-foreground">{METRIC_LABEL[k]?.[lang] ?? k}</span>
+                  <span className="w-28 shrink-0 text-muted-foreground">{METRIC_LABEL[k] ? pickCopy(METRIC_LABEL[k], lang) : k}</span>
                   <div className="h-1.5 flex-1 rounded-full bg-muted"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${v}%` }} /></div>
                   <span className="w-8 text-right tabular-nums">{v}</span>
                 </div>

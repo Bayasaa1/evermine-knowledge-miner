@@ -154,9 +154,10 @@ export function GameCoach({
   const start = async () => {
     setError(null);
     setAdvice([]);
+    const gen = genRef.current;
     try {
       const display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      if (!open) {
+      if (gen !== genRef.current) {
         display.getTracks().forEach((tr) => tr.stop());
         return;
       }
