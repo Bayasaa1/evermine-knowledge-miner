@@ -5,6 +5,42 @@
 import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
 import type { ChunkResult, EmbodiedTriplet, FaceFrame } from "./gemini";
+import { z } from "zod";
+
+const movementDetail = z.string().trim().max(600);
+export const MovementSkillDrillSchema = z.object({
+  skill_name: movementDetail.min(1),
+  phase: z.enum(["prep", "execution", "follow_through"]),
+  body_or_hand_mechanics: movementDetail.min(1),
+  tempo_and_rhythm: movementDetail,
+  sensory_cue: movementDetail,
+  common_mistake_to_avoid: movementDetail,
+});
+export type MovementSkillDrill = z.infer<typeof MovementSkillDrillSchema>;
+export type SkillDrillChecklistItem = MovementSkillDrill & { timestamp: string };
+// ScreenItem.steps survives existing normalization/merge without a schema migration.
+export const MOVEMENT_DRILL_PREFIX = "movement_skill_drill:";
+
+export function extractMovementSkillDrills(chunk: Partial<Pick<ChunkResult, "screenItems">>): SkillDrillChecklistItem[] {
+  return (chunk.screenItems ?? []).flatMap((item) => item.steps.flatMap((step) => {
+    if (!step.startsWith(MOVEMENT_DRILL_PREFIX)) return [];
+    try {
+      const drill = MovementSkillDrillSchema.safeParse(JSON.parse(step.slice(MOVEMENT_DRILL_PREFIX.length)));
+      return drill.success ? [{ ...drill.data, timestamp: item.timestamp }] : [];
+    } catch { return []; }
+  })).sort((a, b) => toSeconds(a.timestamp) - toSeconds(b.timestamp));
+}
+
+/** Read-only source-timed checklist: never invent mechanics or missing phases. */
+export function compileSkillDrillChecklist(trajectories: VlaTrajectory[]): SkillDrillChecklistItem[] {
+  const seen = new Set<string>();
+  return trajectories.flatMap((t) => t.movementDrills ?? []).filter((drill) => {
+    const key = JSON.stringify(drill);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => toSeconds(a.timestamp) - toSeconds(b.timestamp));
+}
 
 export type Vec3 = { x: number; y: number; z: number };
 
@@ -29,6 +65,7 @@ export type VlaTrajectory = {
   waypoints: VlaWaypoint[];
   /** low | medium | high — how usable this clip is for policy training. */
   confidence: "low" | "medium" | "high";
+  movementDrills?: SkillDrillChecklistItem[];
 };
 
 export type EmbodiedSettings = {
@@ -105,8 +142,9 @@ function waypoints(frame: FaceFrame, start: number, end: number): VlaWaypoint[] 
 }
 
 /** Derives VLA trajectories from the key physical actions captured while mining. */
-export function extractTrajectories(chunk: Pick<ChunkResult, "faceData">): VlaTrajectory[] {
-  return (chunk.faceData ?? [])
+export function extractTrajectories(chunk: Pick<ChunkResult, "faceData"> & Partial<Pick<ChunkResult, "screenItems">>): VlaTrajectory[] {
+  const drills = extractMovementSkillDrills(chunk);
+  const trajectories: VlaTrajectory[] = (chunk.faceData ?? [])
     .filter((f) => f.isKeyAction)
     .map((f, i) => {
       const start = toSeconds(f.clipStart || f.timestamp);
@@ -115,7 +153,7 @@ export function extractTrajectories(chunk: Pick<ChunkResult, "faceData">): VlaTr
       return {
         id: `vla_${i}_${Math.round(start)}`,
         instruction: f.actionType ? `${f.actionType}: ${f.description}` : f.description,
-        object: gestures ? gestures.split(/[,;]/)[0]!.trim() : "",
+        object: gestures ? gestures.split(/[,;]/)[0]?.trim() ?? "" : "",
         actionType: f.actionType || "manipulation",
         startSec: start,
         endSec: end,
@@ -127,6 +165,18 @@ export function extractTrajectories(chunk: Pick<ChunkResult, "faceData">): VlaTr
             : ("medium" as const),
       };
     });
+  for (const drill of drills) {
+    const sec = toSeconds(drill.timestamp);
+    const match = trajectories.find((t) => sec >= t.startSec && sec <= t.endSec);
+    if (match) (match.movementDrills ??= []).push(drill);
+    else trajectories.push({
+      id: `drill_${trajectories.length}_${sec}`, instruction: drill.skill_name,
+      object: "", actionType: "skill_drill", startSec: sec, endSec: sec,
+      // Observational checklist, not measured robot joint coordinates.
+      waypoints: [], confidence: "low", movementDrills: [drill],
+    });
+  }
+  return trajectories;
 }
 
 /** ROS 2-shaped payload for the simulated Robot Mind Export API. */
@@ -136,6 +186,7 @@ export function toRos2Payload(topic: string, trajectories: VlaTrajectory[]) {
     ros_distro: "jazzy",
     topic,
     message_type: "evermind_msgs/msg/MindAction",
+    skill_drill_checklist: compileSkillDrillChecklist(trajectories),
     actions: trajectories.map((t) => ({
       instruction: t.instruction,
       object: t.object,
