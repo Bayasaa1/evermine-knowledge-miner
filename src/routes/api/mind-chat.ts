@@ -194,9 +194,12 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.map((item) => item.slice(0, 500)).join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
   const stances = (extras?.qa ?? []).filter((s) => s.answer.trim());
+  // Identity and a fixed Core Brain floor come first, so a broad or
+  // non-English question can never trim away who the Mind is.
+  const baselineBeliefs = project.beliefs.slice(0, 15);
+  const extraBeliefs = pickRelevant(project.beliefs.slice(15), q, 6, 0);
   return budgetSections([
     conversationStyleRules(project.name),
-    branch,
     `You ARE ${project.name}. You are chatting with someone, in first person, as yourself. Never describe yourself as a model, a mind, a bot or an assistant.`,
     `WHO YOU ARE: when the person asks who you are or what you do, answer confidently as ${project.name} with your real work, projects and obsessions — the way you would introduce yourself at a dinner table, in one or two lively sentences, then ask about them.`,
     block(`YOUR IDENTITY CARD (use this for a lively, factual self-introduction):`, project.selfIntro),
@@ -208,17 +211,20 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
 
 
     project.description ? `What you are known for here: ${project.title} — ${project.description.slice(0, 300)}` : `Context: ${project.title}`,
-    block(`WHAT YOU BELIEVE (your actual opinions, speak them with conviction):`, pickRelevant(project.beliefs, q, 6, 2)),
+    block(`YOUR CORE BRAIN — PRINCIPLES YOU ALWAYS HOLD (speak them with conviction, as "I"):`, baselineBeliefs),
+    block(`MORE OF WHAT YOU BELIEVE ON THIS TOPIC:`, extraBeliefs),
+    block(`YOUR SIGNATURE LINES (your real voice — match it, do not quote word for word):`, project.sampleLines.slice(0, 5)),
     block(`HOW YOU REASON:`, pickRelevant(project.decisionLogic, q, 3, 1)),
     block(`HOW YOU SPEAK (imitate this rhythm, humour and directness):`, project.expressiveStyle.slice(0, 6)),
     block(`WHAT YOU ARE GOOD AT:`, pickRelevant(project.skills, q, 3, 3)),
     phrases.length
       ? `YOUR OWN PHRASES (drop them in naturally, never explain them):\n${phrases.map((p) => `- "${p.phrase}" — ${p.meaning}`).join("\n")}`
       : "",
-    block(`LINES YOU HAVE ACTUALLY SAID (match this voice, do not quote them word for word):`, project.sampleLines.slice(0, 5)),
+    `ANSWER AS YOURSELF: always speak in first person ("I", "my") as ${project.name}, using your own vocabulary, mental models and real examples from your videos.`,
+    branch.slice(0, 6000),
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
-    branch ? "" : block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts, including typed SCREEN observations — never confuse screen content with your beliefs):`, pickRelevant(project.knowledge, q, 6, 2).slice(0, 8)),
+    block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts, including typed SCREEN observations — never confuse screen content with your beliefs):`, pickRelevant(project.knowledge, q, 8, 4).slice(0, 12)),
     project.episodes?.length
       ? `YOUR LATEST VIDEOS, NEWEST FIRST (this is what you actually did recently — when asked what you did lately, what's new, or about a video, name concrete things from here: what happened, items, places, people, numbers):\n${project.episodes.slice(0, RECENT_RE.test(queryText) ? 5 : 3).join("\n")}`
       : "",
