@@ -173,3 +173,37 @@ export const undoPersonalityRefresh = createServerFn({ method: "POST" })
     if (saveError) throw new Error(saveError.message);
     return { ok: true };
   });
+
+/**
+ * "Tell AI what to fix": turns a plain-language request into field changes on
+ * the Visual Studio cards. Runs on the creator's own key and only returns
+ * suggestions — the editor applies them to the draft, and nothing is saved
+ * until the creator presses Save.
+ */
+export const suggestCardFixes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { instruction: string; cards: string }) => {
+    if (!input?.instruction?.trim()) throw new Error("Say what to fix.");
+    return { instruction: String(input.instruction).slice(0, 1000), cards: String(input.cards ?? "").slice(0, 30000) };
+  })
+  .handler(async ({ data, context }): Promise<string> => {
+    const { generateRoleText, UserAiError } = await import("@/lib/user-ai.server");
+    const system =
+      'You edit structured cards of a creator\'s Mind. Given the cards (JSON array of {id, kind, fields}) and the creator\'s request, return ONLY JSON {"patches":[{"id":"<card id>","field":"<existing field name>","value":"<new text>"}]}. Change only what the request asks; never invent card ids or fields; keep the language the card is written in. Return {"patches":[]} if unclear.';
+    try {
+      const result = await generateRoleText({
+        userId: context.userId,
+        role: "core_brain",
+        system,
+        json: true,
+        maxTokens: 4096,
+        prompt: `Request: ${data.instruction}\n\nCards:\n${data.cards}`,
+        subjectKind: "mind",
+        subjectLabel: "Mind card fix",
+      });
+      return result.text;
+    } catch (err) {
+      if (err instanceof UserAiError) throw new Error(err.message);
+      throw err;
+    }
+  });
