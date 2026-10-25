@@ -24,6 +24,7 @@ Each item:
 - "language": programming language for code, else "".
 - "steps": ordered list for a lesson/step list, else [].
 - "interaction": what ${owner || "the creator"} DID with it — opened, clicked, read aloud, typed, pointed at, explained, scrolled, copied, reacted to. "" if nothing.
+- "embodied": ONLY when ${owner || "the creator"} visibly performs a physical/procedural step (picks up, places, pours, cuts, presses, opens, tightens, clicks...), add {"precondition":"state before","action_primitive":"one verb e.g. grasp|place|pour|push|pull|rotate|cut|press|open|close|click|type","target_object":"the object acted on","postcondition":"visible state after","hazard_or_recovery":"what can go wrong and how to recover, or \\"\\""}. Omit the field otherwise. Use only what is visible.
 Games and streams count too: record every item/skin/weapon name, case name, price, balance, donation (name + amount + message), alert, error window and website exactly as shown, at least 2 items per minute when anything is visible.
 Skip platform watermarks, burned-in subtitles and anything you cannot actually read. Never invent text. Empty list for footage with nothing on screen.`;
 

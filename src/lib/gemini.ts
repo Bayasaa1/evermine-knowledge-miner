@@ -476,7 +476,32 @@ export type ScreenItem = {
   language: string;
   steps: string[];
   interaction: string;
+  /** Physical step the owner performed, for robot behavior trees. Absent when none. */
+  embodied?: EmbodiedTriplet;
 };
+
+/** Pre-condition → action → post-condition captured from what the video shows. */
+export type EmbodiedTriplet = {
+  precondition: string;
+  action_primitive: string;
+  target_object: string;
+  postcondition: string;
+  hazard_or_recovery: string;
+};
+
+export function normalizeEmbodied(raw: unknown): EmbodiedTriplet | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const s = (k: string) => String(o[k] ?? "").trim().slice(0, 300);
+  const t = {
+    precondition: s("precondition"),
+    action_primitive: s("action_primitive"),
+    target_object: s("target_object"),
+    postcondition: s("postcondition"),
+    hazard_or_recovery: s("hazard_or_recovery"),
+  };
+  return t.action_primitive ? t : undefined;
+}
 
 const SCREEN_KINDS = new Set(["link", "code", "formula", "lesson", "text", "chat", "image", "ui"]);
 
@@ -495,6 +520,7 @@ export function normalizeScreenItems(raw: unknown): ScreenItem[] {
         language: String(o['language'] ?? "").trim(),
         steps: Array.isArray(o['steps']) ? (o['steps'] as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean) : [],
         interaction: String(o['interaction'] ?? "").trim(),
+        ...((e) => (e ? { embodied: e } : {}))(normalizeEmbodied(o["embodied"])),
       };
     })
     .filter((i) => i.title || i.content.trim() || i.url);
