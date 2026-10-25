@@ -145,3 +145,115 @@ export function downloadTeammateBot(mindName: string, gaming: GamingExtraction):
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ---------------------------------------------------------------------------
+// Universal Tactical Playbook (any genre). Derived read-only from the mined
+// Gaming Mind — no AI call, mined data is never changed.
+// ---------------------------------------------------------------------------
+
+export type GameGenre = "FPS" | "Action/Open-World" | "Strategy" | "MOBA" | "RPG" | "Sandbox" | "Unknown";
+
+export type PlaystyleMetrics = {
+  aggression: number;
+  risk_tolerance: number;
+  resource_greed: number;
+  team_play: number;
+  mechanical_tempo: number;
+};
+
+export type StateActionRule = {
+  when_hud_or_map_state: string;
+  do_micro_or_macro_action: string;
+  creator_reason: string;
+};
+
+export type TacticalPlaybook = {
+  detected_game_or_genre: string;
+  genre: GameGenre;
+  is_minecraft: boolean;
+  playstyle_metrics: PlaystyleMetrics;
+  state_action_rules: StateActionRule[];
+  callout_vocabulary: string[];
+};
+
+const GENRE_WORDS: [GameGenre, RegExp][] = [
+  ["Sandbox", /minecraft|creeper|redstone|nether|craft|mine block|terraria|roblox|sandbox/i],
+  ["MOBA", /\b(lane|jungle|gank|minion|creep score|tower|baron|dragon|roshan|dota|league of legends|mobile legends|moba)\b/i],
+  ["FPS", /\b(headshot|crosshair|aim|spray|recoil|peek|sniper|rifle|valorant|cs ?2|counter[- ]strike|fortnite|apex|call of duty|pubg|fps)\b/i],
+  ["Strategy", /\b(build order|macro|apm|supply|rts|starcraft|age of empires|civilization|expand|economy)\b/i],
+  ["RPG", /\b(quest|level up|xp|skill tree|boss|dungeon|loot|rpg|elden ring|mana|party)\b/i],
+  ["Action/Open-World", /\b(open world|gta|parkour|combo|dodge|stealth|mission|zelda|action)\b/i],
+];
+
+const count = (text: string, re: RegExp) => (text.match(re) ?? []).length;
+const score = (hits: number, total: number) =>
+  Math.max(0, Math.min(100, Math.round(50 + (hits * 100) / Math.max(4, total) - 10)));
+
+export function buildTacticalPlaybook(gaming: GamingExtraction): TacticalPlaybook {
+  const text = [
+    ...gaming.skills.map((s) => `${s.name} ${s.detail}`),
+    ...gaming.tactics.map((t) => `${t.name} ${t.when} ${t.steps.join(" ")}`),
+    ...gaming.decisions.map((d) => `${d.situation} ${d.action} ${d.why}`),
+    ...gaming.mindset,
+    ...gaming.communication.map((c) => c.quote),
+  ].join(" \n ");
+  let genre: GameGenre = "Unknown";
+  let best = 0;
+  for (const [g, re] of GENRE_WORDS) {
+    const n = count(text, new RegExp(re.source, "gi"));
+    if (n > best) {
+      best = n;
+      genre = g;
+    }
+  }
+  const named = text.match(/minecraft|valorant|fortnite|league of legends|dota|starcraft|elden ring|gta|roblox|apex|pubg|counter[- ]strike/i)?.[0];
+  const is_minecraft = /minecraft/i.test(text) || genre === "Sandbox";
+  const total = Math.max(1, gaming.decisions.length + gaming.tactics.length + gaming.mindset.length);
+  const g = "gi";
+  const playstyle_metrics: PlaystyleMetrics = {
+    aggression: score(count(text, new RegExp("\\b(push|rush|attack|aggress|fight|engage|dive|kill)", g)) - count(text, new RegExp("\\b(wait|hold|defen|retreat|passive)", g)), total),
+    risk_tolerance: score(count(text, new RegExp("\\b(risk|gamble|yolo|all[- ]in|clutch|bold)", g)) - count(text, new RegExp("\\b(safe|careful|cautious)", g)), total),
+    resource_greed: score(count(text, new RegExp("\\b(farm|loot|gold|resource|econom|greed|collect|mine)", g)), total),
+    team_play: score(count(text, new RegExp("\\b(team|squad|support|help|together|cover|we )", g)) + gaming.communication.filter((c) => /callout|command/.test(c.kind)).length, total),
+    mechanical_tempo: score(count(text, new RegExp("\\b(fast|quick|speed|tempo|combo|flick|rotate|instant)", g)), total),
+  };
+  const rules: StateActionRule[] = [
+    ...gaming.decisions.map((d) => ({ when_hud_or_map_state: d.situation, do_micro_or_macro_action: d.action, creator_reason: d.why })),
+    ...gaming.tactics.map((t) => ({ when_hud_or_map_state: t.when, do_micro_or_macro_action: t.steps.join(" → ") || t.name, creator_reason: t.name })),
+  ].filter((r) => r.when_hud_or_map_state && r.do_micro_or_macro_action);
+  const callout_vocabulary = [...new Set(
+    gaming.communication.filter((c) => c.kind !== "tilt" && c.quote).map((c) => c.quote.trim().slice(0, 80)),
+  )].slice(0, 30);
+  return {
+    detected_game_or_genre: named ? `${named} (${genre})` : genre,
+    genre,
+    is_minecraft,
+    playstyle_metrics,
+    state_action_rules: rules.slice(0, 40),
+    callout_vocabulary,
+  };
+}
+
+/** Engine-agnostic bot policy: JSON any game client can load over WebSocket. */
+export function buildBotPolicy(mindName: string, gaming: GamingExtraction) {
+  return {
+    format: "evermind.bot-policy/v1",
+    player: mindName,
+    playbook: buildTacticalPlaybook(gaming),
+    websocket: {
+      note: "Connect your game bridge, send {type:'state', hud:'...'} and pick the first rule whose when_hud_or_map_state matches.",
+      message_in: { type: "state", hud: "string" },
+      message_out: { type: "action", action: "string", reason: "string", callout: "string" },
+    },
+  };
+}
+
+export function downloadBotPolicy(mindName: string, gaming: GamingExtraction): void {
+  const blob = new Blob([JSON.stringify(buildBotPolicy(mindName, gaming), null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "bot-policy.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
