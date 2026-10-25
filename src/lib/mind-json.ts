@@ -246,15 +246,15 @@ export function listCards(payload: MindPayload): EditCard[] {
     const e = item['embodied'] as Record<string, unknown> | undefined;
     if (e && typeof e === "object") {
       const fields = Object.fromEntries(CARD_FIELDS.step.map((k) => [k, str(e[k])]));
-      cards.push({ id: `step:${i}`, kind: "step", fields, timestamp: str(item['timestamp']) || null, hints: fields.hazard_or_recovery!.trim() ? [] : ["noRecovery"] });
+      cards.push({ id: `step:${i}`, kind: "step", fields, timestamp: str(item['timestamp']) || null, hints: fields["hazard_or_recovery"]!.trim() ? [] : ["noRecovery"] });
     }
     const steps = Array.isArray(item['steps']) ? (item['steps'] as unknown[]) : [];
     steps.forEach((s, j) => {
       const d = typeof s === "string" ? parseDrill(s) : null;
       if (!d) return;
       const fields = Object.fromEntries(CARD_FIELDS.drill.map((k) => [k, str(d[k])]));
-      fields.phase = str(d['phase']) || "execution";
-      cards.push({ id: `drill:${i}:${j}`, kind: "drill", fields, timestamp: str(item['timestamp']) || null, hints: fields.common_mistake_to_avoid!.trim() ? [] : ["noMistake"] });
+      fields["phase"] = str(d['phase']) || "execution";
+      cards.push({ id: `drill:${i}:${j}`, kind: "drill", fields, timestamp: str(item['timestamp']) || null, hints: fields["common_mistake_to_avoid"]!.trim() ? [] : ["noMistake"] });
     });
   });
   arr(gamingOf(r)['decisions']).forEach((d, i) => {
