@@ -17,7 +17,7 @@ export const Route = createFileRoute("/api/mind-vision")({
         const auth = await guardApi(request, "mind-vision", 20);
         if (auth instanceof Response) return auth;
 
-        let body: { image?: string; name?: string; lang?: string; apiKey?: string };
+        let body: { image?: string; name?: string; lang?: string; apiKey?: string; mode?: string };
         try {
           body = (await request.json()) as typeof body;
         } catch {
@@ -40,6 +40,47 @@ export const Route = createFileRoute("/api/mind-vision")({
         );
         try {
           const credential = await resolveGeminiCredential(auth.userId, body, "face_clone");
+          if (body.mode === "embodied") {
+            const raw = await geminiGenerate({
+              credential,
+              model: "gemini-3.1-flash-lite",
+              json: true,
+              maxTokens: 256,
+              usage: { userId: auth.userId, role: "face_clone", subjectKind: "mind", subjectLabel: "Robot action decision" },
+              system: [
+                `You are the eyes and motor planner of a robot running ${name}'s Mind.`,
+                `Look at the camera frame and decide ONE next physical action.`,
+                `Return JSON only: {"speech":"one short sentence in ${LANGUAGES[lang].name}","action_primitive":"grasp|place|push|pull|rotate|point|wave|look|wait","target_object":"visible object or \\"\\"","confidence":0..1}.`,
+                `If unsure or nothing to do, use "wait" with low confidence. Never invent objects that are not visible. No speculation about identity, age, ethnicity or health.`,
+              ].join("\n"),
+              turns: [
+                {
+                  role: "user",
+                  parts: [
+                    { text: "What should the robot do next?" },
+                    { inline_data: { mime_type: "image/jpeg", data: image.split(",", 2)[1] ?? "" } },
+                  ],
+                },
+              ],
+            });
+            let o: Record<string, unknown> = {};
+            try {
+              o = JSON.parse(raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim()) as Record<string, unknown>;
+            } catch {
+              o = {};
+            }
+            const conf = Number(o["confidence"]);
+            const action = {
+              speech: String(o["speech"] ?? "").slice(0, 300),
+              action_primitive: String(o["action_primitive"] ?? "wait").slice(0, 40) || "wait",
+              target_object: String(o["target_object"] ?? "").slice(0, 120),
+              confidence: Number.isFinite(conf) ? Math.min(1, Math.max(0, conf)) : 0,
+            };
+            return new Response(JSON.stringify({ seen: action.speech, action }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           const seen = await geminiGenerate({
             credential,
             model: "gemini-3.1-flash-lite",
