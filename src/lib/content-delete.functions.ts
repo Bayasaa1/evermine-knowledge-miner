@@ -90,7 +90,8 @@ export const permanentlyDeleteVideo = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const deleteIds = async (table: "chat_messages" | "mind_comments" | "mind_reviews" | "mind_purchases" | "mind_specs" | "robot_packages") => {
       if (mindIds.size === 0) return;
-      const { error } = await supabaseAdmin.from(table).delete().in("mind_id", [...mindIds]);
+      const { error } = await supabaseAdmin.from(table).delete().eq("user_id", context.userId).in("mind_id", [...mindIds]);
+      // Other people's chats, reviews and purchases on this Mind are never deleted.
       if (error) throw new Error(error.message);
     };
     await Promise.all([

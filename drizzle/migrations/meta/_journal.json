@@ -253,6 +253,13 @@
       "when": 1792719833128,
       "tag": "0035_community_comment_threads_and_likes",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792941276839,
+      "tag": "0036_migration",
+      "breakpoints": true
     }
   ]
 }
