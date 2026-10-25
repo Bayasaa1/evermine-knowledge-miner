@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Gavel, Loader2, RefreshCw, ShieldCheck, Undo2, Wrench, X } from "lucide-react";
 import { toast } from "sonner";
 
-import type { MindPayload } from "@/lib/mind-json";
+import { listCards, type MindPayload } from "@/lib/mind-json";
 import {
   auditorsFor,
   auditsOf,
@@ -116,6 +116,7 @@ export function MindAuditor({
   const audits = useMemo(() => auditsOf(payload), [payload]);
   const chosen = chosenAuditId(payload);
   const miner = minedBy(payload);
+  const weakCards = useMemo(() => listCards(payload).filter((c) => c.hints.length > 0).length, [payload]);
 
   useEffect(() => {
     if (options.length && !options.some((o) => o.id === auditor)) setAuditor(options[0]!.id);
@@ -241,6 +242,13 @@ export function MindAuditor({
             {personaRefresh.isPending ? t.refreshingPersona : t.refreshPersona}
           </button>
         </div>
+
+        {weakCards > 0 && (
+          <p className="rounded-lg bg-warning/15 px-3 py-2 text-xs text-warning-foreground ring-1 ring-warning/40">
+            {weakCards}{" "}
+            {pickCopy({ en: "cards need attention — open “Fix this mind” to fix each one in one click.", mn: "карт анхаарал шаардаж байна — “Энэ оюуныг засах” дотор нэг товшилтоор засна.", ko: "개 카드에 손볼 곳이 있습니다 — “이 마인드 고치기”에서 한 번에 고치세요." }, lang)}
+          </p>
+        )}
 
         {audits.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t.none}</p>
