@@ -141,9 +141,9 @@ export function RobotSyncModal({
         body: JSON.stringify({ mode: "embodied", image, name: item?.creator || item?.title, lang }),
       });
       if (run !== runRef.current) return;
-      const body = (await res.json()) as Decision & { embodied?: Decision; error?: string };
-      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-      const d = body.embodied ?? body;
+      const body = (await res.json()) as Decision & { action?: Decision; embodied?: Decision; error?: string };
+if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      const d = body.action ?? body.embodied ?? body;
       setDecision(d);
       if (d.speech && window.speechSynthesis) {
         window.speechSynthesis.cancel();
