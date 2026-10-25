@@ -4,7 +4,7 @@
  */
 import { idbGet, idbSet, STORES } from "./store";
 import { scopedKey } from "./user-scope";
-import type { ChunkResult, FaceFrame } from "./gemini";
+import type { ChunkResult, EmbodiedTriplet, FaceFrame } from "./gemini";
 
 export type Vec3 = { x: number; y: number; z: number };
 
@@ -159,28 +159,70 @@ export type ActionStateStep = {
   affordances: string[];
   successCondition: string;
   trajectoryId: string;
+  /** Verb the robot executes (grasp, place, pour...) when mined as a triplet. */
+  actionPrimitive?: string;
+  targetObject?: string;
+  /** Recovery hint; the UI and runtime treat it as a Fallback branch. */
+  recovery?: string;
 };
 
 export type BehaviorTree = {
   type: "sequence";
   name: string;
-  children: { type: "action"; step: ActionStateStep; onFailure: "retry" }[];
+  children: { type: "action"; step: ActionStateStep; onFailure: "retry" | "fallback" }[];
 };
+
+export type MinedTriplet = EmbodiedTriplet & { timestamp: string };
+
+/** Collects the embodied triplets the screen pass recorded, in video order. */
+export function extractEmbodiedSteps(chunk: Pick<ChunkResult, "screenItems">): MinedTriplet[] {
+  return (chunk.screenItems ?? [])
+    .filter((i) => i.embodied?.action_primitive)
+    .map((i) => ({ ...i.embodied!, timestamp: i.timestamp }));
+}
+
+const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 
 /**
  * Compiles the mined key actions into an ordered Action-State behavior tree.
- * Read-only: never calls AI and never changes mined data — each step's
- * pre-condition is the previous step's result, so order follows the video.
+ * Read-only: never calls AI and never changes mined data. Real mined triplets
+ * are used when present; otherwise each step's pre-condition is the previous
+ * trajectory's instruction, so order follows the video.
  */
-export function compileBehaviorTree(name: string, trajectories: VlaTrajectory[]): BehaviorTree {
+export function compileBehaviorTree(
+  name: string,
+  trajectories: VlaTrajectory[],
+  triplets: MinedTriplet[] = [],
+): BehaviorTree {
+  if (triplets.length > 0) {
+    const sorted = [...triplets].sort((a, b) => toSeconds(a.timestamp) - toSeconds(b.timestamp));
+    return {
+      type: "sequence",
+      name,
+      children: sorted.map((tr, i) => {
+        const prev = sorted[i - 1];
+        const step: ActionStateStep = {
+          id: `step_${i + 1}`,
+          timestamp: fmt(toSeconds(tr.timestamp)),
+          sceneState: tr.precondition || (prev ? `after: ${prev.postcondition || prev.action_primitive}` : "start"),
+          actorMotion: `${tr.action_primitive}${tr.target_object ? ` ${tr.target_object}` : ""}`,
+          affordances: tr.target_object ? [`${tr.action_primitive}:${tr.target_object}`] : [],
+          successCondition: tr.postcondition || `${tr.action_primitive} completed`,
+          trajectoryId: "",
+          actionPrimitive: tr.action_primitive,
+          targetObject: tr.target_object,
+          ...(tr.hazard_or_recovery ? { recovery: tr.hazard_or_recovery } : {}),
+        };
+        return { type: "action" as const, step, onFailure: tr.hazard_or_recovery ? ("fallback" as const) : ("retry" as const) };
+      }),
+    };
+  }
   const sorted = [...trajectories].sort((a, b) => a.startSec - b.startSec);
   const steps: ActionStateStep[] = sorted.map((t, i) => {
     const prev = sorted[i - 1];
-    const mm = Math.floor(t.startSec / 60);
-    const ss = Math.floor(t.startSec % 60);
     return {
       id: `step_${i + 1}`,
-      timestamp: `${mm}:${String(ss).padStart(2, "0")}`,
+      timestamp: fmt(t.startSec),
       sceneState: prev ? `after: ${prev.instruction}` : "start",
       actorMotion: t.instruction,
       affordances: t.object ? [`graspable:${t.object}`] : [],

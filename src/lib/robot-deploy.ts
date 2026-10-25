@@ -3,7 +3,7 @@
  * robot can pull with one HTTP GET (or by scanning the deployment QR code).
  */
 import type { ChunkResult, KnowledgeNode } from "./gemini";
-import { compileBehaviorTree, extractTrajectories, toRos2Payload, type BehaviorTree, type VlaTrajectory } from "./embodied";
+import { compileBehaviorTree, extractEmbodiedSteps, extractTrajectories, toRos2Payload, type BehaviorTree, type VlaTrajectory } from "./embodied";
 
 export type RobotMindPackage = {
   schema: "evermind.robot_mind/v1";
@@ -26,10 +26,11 @@ export function buildRobotPackage(input: {
   mindId: string;
   title: string;
   topic: string;
-  chunks: Pick<ChunkResult, "faceData" | "knowledgeNodes">[];
+  chunks: Pick<ChunkResult, "faceData" | "knowledgeNodes" | "screenItems">[];
 }): RobotMindPackage {
   const knowledge = input.chunks.flatMap((c) => c.knowledgeNodes ?? []);
   const trajectories = input.chunks.flatMap((c) => extractTrajectories(c));
+  const triplets = input.chunks.flatMap((c) => extractEmbodiedSteps(c));
   return {
     schema: "evermind.robot_mind/v1",
     mind_id: input.mindId,
@@ -43,7 +44,7 @@ export function buildRobotPackage(input: {
     knowledge_graph: knowledge,
     vla_trajectories: trajectories,
     ros2: toRos2Payload(input.topic, trajectories),
-    behavior_tree: compileBehaviorTree(input.title, trajectories),
+    behavior_tree: compileBehaviorTree(input.title, trajectories, triplets),
     stats: {
       nodes: knowledge.length,
       trajectories: trajectories.length,
