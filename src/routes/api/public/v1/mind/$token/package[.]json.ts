@@ -50,9 +50,9 @@ export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")(
         const bundle = {
           ...stored,
           edition: "complete",
-          behavior_tree: stored.behavior_tree ?? null,
-          movement_drills: stored.movement_drills ?? [],
-          tactical_playbook: stored.tactical_playbook ?? null,
+          behavior_tree: stored["behavior_tree"] ?? null,
+          movement_drills: stored["movement_drills"] ?? [],
+          tactical_playbook: stored["tactical_playbook"] ?? null,
           quick_start: quickStartCommand(token),
           runner: { filename: "evermind_runner.py", script: evermindRunnerScript(origin, token) },
         };

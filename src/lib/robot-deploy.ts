@@ -42,10 +42,8 @@ function mergeGaming(chunks: Pick<ChunkResult, "gaming">[]): GamingExtraction | 
   const g = merged as unknown as GamingExtraction;
   const size = (g.skills?.length ?? 0) + (g.tactics?.length ?? 0) + (g.decisions?.length ?? 0);
   if (!size) return null;
-  return {
-    skills: [], tactics: [], decisions: [], tutorials: [], commentaryStyle: [], mistakes: [],
-    communication: [], mindset: [], emotions: [], ...g,
-  };
+  const empty = { skills: [], tactics: [], decisions: [], tutorials: [], commentaryStyle: [], mistakes: [], communication: [], mindset: [], emotions: [] };
+  return Object.assign(empty, g) as GamingExtraction;
 }
 
 /** Which kind of Mind this package is, from what was actually mined. */

@@ -859,7 +859,7 @@ export function SavedMinds({
                                       id: openRow.id, mindId: openRow.id, creator: video?.channel ?? g.title, handle: "",
                                       title: g.title, description: "", category: "knowledge" as FeedItem["category"],
                                       src: null, youtubeId: g.youtubeId ?? null, poster: g.thumb, tags: [], price: 0, currency: "USD",
-                                    } as FeedItem,
+                                    } as unknown as FeedItem,
                                   });
                                 }}
                                 className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
@@ -1033,7 +1033,7 @@ export function SavedMinds({
         open={!!launch}
         onClose={() => setLaunch(null)}
         item={launch?.item ?? null}
-        chunks={launch?.chunks}
+        chunks={launch?.chunks ?? []}
         lang={lang}
       />
 
