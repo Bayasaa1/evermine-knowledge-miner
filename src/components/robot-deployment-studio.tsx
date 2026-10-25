@@ -6,6 +6,7 @@ import type { ChunkResult } from "@/lib/gemini";
 import { buildRobotPackage, deploymentUrl, rosClientScript } from "@/lib/robot-deploy";
 import { getDeployment, publishDeployment, type DeployedPackage } from "@/lib/robot-deploy.functions";
 import { loadEmbodiedSettings } from "@/lib/embodied";
+import { BehaviorTreePanel } from "@/components/behavior-tree-panel";
 import { publishToFeed } from "@/lib/feed";
 import { getCreationCategory } from "@/lib/creation-category";
 import { supabase } from "@/integrations/supabase/client";
@@ -299,6 +300,8 @@ export function RobotDeploymentStudio({
           ? t.stats(pkg.stats.nodes, pkg.stats.trajectories, pkg.stats.spatial_actions)
           : t.empty}
       </p>
+
+      <BehaviorTreePanel lang={lang} tree={pkg.behavior_tree} />
 
       {copyrightVerdict?.state === "FLAGGED_COPYRIGHT" && (
         <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 p-4">
