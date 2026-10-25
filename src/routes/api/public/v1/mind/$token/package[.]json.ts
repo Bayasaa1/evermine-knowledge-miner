@@ -42,7 +42,21 @@ export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")(
           return Response.json({ error: "Mind package not found or unpublished" }, { status: 404, headers: cors });
         }
 
-        return Response.json(data.package, {
+        // Complete Edition: older stored packages get the same bundle fields,
+        // and every package ships its own pre-configured runner + 1-line start.
+        const { evermindRunnerScript, quickStartCommand } = await import("@/lib/robot-deploy");
+        const stored = (data.package ?? {}) as Record<string, unknown>;
+        const origin = new URL(request.url).origin;
+        const bundle = {
+          ...stored,
+          edition: "complete",
+          behavior_tree: stored.behavior_tree ?? null,
+          movement_drills: stored.movement_drills ?? [],
+          tactical_playbook: stored.tactical_playbook ?? null,
+          quick_start: quickStartCommand(token),
+          runner: { filename: "evermind_runner.py", script: evermindRunnerScript(origin, token) },
+        };
+        return Response.json(bundle, {
           headers: { ...cors, "Cache-Control": "public, max-age=30" },
         });
       },
