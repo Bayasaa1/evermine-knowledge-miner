@@ -520,7 +520,7 @@ export function normalizeScreenItems(raw: unknown): ScreenItem[] {
         language: String(o['language'] ?? "").trim(),
         steps: Array.isArray(o['steps']) ? (o['steps'] as unknown[]).map((x) => String(x ?? "").trim()).filter(Boolean) : [],
         interaction: String(o['interaction'] ?? "").trim(),
-        ...(normalizeEmbodied(o['embodied']) ? { embodied: normalizeEmbodied(o['embodied']) } : {}),
+        ...((e) => (e ? { embodied: e } : {}))(normalizeEmbodied(o["embodied"])),
       };
     })
     .filter((i) => i.title || i.content.trim() || i.url);
