@@ -180,6 +180,10 @@ function YouTubeStageImpl({
       }
     } else {
       p.pauseVideo();
+      // Belt and braces: also send the raw IFrame API command, in case the
+      // wrapper lost its handle. The frame stays mounted while paused.
+      const frame = holder.current?.querySelector("iframe");
+      frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func: "pauseVideo", args: "" }), "*");
     }
     return;
   }, [active, paused, ready]);
@@ -281,12 +285,16 @@ function YouTubeStageImpl({
         className="absolute inset-0 z-[6] h-full w-full"
       />
       {(showUi || paused) && (
-        <div className="pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-2.5 px-2">
+        <div
+          className="pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-2.5 px-2"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
           {onPrev && (
             <button
               type="button"
               aria-label="Previous video in project"
-              onClick={() => { onPrev(); flashUi(); }}
+              onClick={(e) => { e.stopPropagation(); onPrev(); flashUi(); }}
               className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
             >
               <SkipBack className="h-4 w-4 fill-current" />
@@ -295,7 +303,7 @@ function YouTubeStageImpl({
           <button
             type="button"
             aria-label="Back 10 seconds"
-            onClick={() => skip(-10)}
+            onClick={(e) => { e.stopPropagation(); skip(-10); }}
             className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
           >
             <RotateCcw className="h-5 w-5" />
@@ -304,7 +312,7 @@ function YouTubeStageImpl({
           <button
             type="button"
             aria-label={paused ? "Play video" : "Pause video"}
-            onClick={() => { onToggle?.(); flashUi(); }}
+            onClick={(e) => { e.stopPropagation(); onToggle?.(); flashUi(); }}
             className="pointer-events-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-black text-white"
           >
             {paused ? <Play className="h-6 w-6 fill-current" /> : <Pause className="h-6 w-6 fill-current" />}
@@ -312,7 +320,7 @@ function YouTubeStageImpl({
           <button
             type="button"
             aria-label="Forward 10 seconds"
-            onClick={() => skip(10)}
+            onClick={(e) => { e.stopPropagation(); skip(10); }}
             className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
           >
             <RotateCw className="h-5 w-5" />
@@ -322,7 +330,7 @@ function YouTubeStageImpl({
             <button
               type="button"
               aria-label="Next video in project"
-              onClick={() => { onNext(); flashUi(); }}
+              onClick={(e) => { e.stopPropagation(); onNext(); flashUi(); }}
               className="pointer-events-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm"
             >
               <SkipForward className="h-4 w-4 fill-current" />
