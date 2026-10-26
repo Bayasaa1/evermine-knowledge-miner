@@ -162,6 +162,63 @@ function timelineDirective(block: string): string {
   return `\n\nREFERENCE CAPTION TIMELINE (the TIMES were measured and are true; the WORDS may be wrong)\n${block}\n\nTIMING RULES\n- Every timestamp you write MUST be copied from the line above that the moment belongs to.\n- Never invent a time, never write 00:00:00 as a placeholder, never leave a timestamp empty.\n\nWORDING RULES (DOUBLE-CHECK, DO NOT COPY BLINDLY)\n- These caption words come from automatic speech recognition and often mishear names, Mongolian words and mixed-language phrases.\n- For every line, listen to the audio and compare it with the caption. Keep the caption wording when it matches what you hear and reads as a sensible sentence; otherwise write what is genuinely spoken.\n- Keep the caption's time window and speaker split; only the words may change.\n- Never translate, never paraphrase, never smooth out the speaker's own way of talking, and never delete a line you can hear just because the caption is missing it.`;
 }
 
+const personaChecked = new Set<string>();
+
+/**
+ * Makes sure the job (and its project) has an identified Persona before mining.
+ * Missing ones are resolved/created from the video's author, owner speaker or
+ * channel, then saved on the project and the job. Best effort: never blocks mining.
+ */
+export async function ensureJobPersona(input: {
+  userId: string;
+  jobId?: string;
+  videoId: string;
+  assessment?: Assessment;
+}): Promise<{ id: string; name: string; handle: string } | null> {
+  const key = input.jobId || `${input.userId}:${input.videoId}`;
+  if (personaChecked.has(key)) return null;
+  personaChecked.add(key);
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { ensurePersonaForCreator } = await import("@/lib/personas");
+    const job = input.jobId
+      ? (await supabaseAdmin.from("mining_jobs").select("persona_id, project_id").eq("id", input.jobId).maybeSingle()).data
+      : null;
+    const projectId = (job as { project_id: string | null } | null)?.project_id ?? null;
+    const project = projectId
+      ? (await supabaseAdmin.from("projects").select("persona_id, creator_name").eq("id", projectId).maybeSingle()).data
+      : null;
+    const existing = (job as { persona_id: string | null } | null)?.persona_id || (project as { persona_id: string | null } | null)?.persona_id;
+    let persona: { id: string; name: string; handle: string } | null = null;
+    if (existing) {
+      const { data } = await supabaseAdmin.from("creator_personas").select("id,name,handle").eq("id", existing).maybeSingle();
+      persona = (data as typeof persona) ?? null;
+    }
+    if (!persona) {
+      let name = ownerNameFrom(input.assessment?.speakerIdentity) || (project as { creator_name: string | null } | null)?.creator_name?.trim() || "";
+      let handle = "";
+      if (!name || !input.assessment?.sourceChannel) {
+        const { fetchVideoDetails } = await import("@/lib/youtube-meta.server");
+        const d = await fetchVideoDetails(input.videoId).catch(() => null);
+        handle = d?.channelHandle ?? "";
+        name = name || d?.authorName || d?.channel || "";
+      }
+      name = name || input.assessment?.sourceChannel?.trim() || "";
+      persona = await ensurePersonaForCreator(supabaseAdmin as never, input.userId, name, handle || undefined);
+    }
+    if (!persona) return null;
+    if (input.jobId && !(job as { persona_id: string | null } | null)?.persona_id)
+      await supabaseAdmin.from("mining_jobs").update({ persona_id: persona.id }).eq("id", input.jobId);
+    if (projectId && !(project as { persona_id: string | null } | null)?.persona_id)
+      await supabaseAdmin.from("projects").update({ persona_id: persona.id, creator_name: (project as { creator_name: string | null }).creator_name || persona.name }).eq("id", projectId);
+    if (input.assessment && !input.assessment.speakerIdentity) input.assessment.speakerIdentity = persona.name;
+    return persona;
+  } catch {
+    personaChecked.delete(key);
+    return null;
+  }
+}
+
 /**
  * Reading a talking video's subtitles needs no video model at all, so this is
  * offered on its own: a job can try it before asking for a Gemini key, and only
@@ -177,6 +234,7 @@ export async function tryTranscriptMine(input: {
   const url = normalizeYoutubeUrl(input.url);
   const videoId = url ? youtubeId(url) : "";
   if (!videoId || input.endSec <= input.startSec) return null;
+  await ensureJobPersona({ userId: input.usage.userId, jobId: input.usage.jobId, videoId, assessment: input.assessment });
   // Only subtitles the creator uploaded are read as text. YouTube's automatic
   // captions are skipped: Gemini watches video + audio together instead,
   // because auto-ASR was empty or garbled in real tests.
@@ -231,6 +289,8 @@ export async function analyzeYoutubeVideo(input: {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
   const videoId = youtubeId(url);
+  if (input.usage?.userId && videoId)
+    await ensureJobPersona({ userId: input.usage.userId, jobId: input.usage.jobId, videoId, assessment: input.assessment });
 
   // Subtitle reading is done once by the caller (tryTranscriptMine) before
   // this runs, so it is never repeated per backup key.
