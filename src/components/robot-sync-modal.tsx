@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Camera, Copy, Download, MonitorDown, Play, Smartphone, Square, X } from "lucide-react";
+import { Bot, Camera, Copy, Download, Lock, MonitorDown, Play, Smartphone, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 
@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import type { FeedItem } from "@/lib/feed";
 import type { ChunkResult } from "@/lib/gemini";
 import { MindSpecs } from "@/components/mind-specs";
+import { purchaseMind, useMindEntitlement } from "@/lib/purchases";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
 const TOPIC = "/evermind/mind_action";
@@ -20,6 +21,7 @@ type InstallPrompt = Event & { prompt: () => Promise<void> };
 
 const copy = {
   en: {
+    freeDl: "Free Download", unlocked: "Unlocked — Complete Edition", buyDl: "Buy to Download (.JSON / Bot)", checkoutSoon: "Checkout is not connected yet — paid downloads open once payments are on.",
     title: "Complete Edition — 1-Click Install & Run",
     tBrowser: "Run in browser", tInstaller: "PC / Robot installer", tDevice: "Install app",
     browserHint: "Starts your camera and lets the Mind see, speak and pick its next move right here.",
@@ -32,6 +34,7 @@ const copy = {
     install: "Install app", iosHint: "On iPhone: tap Share → Add to Home Screen.", installed: "Already installed or not offered by this browser.",
   },
   mn: {
+    freeDl: "Үнэгүй татах", unlocked: "Нээгдсэн — Бүрэн хувилбар", buyDl: "Худалдаж аваад татах (.JSON / Бот)", checkoutSoon: "Төлбөрийн систем хараахан холбогдоогүй — холбогдмогц төлбөртэй татах нээгдэнэ.",
     title: "Бүрэн хувилбар — 1 товчоор суулгаж ажиллуулах",
     tBrowser: "Хөтөч дээр ажиллуулах", tInstaller: "Компьютер / Робот", tDevice: "Апп суулгах",
     browserHint: "Камераа асаагаад Оюун энд шууд харж, ярьж, дараагийн алхмаа сонгоно.",
@@ -44,6 +47,7 @@ const copy = {
     install: "Апп суулгах", iosHint: "iPhone дээр: Share → Add to Home Screen.", installed: "Аль хэдийн суусан эсвэл энэ хөтөч дэмжихгүй.",
   },
   ko: {
+    freeDl: "무료 다운로드", unlocked: "잠금 해제 — 컴플리트 에디션", buyDl: "구매 후 다운로드 (.JSON / 봇)", checkoutSoon: "결제가 아직 연결되지 않았습니다 — 연결되면 유료 다운로드가 열립니다.",
     title: "컴플리트 에디션 — 원클릭 설치 및 실행",
     tBrowser: "브라우저에서 실행", tInstaller: "PC / 로봇 설치", tDevice: "앱 설치",
     browserHint: "카메라를 켜면 마인드가 바로 보고, 말하고, 다음 동작을 고릅니다.",
@@ -64,6 +68,7 @@ export function RobotSyncModal({
   item,
   lang = "en",
   chunks,
+  ownerId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -71,9 +76,27 @@ export function RobotSyncModal({
   lang?: Lang;
   /** Mined material, when the caller has it, so the bundle is never empty. */
   chunks?: ChunkResult[];
+  /** Account that owns this Mind; owners always download free. */
+  ownerId?: string | null;
 }) {
   const t = pickCopy(copy, lang);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const ent = useMindEntitlement({
+    mindId: item ? (item.mindId ?? item.id) : null,
+    ownerId: ownerId ?? null,
+    userId: user?.id ?? null,
+    price: item?.price ?? 0,
+  });
+  const [buyingDl, setBuyingDl] = useState(false);
+  const buyToDownload = async () => {
+    if (!item) return;
+    if (!user) return void toast.error(t.signIn);
+    setBuyingDl(true);
+    const { error } = await purchaseMind({ mindId: item.mindId ?? item.id, category: item.category });
+    setBuyingDl(false);
+    if (error) return void toast.error(error.includes("Checkout is not connected") ? t.checkoutSoon : error);
+    ent.refresh();
+  };
   const fetchDeployment = useServerFn(getDeployment);
   const [tab, setTab] = useState<Tab>("browser");
   const [token, setToken] = useState<string>("");
@@ -275,6 +298,14 @@ if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
               <p className="rounded-lg border border-border bg-muted/40 p-2 text-[11px] text-muted-foreground">{t.publishFirst}</p>
             )}
             <code className="block truncate rounded-lg border border-border bg-muted px-3 py-2 font-mono text-[11px] text-primary">{command}</code>
+            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ent.allowed ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
+              {ent.allowed ? (ent.access === "purchased" ? t.unlocked : t.freeDl) : <><Lock className="h-3 w-3" /> {ent.price > 0 ? `${ent.price} ${ent.currency}` : ""}</>}
+            </span>
+            {!ent.allowed ? (
+              <button type="button" disabled={buyingDl} onClick={() => void buyToDownload()} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                <Lock className="h-4 w-4" /> {t.buyDl}
+              </button>
+            ) : (
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => download("evermind_runner.py", evermindRunnerScript(origin, token), "text/x-python")} className={btn}>
                 <Download className="h-3.5 w-3.5" /> {t.runner}
@@ -296,6 +327,7 @@ if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
                 <Download className="h-3.5 w-3.5" /> {t.bundle}
               </button>
             </div>
+            )}
           </div>
         )}
 

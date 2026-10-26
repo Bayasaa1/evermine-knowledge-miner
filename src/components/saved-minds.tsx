@@ -1035,6 +1035,7 @@ export function SavedMinds({
         item={launch?.item ?? null}
         chunks={launch?.chunks ?? []}
         lang={lang}
+        ownerId={userId}
       />
 
       {filing && (
