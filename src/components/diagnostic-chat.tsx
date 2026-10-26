@@ -275,7 +275,7 @@ export function DiagnosticChat() {
                 onClick={() => {
                   const topic = i === 0 ? input.trim() : "";
                   if (topic) setInput("");
-                  void act(label, CHIP_ACTIONS[i], topic ? { topic } : {});
+                  void act(label, CHIP_ACTIONS[i] ?? "health", topic ? { topic } : {});
                 }}
                 className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-foreground hover:border-primary disabled:opacity-40"
               >
