@@ -3,7 +3,10 @@
  * fully in the browser. No AI calls, no credits: mined lines are only defaults.
  */
 import { useMemo, useState } from "react";
-import { Bot, Download } from "lucide-react";
+import { Bot, Download, Lock } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
+import { purchaseMind, useMindEntitlement } from "@/lib/purchases";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +50,15 @@ const C = {
   noRules: { en: "No mined rules yet.", mn: "Олборлосон дүрэм алга.", ko: "마이닝된 규칙이 없습니다." },
   callouts: { en: "Callouts", mn: "Дуудлагууд", ko: "콜아웃" },
   policy: { en: "Download bot policy (JSON / WebSocket)", mn: "Ботын бодлого татах (JSON / WebSocket)", ko: "봇 정책 다운로드 (JSON / WebSocket)" },
+  freeDl: { en: "Free Download", mn: "Үнэгүй татах", ko: "무료 다운로드" },
+  unlocked: { en: "Unlocked — Complete Edition", mn: "Нээгдсэн — Бүрэн хувилбар", ko: "잠금 해제 — 컴플리트 에디션" },
+  buyDl: { en: "Buy to Download (.JSON / Bot)", mn: "Худалдаж аваад татах (.JSON / Бот)", ko: "구매 후 다운로드 (.JSON / 봇)" },
+  checkoutSoon: {
+    en: "Checkout is not connected yet — paid downloads open once payments are on.",
+    mn: "Төлбөрийн систем хараахан холбогдоогүй — холбогдмогц төлбөртэй татах нээгдэнэ.",
+    ko: "결제가 아직 연결되지 않았습니다 — 연결되면 유료 다운로드가 열립니다.",
+  },
+  signIn: { en: "Sign in to buy this Mind.", mn: "Худалдаж авахын тулд нэвтэрнэ үү.", ko: "구매하려면 로그인하세요." },
   mcOnly: { en: "Minecraft downloads", mn: "Minecraft татах", ko: "Minecraft 다운로드" },
 } as const;
 
@@ -60,8 +72,29 @@ const METRIC_LABEL: Record<string, { en: string; mn: string; ko: string }> = {
 
 const TAME = ["emerald", "diamond", "bone", "apple", "gold_ingot", "cookie"];
 
-export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: string; gaming: GamingExtraction }) {
+export function BotBuilder({
+  lang, mindName, gaming, mindId, ownerId, price,
+}: {
+  lang: Lang; mindName: string; gaming: GamingExtraction;
+  /** Set for someone else's Mind; omitted = the viewer's own Mind (always free). */
+  mindId?: string | null; ownerId?: string | null; price?: number | null;
+}) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
+  const { user } = useAuth();
+  const ent = useMindEntitlement({ mindId: mindId ?? null, ownerId: ownerId ?? null, userId: user?.id ?? null, price: price ?? 0 });
+  const [buying, setBuying] = useState(false);
+  const buy = async () => {
+    if (!mindId) return;
+    if (!user) return void toast.error(t("signIn"));
+    setBuying(true);
+    const { error } = await purchaseMind({ mindId, category: "gaming" });
+    setBuying(false);
+    if (error) return void toast.error(error.includes("Checkout is not connected") ? t("checkoutSoon") : error);
+    ent.refresh();
+  };
+  const gate = (fn: () => void) => () => (ent.allowed ? fn() : void buy());
+  const lockIcon = <Lock className="mr-1.5 h-4 w-4" />;
+  const dlIcon = ent.allowed ? <Download className="mr-1.5 h-4 w-4" /> : lockIcon;
   const defaults = useMemo(
     () =>
       [...gaming.communication.filter((c) => c.kind !== "tilt").map((c) => c.quote), ...gaming.commentaryStyle]
@@ -168,8 +201,8 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
                 </div>
               </div>
             ) : null}
-            <Button className="w-full" variant={playbook.is_minecraft ? "outline" : "default"} onClick={() => downloadBotPolicy(name.trim() || mindName, gaming)}>
-              <Download className="mr-1.5 h-4 w-4" />{t("policy")}
+            <Button className="w-full" variant={playbook.is_minecraft ? "outline" : "default"} disabled={buying} onClick={gate(() => downloadBotPolicy(name.trim() || mindName, gaming))}>
+              {dlIcon}{ent.allowed ? t("policy") : t("buyDl")}
             </Button>
           </section>
           {playbook.is_minecraft ? <p className="text-xs font-semibold text-foreground">{t("mcOnly")}</p> : null}
@@ -216,8 +249,8 @@ export function BotBuilder({ lang, mindName, gaming }: { lang: Lang; mindName: s
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button className="flex-1" variant={playbook.is_minecraft ? "default" : "outline"} onClick={buildPhone}><Download className="mr-1.5 h-4 w-4" />{t("phone")}</Button>
-            <Button className="flex-1" variant="outline" onClick={buildPc}><Download className="mr-1.5 h-4 w-4" />{t("pc")}</Button>
+            <Button className="flex-1" variant={playbook.is_minecraft ? "default" : "outline"} disabled={buying} onClick={gate(buildPhone)}>{dlIcon}{ent.allowed ? t("phone") : t("buyDl")}</Button>
+            <Button className="flex-1" variant="outline" disabled={buying} onClick={gate(buildPc)}>{dlIcon}{ent.allowed ? t("pc") : t("buyDl")}</Button>
           </div>
           <p className="text-xs text-muted-foreground">{t("steps")}</p>
           </div>
