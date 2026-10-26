@@ -95,7 +95,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
               headers: { "Content-Type": "application/json" },
             });
           }
-          return new Response(JSON.stringify({ text: generated.text }), {
+          return new Response(JSON.stringify({ text: generated.text, provider: generated.provider }), {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
