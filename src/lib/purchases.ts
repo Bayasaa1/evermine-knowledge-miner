@@ -108,7 +108,7 @@ export function useMindEntitlement(input: {
   price?: number | null;
 }) {
   const { mindId, ownerId, userId, price } = input;
-  const local = downloadAccess({ mind_id: mindId, user_id: ownerId, price: price ?? 0 }, userId, []);
+  const local = downloadAccess({ mind_id: mindId ?? null, user_id: ownerId ?? null, price: price ?? 0 }, userId, []);
   const [state, setState] = useState<{ access: DownloadAccess; price: number; currency: string }>({
     access: !mindId ? "owner" : local,
     price: Number(price ?? 0),
