@@ -26,7 +26,7 @@ import {
 } from "@/lib/error-capture";
 import { apiFetch } from "@/lib/api-fetch";
 
-type ChatMsg = { role: "user" | "model"; text: string; provider?: string; actions?: string[]; cards?: ArchitectCard[] };
+type ChatMsg = { role: "user" | "model"; text: string; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
 
 /** The account's Chatting role is the only path used for diagnostics. */
 async function askBackend(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {

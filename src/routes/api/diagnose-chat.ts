@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
               : body.action === "health" ? await a.analyzeBrainHealth(auth.userId, pid)
               : body.action === "fix" ? await a.autoFixBrain(auth.userId, pid, s("instructions"))
               : body.action === "stress" ? await a.stressTestMind(auth.userId, pid)
-              : body.action === "apply_fix" ? await a.applyBrainFix(auth.userId, s("vaultId"), Array.isArray(args.patches) ? (args.patches as { question: string; answer: string }[]) : [])
+              : body.action === "apply_fix" ? await a.applyBrainFix(auth.userId, s("vaultId"), Array.isArray(args["patches"]) ? (args["patches"] as { question: string; answer: string }[]) : [])
               : body.action === "bind_persona" ? await a.bindPersona(auth.userId, pid, s("name"))
               : null;
             if (!result) return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400 });

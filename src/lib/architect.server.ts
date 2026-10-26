@@ -151,7 +151,7 @@ export async function autoFixBrain(userId: string, projectId: string, instructio
   );
   const p = parseJson<{ patches?: { question?: string; answer?: string }[]; notes?: string[]; persona_name?: string }>(out.text) ?? {};
   const patches = (p.patches ?? []).filter((x) => x.question && x.answer).slice(0, 8).map((x) => ({ question: String(x.question).slice(0, 500), answer: String(x.answer).slice(0, 2000) }));
-  const cards: ArchitectCard[] = [{ type: "fix", projectId, vaultId: vaults[0].id, patches, notes: (p.notes ?? []).slice(0, 6).map(String) }];
+  const cards: ArchitectCard[] = [{ type: "fix", projectId, vaultId: vaults[0]!.id, patches, notes: (p.notes ?? []).slice(0, 6).map(String) }];
   const name = (project.creator_name || p.persona_name || "").trim();
   if (!project.persona_id && name) cards.push({ type: "persona", projectId, name });
   return { text: `Drafted ${patches.length} improvements. Review and press Apply to save them.`, provider: out.provider, actions_taken: [`Read ${Math.min(3, vaults.length)} videos`, `Drafted fix with ${out.provider}`], interactive_cards: cards };
