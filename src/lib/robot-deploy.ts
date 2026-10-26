@@ -199,7 +199,13 @@ def main():
     ap.add_argument("--interval", type=float, default=2.0)
     args = ap.parse_args()
 
-    mind = http_json(f"{BASE}/api/public/v1/mind/{args.token}/package.json")
+    try:
+        mind = http_json(f"{BASE}/api/public/v1/mind/{args.token}/package.json", auth=args.auth or None)
+    except urllib.error.HTTPError as e:
+        if e.code == 402:
+            print("This is a paid Mind. Run again with --auth <your Evermind sign-in key> (or env EVERMIND_AUTH) as its owner or buyer.")
+            return
+        raise
     print(f"Loaded {mind.get('title')} ({mind.get('mind_kind', 'robot')})")
     out = Output(args.out, mind.get("runtime", {}).get("topic", "/evermind/mind_action"))
     cam = None
@@ -258,7 +264,11 @@ TOPIC = "${topic}"
 
 
 def fetch_mind():
-    with urllib.request.urlopen(MIND_URL, timeout=30) as response:
+    req = urllib.request.Request(MIND_URL)
+    auth = os.environ.get("EVERMIND_AUTH", "")
+    if auth:
+        req.add_header("authorization", "Bearer " + auth)
+    with urllib.request.urlopen(req, timeout=30) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
