@@ -6,6 +6,7 @@
  * and TRAINING_ONLY material, all feeding one Core Brain whose growth and
  * monetization show up in the same dashboard.
  */
+import { ArchitectLauncher } from "@/components/diagnostic-chat";
 import { useMemo, useState } from "react";
 import { ShareTrigger } from "@/components/share-trigger";
 

@@ -1,3 +1,4 @@
+import { ArchitectLauncher } from "@/components/diagnostic-chat";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {

@@ -2,6 +2,7 @@
  * JSON Surgical Editor — chunk eraser, conflict annotations and FAQ patches.
  * Every save writes a NEW version, so a bad edit is always recoverable.
  */
+import { MindDownloadButtons } from "@/components/mind-download-buttons";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";

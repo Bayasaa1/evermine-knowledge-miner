@@ -1,3 +1,4 @@
+import { MindDownloadButtons } from "@/components/mind-download-buttons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Bot, Cable, Camera, Download, Hand, ScanLine, X } from "lucide-react";

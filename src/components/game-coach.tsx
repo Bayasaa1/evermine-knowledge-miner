@@ -1,3 +1,4 @@
+import { MindDownloadButtons } from "@/components/mind-download-buttons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Loader2, Mic, Square, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
