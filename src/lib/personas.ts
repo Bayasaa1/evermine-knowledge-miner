@@ -160,3 +160,37 @@ export async function getPersona(id: string): Promise<Persona | null> {
     .maybeSingle();
   return (data as Persona | null) ?? null;
 }
+
+/** Minimal client shape so the server can pass its own client (no browser session needed). */
+type PersonaDb = { from: (t: string) => any };
+
+/**
+ * Finds the owner's persona matching a creator name (by name or @handle), or
+ * creates one when none exists, so no project or Mind is left without a Persona.
+ */
+export async function ensurePersonaForCreator(
+  db: PersonaDb,
+  userId: string,
+  creatorName: string,
+  preferredHandle?: string,
+): Promise<{ id: string; name: string; handle: string } | null> {
+  const name = creatorName.trim().slice(0, 80);
+  if (!userId || !name) return null;
+  const handle = (preferredHandle?.trim() || personaHandle(name)).replace(/^@?/, "@").toLowerCase();
+  const { data: rows } = await db.from("creator_personas").select("id,name,handle").eq("user_id", userId);
+  const list = (rows as { id: string; name: string; handle: string }[] | null) ?? [];
+  const key = name.toLowerCase();
+  const hit = list.find((p) => p.name.trim().toLowerCase() === key || p.handle.toLowerCase() === handle);
+  if (hit) return hit;
+  for (let n = 1; n < 100; n++) {
+    const h = n === 1 ? handle : `${handle}${n}`;
+    const { data, error } = await db
+      .from("creator_personas")
+      .insert({ user_id: userId, name, handle: h, bio: "" })
+      .select("id,name,handle")
+      .single();
+    if (data) return data as { id: string; name: string; handle: string };
+    if (!error || !/handle|duplicate|unique/i.test(String(error.message))) return null;
+  }
+  return null;
+}
