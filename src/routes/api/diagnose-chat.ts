@@ -17,11 +17,36 @@ export const Route = createFileRoute("/api/diagnose-chat")({
       POST: async ({ request }) => {
         const auth = await guardApi(request, "diagnose-chat", 20);
         if (auth instanceof Response) return auth;
-        let body: { lang?: string; errors?: unknown; messages?: ChatMsg[] };
+        let body: { lang?: string; errors?: unknown; messages?: ChatMsg[]; action?: string; args?: Record<string, unknown> };
         try {
           body = (await request.json()) as typeof body;
         } catch {
           return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 });
+        }
+
+        // Architect Co-Pilot tools. Writes only run from user-pressed buttons.
+        if (body.action) {
+          const a = await import("@/lib/architect.server");
+          const args = body.args ?? {};
+          const s = (k: string) => (typeof args[k] === "string" ? (args[k] as string).slice(0, 2000) : "");
+          const pid = s("projectId");
+          const needsProject = ["health", "fix", "stress"].includes(body.action);
+          try {
+            const result =
+              needsProject && !pid ? await a.projectChoices(auth.userId, body.action)
+              : body.action === "scout" ? await a.scoutYoutubeSources(auth.userId, s("topic"), pid || undefined)
+              : body.action === "health" ? await a.analyzeBrainHealth(auth.userId, pid)
+              : body.action === "fix" ? await a.autoFixBrain(auth.userId, pid, s("instructions"))
+              : body.action === "stress" ? await a.stressTestMind(auth.userId, pid)
+              : body.action === "apply_fix" ? await a.applyBrainFix(auth.userId, s("vaultId"), Array.isArray(args.patches) ? (args.patches as { question: string; answer: string }[]) : [])
+              : body.action === "bind_persona" ? await a.bindPersona(auth.userId, pid, s("name"))
+              : null;
+            if (!result) return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400 });
+            return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });
+          } catch (err) {
+            const { aiErrorResponse } = await import("@/lib/user-ai.server");
+            return aiErrorResponse(err);
+          }
         }
 
         const { diagnosticSystemPrompt } = await import("@/lib/diagnostic-prompt");
