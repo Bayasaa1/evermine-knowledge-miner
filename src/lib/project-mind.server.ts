@@ -28,7 +28,7 @@ export type PublicProjectMind = {
   /** A compact factual identity card used for introductions. */
   selfIntro: string[];
   /** Structured deep Core Brain synthesized from every mined part. */
-  coreBrain?: CoreBrain;
+  coreBrain?: CoreBrain | undefined;
 };
 
 export type CoreBrain = {
