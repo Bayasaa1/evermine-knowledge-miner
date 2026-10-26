@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
           const args = body.args ?? {};
           const s = (k: string) => (typeof args[k] === "string" ? (args[k] as string).slice(0, 2000) : "");
           const pid = s("projectId");
-          const needsProject = ["health", "fix", "stress"].includes(body.action);
+          const needsProject = ["health", "fix", "stress"].includes(body.action) || (body.action === "scout" && !s("topic"));
           try {
             const result =
               needsProject && !pid ? await a.projectChoices(auth.userId, body.action)
