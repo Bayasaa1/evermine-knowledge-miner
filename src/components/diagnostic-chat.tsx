@@ -111,13 +111,112 @@ export function DiagnosticChat() {
     setThinking(true);
     try {
       const reply = await answer(lang, next);
-      setMessages([...next, { role: "model", text: reply }]);
+      setMessages([...next, reply]);
     } catch (err) {
       setMessages([...next, { role: "model", text: describeThrowable(err) }]);
     } finally {
       setThinking(false);
     }
   }, [input, thinking, messages, lang]);
+
+  const copy = COPY[(lang in COPY ? lang : "en") as keyof typeof COPY];
+  const [done, setDone] = useState<Record<string, boolean>>({});
+
+  const act = useCallback(
+    async (label: string | null, action: string, args: Record<string, unknown>) => {
+      if (thinking) return;
+      if (label) setMessages((m) => [...m, { role: "user", text: label }]);
+      setThinking(true);
+      try {
+        const reply = await runAction(action, args);
+        setMessages((m) => [...m, reply]);
+      } catch (err) {
+        setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]);
+      } finally {
+        setThinking(false);
+      }
+    },
+    [thinking],
+  );
+
+  const mine = useCallback(async (key: string, c: Extract<ArchitectCard, { type: "video" }>) => {
+    try {
+      await startMiningJobs({ data: { url: c.url, assessment: { sourceTitle: c.title, speakerIdentity: c.author }, personaId: c.personaId ?? null, projectId: c.projectId ?? null } as never });
+      setDone((d) => ({ ...d, [key]: true }));
+    } catch (err) {
+      setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]);
+    }
+  }, []);
+
+  const btn = "mt-1.5 inline-flex items-center rounded-lg bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40";
+
+  const renderCard = (c: ArchitectCard, key: string) => {
+    const wrap = "mt-2 rounded-xl border border-border bg-muted/30 p-2 text-xs";
+    if (c.type === "projects")
+      return (
+        <div key={key} className={`${wrap} flex flex-wrap gap-1`}>
+          {c.projects.map((p) => (
+            <button key={p.id} type="button" onClick={() => void act(p.title, c.next, { projectId: p.id })} className="rounded-lg border border-border bg-background px-2 py-1 hover:border-primary">
+              {p.title}
+            </button>
+          ))}
+        </div>
+      );
+    if (c.type === "video")
+      return (
+        <div key={key} className={`${wrap} flex gap-2`}>
+          {c.thumbnail && <img src={c.thumbnail} alt="" className="h-12 w-20 shrink-0 rounded object-cover" />}
+          <div className="min-w-0 flex-1">
+            <a href={c.url} target="_blank" rel="noreferrer" className="line-clamp-2 font-medium text-foreground hover:underline">{c.title}</a>
+            <p className="text-muted-foreground">{c.author} · {Math.round(c.durationSec / 60)} min</p>
+            {c.projectId && c.personaId ? (
+              <button type="button" disabled={done[key]} onClick={() => void mine(key, c)} className={btn}>{done[key] ? copy.queued : copy.mine}</button>
+            ) : (
+              <p className="mt-1 text-muted-foreground">{copy.noPersona}</p>
+            )}
+          </div>
+        </div>
+      );
+    if (c.type === "health")
+      return (
+        <div key={key} className={wrap}>
+          <p className="font-semibold text-foreground">{c.title}: {c.score}/100</p>
+          <p className="mt-1 text-muted-foreground">{copy.ok}: {c.strengths.join(" · ") || "—"}</p>
+          <p className="mt-1 text-destructive">{copy.gaps}: {c.gaps.join(" · ") || "—"}</p>
+          <button type="button" onClick={() => void act(copy.chips[2], "fix", { projectId: c.projectId, instructions: c.gaps.join("; ") })} className={btn}>{copy.chips[2]}</button>
+        </div>
+      );
+    if (c.type === "fix")
+      return (
+        <div key={key} className={wrap}>
+          {c.notes.map((n, i) => <p key={i} className="text-muted-foreground">• {n}</p>)}
+          {c.patches.map((p, i) => (
+            <p key={i} className="mt-1"><span className="font-medium text-foreground">{p.question}</span> — {p.answer}</p>
+          ))}
+          {c.patches.length > 0 && (
+            <button type="button" disabled={done[key]} onClick={() => { setDone((d) => ({ ...d, [key]: true })); void act(null, "apply_fix", { vaultId: c.vaultId, patches: c.patches }); }} className={btn}>{copy.apply}</button>
+          )}
+        </div>
+      );
+    if (c.type === "persona")
+      return (
+        <div key={key} className={wrap}>
+          <p className="text-foreground">{c.name}</p>
+          <button type="button" disabled={done[key]} onClick={() => { setDone((d) => ({ ...d, [key]: true })); void act(null, "bind_persona", { projectId: c.projectId, name: c.name }); }} className={btn}>{copy.bind}</button>
+        </div>
+      );
+    return (
+      <div key={key} className={wrap}>
+        {c.tests.map((t, i) => (
+          <div key={i} className="mt-1">
+            <p className="font-medium text-foreground">Q{i + 1}. {t.question} <span className="text-muted-foreground">[{t.verdict}]</span></p>
+            <p className="text-muted-foreground">{t.answer}</p>
+          </div>
+        ))}
+        <button type="button" onClick={() => void act(copy.improve, "fix", { projectId: c.projectId, instructions: `Improve answers to: ${c.tests.map((t) => t.question).join(" | ")}` })} className={btn}>{copy.improve}</button>
+      </div>
+    );
+  };
 
   if (hidden) return null;
 
