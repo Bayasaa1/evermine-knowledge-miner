@@ -160,6 +160,7 @@ export function BotBuilder({
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("desc")}</DialogDescription>
+          <span className={`w-fit rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ent.allowed ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>{ent.allowed ? (ent.access === "purchased" ? t("unlocked") : t("freeDl")) : `${ent.price} ${ent.currency}`}</span>
         </DialogHeader>
         <div className="space-y-4">
           <section className="space-y-3 rounded-lg border border-border bg-card p-3">
