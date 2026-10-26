@@ -221,6 +221,7 @@ export function GameCoach({
         <DialogHeader>
           <DialogTitle>{t("title")} — {mindName}</DialogTitle>
           <DialogDescription>{hasBrain ? t("desc") : t("noBrain")}</DialogDescription>
+          <MindDownloadButtons lang={lang} name={mindName} data={{ mindName, brain, playbook }} runner />
         </DialogHeader>
 
         <video ref={videoRef} muted playsInline className="aspect-video w-full rounded-lg border border-border bg-black" />

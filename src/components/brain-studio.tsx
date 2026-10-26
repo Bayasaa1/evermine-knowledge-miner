@@ -450,6 +450,7 @@ export function BrainStudio({
 
   return (
     <div className="space-y-5">
+      <ArchitectLauncher lang={lang} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">

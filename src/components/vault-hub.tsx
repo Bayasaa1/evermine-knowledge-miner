@@ -543,6 +543,7 @@ function PersonaWorkspace({
 
   return (
     <section className="space-y-4">
+      <ArchitectLauncher lang={lang} projectId={open?.id ?? null} />
       <div className="flex items-center gap-2">
         <button type="button" onClick={open ? () => setOpenId(null) : onBack} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground">
           <ArrowLeft className="h-3.5 w-3.5" /> {t("back")}

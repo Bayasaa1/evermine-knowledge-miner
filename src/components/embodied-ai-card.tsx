@@ -197,6 +197,7 @@ export function EmbodiedAiCard({
         <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           {t.badge}
         </span>
+        <MindDownloadButtons lang={lang} name="robot-mind" data={{ settings, trajectories, drills }} />
       </div>
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
 

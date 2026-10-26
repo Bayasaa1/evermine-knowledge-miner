@@ -281,6 +281,7 @@ export function JsonSurgicalEditor({
             <Scissors className="h-4 w-4 text-primary" /> {t("title")}
           </DialogTitle>
           <DialogDescription>{t("desc")}</DialogDescription>
+          <MindDownloadButtons lang={lang} name={title} data={draft} />
         </DialogHeader>
 
         <p className="truncate text-sm font-medium text-foreground">{title}</p>
