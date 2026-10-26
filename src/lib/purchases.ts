@@ -2,8 +2,9 @@
  * Purchase / subscription ownership for Minds. Deployment, voice calls and
  * verified reviews are all gated on an active row existing here.
  */
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { claimMind, releaseMind } from "./purchases.functions";
+import { claimMind, getMindEntitlement, releaseMind } from "./purchases.functions";
 import type { CreationCategory } from "./creation-category";
 import type { PlanLength } from "./subscription";
 
@@ -94,4 +95,35 @@ export function canDownloadMind(
   activePurchases: Array<Pick<Purchase, "mind_id" | "expires_at">>,
 ): boolean {
   return downloadAccess(target, currentUserId, activePurchases) !== "locked";
+}
+
+/**
+ * Client hook: download access for one Mind. Owners and free Minds unlock
+ * instantly; paid Minds ask the server, which checks real purchases.
+ */
+export function useMindEntitlement(input: {
+  mindId: string | null | undefined;
+  ownerId?: string | null;
+  userId?: string | null;
+  price?: number | null;
+}) {
+  const { mindId, ownerId, userId, price } = input;
+  const local = downloadAccess({ mind_id: mindId, user_id: ownerId, price: price ?? 0 }, userId, []);
+  const [state, setState] = useState<{ access: DownloadAccess; price: number; currency: string }>({
+    access: !mindId ? "owner" : local,
+    price: Number(price ?? 0),
+    currency: "USD",
+  });
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!mindId) return void setState((s) => ({ ...s, access: "owner" }));
+    if (local === "owner") return void setState((s) => ({ ...s, access: "owner" }));
+    if (!userId) return void setState((s) => ({ ...s, access: local }));
+    let alive = true;
+    void getMindEntitlement({ data: { mindId } })
+      .then((r) => { if (alive) setState(r); })
+      .catch(() => { if (alive) setState((s) => ({ ...s, access: local })); });
+    return () => { alive = false; };
+  }, [mindId, userId, local, tick]);
+  return { ...state, allowed: state.access !== "locked", refresh: () => setTick((n) => n + 1) };
 }
