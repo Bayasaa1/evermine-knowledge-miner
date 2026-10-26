@@ -241,7 +241,26 @@ export type VideoDetails = {
   durationSec: number;
   thumbnail: string;
   channel: string;
+  /** oEmbed author_name (falls back to channel / title parsing). */
+  authorName: string;
+  /** Channel @handle from oEmbed author_url, or "" when unknown. */
+  channelHandle: string;
 };
+
+/** Pulls a speaker name from titles like "Name - Topic", "Interview with X", "X | Topic". */
+export function authorFromTitle(title: string): string {
+  const t = title.trim();
+  const w = t.match(/\b(?:interview|conversation|podcast|chat|talk)\s+with\s+([A-Z][\w.'-]+(?:\s+[A-Z][\w.'-]+){0,3})/i);
+  if (w?.[1]) return w[1].trim();
+  const d = t.match(/^([A-Z][\w.'-]+(?:\s+[A-Z][\w.'-]+){0,3})\s*[-–—|:]\s+\S/);
+  if (d?.[1]) return d[1].trim();
+  return "";
+}
+
+export function handleFromAuthorUrl(u: string | undefined): string {
+  const m = (u ?? "").match(/youtube\.com\/(@[\w.-]+)/i);
+  return m?.[1] ?? "";
+}
 
 function decodeEntities(s: string): string {
   return s
@@ -263,6 +282,8 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
     durationSec: 0,
     thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
     channel: "",
+    authorName: "",
+    channelHandle: "",
   };
 
   // InnerTube first: it returns duration, description and publish date reliably.
@@ -281,8 +302,11 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
       { headers: { "User-Agent": UA } },
     );
     if (res.ok) {
-      const j = (await res.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
+      const j = (await res.json()) as { title?: string; author_name?: string; author_url?: string; thumbnail_url?: string };
       if (j.title && !details.title) details.title = j.title;
+      if (j.author_name) details.authorName = j.author_name.trim();
+      details.channelHandle = handleFromAuthorUrl(j.author_url);
+      if (!details.authorName) details.authorName = details.channel || authorFromTitle(j.title ?? details.title) || (details.channelHandle.replace(/^@/, ""));
       if (j.author_name && !details.channel) details.channel = j.author_name;
       if (j.thumbnail_url && !player.thumbnail)
         details.thumbnail = j.thumbnail_url.replace("hqdefault", "maxresdefault");
@@ -328,5 +352,7 @@ export async function fetchVideoDetails(videoId: string): Promise<VideoDetails> 
   }
 
   if (!details.title) details.title = videoId;
+  if (!details.authorName) details.authorName = details.channel || authorFromTitle(details.title);
+  if (!details.channel) details.channel = details.authorName;
   return details;
 }
