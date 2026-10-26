@@ -69,6 +69,30 @@ const COPY = {
 } as const;
 const CHIP_ACTIONS = ["scout", "health", "fix", "stress"] as const;
 
+const OPEN_EVENT = "evermind:open-architect";
+/** Opens the Co-Pilot pre-selected to a project (from any studio panel). */
+export function openArchitectCoPilot(projectId?: string | null) {
+  window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: { projectId: projectId ?? null } }));
+}
+
+export function ArchitectLauncher({ projectId, lang }: { projectId?: string | null; lang?: string }) {
+  const label =
+    lang === "mn"
+      ? "🤖 AI Architect Co-Pilot (Видео хайх / Шинжлэх / Brain засах)"
+      : lang === "ko"
+        ? "🤖 AI Architect Co-Pilot (영상 찾기 / 분석 / 브레인 자동 수정)"
+        : "🤖 AI Architect Co-Pilot (Scout Videos / Analyze / Auto-Fix Brain)";
+  return (
+    <button
+      type="button"
+      onClick={() => openArchitectCoPilot(projectId)}
+      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+    >
+      {label}
+    </button>
+  );
+}
+
 export function DiagnosticChat() {
   const { lang, t } = useLang();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -82,6 +106,16 @@ export function DiagnosticChat() {
   const [unseen, setUnseen] = useState(0);
   const [errorCount, setErrorCount] = useState(() => getCapturedErrors().length);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [presetProject, setPresetProject] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      setPresetProject((e as CustomEvent<{ projectId: string | null }>).detail?.projectId ?? null);
+      setOpen(true);
+    };
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, []);
 
   useEffect(
     () =>
@@ -275,7 +309,7 @@ export function DiagnosticChat() {
                 onClick={() => {
                   const topic = i === 0 ? input.trim() : "";
                   if (topic) setInput("");
-                  void act(label, CHIP_ACTIONS[i] ?? "health", topic ? { topic } : {});
+                  void act(label, CHIP_ACTIONS[i] ?? "health", { ...(topic ? { topic } : {}), ...(presetProject ? { projectId: presetProject } : {}) });
                 }}
                 className="rounded-full border border-border bg-background px-2 py-0.5 text-[10px] text-foreground hover:border-primary disabled:opacity-40"
               >

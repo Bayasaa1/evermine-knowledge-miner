@@ -2,6 +2,7 @@
  * JSON Surgical Editor — chunk eraser, conflict annotations and FAQ patches.
  * Every save writes a NEW version, so a bad edit is always recoverable.
  */
+import { MindDownloadButtons } from "@/components/mind-download-buttons";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -281,6 +282,7 @@ export function JsonSurgicalEditor({
             <Scissors className="h-4 w-4 text-primary" /> {t("title")}
           </DialogTitle>
           <DialogDescription>{t("desc")}</DialogDescription>
+          <MindDownloadButtons lang={lang} name={title} data={draft} />
         </DialogHeader>
 
         <p className="truncate text-sm font-medium text-foreground">{title}</p>

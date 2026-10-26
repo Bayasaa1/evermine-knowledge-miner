@@ -1,3 +1,4 @@
+import { MindDownloadButtons } from "@/components/mind-download-buttons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Loader2, Mic, Square, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -221,6 +222,7 @@ export function GameCoach({
         <DialogHeader>
           <DialogTitle>{t("title")} — {mindName}</DialogTitle>
           <DialogDescription>{hasBrain ? t("desc") : t("noBrain")}</DialogDescription>
+          <MindDownloadButtons lang={lang} name={mindName} data={{ mindName, brain, playbook }} runner />
         </DialogHeader>
 
         <video ref={videoRef} muted playsInline className="aspect-video w-full rounded-lg border border-border bg-black" />
