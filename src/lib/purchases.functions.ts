@@ -111,3 +111,51 @@ export const releaseMind = createServerFn({ method: "POST" })
     if (error) return { ok: false, error: error.message };
     return { ok: true, error: null };
   });
+
+export type MindEntitlement = {
+  access: "owner" | "free" | "purchased" | "locked";
+  price: number;
+  currency: string;
+};
+
+/** Server-verified download entitlement for one Mind (owner, free, or buyer). */
+export const getMindEntitlement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { mindId: string }) => {
+    if (!input?.mindId || typeof input.mindId !== "string" || input.mindId.length > 200) {
+      throw new Error("A mind id is required");
+    }
+    return { mindId: input.mindId };
+  })
+  .handler(async ({ data, context }): Promise<MindEntitlement> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { downloadAccess } = await import("@/lib/purchases");
+    const projectId = data.mindId.startsWith("project:") ? data.mindId.slice(8) : "";
+    let ownerId: string | null = null;
+    let price = 0;
+    let currency = "USD";
+    if (/^[0-9a-f-]{36}$/i.test(projectId)) {
+      const { data: p } = await supabaseAdmin.from("projects").select("user_id").eq("id", projectId).maybeSingle();
+      ownerId = p?.user_id ?? null;
+      const listed = await projectPrice(data.mindId, "lifetime");
+      price = listed?.price ?? 0;
+      currency = listed?.currency ?? currency;
+    } else {
+      const { data: v } = await supabaseAdmin.from("mind_vaults").select("user_id").eq("id", data.mindId).maybeSingle();
+      ownerId = (v as { user_id?: string } | null)?.user_id ?? null;
+      const listed = catalogPrice(data.mindId);
+      price = ownerId ? 0 : (listed?.price ?? 0);
+      currency = listed?.currency ?? currency;
+    }
+    const { data: rows } = await supabaseAdmin
+      .from("mind_purchases")
+      .select("mind_id,expires_at")
+      .eq("user_id", context.userId)
+      .eq("mind_id", data.mindId);
+    const access = downloadAccess(
+      { mind_id: data.mindId, user_id: ownerId, price },
+      context.userId,
+      (rows ?? []) as Array<{ mind_id: string; expires_at: string | null }>,
+    );
+    return { access, price, currency };
+  });

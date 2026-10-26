@@ -56,3 +56,42 @@ export async function cancelMind(mindId: string): Promise<{ error: string | null
     return { error: e instanceof Error ? e.message : "Cancel failed" };
   }
 }
+
+/** What the download guard needs to know about a Mind or project. */
+export type DownloadTarget = {
+  /** Id used for purchases (feed mindKey, e.g. "project:<uuid>"). */
+  mind_id?: string | null;
+  /** Creator/owner account id. */
+  user_id?: string | null;
+  /** "free" when nothing is sold. */
+  plan_tier?: string | null;
+  /** Price hint; 0 or missing = free. */
+  price?: number | null;
+};
+
+export type DownloadAccess = "owner" | "free" | "purchased" | "locked";
+
+/** Reason a viewer may (or may not) download a Mind's .json / runner / add-on. */
+export function downloadAccess(
+  target: DownloadTarget,
+  currentUserId: string | null | undefined,
+  activePurchases: Array<Pick<Purchase, "mind_id" | "expires_at">>,
+  now = Date.now(),
+): DownloadAccess {
+  if (currentUserId && target.user_id && target.user_id === currentUserId) return "owner";
+  if (target.plan_tier === "free" || !(Number(target.price ?? 0) > 0)) return "free";
+  const id = target.mind_id ?? "";
+  const bought = activePurchases.some(
+    (p) => p.mind_id === id && (!p.expires_at || new Date(p.expires_at).getTime() > now),
+  );
+  return bought ? "purchased" : "locked";
+}
+
+/** True only for the owner, a free Mind, or an active buyer. */
+export function canDownloadMind(
+  target: DownloadTarget,
+  currentUserId: string | null | undefined,
+  activePurchases: Array<Pick<Purchase, "mind_id" | "expires_at">>,
+): boolean {
+  return downloadAccess(target, currentUserId, activePurchases) !== "locked";
+}
