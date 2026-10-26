@@ -12,6 +12,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { Bot, Loader2, SendHorizonal, Trash2, X } from "lucide-react";
+import type { ArchitectCard, ArchitectResult } from "@/lib/architect.server";
+import { startMiningJobs } from "@/lib/mining-jobs.functions";
 import { useLang, type Lang } from "@/lib/i18n";
 import { LANGUAGES } from "@/lib/languages";
 import {
@@ -24,30 +26,48 @@ import {
 } from "@/lib/error-capture";
 import { apiFetch } from "@/lib/api-fetch";
 
-type ChatMsg = { role: "user" | "model"; text: string };
-
+type ChatMsg = { role: "user" | "model"; text: string; provider?: string; actions?: string[]; cards?: ArchitectCard[] };
 
 /** The account's Chatting role is the only path used for diagnostics. */
-async function askBackend(lang: Lang, history: ChatMsg[]): Promise<string> {
+async function askBackend(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
     body: JSON.stringify({
       lang,
       errors: getCapturedErrors().slice(-10),
-      messages: history,
+      messages: history.map((m) => ({ role: m.role, text: m.text })),
     }),
   });
-  const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+  const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string; provider?: string };
   if (!res.ok) throw new Error(data.error ?? `Diagnostics service error (${res.status}).`);
   const text = data.text?.trim();
   if (!text) throw new Error("The selected Chat AI returned an empty answer.");
-  return text;
+  return { role: "model", text, provider: data.provider };
 }
 
-async function answer(lang: Lang, history: ChatMsg[]): Promise<string> {
+/** Runs one Architect tool. Writing tools only fire from buttons the user presses. */
+async function runAction(action: string, args: Record<string, unknown>): Promise<ChatMsg> {
+  const res = await apiFetch("/api/diagnose-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
+    body: JSON.stringify({ action, args }),
+  });
+  const data = (await res.json().catch(() => ({}))) as Partial<ArchitectResult> & { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `Co-Pilot error (${res.status}).`);
+  return { role: "model", text: data.text ?? "", provider: data.provider, actions: data.actions_taken, cards: data.interactive_cards };
+}
+
+async function answer(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {
   return askBackend(lang, history);
 }
+
+const COPY = {
+  en: { chips: ["🔍 Find Best YouTube Videos for a Mind", "🧠 Deep-Analyze My Brain & Find Gaps", "🛠️ Auto-Fix & Enrich Brain + Persona", "⚡ Stress-Test Mind with 3 Hard Questions"], mine: "1-Click Mine Recommended Video", queued: "Added to mining", apply: "Apply Brain Fix", bind: "Bind Identified Persona", improve: "Auto-Improve Answers", by: "Ran on", noPersona: "Bind a persona to this project first", gaps: "Weak / missing", ok: "Strong" },
+  mn: { chips: ["🔍 Mind-д тохирох YouTube видео олох", "🧠 Brain-ийг гүн шинжилж дутууг олох", "🛠️ Brain + Persona-г засаж баяжуулах", "⚡ Mind-ийг 3 хэцүү асуултаар шалгах"], mine: "Санал болгосон видеог 1 товшилтоор майнинг хийх", queued: "Майнингийн дараалалд орлоо", apply: "Brain засварыг хэрэгжүүлэх", bind: "Олсон Persona-г холбох", improve: "Хариултыг автоматаар сайжруулах", by: "Ажилласан AI", noPersona: "Эхлээд төсөлд Persona холбоно уу", gaps: "Сул / дутуу", ok: "Сайн" },
+  ko: { chips: ["🔍 마인드용 최고의 YouTube 영상 찾기", "🧠 브레인 심층 분석 및 빈틈 찾기", "🛠️ 브레인 + 페르소나 자동 수정·보강", "⚡ 어려운 질문 3개로 마인드 테스트"], mine: "추천 영상 원클릭 마이닝", queued: "마이닝 대기열에 추가됨", apply: "브레인 수정 적용", bind: "식별된 페르소나 연결", improve: "답변 자동 개선", by: "실행 AI", noPersona: "먼저 이 프로젝트에 페르소나를 연결하세요", gaps: "약함 / 누락", ok: "강점" },
+} as const;
+const CHIP_ACTIONS = ["scout", "health", "fix", "stress"] as const;
 
 export function DiagnosticChat() {
   const { lang, t } = useLang();
