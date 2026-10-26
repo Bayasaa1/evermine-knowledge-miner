@@ -171,9 +171,9 @@ const personaChecked = new Set<string>();
  */
 export async function ensureJobPersona(input: {
   userId: string;
-  jobId?: string;
+  jobId?: string | undefined;
   videoId: string;
-  assessment?: Assessment;
+  assessment?: Assessment | undefined;
 }): Promise<{ id: string; name: string; handle: string } | null> {
   const key = input.jobId || `${input.userId}:${input.videoId}`;
   if (personaChecked.has(key)) return null;
