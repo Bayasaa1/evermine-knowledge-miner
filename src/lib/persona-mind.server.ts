@@ -3,7 +3,7 @@
  * their mined knowledge and creator-written stances are merged into one mind.
  * Only published projects are ever read.
  */
-import { getPublicProjectMind, type PublicProjectMind } from "@/lib/project-mind.server";
+import { getPublicProjectMind, type CoreBrain, type PublicProjectMind } from "@/lib/project-mind.server";
 import { loadCreatorExtras, type CreatorExtras } from "@/lib/mind-qa.server";
 
 const uniq = <T,>(xs: T[], key: (x: T) => string, limit: number) => {
@@ -43,6 +43,25 @@ export async function getPersonaMind(mindId: string): Promise<{ mind: PublicProj
     phrases: uniq(minds.flatMap((m) => m.phrases), (p) => p.phrase, 12),
     sampleLines: s((m) => m.sampleLines, 10),
     selfIntro: s((m) => m.selfIntro, 10),
+    ...(() => {
+      const brains = minds.map((m) => m.coreBrain).filter(Boolean) as CoreBrain[];
+      if (!brains.length) return {};
+      const v = (k: keyof CoreBrain["identity_and_voice_dna"], n: number) => uniq(brains.flatMap((b) => b.identity_and_voice_dna[k]), (x) => x, n);
+      // Models seen in several projects rank higher: sum mentions across projects.
+      const models = new Map<string, CoreBrain["core_mental_models"][number]>();
+      for (const m of brains.flatMap((b) => b.core_mental_models)) {
+        const k = m.name.toLowerCase();
+        const prev = models.get(k);
+        if (prev) prev.mentions += m.mentions; else models.set(k, { ...m });
+      }
+      const coreBrain: CoreBrain = {
+        identity_and_voice_dna: { tone: v("tone", 12), speaking_style: v("speaking_style", 12), metaphors: v("metaphors", 20), signature_phrases: v("signature_phrases", 30), contrarian_beliefs: v("contrarian_beliefs", 20) },
+        core_mental_models: [...models.values()].sort((a, b) => b.mentions - a.mentions || a.rank - b.rank).slice(0, 40).map((m, i) => ({ ...m, rank: i + 1 })),
+        signature_quotes_and_stories: uniq(brains.flatMap((b) => b.signature_quotes_and_stories), (q) => q.quote, 80),
+        decision_playbooks: uniq(brains.flatMap((b) => b.decision_playbooks), (p) => p.rule, 50),
+      };
+      return { coreBrain };
+    })(),
   };
   const first = extrasAll[0];
   const extras: CreatorExtras | null = first

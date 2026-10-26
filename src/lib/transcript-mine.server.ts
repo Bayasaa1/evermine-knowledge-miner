@@ -233,12 +233,18 @@ Return JSON only with these keys:
 - "knowledgeNodes": [{"timestamp_start","timestamp_end","concept_title","detailed_explanation","spatial_action":null,"confidence_score"}] — one per distinct idea, claim, story or piece of advice. confidence_score below 0.8 whenever you are guessing, because those are discarded.
 - "qaPairs": [{"timestamp","asker","question","answerer","answer"}] — every real question and its answer; asker/answerer use the speaker labels above; answer is a faithful self-contained summary in the original language.
 - "entities": [{"name","type","description","timestamps":[],"relations":[{"target","relation"}]}] — every named person, organization, place, product, work, event or key concept mentioned; type is person|organization|place|product|concept|event|work|other; relations link to other entities in the list.
+- "deepBrain": the primary speaker's DEEP thinking in this part — go beneath surface topic labels:
+  - "mentalModels": [{"name","principle","causeEffect","firstPrinciples","timestamp","weight"}] — the underlying models and first-principles reasoning they use (WHY they believe it, the cause → effect chain), weight 1-10 by how central it is to them.
+  - "verbatimQuotes": [{"quote","timestamp","context"}] — exact words copied character for character from the lines above, including signature phrases. Never paraphrase a quote.
+  - "frameworks": [{"name","trigger","action","because","steps":[],"timestamp"}] — concrete rules in the form "If <trigger> happens -> do <action> because <because>", plus ordered steps when they describe a process.
+  - "voice": {"tone":[],"catchphrases":[],"metaphors":[],"contrarianBeliefs":[{"belief","against","timestamp"}]} — their tone, repeated catchphrases, recurring metaphors, and beliefs that go against common opinion.
+  Leave a list empty rather than guessing.
 
 Rules:
 - Every timestamp must be copied from a line above.
 - Write everything (titles, explanations, beliefs, answers) in the original spoken language of the lines above. NEVER translate into English.
 - This is audio only: say nothing about faces, gestures, lighting or what the screen shows.
-- Never invent anything that was not said.`;
+- Never invent anything that was not said. "deepBrain" comes ONLY from the primary speaker.`;
 }
 
 /**
@@ -301,6 +307,10 @@ export async function analyzeTranscript(input: {
     ...(parsed ?? {}),
     speakers: (parsed?.['speakers'] as unknown[] | undefined)?.length ? parsed!['speakers'] : speakers,
   });
+  // The deep layer is kept as mined; the Core Brain synthesis reads it later.
+  if (parsed?.["deepBrain"] && typeof parsed["deepBrain"] === "object") {
+    (result as unknown as Record<string, unknown>)["deepBrain"] = parsed["deepBrain"];
+  }
 
   // Caption-only mining: nobody listened to the audio here, so every line is
   // marked "caption" — the Mind knows this wording was never double-checked.
