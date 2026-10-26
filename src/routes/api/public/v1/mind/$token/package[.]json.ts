@@ -10,7 +10,7 @@ import { ipRateLimit } from "@/lib/api-guard.server";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
 export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")({
@@ -97,7 +97,7 @@ export const Route = createFileRoute("/api/public/v1/mind/$token/package.json")(
           runner: { filename: "evermind_runner.py", script: evermindRunnerScript(origin, token) },
         };
         return Response.json(bundle, {
-          headers: { ...cors, "Cache-Control": "public, max-age=30" },
+          headers: { ...cors, "Cache-Control": price > 0 ? "private, no-store" : "public, max-age=30" },
         });
       },
     },
