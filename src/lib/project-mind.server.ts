@@ -144,6 +144,7 @@ async function loadMinedPersona(projectId: string) {
     phrases: [] as MindPhrase[],
     selfIntro: [] as string[],
     facts: [] as string[],
+    coreBrain: undefined as CoreBrain | undefined,
   };
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -167,11 +168,15 @@ async function loadMinedPersona(projectId: string) {
       const { topicIndexText } = await import("@/lib/topic-map.server");
       merged.facts.push(...topicIndexText(topicRow.payload as never).map((line) => `Topic: ${line}`));
     }
+    const deepParts: { deep: unknown; video?: string }[] = [];
     for (const row of data) {
       const payload = (row.payload ?? {}) as Record<string, unknown>;
       const result = (payload["result"] ?? {}) as Record<string, unknown>;
       const sub = (result["subconsciousness"] ?? {}) as Record<string, unknown>;
       const refreshed = (payload["personaRefresh"] ?? {}) as Record<string, unknown>;
+      const video = String(payload["sourceLabel"] ?? payload["title"] ?? "") || undefined;
+      if (result["deepBrain"]) deepParts.push({ deep: result["deepBrain"], ...(video ? { video } : {}) });
+      for (const d of Array.isArray(payload["deepBrainRebuild"]) ? (payload["deepBrainRebuild"] as unknown[]) : []) deepParts.push({ deep: d, ...(video ? { video } : {}) });
       merged.beliefs.push(...strings(sub["beliefs"], 200));
       merged.beliefs.push(...strings(refreshed["beliefs"], 200));
       merged.decisionLogic.push(...strings(sub["decisionLogic"], 200));
@@ -223,14 +228,20 @@ async function loadMinedPersona(projectId: string) {
         }
       }
     }
+    const coreBrain = deepParts.length ? synthesizeCoreBrain(deepParts) : undefined;
+    // The deep layer also feeds the existing chat sections, ranked first.
+    const deepModels = (coreBrain?.core_mental_models ?? []).map((m) => `${m.name}: ${m.principle}${m.cause_effect ? ` (${m.cause_effect})` : ""}`);
+    const deepPlays = (coreBrain?.decision_playbooks ?? []).map((p) => p.rule);
+    const voice = coreBrain?.identity_and_voice_dna;
     return {
-      beliefs: strings(merged.beliefs, 45),
-      decisionLogic: strings(merged.decisionLogic, 30),
-      expressiveStyle: strings(merged.expressiveStyle, 20),
+      beliefs: strings([...deepModels.slice(0, 10), ...(voice?.contrarian_beliefs ?? []), ...merged.beliefs], 45),
+      decisionLogic: strings([...deepPlays, ...merged.decisionLogic], 30),
+      expressiveStyle: strings([...(voice?.tone ?? []).map((t) => `Tone: ${t}`), ...(voice?.metaphors ?? []).slice(0, 5).map((t) => `Metaphor I use: ${t}`), ...merged.expressiveStyle], 20),
       skills: strings(merged.skills, 20),
       aestheticProfile: strings(merged.aestheticProfile, 10),
-      phrases: merged.phrases.slice(0, 30),
+      phrases: [...(voice?.signature_phrases ?? []).map((p) => ({ phrase: p, meaning: "", intent: "", usage: "" })), ...merged.phrases].slice(0, 30),
       selfIntro: strings(merged.selfIntro, 4),
+      coreBrain,
       // Spoken lines must not starve knowledge/screen facts: those go first with their own budget.
       facts: (() => {
         const isSpeech = (f: string) => /^\[[^\]]*\] [^:]*: /.test(f) && !/\] SCREEN /.test(f);
