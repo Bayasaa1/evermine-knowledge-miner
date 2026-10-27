@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { CreditCard, Check, Percent, Wallet } from "lucide-react";
+import { CreditCard, Check, Percent, Wallet, Landmark, Loader2, Copy, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { startCheckout, submitPaymentProof, type CheckoutOrder } from "@/lib/purchases.functions";
+import type { CheckoutRequest } from "@/lib/purchases";
+import { CreatorEarnings } from "@/components/payout-setup";
 import {
   PLATFORM_COMMISSION,
   PLAN_LENGTHS,
@@ -12,7 +18,7 @@ import {
   type PlanLength,
   type SubscriptionPlan,
 } from "@/lib/subscription";
-import { pickCopy, type Lang } from "@/lib/i18n";
+import { pickCopy, useLang, type Lang } from "@/lib/i18n";
 
 const copy = {
   en: {
@@ -254,8 +260,166 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
               <p className="mt-2 text-xs text-muted-foreground">{t.fee}</p>
             </div>
           </div>
+          <div className="mt-5">
+            <CreatorEarnings lang={lang} />
+          </div>
         </>
       )}
     </section>
   );
+}
+
+/* ───────────── Buyer checkout: card link or bank / QR transfer ───────────── */
+
+const checkoutCopy = {
+  en: {
+    title: "Checkout", plan: "Plan", total: "Total", card: "Card (Stripe)", bank: "Bank transfer / QR",
+    cardHint: "Pay securely on the creator's Stripe page, then paste the receipt or payment ID below.",
+    openStripe: "Open card payment", bankHint: "Transfer the exact amount and put this reference in the transfer description:",
+    bankName: "Bank", account: "Account number", holder: "Account holder", reference: "Payment reference",
+    txLabel: "Transaction ID / receipt number", txPlaceholder: "e.g. 1234567890",
+    submit: "I've paid — send for confirmation", sending: "Sending…", copied: "Copied",
+    loading: "Preparing your order…",
+    pending: "Payment submitted. Access unlocks as soon as the creator confirms it.",
+    cancelled: "Checkout closed — nothing was charged.",
+    names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime Complete Edition" },
+  },
+  mn: {
+    title: "Төлбөр төлөх", plan: "Багц", total: "Нийт", card: "Карт (Stripe)", bank: "Дансаар / QR",
+    cardHint: "Бүтээгчийн Stripe хуудсаар төлөөд, баримтын эсвэл гүйлгээний дугаараа доор оруулна уу.",
+    openStripe: "Картаар төлөх", bankHint: "Яг энэ дүнг шилжүүлж, гүйлгээний утга дээр энэ кодыг бичнэ үү:",
+    bankName: "Банк", account: "Дансны дугаар", holder: "Данс эзэмшигч", reference: "Гүйлгээний код",
+    txLabel: "Гүйлгээний дугаар / баримт", txPlaceholder: "жишээ нь 1234567890",
+    submit: "Төлсөн — баталгаажуулалт илгээх", sending: "Илгээж байна…", copied: "Хуулсан",
+    loading: "Захиалга бэлдэж байна…",
+    pending: "Төлбөр илгээгдлээ. Бүтээгч баталгаажуулмагц нээгдэнэ.",
+    cancelled: "Төлбөрийг хаалаа — мөнгө хасагдаагүй.",
+    names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан туршийн бүрэн хувилбар" },
+  },
+  ko: {
+    title: "결제", plan: "플랜", total: "합계", card: "카드 (Stripe)", bank: "계좌이체 / QR",
+    cardHint: "크리에이터의 Stripe 페이지에서 결제한 뒤 영수증 또는 결제 ID를 아래에 붙여 넣으세요.",
+    openStripe: "카드 결제 열기", bankHint: "정확한 금액을 이체하고 이체 메모에 이 코드를 적어 주세요:",
+    bankName: "은행", account: "계좌번호", holder: "예금주", reference: "결제 코드",
+    txLabel: "거래 ID / 영수증 번호", txPlaceholder: "예: 1234567890",
+    submit: "결제 완료 — 확인 요청", sending: "보내는 중…", copied: "복사됨",
+    loading: "주문 준비 중…",
+    pending: "결제가 제출되었습니다. 크리에이터가 확인하면 바로 열립니다.",
+    cancelled: "결제를 닫았습니다 — 청구되지 않았습니다.",
+    names: { month: "1개월", quarter: "3개월", year: "1년", lifetime: "평생 완전판" },
+  },
+} as const;
+
+function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang; onDone: (r: { error: string | null }) => void }) {
+  const t = pickCopy(checkoutCopy, lang);
+  const start = useServerFn(startCheckout);
+  const submitProof = useServerFn(submitPaymentProof);
+  const [method, setMethod] = useState<"bank" | "stripe">("bank");
+  const [order, setOrder] = useState<CheckoutOrder | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tx, setTx] = useState("");
+  const [sending, setSending] = useState(false);
+  const plan = (req.plan ?? "lifetime") as PlanLength;
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setErr(null); setOrder(null);
+    void start({ data: { mindId: req.mindId, category: req.category, plan, method } })
+      .then((r) => { if (!alive) return; if (r.ok && r.order) setOrder(r.order); else setErr(r.error); })
+      .catch((e: unknown) => alive && setErr(e instanceof Error ? e.message : "Checkout failed"))
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [method, plan, req.mindId, req.category, start]);
+
+  const send = async () => {
+    if (!order) return;
+    setSending(true);
+    try {
+      const r = await submitProof({ data: { orderId: order.orderId, transactionRef: tx } });
+      if (!r.ok) return void toast.error(r.error ?? "Failed");
+      onDone({ error: t.pending });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const copy = (v: string) => void navigator.clipboard?.writeText(v).then(() => toast.success(t.copied));
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onDone({ error: t.cancelled })}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{t.title}</DialogTitle></DialogHeader>
+        <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">{t.plan}: <b className="text-foreground">{t.names[plan]}</b></span>
+          {order && <span className="font-mono font-semibold text-foreground">{formatMoney(order.amount, order.currency)}</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {(["bank", "stripe"] as const).map((m) => (
+            <button key={m} type="button" onClick={() => setMethod(m)}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${method === m ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
+              {m === "bank" ? <Landmark className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+              {m === "bank" ? t.bank : t.card}
+            </button>
+          ))}
+        </div>
+        {loading && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />{t.loading}</p>}
+        {err && !loading && <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-foreground">{err}</p>}
+        {order && !loading && (
+          <div className="space-y-3 text-sm">
+            {method === "bank" && order.bank && (
+              <>
+                <p className="text-muted-foreground">{t.bankHint}</p>
+                <button type="button" onClick={() => copy(order.reference)}
+                  className="flex w-full items-center justify-between rounded-lg border border-primary/50 bg-primary/10 px-3 py-2 font-mono text-lg font-bold text-primary">
+                  {order.reference}<Copy className="h-4 w-4" />
+                </button>
+                <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1">
+                  <dt className="text-muted-foreground">{t.bankName}</dt><dd className="text-foreground">{order.bank.bankName}</dd>
+                  <dt className="text-muted-foreground">{t.account}</dt>
+                  <dd><button type="button" onClick={() => copy(order.bank!.accountNumber)} className="font-mono text-foreground underline-offset-2 hover:underline">{order.bank.accountNumber}</button></dd>
+                  <dt className="text-muted-foreground">{t.holder}</dt><dd className="text-foreground">{order.bank.holder}</dd>
+                </dl>
+                {order.bank.qrUrl && /^https:\/\//.test(order.bank.qrUrl) && (
+                  <img src={order.bank.qrUrl} alt="QR" className="mx-auto h-44 w-44 rounded-lg border border-border bg-card object-contain" />
+                )}
+              </>
+            )}
+            {method === "stripe" && order.stripeLink && (
+              <>
+                <p className="text-muted-foreground">{t.cardHint}</p>
+                <a href={order.stripeLink} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground">
+                  <ExternalLink className="h-4 w-4" />{t.openStripe}
+                </a>
+                <p className="text-xs text-muted-foreground">{t.reference}: <span className="font-mono">{order.reference}</span></p>
+              </>
+            )}
+            <label htmlFor="ckTx" className="block text-xs text-muted-foreground">{t.txLabel}</label>
+            <input id="ckTx" value={tx} onChange={(e) => setTx(e.target.value)} placeholder={t.txPlaceholder}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-foreground outline-none focus:border-primary" />
+            <button type="button" disabled={sending || tx.trim().length < 4} onClick={() => void send()}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50">
+              {sending && <Loader2 className="h-4 w-4 animate-spin" />}{sending ? t.sending : t.submit}
+            </button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Mount once (root layout). Opens the checkout whenever a paid Mind is bought anywhere in the app. */
+export function CheckoutHost() {
+  const { lang } = useLang();
+  const [req, setReq] = useState<CheckoutRequest | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setReq((e as CustomEvent<CheckoutRequest>).detail);
+    window.addEventListener("evermind:checkout", on);
+    return () => window.removeEventListener("evermind:checkout", on);
+  }, []);
+  if (!req) return null;
+  return <CheckoutModal req={req} lang={lang} onDone={(r) => { req.resolve(r); setReq(null); }} />;
 }

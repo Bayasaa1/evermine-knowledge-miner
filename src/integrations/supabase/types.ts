@@ -378,6 +378,39 @@ export type Database = {
           },
         ]
       }
+      creator_payout_accounts: {
+        Row: {
+          account_holder: string
+          account_number: string
+          bank_name: string
+          created_at: string
+          qr_url: string
+          stripe_links: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_holder?: string
+          account_number?: string
+          bank_name?: string
+          created_at?: string
+          qr_url?: string
+          stripe_links?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_holder?: string
+          account_number?: string
+          bank_name?: string
+          created_at?: string
+          qr_url?: string
+          stripe_links?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       creator_personas: {
         Row: {
           avatar_url: string | null
@@ -556,6 +589,57 @@ export type Database = {
           mind_id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      mind_payment_orders: {
+        Row: {
+          amount: number
+          buyer_id: string
+          category: string
+          created_at: string
+          creator_user_id: string | null
+          currency: string
+          id: string
+          method: string
+          mind_id: string
+          plan: string
+          reference: string
+          status: string
+          transaction_ref: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          buyer_id: string
+          category?: string
+          created_at?: string
+          creator_user_id?: string | null
+          currency?: string
+          id?: string
+          method?: string
+          mind_id: string
+          plan?: string
+          reference: string
+          status?: string
+          transaction_ref?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buyer_id?: string
+          category?: string
+          created_at?: string
+          creator_user_id?: string | null
+          currency?: string
+          id?: string
+          method?: string
+          mind_id?: string
+          plan?: string
+          reference?: string
+          status?: string
+          transaction_ref?: string
+          updated_at?: string
         }
         Relationships: []
       }

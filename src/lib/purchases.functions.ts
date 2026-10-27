@@ -70,8 +70,7 @@ export const claimMind = createServerFn({ method: "POST" })
       return {
         ok: false,
         requiresPayment: true,
-        error:
-          "This subscription costs money. Checkout is not connected yet, so access cannot be granted — connect a payment provider to enable paid subscriptions.",
+        error: "Payment required — choose card or bank transfer in checkout.",
       };
     }
 
@@ -158,4 +157,163 @@ export const getMindEntitlement = createServerFn({ method: "POST" })
       (rows ?? []) as Array<{ mind_id: string; expires_at: string | null }>,
     );
     return { access, price, currency };
+  });
+
+const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** Unique transfer memo: "EVM-" + 5 unambiguous characters (no 0/O/1/I). */
+export function makePaymentReference(rand: () => number = Math.random): string {
+  let out = "";
+  for (let i = 0; i < 5; i++) out += REF_ALPHABET[Math.floor(rand() * REF_ALPHABET.length) % REF_ALPHABET.length];
+  return `EVM-${out}`;
+}
+
+/* ───────────── Dual checkout: card link + bank / QR transfer ───────────── */
+
+export type CheckoutOrder = {
+  orderId: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  plan: PlanLength;
+  status: string;
+  bank: { bankName: string; accountNumber: string; holder: string; qrUrl: string } | null;
+  stripeLink: string | null;
+};
+
+function projectIdOf(mindId: string): string | null {
+  const id = mindId.startsWith("project:") ? mindId.slice(8) : "";
+  return /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+}
+
+/** Opens (or re-opens) a payment order with a unique reference. Price comes from the server. */
+export const startCheckout = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { mindId: string; category?: string; plan?: string; method?: string }) => {
+    if (!input?.mindId || typeof input.mindId !== "string" || input.mindId.length > 200) throw new Error("A mind id is required");
+    const plan = PLAN_LENGTHS.includes(input.plan as PlanLength) ? (input.plan as PlanLength) : "lifetime";
+    const method = input.method === "stripe" ? "stripe" : "bank";
+    return { mindId: input.mindId, category: String(input.category || "knowledge").slice(0, 40), plan, method };
+  })
+  .handler(async ({ data, context }): Promise<{ ok: boolean; error: string | null; order?: CheckoutOrder }> => {
+    const { assertNotBanned } = await import("@/lib/api-guard.server");
+    await assertNotBanned(context.supabase, context.userId);
+    const projectId = projectIdOf(data.mindId);
+    if (!projectId) return { ok: false, error: "This Mind cannot be bought yet." };
+    const listed = await projectPrice(data.mindId, data.plan);
+    if (!listed) return { ok: false, error: "This Mind is not available." };
+    if (!(listed.price > 0)) return { ok: false, error: "This plan is free — no payment needed." };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: proj } = await supabaseAdmin.from("projects").select("user_id").eq("id", projectId).maybeSingle();
+    const creatorId = proj?.user_id ?? null;
+    if (!creatorId) return { ok: false, error: "This Mind is not available." };
+    if (creatorId === context.userId) return { ok: false, error: "You already own this Mind." };
+    const { data: acct } = await supabaseAdmin.from("creator_payout_accounts").select("*").eq("user_id", creatorId).maybeSingle();
+    const links = (acct?.stripe_links ?? {}) as Record<string, unknown>;
+    const stripeLink = typeof links[data.plan] === "string" && /^https:\/\//.test(links[data.plan] as string) ? (links[data.plan] as string) : null;
+    const bank = acct && acct.account_number
+      ? { bankName: acct.bank_name, accountNumber: acct.account_number, holder: acct.account_holder, qrUrl: acct.qr_url }
+      : null;
+    if (data.method === "stripe" && !stripeLink) return { ok: false, error: "The creator has not added a card payment link for this plan yet." };
+    if (data.method === "bank" && !bank) return { ok: false, error: "The creator has not added bank details yet." };
+
+    // Reuse an open order for the same Mind/plan/method so the reference stays stable.
+    const { data: open } = await supabaseAdmin
+      .from("mind_payment_orders")
+      .select("id,reference,status,amount,currency")
+      .eq("buyer_id", context.userId).eq("mind_id", data.mindId).eq("plan", data.plan).eq("method", data.method)
+      .in("status", ["awaiting", "submitted"]).maybeSingle();
+    let row = open;
+    if (!row) {
+      for (let i = 0; i < 5 && !row; i++) {
+        const { data: ins } = await supabaseAdmin.from("mind_payment_orders").insert({
+          buyer_id: context.userId, creator_user_id: creatorId, mind_id: data.mindId, category: data.category,
+          plan: data.plan, amount: listed.price, currency: listed.currency, method: data.method,
+          reference: makePaymentReference(),
+        }).select("id,reference,status,amount,currency").maybeSingle();
+        row = ins;
+      }
+      if (!row) return { ok: false, error: "Could not create the payment order. Try again." };
+    }
+    return {
+      ok: true, error: null,
+      order: { orderId: row.id, reference: row.reference, amount: Number(row.amount), currency: row.currency, plan: data.plan, status: row.status, bank, stripeLink },
+    };
+  });
+
+/** Buyer sends their bank transaction id / Stripe receipt id. Access waits for the creator's approval. */
+export const submitPaymentProof = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { orderId: string; transactionRef: string }) => {
+    const ref = String(input?.transactionRef ?? "").trim();
+    if (!/^[0-9a-f-]{36}$/i.test(String(input?.orderId))) throw new Error("Invalid order");
+    if (ref.length < 4 || ref.length > 120) throw new Error("Enter the transaction ID from your bank or receipt.");
+    return { orderId: input.orderId, transactionRef: ref };
+  })
+  .handler(async ({ data, context }): Promise<PurchaseResult> => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: upd, error } = await supabaseAdmin.from("mind_payment_orders")
+      .update({ transaction_ref: data.transactionRef, status: "submitted" })
+      .eq("id", data.orderId).eq("buyer_id", context.userId).in("status", ["awaiting", "submitted"])
+      .select("id").maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!upd) return { ok: false, error: "Order not found." };
+    return { ok: true, error: null };
+  });
+
+export type SaleRow = {
+  id: string; mind_id: string; plan: string; amount: number; currency: string; method: string;
+  reference: string; transaction_ref: string; status: string; buyer_id: string; buyer_name: string; created_at: string;
+};
+
+/** The creator's own sales, newest first. */
+export const listCreatorSales = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<SaleRow[]> => {
+    const { data } = await context.supabase.from("mind_payment_orders").select("*")
+      .eq("creator_user_id", context.userId).order("created_at", { ascending: false }).limit(300);
+    const rows = data ?? [];
+    const ids = [...new Set(rows.map((r) => r.buyer_id))];
+    const names = new Map<string, string>();
+    if (ids.length) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: ps } = await supabaseAdmin.from("profiles").select("id,display_name,username").in("id", ids);
+      for (const p of ps ?? []) names.set(p.id, p.display_name || p.username || "");
+    }
+    return rows.map((r) => ({
+      id: r.id, mind_id: r.mind_id, plan: r.plan, amount: Number(r.amount), currency: r.currency, method: r.method,
+      reference: r.reference, transaction_ref: r.transaction_ref, status: r.status, buyer_id: r.buyer_id,
+      buyer_name: names.get(r.buyer_id) || r.buyer_id.slice(0, 8), created_at: r.created_at,
+    }));
+  });
+
+/** Creator approves (grants access) or revokes/rejects one of their own orders. */
+export const decideOrder = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { orderId: string; decision: string }) => {
+    if (!/^[0-9a-f-]{36}$/i.test(String(input?.orderId))) throw new Error("Invalid order");
+    const decision = input.decision === "approve" ? "approve" : input.decision === "reject" ? "reject" : "revoke";
+    return { orderId: input.orderId, decision } as const;
+  })
+  .handler(async ({ data, context }): Promise<PurchaseResult> => {
+    // Ownership check runs as the caller (RLS): only the creator sees their own sale.
+    const { data: order } = await context.supabase.from("mind_payment_orders").select("*")
+      .eq("id", data.orderId).eq("creator_user_id", context.userId).maybeSingle();
+    if (!order) return { ok: false, error: "Order not found." };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (data.decision === "approve") {
+      const plan = (PLAN_LENGTHS.includes(order.plan as PlanLength) ? order.plan : "lifetime") as PlanLength;
+      const { error } = await supabaseAdmin.from("mind_purchases").upsert({
+        user_id: order.buyer_id, mind_id: order.mind_id, category: order.category,
+        price: order.amount, currency: order.currency, plan, expires_at: expiryFor(plan),
+      }, { onConflict: "user_id,mind_id" });
+      if (error) return { ok: false, error: error.message };
+      await supabaseAdmin.from("mind_payment_orders").update({ status: "approved" }).eq("id", order.id);
+      return { ok: true, error: null };
+    }
+    if (order.status === "approved") {
+      await supabaseAdmin.from("mind_purchases").delete().eq("user_id", order.buyer_id).eq("mind_id", order.mind_id);
+    }
+    await supabaseAdmin.from("mind_payment_orders")
+      .update({ status: data.decision === "reject" ? "rejected" : "revoked" }).eq("id", order.id);
+    return { ok: true, error: null };
   });
