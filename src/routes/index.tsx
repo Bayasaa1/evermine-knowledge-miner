@@ -483,6 +483,13 @@ function HomeFeed() {
   // Mute button fades away with the rest of the on-screen controls.
   const pageChrome = useChromeVisible();
   const [active, setActive] = useState(0);
+  // Dwell time per clip feeds the ranker next visit (<3s = quick skip).
+  useEffect(() => {
+    const it = items[active];
+    if (!it) return;
+    const started = Date.now();
+    return () => recordWatch(it.id, it.mindId ?? it.handle ?? it.creator, Date.now() - started);
+  }, [active, items]);
   const [talk, setTalk] = useState<FeedItem | null>(null);
   const [sharing, setSharing] = useState<FeedItem | null>(null);
   const [robot, setRobot] = useState<FeedItem | null>(null);
@@ -608,7 +615,6 @@ function HomeFeed() {
           onSave={saveInterests}
           onClose={() => {
             setShowInterests(false);
-            if (!interests) setInterests(writeLocalInterests([]) ?? null);
           }}
         />
       )}
