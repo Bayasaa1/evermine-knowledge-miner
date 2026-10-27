@@ -32,7 +32,7 @@ describe("personalised feed ranking", () => {
   test("quick skips push a video down", () => {
     const signals = { byItem: { cook: { dwellMs: 500, skips: 2 } }, byCreator: {} };
     const out = rankFeedForViewer(feed, { signals });
-    expect(out[out.length - 1].id).toBe("cook");
+    expect(out[out.length - 1]?.id).toBe("cook");
   });
 
   test("no interests keeps original order", () => {

@@ -274,7 +274,7 @@ export function rankFeedForViewer(items: FeedItem[], o: RankOptions = {}): FeedI
     const tail = out.slice(-cap).map(creatorKeyOf);
     const blocked = tail.length === cap && tail.every((k) => k === tail[0]) ? tail[0] : null;
     const at = blocked ? pool.findIndex((x) => creatorKeyOf(x) !== blocked) : 0;
-    out.push(pool.splice(at < 0 ? 0 : at, 1)[0]);
+    out.push(pool.splice(at < 0 ? 0 : at, 1)[0]!);
   }
   return out;
 }
