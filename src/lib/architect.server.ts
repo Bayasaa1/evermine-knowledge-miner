@@ -8,7 +8,7 @@
  */
 import type { MindPayload } from "@/lib/mind-json";
 
-import type { ArchitectCard, ArchitectResult } from "@/lib/architect-types";
+import type { ArchitectCard, ArchitectResult, SystemAuditIssue } from "@/lib/architect-types";
 export type { ArchitectCard, ArchitectResult };
 
 type Db = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
@@ -196,4 +196,164 @@ export async function bindPersona(userId: string, projectId: string, name: strin
   if (!persona) return { text: "Could not create the persona.", actions_taken: [], interactive_cards: [] };
   await sb.from("projects").update({ persona_id: persona.id, creator_name: project.creator_name || persona.name }).eq("id", projectId).eq("user_id", userId);
   return { text: `Bound ${persona.name} (${persona.handle}) to “${project.title}”.`, actions_taken: ["Bound persona to project"], interactive_cards: [] };
+}
+
+// ---------------------------------------------------------------------------
+// Full System Audit (read-only) and Auto-Heal (runs only from a user button).
+// Healing never edits mined transcripts/journals/facts: it binds personas,
+// re-queues stuck jobs, and adds a deepBrainRebuild layer beside mined results.
+// ---------------------------------------------------------------------------
+
+const STUCK_MS = 30 * 60 * 1000;
+const HEAL_DEEPEN_LIMIT = 3;
+
+type MineRow = { id: string; project_id: string | null; title: string; payload: Record<string, unknown> };
+
+const isShallow = (p: Record<string, unknown>) => {
+  const result = (p["result"] ?? {}) as Record<string, unknown>;
+  const deep = (result["deepBrain"] ?? {}) as Record<string, unknown>;
+  const has = (k: string) => Array.isArray(deep[k]) && (deep[k] as unknown[]).length > 0;
+  const rebuilt = Array.isArray(p["deepBrainRebuild"]) && (p["deepBrainRebuild"] as unknown[]).length > 0;
+  return !rebuilt && !(has("mentalModels") && has("verbatimQuotes") && has("frameworks"));
+};
+
+async function auditData(userId: string) {
+  const sb = await db();
+  const [projects, jobs, mines, keys, roles] = await Promise.all([
+    sb.from("projects").select("id,title,creator_name,persona_id").eq("user_id", userId),
+    sb.from("mining_jobs").select("id,status,updated_at,project_id,persona_id,source_label").eq("user_id", userId).in("status", ["running", "doing", "error", "paused_quota"]),
+    sb.from("mind_vaults").select("id,project_id,title,payload").eq("user_id", userId).eq("kind", "mine").limit(400),
+    sb.from("user_ai_keys").select("id,enabled,status").eq("user_id", userId),
+    sb.from("user_ai_roles").select("role,key_id,team_key_ids").eq("user_id", userId),
+  ]);
+  const projectRows = (projects.data ?? []) as { id: string; title: string; creator_name: string | null; persona_id: string | null }[];
+  const now = Date.now();
+  const stuck = ((jobs.data ?? []) as { id: string; status: string; updated_at: string }[]).filter(
+    (j) => j.status === "error" || ((j.status === "running" || j.status === "doing") && now - new Date(j.updated_at).getTime() > STUCK_MS),
+  );
+  const jobsNoPersona = ((jobs.data ?? []) as { id: string; project_id: string | null; persona_id: string | null }[]).filter((j) => j.project_id && !j.persona_id);
+  const shallow = ((mines.data ?? []) as MineRow[]).filter((m) => m.project_id && isShallow(m.payload ?? {}));
+  const keyRows = (keys.data ?? []) as { id: string; enabled: boolean; status: string }[];
+  const working = new Set(keyRows.filter((k) => k.enabled && k.status === "ok").map((k) => k.id));
+  const roleRows = (roles.data ?? []) as { role: string; key_id: string | null; team_key_ids: string[] | null }[];
+  const brokenRoles = roleRows.filter((r) => ![r.key_id, ...(r.team_key_ids ?? [])].some((id) => id && working.has(id))).map((r) => r.role);
+  return {
+    orphanProjects: projectRows.filter((p) => !p.persona_id),
+    stuck,
+    jobsNoPersona,
+    shallow,
+    workingKeys: working.size,
+    totalKeys: keyRows.length,
+    brokenRoles,
+    projectCount: projectRows.length,
+  };
+}
+
+/** Read-only health check of the caller's own data. */
+export async function auditEntireSystem(userId: string): Promise<ArchitectResult> {
+  const d = await auditData(userId);
+  const keyIssue = d.workingKeys === 0 ? 1 : 0;
+  const issues: SystemAuditIssue[] = [
+    { id: "personas", label: "Projects without a Persona", count: d.orphanProjects.length, detail: d.orphanProjects.slice(0, 5).map((p) => p.title).join(", "), fixable: true },
+    { id: "jobs", label: "Stuck or failed mining jobs", count: d.stuck.length, detail: `${d.jobsNoPersona.length} active jobs also miss a persona link`, fixable: true },
+    { id: "brains", label: "Mined parts with a shallow Core Brain", count: d.shallow.length, detail: `Up to ${HEAL_DEEPEN_LIMIT} parts are deepened per run, on your own AI key`, fixable: true },
+    { id: "keys", label: "AI keys / roles without a working key", count: keyIssue + d.brokenRoles.length, detail: `${d.workingKeys}/${d.totalKeys} keys working${d.brokenRoles.length ? `; roles: ${d.brokenRoles.join(", ")}` : ""}`, fixable: false },
+  ];
+  const weights = { personas: 8, jobs: 4, brains: 1, keys: 15 } as const;
+  const penalty = issues.reduce((sum, i) => sum + Math.min(30, i.count * weights[i.id as keyof typeof weights]), 0);
+  const score = Math.max(0, 100 - penalty);
+  const total = issues.reduce((n, i) => n + i.count, 0);
+  return {
+    text: `System health ${score}/100 — ${total} issue(s) across ${d.projectCount} projects.`,
+    actions_taken: ["Audited projects, personas, mining jobs, brains, keys and roles (read-only)"],
+    interactive_cards: [{ type: "system_audit", score, issues, fixable: issues.some((i) => i.fixable && i.count > 0) }],
+  };
+}
+
+async function deepenVault(userId: string, row: MineRow): Promise<boolean> {
+  const result = (row.payload["result"] ?? {}) as Record<string, unknown>;
+  const evidence = JSON.stringify({ journal: result["journal"], transcript: result["transcript"], knowledge: result["knowledge"], knowledgeNodes: result["knowledgeNodes"] }).slice(0, 14000);
+  if (evidence.length < 200) return false;
+  const out = await ask(
+    userId,
+    'Extract the primary speaker\'s deep thinking from this already-mined video part, using ONLY the evidence. Quotes must be copied exactly. Return ONLY JSON: {"mentalModels":[{"name","principle","causeEffect","firstPrinciples","timestamp","weight"}],"verbatimQuotes":[{"quote","timestamp","context"}],"frameworks":[{"name","trigger","action","because","steps":[],"timestamp"}],"voice":{"tone":[],"catchphrases":[],"contrarianBeliefs":[],"metaphors":[]}}',
+    evidence,
+    row.title,
+  );
+  const deep = parseJson<Record<string, unknown>>(out.text);
+  if (!deep || typeof deep !== "object" || Array.isArray(deep)) return false;
+  const prev = Array.isArray(row.payload["deepBrainRebuild"]) ? (row.payload["deepBrainRebuild"] as unknown[]) : [];
+  const { error } = await (await db())
+    .from("mind_vaults")
+    .update({ payload: { ...row.payload, deepBrainRebuild: [...prev, deep] } as never })
+    .eq("id", row.id)
+    .eq("user_id", userId);
+  return !error;
+}
+
+/** Runs only when the user presses "Fix All Issues Automatically". */
+export async function autoHealSystem(userId: string): Promise<ArchitectResult> {
+  const sb = await db();
+  const d = await auditData(userId);
+  const { ensurePersonaForCreator } = await import("@/lib/personas");
+  const done: string[] = [];
+  const notes: string[] = [];
+
+  let bound = 0;
+  for (const p of d.orphanProjects) {
+    const name = (p.creator_name ?? "").trim();
+    if (!name) {
+      notes.push(`“${p.title}” has no creator name — pick a persona for it yourself.`);
+      continue;
+    }
+    const persona = await ensurePersonaForCreator(sb as never, userId, name);
+    if (!persona) continue;
+    const { error } = await sb.from("projects").update({ persona_id: persona.id }).eq("id", p.id).eq("user_id", userId);
+    if (!error) bound++;
+  }
+
+  // Active jobs inherit their project's persona.
+  const { data: linked } = await sb.from("projects").select("id,persona_id").eq("user_id", userId).not("persona_id", "is", null);
+  const personaOf = new Map(((linked ?? []) as { id: string; persona_id: string }[]).map((p) => [p.id, p.persona_id]));
+  let jobsLinked = 0;
+  for (const j of d.jobsNoPersona) {
+    const pid = j.project_id ? personaOf.get(j.project_id) : undefined;
+    if (!pid) continue;
+    const { error } = await sb.from("mining_jobs").update({ persona_id: pid }).eq("id", j.id).eq("user_id", userId);
+    if (!error) jobsLinked++;
+  }
+
+  let requeued = 0;
+  if (d.stuck.length) {
+    const { data } = await sb
+      .from("mining_jobs")
+      .update({ status: "queued", last_error: null, retry_after: null })
+      .in("id", d.stuck.map((j) => j.id))
+      .eq("user_id", userId)
+      .select("id");
+    requeued = data?.length ?? 0;
+  }
+
+  let deepened = 0;
+  for (const row of d.shallow.slice(0, HEAL_DEEPEN_LIMIT)) {
+    try {
+      if (await deepenVault(userId, row)) deepened++;
+    } catch (e) {
+      notes.push(`Could not deepen “${row.title}”: ${e instanceof Error ? e.message : String(e)}`);
+      break;
+    }
+  }
+  const brainsLeft = Math.max(0, d.shallow.length - deepened);
+  if (brainsLeft) notes.push(`${brainsLeft} shallow part(s) left — press Fix again to continue.`);
+  if (d.workingKeys === 0 || d.brokenRoles.length) notes.push("Some AI roles have no working key — add or switch keys in API Manager.");
+
+  if (bound) done.push(`Bound personas to ${bound} project(s)`);
+  if (jobsLinked) done.push(`Linked ${jobsLinked} mining job(s) to their persona`);
+  if (requeued) done.push(`Re-queued ${requeued} stuck/failed mining job(s)`);
+  if (deepened) done.push(`Deepened ${deepened} Core Brain part(s)`);
+  return {
+    text: done.length ? "Auto-heal finished." : "Nothing could be fixed automatically.",
+    actions_taken: done,
+    interactive_cards: [{ type: "heal_result", fixed: done, notes, remaining: brainsLeft }],
+  };
 }

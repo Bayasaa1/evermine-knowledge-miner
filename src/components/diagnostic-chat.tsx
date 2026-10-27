@@ -63,9 +63,9 @@ async function answer(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {
 }
 
 const COPY = {
-  en: { chips: ["🔍 Find Best YouTube Videos for a Mind", "🧠 Deep-Analyze My Brain & Find Gaps", "🛠️ Auto-Fix & Enrich Brain + Persona", "⚡ Stress-Test Mind with 3 Hard Questions"], mine: "1-Click Mine Recommended Video", queued: "Added to mining", apply: "Apply Brain Fix", bind: "Bind Identified Persona", improve: "Auto-Improve Answers", by: "Ran on", noPersona: "Bind a persona to this project first", gaps: "Weak / missing", ok: "Strong" },
-  mn: { chips: ["🔍 Mind-д тохирох YouTube видео олох", "🧠 Brain-ийг гүн шинжилж дутууг олох", "🛠️ Brain + Persona-г засаж баяжуулах", "⚡ Mind-ийг 3 хэцүү асуултаар шалгах"], mine: "Санал болгосон видеог 1 товшилтоор майнинг хийх", queued: "Майнингийн дараалалд орлоо", apply: "Brain засварыг хэрэгжүүлэх", bind: "Олсон Persona-г холбох", improve: "Хариултыг автоматаар сайжруулах", by: "Ажилласан AI", noPersona: "Эхлээд төсөлд Persona холбоно уу", gaps: "Сул / дутуу", ok: "Сайн" },
-  ko: { chips: ["🔍 마인드용 최고의 YouTube 영상 찾기", "🧠 브레인 심층 분석 및 빈틈 찾기", "🛠️ 브레인 + 페르소나 자동 수정·보강", "⚡ 어려운 질문 3개로 마인드 테스트"], mine: "추천 영상 원클릭 마이닝", queued: "마이닝 대기열에 추가됨", apply: "브레인 수정 적용", bind: "식별된 페르소나 연결", improve: "답변 자동 개선", by: "실행 AI", noPersona: "먼저 이 프로젝트에 페르소나를 연결하세요", gaps: "약함 / 누락", ok: "강점" },
+  en: { audit: "🩺 Audit Entire App & Auto-Heal Database", healAll: "✨ Fix All Issues Automatically", chips: ["🔍 Find Best YouTube Videos for a Mind", "🧠 Deep-Analyze My Brain & Find Gaps", "🛠️ Auto-Fix & Enrich Brain + Persona", "⚡ Stress-Test Mind with 3 Hard Questions"], mine: "1-Click Mine Recommended Video", queued: "Added to mining", apply: "Apply Brain Fix", bind: "Bind Identified Persona", improve: "Auto-Improve Answers", by: "Ran on", noPersona: "Bind a persona to this project first", gaps: "Weak / missing", ok: "Strong" },
+  mn: { audit: "🩺 Аппыг бүхэлд нь шалгаж, өгөгдлийг засах", healAll: "✨ Бүх асуудлыг автоматаар засах", chips: ["🔍 Mind-д тохирох YouTube видео олох", "🧠 Brain-ийг гүн шинжилж дутууг олох", "🛠️ Brain + Persona-г засаж баяжуулах", "⚡ Mind-ийг 3 хэцүү асуултаар шалгах"], mine: "Санал болгосон видеог 1 товшилтоор майнинг хийх", queued: "Майнингийн дараалалд орлоо", apply: "Brain засварыг хэрэгжүүлэх", bind: "Олсон Persona-г холбох", improve: "Хариултыг автоматаар сайжруулах", by: "Ажилласан AI", noPersona: "Эхлээд төсөлд Persona холбоно уу", gaps: "Сул / дутуу", ok: "Сайн" },
+  ko: { audit: "🩺 앱 전체 점검 및 데이터 자동 복구", healAll: "✨ 모든 문제 자동 수정", chips: ["🔍 마인드용 최고의 YouTube 영상 찾기", "🧠 브레인 심층 분석 및 빈틈 찾기", "🛠️ 브레인 + 페르소나 자동 수정·보강", "⚡ 어려운 질문 3개로 마인드 테스트"], mine: "추천 영상 원클릭 마이닝", queued: "마이닝 대기열에 추가됨", apply: "브레인 수정 적용", bind: "식별된 페르소나 연결", improve: "답변 자동 개선", by: "실행 AI", noPersona: "먼저 이 프로젝트에 페르소나를 연결하세요", gaps: "약함 / 누락", ok: "강점" },
 } as const;
 const CHIP_ACTIONS = ["scout", "health", "fix", "stress"] as const;
 
@@ -232,6 +232,26 @@ export function DiagnosticChat() {
           )}
         </div>
       );
+    if (c.type === "system_audit")
+      return (
+        <div key={key} className={wrap}>
+          <p className="font-semibold text-foreground">{c.score}/100</p>
+          {c.issues.map((i) => (
+            <p key={i.id} className="mt-1"><span className={i.count ? "text-destructive" : "text-primary"}>{i.count ? "✗" : "✓"}</span> <span className="text-foreground">{i.label}: {i.count}</span>{i.detail ? <span className="text-muted-foreground"> — {i.detail}</span> : null}</p>
+          ))}
+          {c.fixable && (
+            <button type="button" disabled={done[key]} onClick={() => { setDone((d) => ({ ...d, [key]: true })); void act(copy.healAll, "auto_heal", {}); }} className={btn}>{copy.healAll}</button>
+          )}
+        </div>
+      );
+    if (c.type === "heal_result")
+      return (
+        <div key={key} className={wrap}>
+          {c.fixed.map((f, i) => <p key={i} className="text-foreground">✓ {f}</p>)}
+          {c.notes.map((n, i) => <p key={i} className="text-muted-foreground">• {n}</p>)}
+          <button type="button" onClick={() => void act(copy.audit, "audit_system", {})} className={btn}>{copy.audit}</button>
+        </div>
+      );
     if (c.type === "persona")
       return (
         <div key={key} className={wrap}>
@@ -301,6 +321,14 @@ export function DiagnosticChat() {
           )}
 
           <div className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
+            <button
+              type="button"
+              disabled={thinking}
+              onClick={() => void act(copy.audit, "audit_system", {})}
+              className="w-full rounded-lg bg-primary px-2 py-1.5 text-[11px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-40"
+            >
+              {copy.audit}
+            </button>
             {copy.chips.map((label, i) => (
               <button
                 key={label}
