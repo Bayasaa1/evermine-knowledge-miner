@@ -260,6 +260,13 @@
       "when": 1792941276839,
       "tag": "0036_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1793109622537,
+      "tag": "0037_payment_orders_and_payout_accounts",
+      "breakpoints": true
     }
   ]
 }
