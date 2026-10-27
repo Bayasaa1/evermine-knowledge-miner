@@ -160,6 +160,14 @@ export const getMindEntitlement = createServerFn({ method: "POST" })
     return { access, price, currency };
   });
 
+const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+/** Unique transfer memo: "EVM-" + 5 unambiguous characters (no 0/O/1/I). */
+export function makePaymentReference(rand: () => number = Math.random): string {
+  let out = "";
+  for (let i = 0; i < 5; i++) out += REF_ALPHABET[Math.floor(rand() * REF_ALPHABET.length) % REF_ALPHABET.length];
+  return `EVM-${out}`;
+}
+
 /* ───────────── Dual checkout: card link + bank / QR transfer ───────────── */
 
 export type CheckoutOrder = {
@@ -217,7 +225,6 @@ export const startCheckout = createServerFn({ method: "POST" })
       .in("status", ["awaiting", "submitted"]).maybeSingle();
     let row = open;
     if (!row) {
-      const { makePaymentReference } = await import("@/lib/payouts");
       for (let i = 0; i < 5 && !row; i++) {
         const { data: ins } = await supabaseAdmin.from("mind_payment_orders").insert({
           buyer_id: context.userId, creator_user_id: creatorId, mind_id: data.mindId, category: data.category,
