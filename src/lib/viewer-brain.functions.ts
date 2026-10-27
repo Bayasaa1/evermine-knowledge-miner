@@ -461,3 +461,42 @@ export const eraseSince = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+// ---- Feed interests (TikTok-style onboarding), stored as a dedicated row ----
+const FEED_INTERESTS_MIND = "global_interests";
+
+export const loadFeedInterests = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data } = await supabase
+      .from("viewer_brains")
+      .select("payload")
+      .eq("user_id", userId)
+      .eq("mind_id", FEED_INTERESTS_MIND)
+      .maybeSingle();
+    const { sanitizeInterests } = await import("@/lib/feed-interests");
+    return sanitizeInterests((data?.payload as { interests?: unknown } | null)?.interests ?? null);
+  });
+
+export const saveFeedInterests = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ tags: z.array(z.string().max(40)).max(40) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { sanitizeInterests } = await import("@/lib/feed-interests");
+    const interests = sanitizeInterests({ tags: data.tags, updatedAt: new Date().toISOString() });
+    if (!interests) throw new Error("Pick at least one interest");
+    const { data: existing } = await supabase
+      .from("viewer_brains")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("mind_id", FEED_INTERESTS_MIND)
+      .maybeSingle();
+    const payload = { interests } as never;
+    const res = existing
+      ? await supabase.from("viewer_brains").update({ payload }).eq("id", existing.id)
+      : await supabase.from("viewer_brains").insert({ user_id: userId, mind_id: FEED_INTERESTS_MIND, payload });
+    if (res.error) throw res.error;
+    return interests;
+  });

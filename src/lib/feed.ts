@@ -201,3 +201,80 @@ export async function loadFeed(): Promise<FeedItem[]> {
 }
 
 
+
+// ---------------------------------------------------------------------------
+// Reels-style personalised ranking. Deterministic and signal-based: never an
+// AI call. Weights: interest 40%, engagement 25%, behaviour 20%, fresh 15%.
+// ---------------------------------------------------------------------------
+import { ALL_INTEREST_TAGS, type FeedInterests, type ViewerSignals } from "./feed-interests";
+
+export type RankOptions = {
+  interests?: FeedInterests | null;
+  signals?: ViewerSignals | null;
+  liked?: Record<string, boolean>;
+  /** Max consecutive cards from one creator. */
+  diversityCap?: number;
+};
+
+const creatorKeyOf = (i: FeedItem) => i.mindId ?? i.handle ?? i.creator;
+
+function interestScore(item: FeedItem, interests?: FeedInterests | null): number {
+  if (!interests?.tags.length) return 0;
+  const hay = `${item.title} ${item.description} ${item.creator} ${item.handle} ${item.tags.join(" ")}`.toLowerCase();
+  let hits = 0;
+  for (const id of interests.tags) {
+    const tag = ALL_INTEREST_TAGS.find((x) => x.id === id);
+    if (tag?.keywords.some((k) => hay.includes(k))) hits += 1;
+  }
+  const kw = Math.min(1, hits / 2);
+  const cat = interests.categories.includes(item.category) ? 1 : 0;
+  return 0.6 * kw + 0.4 * cat;
+}
+
+function engagementScore(item: FeedItem, liked?: Record<string, boolean>): number {
+  const richness = Math.min(1, ((item.timeline?.length ?? 0) + (item.transcript?.length ?? 0) / 10) / 20);
+  return 0.7 * richness + (liked?.[item.id] ? 0.3 : 0);
+}
+
+function behaviourScore(item: FeedItem, signals?: ViewerSignals | null): number {
+  if (!signals) return 0.5;
+  const s = signals.byItem[item.id];
+  const creatorMs = signals.byCreator[creatorKeyOf(item)] ?? 0;
+  let v = 0.5 + Math.min(0.4, creatorMs / 150_000);
+  if (s?.liked || s?.chatted) v += 0.1;
+  if (s && s.skips > 0) v -= Math.min(0.5, 0.25 * s.skips);
+  return Math.max(0, Math.min(1, v));
+}
+
+function freshnessScore(item: FeedItem, signals?: ViewerSignals | null): number {
+  const seen = signals?.byItem[item.id];
+  const creatorSeen = signals?.byCreator[creatorKeyOf(item)];
+  return seen ? 0.2 : creatorSeen ? 0.6 : 1;
+}
+
+export function scoreFeedItem(item: FeedItem, o: RankOptions = {}): number {
+  return (
+    0.4 * interestScore(item, o.interests) +
+    0.25 * engagementScore(item, o.liked) +
+    0.2 * behaviourScore(item, o.signals) +
+    0.15 * freshnessScore(item, o.signals)
+  );
+}
+
+/** Rank and then break up runs so one creator never fills > cap cards in a row. */
+export function rankFeedForViewer(items: FeedItem[], o: RankOptions = {}): FeedItem[] {
+  const cap = Math.max(1, o.diversityCap ?? 2);
+  const ranked = items
+    .map((item, idx) => ({ item, idx, s: scoreFeedItem(item, o) }))
+    .sort((a, b) => b.s - a.s || a.idx - b.idx)
+    .map((x) => x.item);
+  const out: FeedItem[] = [];
+  const pool = [...ranked];
+  while (pool.length) {
+    const tail = out.slice(-cap).map(creatorKeyOf);
+    const blocked = tail.length === cap && tail.every((k) => k === tail[0]) ? tail[0] : null;
+    const at = blocked ? pool.findIndex((x) => creatorKeyOf(x) !== blocked) : 0;
+    out.push(pool.splice(at < 0 ? 0 : at, 1)[0]!);
+  }
+  return out;
+}
