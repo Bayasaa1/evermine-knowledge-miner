@@ -70,8 +70,7 @@ export const claimMind = createServerFn({ method: "POST" })
       return {
         ok: false,
         requiresPayment: true,
-        error:
-          "This subscription costs money. Checkout is not connected yet, so access cannot be granted — connect a payment provider to enable paid subscriptions.",
+        error: "Payment required — choose card or bank transfer in checkout.",
       };
     }
 

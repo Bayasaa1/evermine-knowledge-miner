@@ -42,10 +42,28 @@ export async function purchaseMind(input: {
     const res = await claimMind({
       data: { mindId: input.mindId, category: input.category, plan: input.plan ?? "lifetime" },
     });
+    if (res.requiresPayment) return await openCheckout(input);
     return { error: res.ok ? null : (res.error ?? "Subscription failed") };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Subscription failed" };
   }
+}
+
+export type CheckoutRequest = {
+  mindId: string;
+  category: CreationCategory;
+  plan?: PlanLength;
+  resolve: (r: { error: string | null }) => void;
+};
+
+/** Opens the checkout modal (mounted once by <CheckoutHost />) and waits for it to close.
+ *  Paid access is never granted here: it unlocks only after the creator approves the payment. */
+export function openCheckout(input: { mindId: string; category: CreationCategory; plan?: PlanLength }): Promise<{ error: string | null }> {
+  if (typeof window === "undefined") return Promise.resolve({ error: "Checkout is unavailable" });
+  return new Promise((resolve) => {
+    const detail: CheckoutRequest = { ...input, resolve };
+    window.dispatchEvent(new CustomEvent<CheckoutRequest>("evermind:checkout", { detail }));
+  });
 }
 
 /** Cancels a subscription. The viewer keeps nothing but their own history. */
