@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { rankFeedForViewer, type FeedItem } from "./feed";
 import { sanitizeInterests } from "./feed-interests";
 
@@ -18,7 +19,7 @@ describe("personalised feed ranking", () => {
   test("Crypto & Finance + FPS picks move matching videos to the top", () => {
     const interests = sanitizeInterests({ tags: ["crypto-finance", "fps"] });
     const top = rankFeedForViewer(feed, { interests }).slice(0, 2).map((x) => x.id);
-    expect(top.sort()).toEqual(["btc", "cs2"]);
+    assert.deepEqual(top.sort(), ["btc", "cs2"]);
   });
 
   test("never shows 3 videos from one creator in a row", () => {
@@ -26,16 +27,16 @@ describe("personalised feed ranking", () => {
     const out = rankFeedForViewer([...many, item("x", "other", "knowledge", "x")], {
       interests: sanitizeInterests({ tags: ["fps"] }),
     });
-    expect(out.slice(0, 3).map((x) => x.creator)).toEqual(["shroud", "shroud", "other"]);
+    assert.deepEqual(out.slice(0, 3).map((x) => x.creator), ["shroud", "shroud", "other"]);
   });
 
   test("quick skips push a video down", () => {
     const signals = { byItem: { cook: { dwellMs: 500, skips: 2 } }, byCreator: {} };
     const out = rankFeedForViewer(feed, { signals });
-    expect(out[out.length - 1]?.id).toBe("cook");
+    assert.equal(out[out.length - 1]?.id, "cook");
   });
 
   test("no interests keeps original order", () => {
-    expect(rankFeedForViewer(feed).map((x) => x.id)).toEqual(feed.map((x) => x.id));
+    assert.deepEqual(rankFeedForViewer(feed).map((x) => x.id), feed.map((x) => x.id));
   });
 });
