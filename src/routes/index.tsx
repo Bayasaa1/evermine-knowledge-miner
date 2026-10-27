@@ -23,7 +23,10 @@ import { ShareTrigger } from "@/components/share-trigger";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { YouTubeStage } from "@/components/youtube-stage";
-import { loadFeed, loadFeedTracks, type FeedItem } from "@/lib/feed";
+import { loadFeed, loadFeedTracks, rankFeedForViewer, type FeedItem } from "@/lib/feed";
+import { readLocalInterests, readLocalSignals, writeLocalInterests, recordWatch, type FeedInterests } from "@/lib/feed-interests";
+import { loadFeedInterests, saveFeedInterests } from "@/lib/viewer-brain.functions";
+import { InterestOnboardingModal } from "@/components/interest-onboarding-modal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { pickCopy, useDisplayText, useDisplayTexts, useDisplayTextsIn, useLang } from "@/lib/i18n";
@@ -431,7 +434,31 @@ function HomeFeed() {
   // Videos YouTube refuses to play outside its own site (age limits, embedding
   // off) are dropped from the feed instead of showing an error card.
   const [unplayable, setUnplayable] = useState<Record<string, true>>({});
-  const items = useMemo(() => allItems.filter((i) => !unplayable[i.id]), [allItems, unplayable]);
+  // Personalised order: interests + behaviour snapshot taken once per visit so
+  // the feed never reshuffles under the clip that is playing.
+  const [interests, setInterests] = useState<FeedInterests | null>(null);
+  const [showInterests, setShowInterests] = useState(false);
+  const [signalsSnap] = useState(() => readLocalSignals());
+  useEffect(() => {
+    const local = readLocalInterests();
+    setInterests(local);
+    if (!user) { if (!local) setShowInterests(true); return; }
+    loadFeedInterests()
+      .then((remote) => {
+        if (remote) { setInterests(remote); writeLocalInterests(remote.tags); }
+        else if (!local) setShowInterests(true);
+      })
+      .catch(() => { if (!local) setShowInterests(true); });
+  }, [user]);
+  const saveInterests = (tags: string[]) => {
+    setInterests(writeLocalInterests(tags));
+    setShowInterests(false);
+    if (user) void saveFeedInterests({ data: { tags } }).catch(() => undefined);
+  };
+  const items = useMemo(
+    () => rankFeedForViewer(allItems.filter((i) => !unplayable[i.id]), { interests, signals: signalsSnap }),
+    [allItems, unplayable, interests, signalsSnap],
+  );
 
 
 
@@ -568,6 +595,23 @@ function HomeFeed() {
     <div className="dark min-h-screen bg-black pb-28 text-white">
       {/* No app label over the video — the feed stays clean. */}
       {/* Sits below the language selector so it is never covered by it */}
+      <button
+        type="button"
+        onClick={() => setShowInterests(true)}
+        className="fixed left-3 top-3 z-[60] rounded-full bg-black/50 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur"
+      >
+        ✨ {lang === "mn" ? "Сонирхол" : lang === "ko" ? "관심사" : "Tune feed"}
+      </button>
+      {showInterests && (
+        <InterestOnboardingModal
+          initial={interests?.tags ?? []}
+          onSave={saveInterests}
+          onClose={() => {
+            setShowInterests(false);
+            if (!interests) setInterests(writeLocalInterests([]) ?? null);
+          }}
+        />
+      )}
 
       <main className="h-[100dvh] snap-y snap-mandatory overflow-y-scroll">
         {isLoading && <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}
