@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/hooks/use-auth";
+import { InterestOnboardingModal } from "@/components/interest-onboarding-modal";
+import { loadFeedInterests, saveFeedInterests } from "@/lib/viewer-brain.functions";
+import { writeLocalInterests } from "@/lib/feed-interests";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -51,9 +54,29 @@ function AuthPage() {
   // screen) across provider round-trips and emailed links.
   const returnUrl = typeof window !== "undefined" ? `${window.location.origin}${next}` : "/";
 
+  // Step 2 of registration: first-time accounts (no saved interests) pick
+  // feed interests before landing; "Skip" always continues.
+  const [pickInterests, setPickInterests] = useState(false);
   useEffect(() => {
-    if (!loading && isAuthenticated) void navigate({ to: next, replace: true });
+    if (loading || !isAuthenticated) return;
+    let cancelled = false;
+    loadFeedInterests()
+      .then((remote) => {
+        if (cancelled) return;
+        if (remote && remote.tags.length) { writeLocalInterests(remote.tags); void navigate({ to: next, replace: true }); }
+        else setPickInterests(true);
+      })
+      .catch(() => { if (!cancelled) void navigate({ to: next, replace: true }); });
+    return () => { cancelled = true; };
   }, [loading, isAuthenticated, navigate, next]);
+  const finishInterests = (tags: string[] | null) => {
+    setPickInterests(false);
+    if (tags && tags.length) {
+      writeLocalInterests(tags);
+      void saveFeedInterests({ data: { tags } }).catch(() => undefined);
+    }
+    void navigate({ to: next, replace: true });
+  };
 
   const social = async (provider: "google" | "apple") => {
     setBusy(provider);
@@ -119,6 +142,9 @@ function AuthPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      {pickInterests && (
+        <InterestOnboardingModal onSave={(tags) => finishInterests(tags)} onClose={() => finishInterests(null)} />
+      )}
       <div className="w-full max-w-md">
         <Link
           to="/"
