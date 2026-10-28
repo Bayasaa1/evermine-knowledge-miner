@@ -439,16 +439,17 @@ function HomeFeed() {
   const [interests, setInterests] = useState<FeedInterests | null>(null);
   const [showInterests, setShowInterests] = useState(false);
   const [signalsSnap] = useState(() => readLocalSignals());
+  // Never auto-open the interest picker here: the feed must play immediately.
+  // Picking happens at sign-up and from Profile; "Tune feed" stays on demand.
   useEffect(() => {
     const local = readLocalInterests();
     setInterests(local);
-    if (!user) { if (!local) setShowInterests(true); return; }
+    if (!user) return;
     loadFeedInterests()
       .then((remote) => {
         if (remote) { setInterests(remote); writeLocalInterests(remote.tags); }
-        else if (!local) setShowInterests(true);
       })
-      .catch(() => { if (!local) setShowInterests(true); });
+      .catch(() => undefined);
   }, [user]);
   const saveInterests = (tags: string[]) => {
     setInterests(writeLocalInterests(tags));
