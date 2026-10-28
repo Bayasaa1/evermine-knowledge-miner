@@ -12,6 +12,7 @@ import type { ChunkResult } from "@/lib/gemini";
 import { MindSpecs } from "@/components/mind-specs";
 import { copyMindAsMasterPrompt, downloadOllamaModelfile, downloadStandaloneMindHtmlApp } from "@/lib/mind-json";
 import { downloadBedrockAddon } from "@/lib/bedrock-addon";
+import { findGaming } from "@/components/mind-download-buttons";
 import { purchaseMind, useMindEntitlement } from "@/lib/purchases";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -223,6 +224,7 @@ if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
   };
   const copyText = (s: string) => { void navigator.clipboard.writeText(s); toast.success(t.copied); };
   const command = quickStartCommand(token || "<TOKEN>");
+  const gaming = findGaming(chunks ?? null);
   const btn = "inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary";
   const tabs: { id: Tab; label: string; icon: typeof Play }[] = [
     { id: "browser", label: t.tBrowser, icon: Play },
@@ -345,8 +347,8 @@ if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
                 <button type="button" onClick={() => downloadOllamaModelfile({ name: item.title, data: pkg, allowed: ent.allowed })} className={btn}>
                   <Download className="h-3.5 w-3.5" /> {t.ollama}
                 </button>
-                {pkg.gaming && Array.isArray(pkg.gaming.decisions) && pkg.gaming.decisions.length > 0 && (
-                  <button type="button" onClick={() => downloadBedrockAddon(item.title, pkg.gaming!)} className={btn}>
+                {gaming && (
+                  <button type="button" onClick={() => downloadBedrockAddon(item.title, gaming)} className={btn}>
                     <Download className="h-3.5 w-3.5" /> {t.addon}
                   </button>
                 )}
