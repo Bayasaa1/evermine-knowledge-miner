@@ -330,3 +330,22 @@ export function withOwnerIdentity<T extends { speakerIdentity?: string }>(a: T, 
   if (!name || (a.speakerIdentity ?? "").trim()) return a;
   return { ...a, speakerIdentity: `Mind Owner: ${name} (the person at the webcam/microphone). Everyone else is a guest or played media.` };
 }
+
+/** A running job touched this recently is held by a worker or tab: never double-run it. */
+export const MINING_LEASE_HELD_MS = 90_000;
+/** A running job silent for longer than this is stuck and goes back to the queue. */
+export const MINING_LEASE_STALE_MS = 3 * 60_000;
+
+/**
+ * Single-flight lease state. Between 90s and 3min a running job is still
+ * treated as held, because one Gemini part can legitimately take that long.
+ */
+export function miningLeaseState(
+  status: string,
+  updatedAt: string | null | undefined,
+  now = Date.now(),
+): "free" | "held" | "stale" {
+  if (status !== "running") return "free";
+  const age = now - new Date(updatedAt ?? 0).getTime();
+  return age > MINING_LEASE_STALE_MS ? "stale" : "held";
+}
