@@ -94,10 +94,14 @@ export const listViewerBrains = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    // The "global_interests" row stores feed tuning, not a real Mind —
+    // listing it would show a fake "Unnamed Mind" card that erasing would
+    // wipe interests with.
     const { data, error } = await supabase
       .from("viewer_brains")
       .select("*")
       .eq("user_id", userId)
+      .neq("mind_id", "global_interests")
       .order("updated_at", { ascending: false });
     if (error) throw error;
     const brains = (data ?? []).map((r) => toBrain(r as BrainRow));
