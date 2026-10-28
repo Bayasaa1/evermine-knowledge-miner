@@ -10,6 +10,9 @@ import { useAuth } from "@/hooks/use-auth";
 import type { FeedItem } from "@/lib/feed";
 import type { ChunkResult } from "@/lib/gemini";
 import { MindSpecs } from "@/components/mind-specs";
+import { copyMindAsMasterPrompt, downloadOllamaModelfile, downloadStandaloneMindHtmlApp } from "@/lib/mind-json";
+import { downloadBedrockAddon } from "@/lib/bedrock-addon";
+import { findGaming } from "@/components/mind-download-buttons";
 import { purchaseMind, useMindEntitlement } from "@/lib/purchases";
 import { pickCopy, type Lang } from "@/lib/i18n";
 
@@ -21,6 +24,7 @@ type InstallPrompt = Event & { prompt: () => Promise<void> };
 
 const copy = {
   en: {
+    instant: "⚡ Instant Use (No Coding)", pro: "🛠️ Pro / Bot / Hardware Files", html: "Download Standalone App (.HTML)", prompt: "Copy for ChatGPT / Claude", ollama: "Download Ollama Modelfile", addon: "Download Minecraft Add-on (.mcaddon)", runnerPy: "Download Bot / Robot Runner (.PY)", brainJson: "Download Complete Brain (.JSON)",
     freeDl: "Free Download", unlocked: "Unlocked — Complete Edition", buyDl: "Buy to Download (.JSON / Bot)", checkoutSoon: "Checkout is not connected yet — paid downloads open once payments are on.",
     title: "Complete Edition — 1-Click Install & Run",
     tBrowser: "Run in browser", tInstaller: "PC / Robot installer", tDevice: "Install app",
@@ -34,6 +38,7 @@ const copy = {
     install: "Install app", iosHint: "On iPhone: tap Share → Add to Home Screen.", installed: "Already installed or not offered by this browser.",
   },
   mn: {
+    instant: "⚡ Шууд ашиглах (код хэрэггүй)", pro: "🛠️ Мэргэжлийн / Бот / Төхөөрөмжийн файл", html: "Бие даасан апп татах (.HTML)", prompt: "ChatGPT / Claude-д хуулах", ollama: "Ollama Modelfile татах", addon: "Minecraft нэмэлт татах (.mcaddon)", runnerPy: "Бот / Робот ажиллуулагч татах (.PY)", brainJson: "Бүтэн Brain татах (.JSON)",
     freeDl: "Үнэгүй татах", unlocked: "Нээгдсэн — Бүрэн хувилбар", buyDl: "Худалдаж аваад татах (.JSON / Бот)", checkoutSoon: "Төлбөрийн систем хараахан холбогдоогүй — холбогдмогц төлбөртэй татах нээгдэнэ.",
     title: "Бүрэн хувилбар — 1 товчоор суулгаж ажиллуулах",
     tBrowser: "Хөтөч дээр ажиллуулах", tInstaller: "Компьютер / Робот", tDevice: "Апп суулгах",
@@ -47,6 +52,7 @@ const copy = {
     install: "Апп суулгах", iosHint: "iPhone дээр: Share → Add to Home Screen.", installed: "Аль хэдийн суусан эсвэл энэ хөтөч дэмжихгүй.",
   },
   ko: {
+    instant: "⚡ 바로 사용 (코딩 불필요)", pro: "🛠️ 프로 / 봇 / 하드웨어 파일", html: "독립 실행 앱 다운로드 (.HTML)", prompt: "ChatGPT / Claude용 복사", ollama: "Ollama Modelfile 다운로드", addon: "마인크래프트 애드온 다운로드 (.mcaddon)", runnerPy: "봇 / 로봇 러너 다운로드 (.PY)", brainJson: "전체 브레인 다운로드 (.JSON)",
     freeDl: "무료 다운로드", unlocked: "잠금 해제 — 컴플리트 에디션", buyDl: "구매 후 다운로드 (.JSON / 봇)", checkoutSoon: "결제가 아직 연결되지 않았습니다 — 연결되면 유료 다운로드가 열립니다.",
     title: "컴플리트 에디션 — 원클릭 설치 및 실행",
     tBrowser: "브라우저에서 실행", tInstaller: "PC / 로봇 설치", tDevice: "앱 설치",
@@ -218,6 +224,7 @@ if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
   };
   const copyText = (s: string) => { void navigator.clipboard.writeText(s); toast.success(t.copied); };
   const command = quickStartCommand(token || "<TOKEN>");
+  const gaming = findGaming(chunks ?? null);
   const btn = "inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary";
   const tabs: { id: Tab; label: string; icon: typeof Play }[] = [
     { id: "browser", label: t.tBrowser, icon: Play },
@@ -306,26 +313,46 @@ if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
                 <Lock className="h-4 w-4" /> {t.buyDl}
               </button>
             ) : (
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => download("evermind_runner.py", evermindRunnerScript(origin, token), "text/x-python")} className={btn}>
-                <Download className="h-3.5 w-3.5" /> {t.runner}
-              </button>
-              <button type="button" onClick={() => copyText(command)} className={btn}>
-                <Copy className="h-3.5 w-3.5" /> {t.command}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  download(
-                    "evermind-complete-edition.json",
-                    JSON.stringify({ ...pkg, source: url || null, quick_start: command }, null, 2),
-                    "application/json",
-                  )
-                }
-                className={btn}
-              >
-                <Download className="h-3.5 w-3.5" /> {t.bundle}
-              </button>
+            <div className="space-y-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.instant}</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => downloadStandaloneMindHtmlApp({ name: item.title, data: pkg, allowed: ent.allowed })} className={btn}>
+                  <Download className="h-3.5 w-3.5" /> {t.html}
+                </button>
+                <button type="button" onClick={() => void copyMindAsMasterPrompt({ name: item.title, data: pkg, allowed: ent.allowed }).then((ok) => ok && toast.success(t.copied))} className={btn}>
+                  <Copy className="h-3.5 w-3.5" /> {t.prompt}
+                </button>
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.pro}</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    download(
+                      "evermind-complete-edition.json",
+                      JSON.stringify({ ...pkg, source: url || null, quick_start: command }, null, 2),
+                      "application/json",
+                    )
+                  }
+                  className={btn}
+                >
+                  <Download className="h-3.5 w-3.5" /> {t.brainJson}
+                </button>
+                <button type="button" onClick={() => download("evermind_runner.py", evermindRunnerScript(origin, token), "text/x-python")} className={btn}>
+                  <Download className="h-3.5 w-3.5" /> {t.runnerPy}
+                </button>
+                <button type="button" onClick={() => copyText(command)} className={btn}>
+                  <Copy className="h-3.5 w-3.5" /> {t.command}
+                </button>
+                <button type="button" onClick={() => downloadOllamaModelfile({ name: item.title, data: pkg, allowed: ent.allowed })} className={btn}>
+                  <Download className="h-3.5 w-3.5" /> {t.ollama}
+                </button>
+                {gaming && (
+                  <button type="button" onClick={() => downloadBedrockAddon(item.title, gaming)} className={btn}>
+                    <Download className="h-3.5 w-3.5" /> {t.addon}
+                  </button>
+                )}
+              </div>
             </div>
             )}
           </div>
