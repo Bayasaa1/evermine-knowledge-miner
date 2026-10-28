@@ -438,6 +438,20 @@ export const continueMiningNow = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Wake every stuck, delayed or abandoned job of the owner in one click. */
+export const resumeStuckMiningJobs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ count: number }> => {
+    const { data, error } = await context.supabase
+      .from("mining_jobs")
+      .update({ status: "queued", retry_after: null, last_error: null, attempts: 0 })
+      .eq("user_id", context.userId)
+      .in("status", ["paused_quota", "error", "abandoned"])
+      .select("id");
+    if (error) throw new Error(error.message);
+    return { count: data?.length ?? 0 };
+  });
+
 /** How many mining lanes can run at once: one per healthy Gemini key (max 5). */
 export const miningLaneCount = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

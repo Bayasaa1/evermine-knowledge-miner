@@ -279,6 +279,10 @@ export function quotaRetryAfter(message: string, now = new Date()): string {
   if (/one minute|per.?minute|rate_minute|wait a moment/i.test(message)) {
     return new Date(now.getTime() + 90_000).toISOString();
   }
+  // Overload (503) and key rejection are short-lived: try again in ~20 min.
+  if (/503|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid/i.test(message)) {
+    return new Date(now.getTime() + 20 * 60_000).toISOString();
+  }
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
     hour: "numeric",
@@ -293,7 +297,7 @@ export function quotaRetryAfter(message: string, now = new Date()): string {
 }
 
 export function isQuotaMessage(message: string): boolean {
-  return /quota|rate limit|429|too many requests|resource_exhausted|one minute/i.test(message);
+  return /quota|rate.?limit|429|503|too many requests|resource_exhausted|one minute|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid/i.test(message);
 }
 
 export type PartState = "done" | "mining" | "waiting" | "failed";
