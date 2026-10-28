@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2 } from "lucide-react";
 
-import { clearMiningHistory, continueMiningNow, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
+import { clearMiningHistory, continueMiningNow, resumeStuckMiningJobs, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
 import { formatDuration, jobParts, jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
@@ -28,6 +28,7 @@ const COPY = {
     continueNow: "Continue now",
     showParts: "Show parts",
     clear: "Clear history",
+    wake: "⚡ Resume abandoned / delayed jobs",
     kept: "Finished runs are only history — clearing them never deletes your mined Minds.",
   },
   mn: {
@@ -49,6 +50,7 @@ const COPY = {
     continueNow: "Одоо үргэлжлүүлэх",
     showParts: "Хэсгүүдийг харах",
     clear: "Түүх цэвэрлэх",
+    wake: "⚡ Зогссон / хойшилсон ажлыг сэргээх",
     kept: "Дууссан бичлэгүүд зөвхөн түүх — цэвэрлэсэн ч олборлосон Mind устахгүй.",
   },
   ko: {
@@ -70,6 +72,7 @@ const COPY = {
     continueNow: "지금 계속",
     showParts: "파트 보기",
     clear: "기록 지우기",
+    wake: "⚡ 중단·지연된 작업 재개",
     kept: "완료된 작업은 기록일 뿐이며, 지워도 채굴된 Mind는 삭제되지 않습니다.",
   },
 } as const;
@@ -128,6 +131,12 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const clearHistory = useServerFn(clearMiningHistory);
   const wipe = useMutation({
     mutationFn: () => clearHistory(),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
+  });
+
+  const wakeFn = useServerFn(resumeStuckMiningJobs);
+  const wake = useMutation({
+    mutationFn: () => wakeFn(),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
@@ -296,6 +305,16 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
       ) : jobs.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t.none}</p>
       ) : null}
+
+      <button
+        type="button"
+        disabled={wake.isPending}
+        onClick={() => wake.mutate()}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+      >
+        {wake.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} {t.wake}
+        {wake.data ? ` (${wake.data.count})` : ""}
+      </button>
 
       {live.length > 0 ? <ul className="space-y-3">{live.map((j) => row(j, true))}</ul> : null}
 

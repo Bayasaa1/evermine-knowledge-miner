@@ -185,7 +185,7 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
               .update({
                 last_error:
                   "Choose and test a Gemini key for Mining videos in API Manager so background mining can continue.",
-                retry_after: new Date(Date.now() + 6 * 60 * 60_000).toISOString(),
+                retry_after: new Date(Date.now() + 20 * 60_000).toISOString(),
               })
               .eq("id", job.id);
             continue;
