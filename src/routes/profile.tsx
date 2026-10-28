@@ -1,5 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { InterestOnboardingModal } from "@/components/interest-onboarding-modal";
+import { loadFeedInterests, saveFeedInterests } from "@/lib/viewer-brain.functions";
+import { readLocalInterests, writeLocalInterests } from "@/lib/feed-interests";
 import { ArrowRight, Boxes, Camera, KeyRound, Loader2, PenSquare, Settings, Users, Wallet } from "lucide-react";
 import { toast } from "sonner";
 
@@ -58,6 +61,13 @@ function ProfilePage() {
   const [busy, setBusy] = useState(false);
   const [picture, setPicture] = useState<string | null>(null);
   const avatar = picture ?? profile?.avatarUrl ?? null;
+  const [editInterests, setEditInterests] = useState(false);
+  const [myInterests, setMyInterests] = useState<string[]>([]);
+  useEffect(() => {
+    setMyInterests(readLocalInterests()?.tags ?? []);
+    if (!isAuthenticated) return;
+    loadFeedInterests().then((r) => { if (r?.tags.length) setMyInterests(r.tags); }).catch(() => undefined);
+  }, [isAuthenticated]);
 
   const changePicture = async (file: File | undefined) => {
     if (!file) return;
@@ -163,6 +173,23 @@ function ProfilePage() {
           )}
           {tab === "more" && (
             <div className="grid gap-3">
+              <button type="button" onClick={() => setEditInterests(true)} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
+                <span className="text-lg">🎯</span>
+                <span className="text-sm font-medium">{lang === "mn" ? "Фийдийн сонирхлоо засах" : lang === "ko" ? "피드 관심사 편집" : "Edit My Feed Interests"}</span>
+              </button>
+              {editInterests && (
+                <InterestOnboardingModal
+                  initial={myInterests}
+                  onSave={(tags) => {
+                    writeLocalInterests(tags);
+                    setMyInterests(tags);
+                    setEditInterests(false);
+                    if (isAuthenticated) void saveFeedInterests({ data: { tags } }).catch(() => undefined);
+                    toast.success(lang === "mn" ? "Сонирхол хадгалагдлаа" : lang === "ko" ? "관심사가 저장되었습니다" : "Feed interests saved");
+                  }}
+                  onClose={() => setEditInterests(false)}
+                />
+              )}
               <Link to="/community" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
                 <PenSquare className="h-5 w-5" /><span className="text-sm font-medium">{t.posts}</span>
               </Link>

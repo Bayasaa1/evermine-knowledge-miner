@@ -142,6 +142,9 @@ function AuthPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+      {pickInterests && (
+        <InterestOnboardingModal onSave={(tags) => finishInterests(tags)} onClose={() => finishInterests(null)} />
+      )}
       <div className="w-full max-w-md">
         <Link
           to="/"
