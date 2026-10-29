@@ -669,3 +669,61 @@ async function withGeminiRetry<T>(run: () => Promise<T>): Promise<T> {
     }
   }
 }
+
+/**
+ * Creator-uploaded video part: the browser already cut it into small JPEG
+ * frames and a mono WAV (see src/lib/video-extract.ts). Same prompt, rules and
+ * JSON shape as YouTube parts, so the rest of the mining path is unchanged.
+ */
+export async function analyzeUploadedPart(input: {
+  startSec: number;
+  endSec: number;
+  frames: { t: number; jpeg: string }[];
+  audioWav: string | null;
+  assessment?: Assessment;
+  credential: AiCredential;
+  usage?: { userId: string; videoLabel?: string; videoId?: string; jobId?: string };
+}): Promise<ChunkResult> {
+  if (input.endSec <= input.startSec) throw new Error("Invalid time range.");
+  if (!input.frames.length && !input.audioWav) throw new Error("This part has no picture or sound.");
+  const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const parts: GeminiPart[] = [
+    {
+      text: `${miningPrompt}${assessmentDirective(input.assessment)}\n\nRequested time range: ${Math.floor(input.startSec)}s to ${Math.ceil(input.endSec)}s.\nYou receive the sound of this range as one audio clip that STARTS at video time ${mmss(input.startSec)} (add that offset to every heard moment), plus still frames, each labelled with its exact video time.${FINAL_RULES}`,
+    },
+  ];
+  if (input.audioWav) parts.push({ inline_data: { mime_type: "audio/wav", data: input.audioWav } });
+  for (const f of input.frames.slice(0, 40)) {
+    parts.push({ text: `Frame at ${mmss(f.t)}:` });
+    parts.push({ inline_data: { mime_type: "image/jpeg", data: f.jpeg } });
+  }
+  const usageMeta = input.usage
+    ? { userId: input.usage.userId, role: "mine", subjectKind: "video" as const, subjectId: input.usage.videoId ?? "upload", subjectLabel: input.usage.videoLabel ?? "Uploaded video", jobId: input.usage.jobId ?? "" }
+    : undefined;
+  let text: string;
+  try {
+    text = await withGeminiRetry(() => geminiGenerate({
+      credential: input.credential,
+      model: "gemini-3.1-flash-lite",
+      json: true,
+      maxTokens: 65536,
+      ...(usageMeta ? { usage: usageMeta } : {}),
+      turns: [{ role: "user", parts }],
+    }));
+  } catch (err) {
+    if (err instanceof GeminiHttpError && err.message === "SAFETY_BLOCKED") throw new Error(SAFETY_MESSAGE);
+    if (err instanceof GeminiHttpError) throw new Error(gatewayMessage(err.status, err.message));
+    throw err;
+  }
+  if (!text) throw new Error("AI returned an empty video analysis.");
+  let result: ChunkResult;
+  try {
+    result = normalizeChunkResult(parseLooseJson(text));
+  } catch {
+    throw new Error("AI returned an unreadable video analysis.");
+  }
+  result.speakers = nameEverySpeaker(result.speakers ?? []);
+  const owner = ownerNameFrom(input.assessment?.speakerIdentity);
+  if (owner) lockOwnerName(result, owner);
+  return result;
+}
