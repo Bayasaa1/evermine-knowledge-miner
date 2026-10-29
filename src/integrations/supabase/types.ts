@@ -1233,14 +1233,17 @@ export type Database = {
           category: string
           created_at: string
           description: string
+          duration_seconds: number | null
           emotion_timeline: Json
           id: string
           kind: string
           mind_id: string
           project_id: string
           sequence_index: number
+          source_type: string
           source_url: string
           tags: string[]
+          thumbnail_url: string | null
           timeline: Json
           title: string
           transcript: Json
@@ -1253,14 +1256,17 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string
+          duration_seconds?: number | null
           emotion_timeline?: Json
           id?: string
           kind?: string
           mind_id?: string
           project_id: string
           sequence_index?: number
+          source_type?: string
           source_url?: string
           tags?: string[]
+          thumbnail_url?: string | null
           timeline?: Json
           title?: string
           transcript?: Json
@@ -1273,14 +1279,17 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string
+          duration_seconds?: number | null
           emotion_timeline?: Json
           id?: string
           kind?: string
           mind_id?: string
           project_id?: string
           sequence_index?: number
+          source_type?: string
           source_url?: string
           tags?: string[]
+          thumbnail_url?: string | null
           timeline?: Json
           title?: string
           transcript?: Json
