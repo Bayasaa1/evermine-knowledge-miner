@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/mind-coach")({
           Array.isArray(items) ? (items as never[]).slice(0, cap).map(pick).map((s) => clean(s, 300)).filter(Boolean) : [];
 
         const profile = [
-          `PLAYER NAME: ${name}, mined by Evermind from their own gameplay videos.`,
+          `PLAYER NAME: ${name}`,
           ``,
           `MINED SKILLS this player is known for:`,
           ...list(brain.skills, (s: { name?: string; detail?: string }) => `- ${s.name ?? ""}: ${s.detail ?? ""}`),
