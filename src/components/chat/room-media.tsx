@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExternalLink, ImageOff } from "lucide-react";
 import { roomMediaUrl, type RoomAttachment } from "@/lib/chat-rooms";
 import { SharedContentCard } from "@/components/chat/shared-content-card";
@@ -7,11 +7,19 @@ import type { ShareContent } from "@/lib/share-content";
 export function RoomMedia({ attachment, onMind, openLabel, onAdd }: { attachment: RoomAttachment; onMind: (id: string) => void; openLabel: string; onAdd?: (content: ShareContent) => void }) {
   const [url, setUrl] = useState("");
   const [error, setError] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const resumeRef = useRef<{ t: number; playing: boolean } | null>(null);
   const path = attachment.kind === "mind" ? "" : attachment.path;
   useEffect(() => {
     let live = true;
     setUrl(""); setError(false);
-    const refresh = () => { if (path) void roomMediaUrl(path).then((u) => { if (live) setUrl(u); }).catch(() => { if (live) setError(true); }); };
+    const refresh = () => { if (path) void roomMediaUrl(path).then((u) => {
+      if (!live) return;
+      // The signed URL rotates every 50s; remember playback position so the video does not restart.
+      const v = videoRef.current;
+      if (v && v.currentTime > 0) resumeRef.current = { t: v.currentTime, playing: !v.paused };
+      setUrl(u);
+    }).catch(() => { if (live) setError(true); }); };
     refresh();
     const timer = window.setInterval(refresh, 50 * 1000);
     return () => { live = false; window.clearInterval(timer); };
@@ -22,7 +30,14 @@ export function RoomMedia({ attachment, onMind, openLabel, onAdd }: { attachment
   if (!url) return <div className="my-2 h-32 animate-pulse rounded-lg bg-muted" />;
   return attachment.kind === "image"
     ? <a href={url} target="_blank" rel="noopener noreferrer" aria-label={openLabel}><img src={url} alt={attachment.name} loading="lazy" onError={() => setError(true)} className="my-2 max-h-80 w-full rounded-lg object-contain" /></a>
-    : <video src={url} controls playsInline preload="metadata" className="my-2 max-h-80 w-full rounded-lg" />;
+    : <video ref={videoRef} src={url} controls playsInline preload="metadata" className="my-2 max-h-80 w-full rounded-lg" onLoadedMetadata={() => {
+        const r = resumeRef.current;
+        if (r && videoRef.current) {
+          videoRef.current.currentTime = r.t;
+          if (r.playing) void videoRef.current.play().catch(() => {});
+          resumeRef.current = null;
+        }
+      }} />;
 }
 
 export function RoomAvatar({ path, title }: { path: string | null; title: string }) {
