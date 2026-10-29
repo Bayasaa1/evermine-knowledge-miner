@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { encodeWav, frameTimes, planWindows } from "./video-extract";
 
 describe("uploaded video parts", () => {
