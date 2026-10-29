@@ -70,13 +70,15 @@ export function challengeEvaluateRules(challenge: Challenge): string {
   ].join("\n");
 }
 
-function extractJson(text: string): Record<string, unknown> | null {
+type Loose = { [k: string]: unknown; title?: unknown; scenario?: unknown; task_steps?: unknown; pass_criteria?: unknown; source_video_ref?: unknown; level?: unknown; score?: unknown; verdict?: unknown; mechanism_critique?: unknown; missing_elements?: unknown; video_proof?: unknown };
+
+function extractJson(text: string): Loose | null {
   const s = text.indexOf("{");
   const e = text.lastIndexOf("}");
   if (s < 0 || e <= s) return null;
   try {
     const v = JSON.parse(text.slice(s, e + 1));
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Loose) : null;
   } catch {
     return null;
   }
@@ -128,7 +130,7 @@ export function unlockedLevel(passed: ChallengeLevel[]): ChallengeLevel {
 
 export function sanitizeChallenge(v: unknown): Challenge | null {
   if (!v || typeof v !== "object") return null;
-  const o = v as Record<string, unknown>;
+  const o = v as Loose;
   const c: Challenge = {
     level: toLevel(o.level),
     title: str(o.title, 200),
@@ -141,7 +143,7 @@ export function sanitizeChallenge(v: unknown): Challenge | null {
 }
 
 /** Pull the first video stamp out of a reference string. */
-export function parseVideoRef(ref: string): { id?: string; start: number } | null {
+export function parseVideoRef(ref: string): { id?: string | undefined; start: number } | null {
   const yt = ref.match(/\[\[yt:([A-Za-z0-9_-]{11})@(\d{1,3}):(\d{2})\]\]/);
   if (yt) return { id: yt[1], start: Number(yt[2]) * 60 + Number(yt[3]) };
   const ts = ref.match(/(\d{1,3}):(\d{2})/);
