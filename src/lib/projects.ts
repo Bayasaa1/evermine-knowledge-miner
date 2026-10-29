@@ -68,7 +68,7 @@ export type ProjectContent = {
 const PROJECT_COLS =
   "id,user_id,title,description,cover_url,creator_name,creator_avatar_url,price,currency,published,persona_id,ai_level_default,ai_level_max,view_count,created_at,updated_at";
 const CONTENT_COLS =
-  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,sequence_index,created_at,updated_at";
+  "id,project_id,user_id,kind,category,youtube_id,source_url,title,description,tags,timeline,emotion_timeline,transcript,mind_id,view_count,sequence_index,source_type,created_at,updated_at";
 
 export async function listMyProjects(userId: string): Promise<Project[]> {
   // My Vaults is not a public-project lookup. Refuse stale or caller-supplied
