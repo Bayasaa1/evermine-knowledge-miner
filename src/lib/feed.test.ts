@@ -40,3 +40,10 @@ describe("personalised feed ranking", () => {
     assert.deepEqual(rankFeedForViewer(feed).map((x) => x.id), feed.map((x) => x.id));
   });
 });
+
+test("native uploads get a small ranking boost over identical YouTube clips", () => {
+  const base = { creator: "A", handle: "a", title: "t", description: "", category: "knowledge", src: null, poster: "", tags: [], price: 0, currency: "USD", publishedAt: "2026-01-01" } as const;
+  const yt = { ...base, id: "yt", sourceType: "youtube" } as unknown as FeedItem;
+  const nat = { ...base, id: "nat", sourceType: "native_upload" } as unknown as FeedItem;
+  assert.equal(rankFeedForViewer([yt, nat])[0]!.id, "nat");
+});
