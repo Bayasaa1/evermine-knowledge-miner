@@ -32,6 +32,7 @@ import { Route as ApiMindHearRouteImport } from './routes/api/mind-hear'
 import { Route as ApiMindLevelRouteImport } from './routes/api/mind-level'
 import { Route as ApiMindVisionRouteImport } from './routes/api/mind-vision'
 import { Route as ApiMindVoiceRouteImport } from './routes/api/mind-voice'
+import { Route as ApiNativeMineRouteImport } from './routes/api/native-mine'
 import { Route as ApiUserMineRouteImport } from './routes/api/user-mine'
 import { Route as ApiVoiceCloneRouteImport } from './routes/api/voice-clone'
 import { Route as ChatsIndexRouteImport } from './routes/chats.index'
@@ -157,6 +158,11 @@ const ApiMindVoiceRoute = ApiMindVoiceRouteImport.update({
   path: '/api/mind-voice',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNativeMineRoute = ApiNativeMineRouteImport.update({
+  id: '/api/native-mine',
+  path: '/api/native-mine',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUserMineRoute = ApiUserMineRouteImport.update({
   id: '/api/user-mine',
   path: '/api/user-mine',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
+  '/api/native-mine': typeof ApiNativeMineRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/voice-clone': typeof ApiVoiceCloneRoute
   '/chats/$roomId': typeof ChatsRoomIdRoute
@@ -257,6 +264,7 @@ export interface FileRoutesByTo {
   '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
+  '/api/native-mine': typeof ApiNativeMineRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/voice-clone': typeof ApiVoiceCloneRoute
   '/chats/$roomId': typeof ChatsRoomIdRoute
@@ -291,6 +299,7 @@ export interface FileRoutesById {
   '/api/mind-level': typeof ApiMindLevelRoute
   '/api/mind-vision': typeof ApiMindVisionRoute
   '/api/mind-voice': typeof ApiMindVoiceRoute
+  '/api/native-mine': typeof ApiNativeMineRoute
   '/api/user-mine': typeof ApiUserMineRoute
   '/api/voice-clone': typeof ApiVoiceCloneRoute
   '/chats/$roomId': typeof ChatsRoomIdRoute
@@ -326,6 +335,7 @@ export interface FileRouteTypes {
     | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
+    | '/api/native-mine'
     | '/api/user-mine'
     | '/api/voice-clone'
     | '/chats/$roomId'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
+    | '/api/native-mine'
     | '/api/user-mine'
     | '/api/voice-clone'
     | '/chats/$roomId'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/api/mind-level'
     | '/api/mind-vision'
     | '/api/mind-voice'
+    | '/api/native-mine'
     | '/api/user-mine'
     | '/api/voice-clone'
     | '/chats/$roomId'
@@ -426,6 +438,7 @@ export interface RootRouteChildren {
   ApiMindLevelRoute: typeof ApiMindLevelRoute
   ApiMindVisionRoute: typeof ApiMindVisionRoute
   ApiMindVoiceRoute: typeof ApiMindVoiceRoute
+  ApiNativeMineRoute: typeof ApiNativeMineRoute
   ApiUserMineRoute: typeof ApiUserMineRoute
   ApiVoiceCloneRoute: typeof ApiVoiceCloneRoute
   ChatsRoomIdRoute: typeof ChatsRoomIdRoute
@@ -599,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMindVoiceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/native-mine': {
+      id: '/api/native-mine'
+      path: '/api/native-mine'
+      fullPath: '/api/native-mine'
+      preLoaderRoute: typeof ApiNativeMineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/user-mine': {
       id: '/api/user-mine'
       path: '/api/user-mine'
@@ -683,6 +703,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMindLevelRoute: ApiMindLevelRoute,
   ApiMindVisionRoute: ApiMindVisionRoute,
   ApiMindVoiceRoute: ApiMindVoiceRoute,
+  ApiNativeMineRoute: ApiNativeMineRoute,
   ApiUserMineRoute: ApiUserMineRoute,
   ApiVoiceCloneRoute: ApiVoiceCloneRoute,
   ChatsRoomIdRoute: ChatsRoomIdRoute,
