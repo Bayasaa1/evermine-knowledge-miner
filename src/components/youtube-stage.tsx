@@ -342,5 +342,138 @@ function YouTubeStageImpl({
   );
 }
 
-/** Memoized so unrelated card updates never reload the player. */
-export const YouTubeStage = memo(YouTubeStageImpl);
+type StageProps = Parameters<typeof YouTubeStageImpl>[0] & {
+  /** Direct video file (uploaded / camera-recorded). When set, a native <video> plays instead of YouTube. */
+  videoUrl?: string | null;
+  /** Cover picture for the native video. */
+  posterUrl?: string | null;
+};
+
+/** True for direct video files (.mp4/.mov/.webm or storage URLs). */
+export function isNativeVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  return /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(url) || /\/storage\/v1\/object\//.test(url) || url.startsWith("blob:");
+}
+
+function NativeStage({
+  videoUrl, posterUrl, active, muted, paused, duck, onTime, onToggle, onSeekRef, onPrev, onNext,
+}: StageProps & { videoUrl: string }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [showUi, setShowUi] = useState(false);
+  const hideTimer = useRef<number | null>(null);
+  const lastTap = useRef(0);
+  const flashUi = () => {
+    setShowUi(true);
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => setShowUi(false), 3000);
+  };
+  useEffect(() => () => { if (hideTimer.current) window.clearTimeout(hideTimer.current); }, []);
+
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    v.muted = muted;
+    v.volume = duck ? 0.18 : 1;
+  }, [muted, duck]);
+
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    if (active && !paused) {
+      void v.play().catch(() => {
+        // Autoplay with sound blocked: retry muted.
+        v.muted = true;
+        void v.play().catch(() => undefined);
+      });
+    } else v.pause();
+  }, [active, paused]);
+
+  useEffect(() => {
+    if (!onSeekRef) return;
+    onSeekRef((s: number) => { if (video.current) video.current.currentTime = s; });
+    return () => onSeekRef(null);
+  }, [onSeekRef]);
+
+  const skip = (delta: number) => {
+    const v = video.current;
+    if (v) v.currentTime = Math.max(0, Math.min((v.duration || Infinity) - 0.5, v.currentTime + delta));
+    flashUi();
+  };
+
+  const btn = "pointer-events-auto flex shrink-0 items-center justify-center rounded-full bg-black/75 text-white backdrop-blur-sm";
+  return (
+    <div className="absolute inset-0 overflow-hidden bg-black">
+      <video
+        ref={video}
+        src={videoUrl}
+        poster={posterUrl ?? undefined}
+        playsInline
+        preload="metadata"
+        loop
+        muted={muted}
+        onTimeUpdate={(e) => onTime?.(e.currentTarget.currentTime, e.currentTarget.duration || 0)}
+        onLoadedMetadata={(e) => onTime?.(e.currentTarget.currentTime, e.currentTarget.duration || 0)}
+        className="h-full w-full object-cover md:object-contain"
+      />
+      <button
+        type="button"
+        aria-label="Show controls"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          const now = Date.now();
+          const rect = e.currentTarget.getBoundingClientRect();
+          if (now - lastTap.current < 300) {
+            // Double-tap: left half rewinds, right half skips forward.
+            skip(e.clientX - rect.left < rect.width / 2 ? -10 : 10);
+            lastTap.current = 0;
+            return;
+          }
+          lastTap.current = now;
+          if (showUi && !paused) setShowUi(false);
+          else flashUi();
+        }}
+        className="absolute inset-0 z-[6] h-full w-full"
+      />
+      {(showUi || paused) && (
+        <div
+          className="pointer-events-none absolute inset-0 z-[7] flex items-center justify-center gap-2.5 px-2"
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+        >
+          {onPrev && (
+            <button type="button" aria-label="Previous video in project" onClick={(e) => { e.stopPropagation(); onPrev(); flashUi(); }} className={`${btn} h-9 w-9`}>
+              <SkipBack className="h-4 w-4 fill-current" />
+            </button>
+          )}
+          <button type="button" aria-label="Back 10 seconds" onClick={(e) => { e.stopPropagation(); skip(-10); }} className={`${btn} h-10 w-10`}>
+            <RotateCcw className="h-5 w-5" />
+            <span className="absolute text-[9px] font-bold">10</span>
+          </button>
+          <button type="button" aria-label={paused ? "Play video" : "Pause video"} onClick={(e) => { e.stopPropagation(); onToggle?.(); flashUi(); }} className="pointer-events-auto flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-black text-white">
+            {paused ? <Play className="h-6 w-6 fill-current" /> : <Pause className="h-6 w-6 fill-current" />}
+          </button>
+          <button type="button" aria-label="Forward 10 seconds" onClick={(e) => { e.stopPropagation(); skip(10); }} className={`${btn} h-10 w-10`}>
+            <RotateCw className="h-5 w-5" />
+            <span className="absolute text-[9px] font-bold">10</span>
+          </button>
+          {onNext && (
+            <button type="button" aria-label="Next video in project" onClick={(e) => { e.stopPropagation(); onNext(); flashUi(); }} className={`${btn} h-9 w-9`}>
+              <SkipForward className="h-4 w-4 fill-current" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StageSwitch(props: StageProps) {
+  const { videoUrl, posterUrl, ...rest } = props;
+  void posterUrl;
+  if (videoUrl) return <NativeStage {...props} videoUrl={videoUrl} />;
+  return <YouTubeStageImpl {...rest} />;
+}
+
+/** Memoized so unrelated card updates never reload the player. Plays YouTube ids or native video files. */
+export const YouTubeStage = memo(StageSwitch);

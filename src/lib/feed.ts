@@ -58,6 +58,8 @@ export type FeedItem = {
   /** Account that owns the clip — used only to mix creators in the feed. */
   ownerId?: string | null;
   projectId?: string;
+  /** 'youtube' | 'native_upload' | 'camera_record'. Native clips get a small ranking boost. */
+  sourceType?: string | null;
   sequenceIndex?: number;
   viewCount?: number;
 };
@@ -130,6 +132,7 @@ export async function projectFeed(): Promise<FeedItem[]> {
       category: (row.category ?? "knowledge") as CreationCategory,
       src: other?.platform === "direct" ? other.url : null,
       youtubeId: row.youtube_id || null,
+      sourceType: (row as { source_type?: string | null }).source_type ?? "youtube",
       embedUrl: other?.embedUrl ?? null,
       poster: row.youtube_id ? `https://i.ytimg.com/vi/${row.youtube_id}/hqdefault.jpg` : "",
       tags: row.tags,
@@ -252,8 +255,14 @@ function freshnessScore(item: FeedItem, signals?: ViewerSignals | null): number 
   return seen ? 0.2 : creatorSeen ? 0.6 : 1;
 }
 
+/** Small boost so creators who upload or record directly get early visibility. */
+export const NATIVE_BOOST = 0.08;
+export function isNativeItem(item: FeedItem): boolean {
+  return !!item.sourceType && item.sourceType !== "youtube";
+}
+
 export function scoreFeedItem(item: FeedItem, o: RankOptions = {}): number {
-  return (
+  return (isNativeItem(item) ? NATIVE_BOOST : 0) + (
     0.4 * interestScore(item, o.interests) +
     0.25 * engagementScore(item, o.liked) +
     0.2 * behaviourScore(item, o.signals) +
