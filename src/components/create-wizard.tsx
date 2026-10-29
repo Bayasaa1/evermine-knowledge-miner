@@ -1,3 +1,13 @@
+import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Camera, Link2, Loader2, Monitor, Square, Upload } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { apiFetch } from "@/lib/api-fetch";
+import { startUploadMining } from "@/lib/native-mining.functions";
+import { inspectVideoFile, uploadNativeVideoToStorage } from "@/lib/mine-file";
+import { extractParts } from "@/lib/video-extract";
+import { NativeMiningPills, type NativeStage } from "@/components/mining-wizard";
+
 import { Bot, Brain, PhoneCall, Megaphone, Gamepad2, ChevronRight, Dumbbell } from "lucide-react";
 
 import {
@@ -68,16 +78,6 @@ export function CategoryList({
 }
 
 /* ================= Content wizard: Upload / Record / YouTube ================= */
-import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Camera, Link2, Loader2, Monitor, Square, Upload } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { apiFetch } from "@/lib/api-fetch";
-import { startUploadMining } from "@/lib/native-mining.functions";
-import { inspectVideoFile, uploadNativeVideoToStorage } from "@/lib/mine-file";
-import { extractParts } from "@/lib/video-extract";
-import { NativeMiningPills, type NativeStage } from "@/components/mining-wizard";
-
 export const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 export const MAX_VIDEO_SECONDS = 6 * 3600;
 const ACCEPT = ["video/mp4", "video/quicktime", "video/webm"];
