@@ -443,6 +443,12 @@ export const Route = createFileRoute("/api/mind-chat")({
           /** Knowledge-root branch the viewer chose to talk about. */
           topicId?: string;
           topicTitle?: string;
+          /** Mastery Mode: generate a graded challenge or judge an answer. */
+          mode?: string;
+          level?: number;
+          domain?: string;
+          challenge?: unknown;
+          answer?: string;
         };
         try {
           body = (await request.json()) as typeof body;
@@ -461,13 +467,55 @@ export const Route = createFileRoute("/api/mind-chat")({
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }
-        if (history.length === 0) {
+        const challengeMode = body.mode === "challenge_generate" || body.mode === "challenge_evaluate" ? body.mode : null;
+        if (history.length === 0 && !challengeMode) {
           return new Response(JSON.stringify({ error: "No messages" }), { status: 400 });
         }
 
         const brain = body.mindId ? await loadBrainContext(request, auth.userId, body.mindId) : { context: "", latestUpdateTitle: undefined, ok: true };
         if (!brain.ok) {
           return new Response(JSON.stringify({ error: brain.error ?? "Access denied" }), { status: 403 });
+        }
+        if (challengeMode) {
+          const mc = await import("@/lib/mastery-challenge");
+          const { generateRoleText, aiErrorResponse } = await import("@/lib/user-ai.server");
+          const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+          const base = budgetSections([system, brain.context], 21500);
+          const level = mc.toLevel(body.level);
+          let rules: string;
+          let prompt: string;
+          let challenge: ReturnType<typeof mc.sanitizeChallenge> = null;
+          if (challengeMode === "challenge_generate") {
+            rules = mc.challengeGenerateRules(level, mc.toDomain(body.domain));
+            prompt = `Create my Level ${level} challenge now.${topicTitle ? ` Focus topic: ${topicTitle}.` : ""}`;
+          } else {
+            challenge = mc.sanitizeChallenge(body.challenge);
+            const answer = typeof body.answer === "string" ? body.answer.trim().slice(0, 6000) : "";
+            if (!challenge || !answer) return json({ error: "Missing challenge or answer" }, 400);
+            rules = mc.challengeEvaluateRules(challenge);
+            prompt = `<learner_answer>${answer.replace(/<\/?learner_answer>/g, "")}</learner_answer>`;
+          }
+          try {
+            const generated = await generateRoleText({
+              userId: auth.userId,
+              role: "chat",
+              system: budgetSections([rules, replyLanguageRule([], lang), base]),
+              prompt,
+              json: true,
+              maxTokens: 1400,
+              subjectKind: "mind",
+              subjectId: String(body.mindId ?? ""),
+              subjectLabel: `Mastery ${challengeMode === "challenge_generate" ? "challenge" : "evaluation"}`,
+            });
+            if (challengeMode === "challenge_generate") {
+              const parsed = mc.parseChallenge(generated.text, level);
+              return parsed ? json({ challenge: parsed }) : json({ error: "The AI returned an unusable challenge. Try again." }, 502);
+            }
+            const evaluation = mc.parseEvaluation(generated.text);
+            return evaluation ? json({ evaluation }) : json({ error: "The AI returned an unusable evaluation. Try again." }, 502);
+          } catch (err) {
+            return aiErrorResponse(err);
+          }
         }
         // The mind's owner decides how far the AI may go; the viewer's slider
         // can never ask for more than that.
