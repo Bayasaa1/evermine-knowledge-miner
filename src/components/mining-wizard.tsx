@@ -313,3 +313,36 @@ export function MiningWizard({
     </div>
   );
 }
+
+/* ---------------- Native video progress pills ---------------- */
+export type NativeStage = "idle" | "upload" | "extract" | "mine" | "done";
+const PILL_ORDER: Exclude<NativeStage, "idle">[] = ["upload", "extract", "mine", "done"];
+const pillCopy = {
+  en: { upload: "Uploading video...", extract: "Extracting frames & audio...", mine: "AI Mining Core Brain...", done: "Published to Feed!" },
+  mn: { upload: "Видео хуулж байна...", extract: "Кадр, дуу салгаж байна...", mine: "AI Core Brain майнинг...", done: "Фийдэд нийтлэгдлээ!" },
+  ko: { upload: "영상 업로드 중...", extract: "프레임·오디오 추출 중...", mine: "AI 코어 브레인 마이닝...", done: "피드에 게시됨!" },
+};
+
+/** Step-by-step status pills for an uploaded or recorded video. */
+export function NativeMiningPills({ lang, stage }: { lang: Lang; stage: NativeStage }) {
+  const t = pickCopy(pillCopy, lang);
+  const at = stage === "idle" ? -1 : PILL_ORDER.indexOf(stage);
+  return (
+    <div className="flex flex-wrap gap-2">
+      {PILL_ORDER.map((s, i) => (
+        <span
+          key={s}
+          className={`rounded-full border px-3 py-1 text-xs ${
+            i < at || stage === "done"
+              ? "border-primary bg-primary/10 text-primary"
+              : i === at
+                ? "animate-pulse border-primary text-foreground"
+                : "border-border text-muted-foreground"
+          }`}
+        >
+          {t[s]}
+        </span>
+      ))}
+    </div>
+  );
+}
