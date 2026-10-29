@@ -2413,6 +2413,7 @@ function Index() {
 
           <EmbodiedAiCard
             lang={lang}
+            mindId={ownership.mindId}
             trajectories={results.flatMap((r) => extractTrajectories(r.data))}
           />
 
