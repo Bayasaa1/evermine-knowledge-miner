@@ -491,7 +491,8 @@ export const Route = createFileRoute("/api/mind-chat")({
             content: message.text,
           }));
           const lastUser = seen ? turns.map((t) => t.role).lastIndexOf("user") : -1;
-          if (lastUser >= 0) turns[lastUser] = { ...turns[lastUser], content: `<seen>${seen}</seen>\n${turns[lastUser].content}` };
+          const target = lastUser >= 0 ? turns[lastUser] : undefined;
+          if (target) turns[lastUser] = { role: target.role, content: `<seen>${seen}</seen>\n${target.content}` };
           const generated = await generateRoleText({
             userId: auth.userId,
             role: "chat",
