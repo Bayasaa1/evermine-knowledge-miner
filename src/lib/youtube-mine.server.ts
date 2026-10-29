@@ -24,6 +24,7 @@ import {
   geminiGenerate,
   youtubeVideoPart,
   type AiCredential,
+  type GeminiPart,
 } from "@/lib/user-ai.server";
 
 const miningPrompt = `You are a meticulous video journalist. Your first job is to record EVERYTHING that happens in the requested time range, in order, with times — like a detailed written chronicle of the video. Everything else is derived from that record.
