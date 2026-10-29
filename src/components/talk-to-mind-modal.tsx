@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play } from "lucide-react";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play, Target } from "lucide-react";
+import { MasteryChallengePanel } from "@/components/mastery-challenge-panel";
 import { toast } from "sonner";
 import { reportMindReply } from "@/lib/viewer-signals.functions";
 import { useServerFn } from "@tanstack/react-start";
@@ -84,6 +85,7 @@ export function TalkToMindModal({
   // 0 = only the mined records, 100 = the AI fills every gap.
   const { level: aiLevel, setLevel: setAiLevel, max: aiLevelMax } = useMindAiLevel(mindId);
   const [showLevel, setShowLevel] = useState(false);
+  const [showMastery, setShowMastery] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -448,6 +450,24 @@ export function TalkToMindModal({
 
         {showLevel && (
           <AiLevelSlider mindId={mindId} level={aiLevel} max={aiLevelMax} lang={lang} onChange={setAiLevel} />
+        )}
+
+        <div className="flex gap-1 border-b border-border px-3 py-2 text-xs">
+          <button type="button" onClick={() => { setShowMastery(false); if (callMode !== "chat") setCallMode("chat"); }} className={`rounded-full px-3 py-1 ${!showMastery && callMode === "chat" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            💬 {lang === "mn" ? "Чат" : lang === "ko" ? "채팅" : "Chat"}
+          </button>
+          <button type="button" onClick={() => { setShowMastery(false); void mergeCurrentSession(); setCallMode("voice"); }} className={`rounded-full px-3 py-1 ${!showMastery && callMode !== "chat" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            📞 {lang === "mn" ? "Дуудлага" : lang === "ko" ? "통화" : "Call"}
+          </button>
+          <button type="button" onClick={() => setShowMastery((v) => !v)} className={`flex items-center gap-1 rounded-full px-3 py-1 ${showMastery ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+            <Target className="h-3 w-3" /> {lang === "mn" ? "Сорилт & Даалгавар" : lang === "ko" ? "챌린지 & 과제" : "Challenges & Tasks"}
+          </button>
+        </div>
+
+        {showMastery && (
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <MasteryChallengePanel mindId={mindId} lang={lang} topicTitle={topicTitle} />
+          </div>
         )}
 
         {callMode !== "chat" && (

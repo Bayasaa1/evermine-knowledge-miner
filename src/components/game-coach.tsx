@@ -1,4 +1,5 @@
 import { MindDownloadButtons } from "@/components/mind-download-buttons";
+import { MasteryChallengeButton } from "@/components/mastery-challenge-panel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Eye, Loader2, Mic, Square, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,10 +58,12 @@ export function GameCoach({
   lang,
   mindName,
   brain,
+  mindId,
 }: {
   lang: Lang;
   mindName: string;
   brain: GamingExtraction;
+  mindId?: string | null | undefined;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const [open, setOpen] = useState(false);
@@ -223,6 +226,7 @@ export function GameCoach({
           <DialogTitle>{t("title")} — {mindName}</DialogTitle>
           <DialogDescription>{hasBrain ? t("desc") : t("noBrain")}</DialogDescription>
           <MindDownloadButtons lang={lang} name={mindName} data={{ mindName, brain, playbook }} runner />
+          <MasteryChallengeButton mindId={mindId} lang={lang} domain="gaming" />
         </DialogHeader>
 
         <video ref={videoRef} muted playsInline className="aspect-video w-full rounded-lg border border-border bg-black" />

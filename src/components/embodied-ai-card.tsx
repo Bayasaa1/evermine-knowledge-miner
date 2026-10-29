@@ -1,4 +1,5 @@
 import { MindDownloadButtons } from "@/components/mind-download-buttons";
+import { MasteryChallengeButton } from "@/components/mastery-challenge-panel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Bot, Cable, Camera, Download, Hand, ScanLine, X } from "lucide-react";
@@ -73,9 +74,11 @@ const copy = {
 export function EmbodiedAiCard({
   lang,
   trajectories = [],
+  mindId,
 }: {
   lang: Lang;
   trajectories?: VlaTrajectory[];
+  mindId?: string | null | undefined;
 }) {
   const t = pickCopy(copy, lang);
   const [settings, setSettings] = useState<EmbodiedSettings>(defaultEmbodiedSettings);
@@ -199,6 +202,7 @@ export function EmbodiedAiCard({
           {t.badge}
         </span>
         <MindDownloadButtons lang={lang} name="robot-mind" data={{ settings, trajectories, drills }} />
+        <MasteryChallengeButton mindId={mindId} lang={lang} domain="movement" />
       </div>
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{t.hint}</p>
 
