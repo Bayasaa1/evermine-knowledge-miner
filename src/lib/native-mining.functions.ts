@@ -21,6 +21,7 @@ export const startUploadMining = createServerFn({ method: "POST" })
         durationSec: z.number().positive().max(6 * 3600),
         sourceType: z.enum(["native_upload", "camera_record"]),
         category: z.string().max(40).default("knowledge"),
+        language: z.string().max(8).default("en"),
       })
       .parse(input),
   )
@@ -43,7 +44,8 @@ export const startUploadMining = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     const chunks = splitIntoChunks(data.durationSec);
-    const meta = JSON.stringify({ sourceTitle: data.title, sourceType: data.sourceType, thumbnailPath: data.thumbnailPath, durationSec: Math.round(data.durationSec) });
+    const { packInstructions } = await import("@/lib/mining-jobs");
+    const meta = packInstructions({ sourceTitle: data.title, speakerIdentity: (persona?.name as string | undefined) ?? "", outputLanguage: data.language } as never);
     const { data: row, error } = await context.supabase
       .from("mining_jobs")
       .insert({
