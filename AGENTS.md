@@ -52,4 +52,4 @@
 - Before finishing any bug fix, run the existing unit tests (`*.test.ts` via `bun test`) to prove no regression was introduced, because a fix judged only by reading the code is how regressions ship.
 - Architect Co-Pilot tools live in src/lib/architect.server.ts (types in architect-types.ts) and are dispatched by `action` in /api/diagnose-chat; read tools never write, and writes (FAQ patches beside mined data, persona binding) run only from user-pressed chat buttons, because mined data must never change without the user's say.
 - Paid Mind access is granted only when the creator approves a mind_payment_orders row (decideOrder upserts mind_purchases); buyers never write purchases, because bank/Stripe-link payments are confirmed manually.
-- Uploaded videos are cut in the browser (src/lib/video-extract.ts: 5-min parts, small JPEG frames, 12kHz mono WAV) and mined via /api/native-mine → analyzeUploadedPart, because full files exceed Worker and Gemini inline limits.
+- Uploaded videos are cut in-browser (video-extract.ts) and mined via /api/native-mine, because whole files exceed Worker/Gemini limits.
