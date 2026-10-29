@@ -12,4 +12,4 @@
 - Mining parts are 5 minutes, and analyzeYoutubeVideo adds a screen-only pass when screenItems are fewer than one per minute, because long parts made Gemini drop the screen.
 - Generic owner labels (Host/Creator/Mind Owner) and small invented "Caller/Guest N" labels are folded into the persona name after mining, because a streamer's shouting was being split into fake people.
 - Mongolian parts whose speech comes back mostly in Latin letters are re-watched once with the Cyrillic rule first; the first result is kept if the retry fails.
-- Uploaded videos are cut in-browser (video-extract.ts) and mined via /api/native-mine, because whole files exceed Worker/Gemini limits.
+- Uploaded videos (private bucket creator-videos, mining_jobs source_kind "upload") are cut in-browser (video-extract.ts) and mined part-by-part in order via /api/native-mine, then filed by finalizeMiningJob; background workers skip them because only the browser holds the file.

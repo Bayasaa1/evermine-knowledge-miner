@@ -30,6 +30,7 @@ type JobRow = {
   category: string | null;
   publish_to_feed: boolean | null;
   chunks?: unknown;
+  source_kind?: string | null;
 };
 
 function youtubeIdOf(url: string): string {
@@ -91,7 +92,7 @@ export async function finalizeMiningJob(
   const category = job.category || "knowledge";
   const payload = {
     category,
-    source: { kind: "youtube", label: job.source_label, url: job.source_url },
+    source: { kind: job.source_kind === "upload" ? "upload" : "youtube", label: job.source_label, url: job.source_url },
     minedAt: new Date().toISOString(),
     status: partial ? "partial" : "mined",
     ...(partial ? { progress: partial } : {}),
@@ -140,6 +141,15 @@ export async function finalizeMiningJob(
       .select("id,project_id")
       .eq("user_id", job.user_id)
       .eq("youtube_id", videoId)
+      .limit(1)
+      .maybeSingle();
+    existingContent = data ?? null;
+  } else if (job.source_kind === "upload" && job.source_url) {
+    const { data } = await admin
+      .from("project_content")
+      .select("id,project_id")
+      .eq("user_id", job.user_id)
+      .eq("source_url", job.source_url)
       .limit(1)
       .maybeSingle();
     existingContent = data ?? null;

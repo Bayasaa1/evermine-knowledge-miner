@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { MiningMonitor } from "@/components/mining-monitor";
+import { NativeVideoUpload } from "@/components/native-video-upload";
 import { BottomNav } from "@/components/bottom-nav";
 import { useLang } from "@/lib/i18n";
 
@@ -31,6 +32,7 @@ function MiningPage() {
     <div className="min-h-screen bg-background pb-28 text-foreground">
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="sr-only">Live mining progress</h1>
+        <NativeVideoUpload lang={lang} />
         <MiningMonitor lang={lang} />
       </div>
       <BottomNav lang={lang} />
