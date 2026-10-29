@@ -314,3 +314,107 @@ export async function buildAgentBrain(input: {
 export function downloadAgentBrain(brain: AgentBrain, sourceName: string): string {
   return downloadJson(brain, `${safeBase(sourceName, "brain")}.agent-brain.json`);
 }
+
+/* ---------------- Native video helpers (Step 1) ----------------
+ * Thin wrappers over src/lib/video-extract.ts so uploaded/recorded videos use
+ * the one existing cut-and-mine path (/api/native-mine), never a second one.
+ */
+export type NativeSourceType = "youtube" | "native_upload" | "camera_record";
+
+/** Stable synthetic video id for non-YouTube videos: native_<id>. */
+export function nativeVideoId(seed: string): string {
+  const clean = seed.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 32);
+  if (!clean) throw new Error("A video id needs a seed.");
+  return `native_${clean}`;
+}
+
+export function videoIdFor(source: NativeSourceType, youtubeId: string | null, seed: string): string {
+  return source === "youtube" && youtubeId ? youtubeId : nativeVideoId(seed);
+}
+
+/** The [startSec, endSec] window of one chunk, or null past the end. */
+export function chunkWindow(durationSec: number, chunkIndex: number, chunkDurationSec = 300) {
+  if (!Number.isFinite(durationSec) || durationSec <= 0 || chunkIndex < 0 || chunkDurationSec <= 0) return null;
+  const startSec = chunkIndex * chunkDurationSec;
+  if (startSec >= durationSec) return null;
+  return { index: chunkIndex, startSec, endSec: Math.min(durationSec, startSec + chunkDurationSec), totalChunks: Math.ceil(durationSec / chunkDurationSec) };
+}
+
+export type NativeChunkPayload = {
+  chunkIndex: number;
+  totalChunks: number;
+  startSec: number;
+  endSec: number;
+  keyframes: { timestampSec: number; jpegBase64: string }[];
+  audioBase64: string | null;
+};
+
+/** Formats an extracted part as a chunk payload (frames sorted, capped at 24). */
+export function formatChunkPayload(
+  part: { index: number; startSec: number; endSec: number; frames: { t: number; jpeg: string }[]; audioWav: string | null },
+  totalChunks: number,
+): NativeChunkPayload {
+  return {
+    chunkIndex: part.index,
+    totalChunks,
+    startSec: part.startSec,
+    endSec: part.endSec,
+    keyframes: part.frames
+      .filter((f) => f.jpeg && f.t >= part.startSec && f.t <= part.endSec)
+      .sort((a, b) => a.t - b.t)
+      .slice(0, 24)
+      .map((f) => ({ timestampSec: f.t, jpegBase64: f.jpeg })),
+    audioBase64: part.audioWav || null,
+  };
+}
+
+/** Reads length/size and grabs a 640x360 poster at t=1s. Browser only. */
+export async function inspectVideoFile(file: File) {
+  const url = URL.createObjectURL(file);
+  const v = document.createElement("video");
+  v.muted = true;
+  v.preload = "auto";
+  v.src = url;
+  try {
+    await new Promise<void>((r, j) => { v.onloadeddata = () => r(); v.onerror = () => j(new Error("This video file could not be read.")); });
+    await new Promise<void>((r) => { v.onseeked = () => r(); v.currentTime = Math.min(1, (v.duration || 1) / 2); });
+    const c = document.createElement("canvas");
+    c.width = 640; c.height = 360;
+    c.getContext("2d")!.drawImage(v, 0, 0, 640, 360);
+    const thumbnailDataUrl = c.toDataURL("image/jpeg", 0.7);
+    const thumbnailBlob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.7));
+    return { durationSeconds: v.duration, width: v.videoWidth, height: v.videoHeight, fileSizeBytes: file.size, thumbnailBlob, thumbnailDataUrl };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Builds the payload for one chunk using the shared extractor. Browser only. */
+export async function extractNativeVideoChunkPayload(file: File, chunkIndex: number, chunkDurationSec = 300): Promise<NativeChunkPayload> {
+  const { extractParts, readDuration, planWindows } = await import("./video-extract");
+  const plan = planWindows(await readDuration(file), chunkDurationSec);
+  if (!plan[chunkIndex]) throw new Error("That part is past the end of the video.");
+  for await (const part of extractParts(file, undefined, [plan[chunkIndex]!], chunkIndex)) return formatChunkPayload(part, plan.length);
+  throw new Error("Could not read that part.");
+}
+
+/** Uploads into the private creator-videos bucket under the owner's folder. */
+export async function uploadNativeVideoToStorage(
+  file: File, thumbnailBlob: Blob | null, userId: string, projectId: string, onProgress?: (pct: number) => void,
+) {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const videoId = nativeVideoId(crypto.randomUUID());
+  const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
+  const storagePath = `${userId}/${projectId}/${videoId}.${ext}`;
+  onProgress?.(0);
+  const up = await supabase.storage.from("creator-videos").upload(storagePath, file, { contentType: file.type || "video/mp4" });
+  if (up.error) throw new Error(up.error.message);
+  let thumbnailPath: string | null = null;
+  if (thumbnailBlob) {
+    thumbnailPath = `${userId}/${projectId}/${videoId}-thumb.jpg`;
+    const t = await supabase.storage.from("creator-videos").upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg" });
+    if (t.error) thumbnailPath = null;
+  }
+  onProgress?.(100);
+  return { videoId, storagePath, thumbnailPath };
+}
