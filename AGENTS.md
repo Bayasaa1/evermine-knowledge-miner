@@ -9,6 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
+- Subdirectories have their own AGENTS.md; read it before changing files there (src/lib/AGENTS.md holds the mining rules).
 - AI receives complete structured history to address the right message.
 - Call media permissions use generation guards and cancelled work cannot restart playback; this prevents streams granted after closing from surviving.
 - Chat prompt knowledge is query-ranked to eight topic chunks with a bounded system context, while structured conversation history remains separate and intact.
@@ -23,19 +24,7 @@
 - Rooms use member-gated RPCs/media and owner-only atomic moderator turns; replies use the caller's keys. Sharing uses ShareModal and typed cards, separate from confirmed owner-only Mind invitations with Undo.
 - Group-room Mind prose strips hidden clip and video-proof markers on generation, writes, reads, and exports; legacy messages are cleaned without rewriting saved history, because rooms do not render proof metadata.
 - Friendship is mutual subscription (user_subscriptions both ways, no user_blocks); human DMs are chat_rooms kind 'dm' opened only via open_dm RPC, because one-way subscribers must never DM a creator directly.
-- Every mined part stores its `window` and merge confines all subtitle times to it, because one mis-read clock used to push every later caption past the video end.
-- Mined-video repair re-mines only the flagged parts from the mining record and rebuilds through finalizeMiningJob, so fixes never hand-edit saved subtitles.
 
-- Creator-uploaded subtitles (mind_vaults kind "captions", title = YouTube id) override YouTube captions in the miner, because server-side caption fetches get blocked; listVaults hides that kind.
-- Playback stamp parsing reads whole minute groups ("373:19") and treats any backwards stamp not near 0 as untimed, because one mis-read clock used to shift every later caption.
-- The miner's primary output is a timed `journal` (who/kind/text per moment) and the persona a job is filed under is passed as the Mind Owner when no speaker hint exists, because reaction streams otherwise absorb played-media voices into the owner's Mind, face and voice data.
-- Creators fix speaker attribution with the per-video "Who is the persona?" picker, which only renames speaker labels and never touches words or times.
-- Mining watches video + audio together in one Gemini call (analyzeYoutubeVideo) with sentence-level speech, typed screenItems and actions on one timeline; YouTube auto-captions are not used, because real tests showed them empty or garbled. The journal/transcript never go through the tidy-up pass.
-- The topic map is built only after mining, from saved facts, on the user's own key (one batch per call, stored as a private mind_vaults row kind 'topics', title 'topics:<projectId>'), because adding work inside the miner raises failure risk and the map must never alter mined data.
-- Only creator-uploaded subtitles take the text path (tryTranscriptMine, which then adds the optional screen pass); every other part goes straight to the multimodal miner.
-- Mining parts are 5 minutes, and analyzeYoutubeVideo adds a screen-only pass when screenItems are fewer than one per minute, because long parts made Gemini drop the screen.
-- Generic owner labels (Host/Creator/Mind Owner) and small invented "Caller/Guest N" labels are folded into the persona name after mining, because a streamer's shouting was being split into fake people.
-- Mongolian parts whose speech comes back mostly in Latin letters are re-watched once with the Cyrillic rule first; the first result is kept if the retry fails.
 
 - The project map shows the topic map as a root tree (groups → topics → nested sub-topics via parentId), with thickness = facts + Q&A under it; it replaces the old network graph because a weighted hierarchy shows where knowledge is richest.
 - Topic roots grow automatically at the end of finalizeMiningJob (owner's key, a few batches, failures swallowed) and root colour comes from viewer questions/reports matched read-only at view time, because creators should never have to hand-run the tree and stats must never alter mined data.
@@ -52,4 +41,3 @@
 - Before finishing any bug fix, run the existing unit tests (`*.test.ts` via `bun test`) to prove no regression was introduced, because a fix judged only by reading the code is how regressions ship.
 - Architect Co-Pilot tools live in src/lib/architect.server.ts (types in architect-types.ts) and are dispatched by `action` in /api/diagnose-chat; read tools never write, and writes (FAQ patches beside mined data, persona binding) run only from user-pressed chat buttons, because mined data must never change without the user's say.
 - Paid Mind access is granted only when the creator approves a mind_payment_orders row (decideOrder upserts mind_purchases); buyers never write purchases, because bank/Stripe-link payments are confirmed manually.
-- Uploaded videos are cut in-browser (video-extract.ts) and mined via /api/native-mine, because whole files exceed Worker/Gemini limits.
