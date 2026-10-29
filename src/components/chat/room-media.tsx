@@ -13,7 +13,7 @@ export function RoomMedia({ attachment, onMind, openLabel, onAdd }: { attachment
     setUrl(""); setError(false);
     const refresh = () => { if (path) void roomMediaUrl(path).then((u) => { if (live) setUrl(u); }).catch(() => { if (live) setError(true); }); };
     refresh();
-    const timer = window.setInterval(refresh, 50 * 60 * 1000);
+    const timer = window.setInterval(refresh, 50 * 1000);
     return () => { live = false; window.clearInterval(timer); };
   }, [path]);
   if (attachment.kind === "mind" && attachment.share) return <div className="my-2"><SharedContentCard content={attachment.share} onMind={onMind} {...(onAdd ? { onAdd } : {})} /></div>;
