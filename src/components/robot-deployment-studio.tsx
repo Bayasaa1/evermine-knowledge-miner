@@ -21,6 +21,7 @@ import {
 
 import coverFounder from "@/assets/cover-founder.jpg";
 import { pickCopy, type Lang } from "@/lib/i18n";
+import { MasteryChallengeButton } from "@/components/mastery-challenge-panel";
 
 
 const copy = {
@@ -252,6 +253,7 @@ export function RobotDeploymentStudio({
           <Bot className="h-4 w-4" />
         </div>
         <h3 className="text-lg font-semibold text-foreground">{t.title}</h3>
+        <MasteryChallengeButton mindId={mindId} lang={lang} domain="robot" />
         <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           OTA
         </span>
