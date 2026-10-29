@@ -281,6 +281,11 @@ export const runNextChunk = createServerFn({ method: "POST" })
       }
     }
 
+    // Uploaded videos live in storage, not YouTube; only the browser that holds
+    // the file can cut and mine them (see /api/native-mine).
+    if (!/^https?:\/\//i.test(job.sourceUrl ?? "")) {
+      return { job, chunk: null, merged: null, done: false, busy: true };
+    }
     // A creator stop/pause wins over any tab still driving the job.
     if (job.status === "stopped" || job.status === "paused_user") {
       return { job, chunk: null, merged: mergeChunkResults(results), done: false };

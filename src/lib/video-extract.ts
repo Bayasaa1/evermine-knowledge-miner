@@ -107,9 +107,13 @@ function seek(v: HTMLVideoElement, t: number): Promise<void> {
 export async function* extractParts(
   file: File,
   onProgress?: (p: ExtractProgress) => void,
+  /** The saved job's own part plan; defaults to plain 5-minute windows. */
+  plan?: PartWindow[],
+  /** Parts already mined are skipped (resume). */
+  fromIndex = 0,
 ): AsyncGenerator<ExtractedPart> {
   const duration = await readDuration(file);
-  const windows = planWindows(duration);
+  const windows = (plan?.length ? plan : planWindows(duration)).filter((w) => w.index >= fromIndex);
   onProgress?.({ stage: "audio", done: 0, total: 1 });
   const audio = await decodeMonoAudio(file);
   onProgress?.({ stage: "audio", done: 1, total: 1 });
@@ -134,7 +138,7 @@ export async function* extractParts(
         await seek(video, t);
         g.drawImage(video, 0, 0, canvas.width, canvas.height);
         frames.push({ t, jpeg: canvas.toDataURL("image/jpeg", 0.6).split(",")[1] ?? "" });
-        onProgress?.({ stage: "frames", done: win.index * FRAMES_PER_PART + i + 1, total: windows.length * FRAMES_PER_PART });
+        onProgress?.({ stage: "frames", done: (win.index - fromIndex) * FRAMES_PER_PART + i + 1, total: windows.length * FRAMES_PER_PART });
       }
       let audioWav: string | null = null;
       if (audio) {

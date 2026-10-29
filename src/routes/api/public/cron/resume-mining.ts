@@ -134,6 +134,8 @@ async function runMiningWorker(): Promise<Response> {
       // "error" is included so a one-off network/timeout failure is retried
       // automatically instead of stranding the video forever.
       .in("status", ["paused_quota", "queued", "running", "error"])
+      // Uploaded videos are mined by the creator's own browser, never here.
+      .neq("source_kind", "upload")
       // A video that keeps failing for a permanent reason is abandoned after
       // a few tries instead of re-mining itself forever.
       .lt("updated_at", leaseIso)
