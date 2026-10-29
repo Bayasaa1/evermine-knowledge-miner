@@ -214,7 +214,7 @@ export function ContentCreateWizard({ lang }: { lang: Lang }) {
         streamRef.current = null;
         if (live.current) live.current.srcObject = null;
         const type = rec.mimeType || "video/webm";
-        const f = new File(chunks, `recording-${Date.now()}.${type.includes("mp4") ? "mp4" : "webm"}`, { type: type.split(";")[0] });
+        const f = new File(chunks, `recording-${Date.now()}.${type.includes("mp4") ? "mp4" : "webm"}`, { type: type.split(";")[0] ?? type });
         setReplay(URL.createObjectURL(f));
         void accept(f, "camera_record");
       };
