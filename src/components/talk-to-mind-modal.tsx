@@ -288,6 +288,15 @@ export function TalkToMindModal({
     }
   };
 
+  // A diagnostic chip pre-fills the expert-critique request and opens the
+  // picker pre-filtered to the file types that make sense for this Mind.
+  const pickDiagnostic = (chip: DiagnosticChip) => {
+    if (busy) return;
+    setInput(chip.prompt[lang] ?? chip.prompt.en);
+    setDiagAccept(chip.accept);
+    fileRef.current?.click();
+  };
+
   const send = async (spoken?: string, selectedTopic?: string) => {
     const typed = (spoken ?? input).trim();
     const files = spoken ? "" : attachments.map((a) => a.block).join("");
@@ -672,8 +681,11 @@ export function TalkToMindModal({
             {attachError && <span className="text-destructive">{attachError}</span>}
           </div>
         )}
+        {!showMastery && callMode === "chat" && (
+          <DiagnosticChips category={mindCategory} lang={lang} disabled={busy} onPick={pickDiagnostic} />
+        )}
         <div className="flex items-center gap-2 border-t border-border p-3">
-          <input ref={fileRef} type="file" multiple accept={ATTACH_ACCEPT} className="hidden" onChange={(e) => { void pickFiles(e.target.files); e.target.value = ""; }} />
+          <input ref={fileRef} type="file" multiple accept={diagAccept ?? ATTACH_ACCEPT} className="hidden" onChange={(e) => { void pickFiles(e.target.files); e.target.value = ""; setDiagAccept(null); }} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
