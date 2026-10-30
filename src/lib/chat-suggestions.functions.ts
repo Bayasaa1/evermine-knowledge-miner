@@ -3,6 +3,8 @@ import { z } from "zod";
 
 export type ChatSuggestions = {
   bio: string;
+  /** Creation category of the Mind — picks the diagnostic upload chip. */
+  category: string;
   greeting: string;
   tags: string[];
   topics: string[];
@@ -23,6 +25,7 @@ export const getChatSuggestions = createServerFn({ method: "POST" })
     if (!x) return null;
     return {
       bio: x.bio.slice(0, 400),
+      category: x.category,
       greeting: x.greeting.slice(0, 400),
       tags: x.tags.slice(0, 12),
       topics: x.topics,

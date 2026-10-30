@@ -5,6 +5,8 @@
  */
 export type CreatorExtras = {
   personaName: string;
+  /** The project's creation category — drives which diagnostic chip chat shows. */
+  category: string;
   bio: string;
   greeting: string;
   tags: string[];
@@ -47,7 +49,7 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: project } = await supabaseAdmin
     .from("projects")
-    .select("id, persona_id, creator_name, published")
+    .select("id, persona_id, creator_name, published, creation_category")
     .eq("id", projectId)
     .maybeSingle();
   if (!project || !project.published) return null;
@@ -68,6 +70,7 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
   const personaName = p?.name ?? project.creator_name ?? "";
   return {
     personaName,
+    category: String((project as { creation_category?: string }).creation_category ?? "knowledge"),
     bio: p?.bio ?? "",
     greeting: p?.greeting ?? "",
     tags: p?.tags ?? [],
