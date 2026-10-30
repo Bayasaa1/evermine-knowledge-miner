@@ -10,11 +10,11 @@ const MAX_BYTES = 15 * 1024 * 1024;
 
 function instruction(mime: string): string {
   if (mime.startsWith("image/"))
-    return "Describe this picture in detail: who or what is in it, any text visible (copy it exactly), setting, mood. Plain text, no preamble.";
+    return "Describe this picture in forensic detail for an expert diagnostic: who or what is in it, any text visible (copy it exactly), measurements, numbers, labels, body or object positioning, defects or anomalies, setting, mood. Plain text, no preamble.";
   if (mime.startsWith("audio/"))
     return "Transcribe this audio word for word in its original language. Then add one line starting with 'Summary:' in the same language. Plain text.";
   if (mime.startsWith("video/"))
-    return "Describe what happens in this video in order, and transcribe any speech word for word in its original language. Plain text.";
+    return "Describe what happens in this video in order with rough timestamps, transcribe any speech word for word in its original language, and call out technique, form, numbers or anomalies an expert would critique. Plain text.";
   return "Extract the full text content of this document faithfully, keeping headings and tables readable. Plain text.";
 }
 
