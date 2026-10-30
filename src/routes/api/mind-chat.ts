@@ -6,6 +6,7 @@ import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 import { getPublicProjectMind } from "@/lib/project-mind.server";
 import { buildPromptContext, ensurePayload } from "@/lib/viewer-brain";
 import { budgetSections } from "@/lib/chat-context-budget";
+import { extractUrls, youtubeVideoId, formatLinkBlock } from "@/lib/chat-attach";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
 
@@ -418,6 +419,112 @@ async function mindLevelCap(mindId: string): Promise<{ def: number; max: number 
   } catch {
     return { def: 100, max: 100 };
   }
+}
+
+/* ---------- Live link grounding ---------- */
+
+const LINK_FETCH_MS = 4000;
+const LINK_MAX_CHARS = 3500;
+
+/** A viewer-pasted link must never make the server fetch itself or a private address. */
+function isPrivateHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return (
+    h === "localhost" ||
+    h === "[::1]" ||
+    h.endsWith(".local") ||
+    h.endsWith(".internal") ||
+    /^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(h)
+  );
+}
+
+function decodePageEntities(s: string): string {
+  return s
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+/** Title + readable text of a web page, with a hard 4-second budget and a size cap. */
+async function fetchWebPage(url: string): Promise<{ title: string; body: string } | null> {
+  try {
+    const u = new URL(url);
+    if (!/^https?:$/.test(u.protocol) || isPrivateHost(u.hostname)) return null;
+    const res = await fetch(u.toString(), {
+      signal: AbortSignal.timeout(LINK_FETCH_MS),
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        Accept: "text/html,application/xhtml+xml,*/*",
+      },
+      redirect: "follow",
+    });
+    if (!res.ok) return null;
+    const raw = (await res.text()).slice(0, 600_000);
+    const title = decodePageEntities(raw.match(/<title[^>]*>([\s\S]{1,300}?)<\/title>/i)?.[1] ?? "").trim();
+    const meta = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{1,500})["']/i)?.[1] ?? "";
+    const body = decodePageEntities(
+      raw
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " "),
+    )
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n\s*\n+/g, "\n")
+      .trim();
+    const text = `${meta}\n${body}`.trim();
+    return text ? { title, body: text.slice(0, LINK_MAX_CHARS) } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** YouTube link: metadata plus the opening transcript slice, on a hard time budget. */
+async function youtubeLinkBlock(url: string, videoId: string): Promise<string> {
+  const work = (async () => {
+    const [{ fetchVideoDetails }, { fetchCaptionCues }] = await Promise.all([
+      import("@/lib/youtube-meta.server"),
+      import("@/lib/youtube-captions.server"),
+    ]);
+    const [meta, caps] = await Promise.all([
+      fetchVideoDetails(videoId),
+      fetchCaptionCues(videoId, 0, 900).catch(() => ({ cues: [] as { text: string }[], track: null })),
+    ]);
+    const transcript = caps.cues
+      .slice(0, 120)
+      .map((c) => c.text)
+      .join(" ")
+      .slice(0, 2500);
+    const body = [
+      meta.channel || meta.authorName ? `Channel: ${meta.channel || meta.authorName}` : "",
+      meta.description ? `Description: ${meta.description.slice(0, 800)}` : "",
+      transcript ? `Transcript (opening minutes):\n${transcript}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return formatLinkBlock(url, "youtube", meta.title || videoId, body);
+  })();
+  return Promise.race([work, new Promise<string>((resolve) => setTimeout(() => resolve(""), LINK_FETCH_MS + 2000))]);
+}
+
+/**
+ * Links the viewer just pasted, fetched live so the Mind can analyze them
+ * instead of seeing a bare URL string. Best effort: failures simply vanish.
+ */
+async function groundLinks(text: string): Promise<string> {
+  const urls = extractUrls(text);
+  if (!urls.length) return "";
+  const blocks = await Promise.all(
+    urls.map(async (url) => {
+      const yt = youtubeVideoId(url);
+      if (yt) return youtubeLinkBlock(url, yt);
+      const page = await fetchWebPage(url);
+      return page ? formatLinkBlock(url, "page", page.title, page.body) : "";
+    }),
+  );
+  return blocks.filter(Boolean).join("");
 }
 
 export const Route = createFileRoute("/api/mind-chat")({
