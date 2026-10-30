@@ -15,7 +15,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
-import { ChatSuggestions } from "@/components/chat-suggestions";
+import { ChatSuggestions, DiagnosticChips, type DiagnosticChip } from "@/components/chat-suggestions";
+import { getChatSuggestions } from "@/lib/chat-suggestions.functions";
 import { ChatDisplayText } from "@/components/chat-display-text";
 import { conversationProgress, type TopicFocus } from "@/lib/topic-conversation";
 
@@ -92,6 +93,10 @@ export function TalkToMindModal({
   const [attachments, setAttachments] = useState<{ name: string; block: string }[]>([]);
   const [attaching, setAttaching] = useState(0);
   const [attachError, setAttachError] = useState<string | null>(null);
+  // The Mind's creation category picks which diagnostic upload chip shows.
+  const [mindCategory, setMindCategory] = useState<string>("knowledge");
+  const [diagAccept, setDiagAccept] = useState<string | null>(null);
+  const loadSuggestions = useServerFn(getChatSuggestions);
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
   // Heard speech is shown first; it sends itself after 3s unless the user edits it.
   const [heard, setHeard] = useState<string | null>(null);
@@ -226,6 +231,21 @@ export function TalkToMindModal({
       cancelled = true;
     };
   }, [open, mindId]);
+
+  // Learn this Mind's category so the diagnostic chip matches its domain.
+  useEffect(() => {
+    setMindCategory("knowledge");
+    if (!open || !mindId) return;
+    let live = true;
+    loadSuggestions({ data: { mindId } })
+      .then((r) => {
+        if (live && r?.category) setMindCategory(r.category);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [open, mindId, loadSuggestions]);
 
   // Video call: the Mind looks at the caller (frames are read live, never kept).
   useEffect(() => {
