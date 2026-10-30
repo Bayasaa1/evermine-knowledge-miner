@@ -49,18 +49,26 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: project } = await supabaseAdmin
     .from("projects")
-    .select("id, persona_id, creator_name, published, creation_category")
+    .select("id, persona_id, creator_name, published")
     .eq("id", projectId)
     .maybeSingle();
   if (!project || !project.published) return null;
-  const [persona, qa, concepts, map] = await Promise.all([
+  const [persona, qa, concepts, map, content] = await Promise.all([
     project.persona_id
       ? supabaseAdmin.from("creator_personas").select("name, bio, greeting, tags").eq("id", project.persona_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabaseAdmin.from("mind_qa").select("question, answer, suggest").eq("project_id", projectId).order("sort").limit(50),
     supabaseAdmin.from("project_concepts").select("label, count").eq("project_id", projectId).order("count", { ascending: false }).limit(8),
     supabaseAdmin.from("mind_vaults").select("payload").eq("kind", "topics").eq("title", `topics:${projectId}`).limit(1).maybeSingle(),
+    supabaseAdmin.from("project_content").select("category").eq("project_id", projectId).limit(50),
   ]);
+  // The category most of the project's videos were mined under.
+  const counts = new Map<string, number>();
+  for (const row of (content.data ?? []) as { category?: string }[]) {
+    const c = String(row.category ?? "knowledge");
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  const category = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "knowledge";
   const mapTopics = ((map.data?.payload as { topics?: MapTopic[] } | null)?.topics ?? []);
   // Real Root-map topics (richest first) lead; generic concept labels fill in after.
   const rootTopics = mapTopics.filter((t) => t.title && !t.parentId)
@@ -70,7 +78,7 @@ export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras |
   const personaName = p?.name ?? project.creator_name ?? "";
   return {
     personaName,
-    category: String((project as { creation_category?: string }).creation_category ?? "knowledge"),
+    category,
     bio: p?.bio ?? "",
     greeting: p?.greeting ?? "",
     tags: p?.tags ?? [],

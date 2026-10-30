@@ -73,13 +73,16 @@ export function ChatSuggestions({
 
 /* ---------- Multimodal Diagnostic Drop ---------- */
 
+/** English is required; every other language falls back to it. */
+type ChipText = { en: string } & Partial<Record<Lang, string>>;
+
 export type DiagnosticChip = {
   id: string;
-  label: Record<Lang, string>;
+  label: ChipText;
   /** File-picker filter for the formats this Mind can diagnose. */
   accept: string;
   /** Expert diagnostic + Mastery Challenge request, pre-filled on tap. */
-  prompt: Record<Lang, string>;
+  prompt: ChipText;
 };
 
 const DIAGNOSTIC_CHIPS: Record<string, DiagnosticChip> = {
