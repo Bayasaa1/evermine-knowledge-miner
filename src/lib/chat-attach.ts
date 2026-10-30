@@ -3,7 +3,7 @@
  * text files are read on the device; pictures, voice, video and PDF are read by
  * the user's own Gemini key. The result rides inside the user's message.
  */
-import { apiFetch } from "@/lib/api-fetch";
+import { youtubeId } from "./import-sources";
 
 export const ATTACH_ACCEPT =
   "image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.json";
@@ -46,6 +46,7 @@ export async function readAttachment(file: File): Promise<string> {
     text = wb.SheetNames.map((s) => `# ${s}\n${XLSX.utils.sheet_to_csv(wb.Sheets[s]!)}`).join("\n\n");
   } else {
     const mime = kind === "pdf" ? "application/pdf" : file.type;
+    const { apiFetch } = await import("@/lib/api-fetch");
     const res = await apiFetch("/api/chat-attach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -70,4 +71,41 @@ export function splitAttachments(text: string): { body: string; files: { name: s
     })
     .trim();
   return { body, files };
+}
+
+/* ---------- Live link grounding ---------- */
+
+/** At most this many pasted links are fetched per message. */
+export const MAX_LINKS = 2;
+
+const URL_RE = /https?:\/\/[^\s<>"'()\[\]]+/gi;
+
+/** External http(s) links pasted into a chat message, deduped and capped. */
+export function extractUrls(text: string, max = MAX_LINKS): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(URL_RE)) {
+    const url = m[0].replace(/[.,!?;:…»"']+$/, "");
+    if (url && !out.includes(url)) out.push(url);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** YouTube video id when the link is any YouTube form, else null. */
+export function youtubeVideoId(url: string): string | null {
+  return youtubeId(url);
+}
+
+export const LINK_OPEN = "\n\n[[link:";
+
+/**
+ * Fetched link content riding inside the user's message. The fetched text is
+ * untrusted data: fence markers and angle brackets are stripped so a page can
+ * never break out of its block or pose as instructions.
+ */
+export function formatLinkBlock(url: string, kind: "youtube" | "page", title: string, body: string): string {
+  const safe = (s: string) => s.replace(/\[\[|\]\]/g, " ").replace(/[<>]/g, " ").trim();
+  const head = safe(title).replace(/\s+/g, " ") || url;
+  const text = safe(body).slice(0, 3500);
+  return `${LINK_OPEN}${url}|${kind}]]\n${head}\n${text}\n[[/link]]`;
 }

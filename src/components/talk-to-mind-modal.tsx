@@ -15,7 +15,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
-import { ChatSuggestions } from "@/components/chat-suggestions";
+import { ChatSuggestions, DiagnosticChips, type DiagnosticChip } from "@/components/chat-suggestions";
+import { getChatSuggestions } from "@/lib/chat-suggestions.functions";
 import { ChatDisplayText } from "@/components/chat-display-text";
 import { conversationProgress, type TopicFocus } from "@/lib/topic-conversation";
 
@@ -92,6 +93,10 @@ export function TalkToMindModal({
   const [attachments, setAttachments] = useState<{ name: string; block: string }[]>([]);
   const [attaching, setAttaching] = useState(0);
   const [attachError, setAttachError] = useState<string | null>(null);
+  // The Mind's creation category picks which diagnostic upload chip shows.
+  const [mindCategory, setMindCategory] = useState<string>("knowledge");
+  const [diagAccept, setDiagAccept] = useState<string | null>(null);
+  const loadSuggestions = useServerFn(getChatSuggestions);
   const sendRef = useRef<(text?: string) => Promise<void>>(async () => undefined);
   // Heard speech is shown first; it sends itself after 3s unless the user edits it.
   const [heard, setHeard] = useState<string | null>(null);
@@ -227,6 +232,21 @@ export function TalkToMindModal({
     };
   }, [open, mindId]);
 
+  // Learn this Mind's category so the diagnostic chip matches its domain.
+  useEffect(() => {
+    setMindCategory("knowledge");
+    if (!open || !mindId) return;
+    let live = true;
+    loadSuggestions({ data: { mindId } })
+      .then((r) => {
+        if (live && r?.category) setMindCategory(r.category);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [open, mindId, loadSuggestions]);
+
   // Video call: the Mind looks at the caller (frames are read live, never kept).
   useEffect(() => {
     if (!open || callMode !== "video" || !camRef.current) {
@@ -266,6 +286,15 @@ export function TalkToMindModal({
         setAttaching((n) => n - 1);
       }
     }
+  };
+
+  // A diagnostic chip pre-fills the expert-critique request and opens the
+  // picker pre-filtered to the file types that make sense for this Mind.
+  const pickDiagnostic = (chip: DiagnosticChip) => {
+    if (busy) return;
+    setInput(chip.prompt[lang] ?? chip.prompt.en);
+    setDiagAccept(chip.accept);
+    fileRef.current?.click();
   };
 
   const send = async (spoken?: string, selectedTopic?: string) => {
@@ -652,8 +681,11 @@ export function TalkToMindModal({
             {attachError && <span className="text-destructive">{attachError}</span>}
           </div>
         )}
+        {!showMastery && callMode === "chat" && (
+          <DiagnosticChips category={mindCategory} lang={lang} disabled={busy} onPick={pickDiagnostic} />
+        )}
         <div className="flex items-center gap-2 border-t border-border p-3">
-          <input ref={fileRef} type="file" multiple accept={ATTACH_ACCEPT} className="hidden" onChange={(e) => { void pickFiles(e.target.files); e.target.value = ""; }} />
+          <input ref={fileRef} type="file" multiple accept={diagAccept ?? ATTACH_ACCEPT} className="hidden" onChange={(e) => { void pickFiles(e.target.files); e.target.value = ""; setDiagAccept(null); }} />
           <button
             type="button"
             onClick={() => fileRef.current?.click()}

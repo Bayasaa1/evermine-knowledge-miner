@@ -7,6 +7,7 @@ import { getChatSuggestions, type ChatSuggestions as S } from "@/lib/chat-sugges
 import { ChatDisplayText } from "@/components/chat-display-text";
 import { Button } from "@/components/ui/button";
 import type { Lang } from "@/lib/i18n";
+import type { CreationCategory } from "@/lib/creation-category";
 import { topicSuggestions, type ConversationTurn, type TopicFocus } from "@/lib/topic-conversation";
 
 /**
@@ -66,6 +67,115 @@ export function ChatSuggestions({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- Multimodal Diagnostic Drop ---------- */
+
+/** English is required; every other language falls back to it. */
+type ChipText = { en: string } & Partial<Record<Lang, string>>;
+
+export type DiagnosticChip = {
+  id: string;
+  label: ChipText;
+  /** File-picker filter for the formats this Mind can diagnose. */
+  accept: string;
+  /** Expert diagnostic + Mastery Challenge request, pre-filled on tap. */
+  prompt: ChipText;
+};
+
+const DIAGNOSTIC_CHIPS: Record<string, DiagnosticChip> = {
+  movement: {
+    id: "movement",
+    label: {
+      en: "📸 Upload Form Photo / Dish Spec for Critique",
+      mn: "📸 Хөдөлгөөний зураг / Хоолны жорыг шүүмжлүүлэх",
+      ko: "📸 자세 사진 / 요리 스펙 비평받기",
+    },
+    accept: ".jpg,.jpeg,.png,.webp,.mp4,.docx",
+    prompt: {
+      en: "I attached my form/dish file. Give me a full expert critique — what I'm doing wrong, why, and the exact fix — then give me a Mastery Challenge to drill it.",
+      mn: "Би хөдөлгөөн/хоолны файл хавсаргалаа. Юг буруу байгаа, яагаад, яаж засахыг нарийн шүүмжилж, дараа нь дасгалжуулах Сорилт өгнө үү.",
+      ko: "자세/요리 파일을 첨부했습니다. 무엇이 잘못됐는지, 왜인지, 정확한 교정법을 전문가처럼 비평해 주고, 연습용 마스터리 챌린지도 주세요.",
+    },
+  },
+  knowledge: {
+    id: "knowledge",
+    label: {
+      en: "📊 Upload Lab / Biomarker / Financial Sheet for Analysis",
+      mn: "📊 Лаборатори / Биомаркер / Санхүүгийн хүснэгт шинжлүүлэх",
+      ko: "📊 검사/바이오마커/재무 시트 분석받기",
+    },
+    accept: ".xlsx,.xls,.csv,.pdf",
+    prompt: {
+      en: "I attached my data sheet. Analyze it like an expert — find the problems, explain the causes, and prescribe the exact protocol — then give me a Mastery Challenge.",
+      mn: "Би өгөгдлийн хүснэгт хавсаргалаа. Мэргэжилтэн шиг шинжилж, асуудал, шалтгаан, яг протоколыг хэлээд, дараа нь Сорилт өгнө үү.",
+      ko: "데이터 시트를 첨부했습니다. 전문가처럼 분석해서 문제와 원인, 정확한 프로토콜을 알려주고, 마스터리 챌린지도 주세요.",
+    },
+  },
+  robot: {
+    id: "robot",
+    label: {
+      en: "🤖 Upload Telemetry / Policy Config for Failure Diagnosis",
+      mn: "🤖 Телеметри / Полиси тохиргоо — алдааны оношлогоо",
+      ko: "🤖 텔레메트리 / 정책 설정 고장 진단",
+    },
+    accept: ".csv,.json,.txt,.log",
+    prompt: {
+      en: "I attached my robot telemetry/policy config. Diagnose the failure like a robotics engineer — root cause, evidence in the data, and the exact fix — then give me a Mastery Challenge.",
+      mn: "Би роботын телеметри/полиси файл хавсаргалаа. Робот инженер шиг алдааны үндсэн шалтгаан, нотолгоо, яг засварыг хэлээд, дараа нь Сорилт өгнө үү.",
+      ko: "로봇 텔레메트리/정책 설정을 첨부했습니다. 로봇 엔지니어처럼 고장의 근본 원인, 데이터 근거, 정확한 수정법을 진단하고, 마스터리 챌린지도 주세요.",
+    },
+  },
+  gaming: {
+    id: "gaming",
+    label: {
+      en: "🎯 Upload Match Telemetry / Clip for Playbook Review",
+      mn: "🎯 Тоглолтын телеметри / Бичлэг — тактикын шүүмж",
+      ko: "🎯 매치 텔레메트리 / 클립 플레이북 리뷰",
+    },
+    accept: ".csv,.mp4,.jpg,.jpeg,.png",
+    prompt: {
+      en: "I attached my match telemetry/clip. Review my play like a pro coach — what I did wrong, the decision I should have made, and a drill to fix it — then give me a Mastery Challenge.",
+      mn: "Би тоглолтын телеметри/бичлэг хавсаргалаа. Профи коуч шиг алдаа, зөв шийдвэр, засах дасгалыг хэлээд, дараа нь Сорилт өгнө үү.",
+      ko: "매치 텔레메트리/클립을 첨부했습니다. 프로 코치처럼 잘못된 플레이, 올바른 판단, 교정 드릴을 알려주고, 마스터리 챌린지도 주세요.",
+    },
+  },
+};
+
+/** Sales and legacy voice minds read as knowledge diagnostics. */
+export function diagnosticChipFor(category: CreationCategory | string | null | undefined): DiagnosticChip {
+  return DIAGNOSTIC_CHIPS[category ?? ""] ?? DIAGNOSTIC_CHIPS["knowledge"]!;
+}
+
+/**
+ * "📎 Multimodal Diagnostic Drop" quick-action chip above the input bar,
+ * tailored to the Mind's creation category. Tapping it pre-fills an expert
+ * diagnostic + Mastery Challenge request and opens a pre-filtered picker.
+ */
+export function DiagnosticChips({
+  category,
+  lang,
+  disabled = false,
+  onPick,
+}: {
+  category: CreationCategory | string;
+  lang: Lang;
+  disabled?: boolean;
+  onPick: (chip: DiagnosticChip) => void;
+}) {
+  const chip = diagnosticChipFor(category);
+  return (
+    <div className="flex flex-wrap gap-1.5 border-t border-border px-3 pt-2">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onPick(chip)}
+        className="rounded-full border border-dashed border-primary/50 bg-primary/10 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-primary/20 disabled:opacity-50"
+      >
+        {chip.label[lang] ?? chip.label.en}
+      </button>
     </div>
   );
 }
