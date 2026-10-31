@@ -290,6 +290,17 @@ export async function analyzeYoutubeVideo(input: {
   const url = normalizeYoutubeUrl(input.url);
   if (!url || input.endSec <= input.startSec) throw new Error("Invalid YouTube video or time range.");
   const videoId = youtubeId(url);
+  // Gemini answers 403 "permission denied" for a video that does not exist,
+  // which used to be reported as a rejected key. Check the video first.
+  if (videoId) {
+    const probe = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`,
+      { signal: AbortSignal.timeout(5000) },
+    ).catch(() => null);
+    if (probe && (probe.status === 404 || probe.status === 400)) {
+      throw new Error("This YouTube video does not exist or was removed. Your Gemini key is fine — replace or remove this video.");
+    }
+  }
   if (input.usage?.userId && videoId)
     await ensureJobPersona({ userId: input.usage.userId, jobId: input.usage.jobId, videoId, assessment: input.assessment });
 
