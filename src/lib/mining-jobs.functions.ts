@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { splitIntoChunks, type Chunk } from "@/lib/chunking";
 import { mergeChunkResults } from "@/lib/merge-results";
 import type { ChunkResult } from "@/lib/gemini";
-import { isQuotaMessage, packInstructions, quotaRetryAfter, unpackInstructions } from "@/lib/mining-jobs";
+import { MINING_LEASE_STALE_MS, isQuotaMessage, packInstructions, quotaRetryAfter, unpackInstructions } from "@/lib/mining-jobs";
 import type { ChunkStepResult, MiningJob, MiningJobStatus } from "@/lib/mining-jobs";
 
 const assessmentSchema = z.object({
@@ -49,6 +49,7 @@ const startSchema = z.object({
 type JobRow = {
   id: string;
   source_url: string;
+  source_kind?: string;
   source_label: string;
   playlist_id: string | null;
   queue_position: number;
@@ -70,7 +71,7 @@ type JobRow = {
 };
 
 const SELECT =
-  "id, source_url, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at, persona_id";
+  "id, source_url, source_kind, source_label, playlist_id, queue_position, video_context, primary_focus, custom_instructions, chunks, results, next_index, total_chunks, status, vault_id, last_error, retry_after, updated_at, created_at, persona_id";
 
 /**
  * List view without the huge `results` column (full AI output per chunk).
@@ -83,6 +84,7 @@ function toJob(row: JobRow): MiningJob {
   return {
     id: row.id,
     sourceUrl: row.source_url,
+    sourceKind: row.source_kind,
     sourceLabel: row.source_label,
     playlistId: row.playlist_id,
     queuePosition: row.queue_position,
@@ -283,7 +285,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
 
     // Uploaded videos live in storage, not YouTube; only the browser that holds
     // the file can cut and mine them (see /api/native-mine).
-    if (!/^https?:\/\//i.test(job.sourceUrl ?? "")) {
+    if (job.sourceKind === "upload" || !/^https?:\/\//i.test(job.sourceUrl ?? "")) {
       return { job, chunk: null, merged: null, done: false, busy: true };
     }
     // A creator stop/pause wins over any tab still driving the job.
@@ -295,7 +297,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
       return { job: { ...job, status: "done" }, chunk: null, merged: mergeChunkResults(results), done: true };
     }
 
-    if (data.respectLease && job.status === "running" && Date.now() - new Date(job.updatedAt).getTime() < 3 * 60_000) {
+    if (job.status === "running" && Date.now() - new Date(job.updatedAt).getTime() <= MINING_LEASE_STALE_MS) {
       return { job, chunk: null, merged: null, done: false, busy: true };
     }
     if (job.retryAfter && new Date(job.retryAfter).getTime() > Date.now()) {
@@ -309,17 +311,17 @@ export const runNextChunk = createServerFn({ method: "POST" })
       .from("mining_jobs")
       .update({ status: "running" })
       .eq("id", job.id)
+      .eq("updated_at", job.updatedAt)
       .eq("user_id", context.userId);
-    if (data.respectLease) {
-      const leaseIso = new Date(Date.now() - 3 * 60_000).toISOString();
-      claim = claim.or(`status.neq.running,updated_at.lt.${leaseIso}`);
-    }
-    const { data: claimed } = await claim.select("id");
-    if (data.respectLease && !claimed?.length) {
+    const { data: claimed, error: claimError } = await claim.select("updated_at");
+    if (claimError) throw new Error(claimError.message);
+    const lease = claimed?.[0]?.updated_at;
+    if (!lease) {
       return { job, chunk: null, merged: null, done: false, busy: true };
     }
 
-    const chunk = job.chunks[job.nextIndex]!;
+    const chunk = job.chunks[job.nextIndex];
+    if (!chunk) return { job, chunk: null, merged: null, done: true };
     if (job.personaId && !job.assessment.speakerIdentity?.trim()) {
       const { data: persona } = await context.supabase.from("creator_personas").select("name").eq("id", job.personaId).maybeSingle();
       const { withOwnerIdentity } = await import("@/lib/mining-jobs");
@@ -359,7 +361,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
           );
       const nextResults = [...results, { ...mined, window: { start: chunk.start, end: chunk.end } }];
       const nextIndex = job.nextIndex + 1;
-      const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "running";
+      const status: MiningJobStatus = nextIndex >= job.chunks.length ? "done" : "queued";
       const { data: savedRow, error: upErr } = await context.supabase
         .from("mining_jobs")
         .update({
@@ -368,6 +370,7 @@ export const runNextChunk = createServerFn({ method: "POST" })
           status,
           last_error: null,
           retry_after: null,
+          attempts: 0,
           // Subtitle reading uses no video key, so the stored one is left as is.
           ...(key.apiKey ? { ai_credential: key.apiKey } : {}),
         })
@@ -375,6 +378,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
         .eq("user_id", context.userId)
         // Another runner already saved this part: never append it twice.
         .eq("next_index", job.nextIndex)
+        .eq("status", "running")
+        .eq("updated_at", lease)
         .select("id");
       if (upErr) throw new Error(upErr.message);
       if (!savedRow || savedRow.length === 0) {
@@ -418,6 +423,8 @@ export const runNextChunk = createServerFn({ method: "POST" })
         .from("mining_jobs")
         .update({ status, last_error: message.slice(0, 500), retry_after: retryAfter })
         .eq("id", job.id)
+        .eq("status", "running")
+        .eq("updated_at", lease)
         .eq("user_id", context.userId);
       return {
         job: { ...job, status, lastError: message, retryAfter },
@@ -447,6 +454,10 @@ export const continueMiningNow = createServerFn({ method: "POST" })
 export const resumeStuckMiningJobs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ count: number }> => {
+    await context.supabase.from("mining_jobs")
+      .update({ status: "queued", retry_after: null, attempts: 0 })
+      .eq("user_id", context.userId).eq("status", "running")
+      .lt("updated_at", new Date(Date.now() - MINING_LEASE_STALE_MS).toISOString());
     const { data, error } = await context.supabase
       .from("mining_jobs")
       .update({ status: "queued", retry_after: null, last_error: null, attempts: 0 })
@@ -469,12 +480,17 @@ export const miningLaneCount = createServerFn({ method: "GET" })
 export const listMiningJobs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<MiningJob[]> => {
+    const { error: recoveryError } = await context.supabase.from("mining_jobs")
+      .update({ status: "queued", retry_after: null, attempts: 0 })
+      .eq("user_id", context.userId).eq("status", "running")
+      .lt("updated_at", new Date(Date.now() - MINING_LEASE_STALE_MS).toISOString());
+    if (recoveryError) throw new Error(recoveryError.message);
     const { data, error } = await context.supabase
       .from("mining_jobs")
       .select(SELECT_LIST)
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(500);
     if (error) throw new Error(error.message);
     return (data as unknown as JobRow[]).map(toJob);
   });

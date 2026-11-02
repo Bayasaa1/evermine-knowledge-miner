@@ -7,6 +7,10 @@ import { AsyncLocalStorage } from "node:async_hooks";
 type Ctx = { waitUntil?: (p: Promise<unknown>) => void };
 export const workerContext = new AsyncLocalStorage<Ctx | undefined>();
 
+export function canKeepAlive(): boolean {
+  return typeof workerContext.getStore()?.waitUntil === "function";
+}
+
 /** Keep `promise` alive after the response is sent (no-op outside Workers). */
 export function keepAlive(promise: Promise<unknown>): void {
   const ctx = workerContext.getStore();
