@@ -49,7 +49,9 @@ export const Route = createFileRoute("/api/native-mine")({
         // Parts are saved strictly in order, so a retried request never doubles a part.
         if (index < job.next_index) return json({ ok: true, skipped: true, nextIndex: job.next_index, total: plan.length }, 200);
         if (index !== job.next_index || !plan[index]) return json({ error: "Parts must be mined in order." }, 409);
-        const { start: startSec, end: endSec } = plan[index]!;
+        const window = plan[index];
+        if (!window) return json({ error: "Part not found." }, 409);
+        const { start: startSec, end: endSec } = window;
 
         const frames = Array.isArray(body.frames)
           ? (body.frames as unknown[])
@@ -58,6 +60,15 @@ export const Route = createFileRoute("/api/native-mine")({
               .slice(0, 40)
           : [];
         const audioWav = typeof body.audioWav === "string" && body.audioWav ? body.audioWav : null;
+        if (!frames.length && !audioWav) return json({ error: "No readable frames or audio in this part." }, 400);
+        const { MINING_LEASE_STALE_MS, isQuotaMessage, quotaRetryAfter } = await import("@/lib/mining-jobs");
+        if (job.status === "running" && Date.now() - Date.parse(job.updated_at) <= MINING_LEASE_STALE_MS) return json({ error: "This part is already being mined." }, 409);
+        const { data: claim, error: claimError } = await supabaseAdmin.from("mining_jobs")
+          .update({ status: "running", last_error: null })
+          .eq("id", jobId).eq("user_id", auth.userId).eq("updated_at", job.updated_at)
+          .eq("next_index", index).select("updated_at").maybeSingle();
+        if (claimError) return json({ error: claimError.message }, 500);
+        if (!claim) return json({ error: "This part is already being mined." }, 409);
 
         const { runGeminiRoleWithFallback, aiErrorResponse } = await import("@/lib/user-ai.server");
         const { analyzeUploadedPart } = await import("@/lib/youtube-mine.server");
@@ -74,7 +85,9 @@ export const Route = createFileRoute("/api/native-mine")({
           );
           result = { ...value, window: { start: startSec, end: endSec } };
         } catch (err) {
-          await supabaseAdmin.from("mining_jobs").update({ last_error: err instanceof Error ? err.message.slice(0, 300) : "Mining failed" }).eq("id", jobId);
+          const message = err instanceof Error ? err.message : "Mining failed";
+          const quota = isQuotaMessage(message);
+          await supabaseAdmin.from("mining_jobs").update({ status: quota ? "paused_quota" : "error", last_error: message.slice(0, 500), retry_after: quota ? quotaRetryAfter(message) : null, attempts: quota ? job.attempts : job.attempts + 1 }).eq("id", jobId).eq("status", "running").eq("updated_at", claim.updated_at);
           if (err instanceof Error && !/quota|rate|key/i.test(err.message)) return json({ error: err.message }, 502);
           return aiErrorResponse(err);
         }
@@ -84,8 +97,10 @@ export const Route = createFileRoute("/api/native-mine")({
         const finished = nextIndex >= plan.length;
         const { data: saved } = await supabaseAdmin
           .from("mining_jobs")
-          .update({ results: nextResults as never, next_index: nextIndex, status: finished ? "done" : "running", last_error: null })
+          .update({ results: nextResults as never, next_index: nextIndex, status: finished ? "done" : "queued", last_error: null, retry_after: null, attempts: 0 })
           .eq("id", jobId)
+          .eq("status", "running")
+          .eq("updated_at", claim.updated_at)
           .eq("next_index", index)
           .select("*")
           .maybeSingle();
@@ -94,7 +109,15 @@ export const Route = createFileRoute("/api/native-mine")({
         let contentId: string | null = null;
         if (finished) {
           const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
-          const vaultId = await finalizeMiningJob(supabaseAdmin, { ...saved, vault_id: null } as never).catch(() => null);
+          let vaultId: string | null;
+          try {
+            vaultId = await finalizeMiningJob(supabaseAdmin, { ...saved, vault_id: null } as never);
+            if (!vaultId) throw new Error("Video parts saved, but saving the Mind failed.");
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Could not save the Mind.";
+            await supabaseAdmin.from("mining_jobs").update({ status: "error", last_error: message.slice(0, 500) }).eq("id", jobId);
+            return json({ error: message }, 500);
+          }
           if (vaultId) {
             await supabaseAdmin.from("mining_jobs").update({ vault_id: vaultId }).eq("id", jobId);
             const sourceType = body.sourceType === "camera_record" ? "camera_record" : "native_upload";

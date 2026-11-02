@@ -1,4 +1,5 @@
 import type { Chunk } from "./chunking";
+import { ensureVideoStorage } from "./native-mining.functions";
 import {
   normalizeChunkResult,
   type ChunkResult,
@@ -406,17 +407,18 @@ export async function uploadNativeVideoToStorage(
   file: File, thumbnailBlob: Blob | null, userId: string, projectId: string, onProgress?: (pct: number) => void,
 ) {
   const { supabase } = await import("@/integrations/supabase/client");
+  const { bucket } = await ensureVideoStorage();
   const videoId = nativeVideoId(crypto.randomUUID());
   const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
   const storagePath = `${userId}/${projectId}/${videoId}.${ext}`;
   onProgress?.(0);
-  const up = await supabase.storage.from("creator-videos").upload(storagePath, file, { contentType: file.type || "video/mp4" });
-  if (up.error) throw new Error(up.error.message);
+  const up = await supabase.storage.from(bucket).upload(storagePath, file, { contentType: file.type || "video/mp4" });
+  if (up.error) throw new Error(`Video upload failed: ${up.error.message}`);
   let thumbnailPath: string | null = null;
   if (thumbnailBlob) {
     thumbnailPath = `${userId}/${projectId}/${videoId}-thumb.jpg`;
-    const t = await supabase.storage.from("creator-videos").upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg" });
-    if (t.error) thumbnailPath = null;
+    const t = await supabase.storage.from(bucket).upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg" });
+    if (t.error) throw new Error(`Video cover upload failed: ${t.error.message}`);
   }
   onProgress?.(100);
   return { videoId, storagePath, thumbnailPath };

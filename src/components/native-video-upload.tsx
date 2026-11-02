@@ -4,14 +4,13 @@
  * parts (frames + sound) and mines them one by one on the creator's own keys.
  */
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Camera, CheckCircle2, Film, Loader2, Square, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch } from "@/lib/api-fetch";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { startUploadMining } from "@/lib/native-mining.functions";
+import { ensureVideoStorage, reportUploadMiningError, startUploadMining } from "@/lib/native-mining.functions";
 import { extractParts, readDuration, type ExtractProgress } from "@/lib/video-extract";
-
-const BUCKET = "creator-videos";
 
 const copy = {
   en: {
@@ -47,6 +46,9 @@ type Opt = { id: string; name: string };
 type ProjectOpt = Opt & { personaId: string | null };
 
 export function NativeVideoUpload({ lang }: { lang: Lang }) {
+  const ensureStorage = useServerFn(ensureVideoStorage);
+  const startMining = useServerFn(startUploadMining);
+  const reportError = useServerFn(reportUploadMiningError);
   const t = pickCopy(copy, lang);
   const [userId, setUserId] = useState<string | null>(null);
   const [personas, setPersonas] = useState<Opt[]>([]);
@@ -127,31 +129,36 @@ export function NativeVideoUpload({ lang }: { lang: Lang }) {
     if (!userId) { setError(t.signIn); return; }
     if (!file || !personaId || !projectId || !title.trim()) { setError(t.needPick); return; }
     setBusy(true); setError(""); setFinished(false); setPct(0);
+    let jobId: string | null = null;
     try {
+      const { bucket } = await ensureStorage();
       const ext = (file.name.split(".").pop() ?? "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
       const base = `${userId}/${crypto.randomUUID()}`;
       const storagePath = `${base}.${ext}`;
       setStage(t.uploading);
       // The file uploads while the browser is already cutting it.
-      const upload = supabase.storage.from(BUCKET).upload(storagePath, file, { contentType: file.type || "video/mp4", upsert: false });
+      const upload = supabase.storage.from(bucket).upload(storagePath, file, { contentType: file.type || "video/mp4", upsert: false });
       const durationSec = await readDuration(file);
+      const { error: upErr } = await upload;
+      if (upErr) throw new Error(`Video upload failed: ${upErr.message}`);
+
+      const job = await startMining({
+        data: { personaId, projectId, storagePath, thumbnailPath: null, title: title.trim(), durationSec, sourceType, category: "knowledge", language: lang },
+      });
+      jobId = job.jobId;
 
       let thumbnailPath: string | null = null;
       const first = extractParts(file, undefined, [{ index: 0, startSec: 0, endSec: Math.min(2, durationSec) }]);
       const firstPart = (await first.next()).value;
+      await first.return(undefined);
       const thumb = firstPart?.frames?.[0]?.jpeg;
       if (thumb) {
         const bytes = Uint8Array.from(atob(thumb), (c) => c.charCodeAt(0));
-        const { error: tErr } = await supabase.storage.from(BUCKET).upload(`${base}.jpg`, bytes, { contentType: "image/jpeg" });
-        if (!tErr) thumbnailPath = `${base}.jpg`;
+        const { error: tErr } = await supabase.storage.from(bucket).upload(`${base}.jpg`, bytes, { contentType: "image/jpeg" });
+        if (tErr) throw new Error(`Video cover upload failed: ${tErr.message}`);
+        thumbnailPath = `${base}.jpg`;
       }
 
-      const { error: upErr } = await upload;
-      if (upErr) throw new Error(upErr.message);
-
-      const job = await startUploadMining({
-        data: { personaId, projectId, storagePath, thumbnailPath, title: title.trim(), durationSec, sourceType, category: "knowledge", language: lang },
-      });
       const total = job.plan.length;
       const onProgress = (p: ExtractProgress) => {
         if (p.stage === "audio") { setStage(t.sound); return; }
@@ -178,6 +185,7 @@ export function NativeVideoUpload({ lang }: { lang: Lang }) {
       setStage(t.done);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      if (jobId) await reportError({ data: { jobId, message: (e instanceof Error ? e.message : String(e)).slice(0, 500) } }).catch(() => {});
     } finally {
       setBusy(false);
     }

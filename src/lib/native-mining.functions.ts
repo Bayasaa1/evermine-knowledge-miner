@@ -3,6 +3,35 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { splitIntoChunks } from "@/lib/chunking";
 
+/** Provision only the canonical private video bucket; never expose admin access. */
+export const ensureVideoStorage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { assertNotBanned } = await import("@/lib/api-guard.server");
+    await assertNotBanned(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const bucket = "creator-videos";
+    const { error } = await supabaseAdmin.storage.getBucket(bucket);
+    if (error) {
+      if (!/not found|does not exist/i.test(error.message)) throw new Error(`Video storage unavailable: ${error.message}`);
+      const { error: createError } = await supabaseAdmin.storage.createBucket(bucket, { public: false, fileSizeLimit: 1_073_741_824 });
+      if (createError && !/already exists|duplicate/i.test(createError.message)) throw new Error(`Could not prepare private video storage: ${createError.message}`);
+    }
+    return { bucket };
+  });
+
+export const reportUploadMiningError = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ jobId: z.string().uuid(), message: z.string().min(1).max(500) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("mining_jobs")
+      .update({ status: "error", last_error: data.message })
+      .eq("id", data.jobId).eq("user_id", context.userId).eq("source_kind", "upload")
+      .in("status", ["queued", "running", "error"]);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /**
  * Creates the mining record for a video the creator uploaded or recorded.
  * The file already sits in the creator's own storage folder; the browser
@@ -58,7 +87,7 @@ export const startUploadMining = createServerFn({ method: "POST" })
         results: [] as never,
         next_index: 0,
         total_chunks: chunks.length,
-        status: "running",
+        status: "queued",
         persona_id: data.personaId,
         project_id: data.projectId,
         category: data.category,
