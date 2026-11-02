@@ -23,19 +23,18 @@ test("queued job is free", () => {
 
 import { quotaRetryAfter as qra } from "./mining-jobs";
 import { geminiCascadeAfter, isGeminiCongestionError } from "./gemini-models";
-import { test as t2, expect as e2 } from "bun:test";
-t2("busy Gemini parts retry within 20 seconds", () => {
+test("busy Gemini parts retry within 20 seconds", () => {
   const now = new Date("2026-11-02T12:00:00Z");
   for (const m of ["503 high demand", "429 RESOURCE_EXHAUSTED", "Too many requests in one minute"]) {
-    e2(Date.parse(qra(m, now)) - now.getTime()).toBe(20_000);
+    assert.equal(Date.parse(qra(m, now)) - now.getTime(), 20_000);
   }
 });
-t2("daily quota still waits for the reset", () => {
+test("daily quota still waits for the reset", () => {
   const now = new Date("2026-11-02T12:00:00Z");
-  e2(Date.parse(qra("Your free Gemini daily quota is used up", now)) - now.getTime()).toBeGreaterThan(60_000);
+  assert.ok(Date.parse(qra("Your free Gemini daily quota is used up", now)) - now.getTime() > 60_000);
 });
-t2("cascade order after a congested model", () => {
-  e2(geminiCascadeAfter("gemini-2.5-flash")).toEqual(["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]);
-  e2(isGeminiCongestionError(503)).toBe(true);
-  e2(isGeminiCongestionError(400, "bad request")).toBe(false);
+test("cascade order after a congested model", () => {
+  assert.deepEqual(geminiCascadeAfter("gemini-2.5-flash"), ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]);
+  assert.equal(isGeminiCongestionError(503), true);
+  assert.equal(isGeminiCongestionError(400, "bad request"), false);
 });
