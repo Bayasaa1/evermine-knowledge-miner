@@ -11,7 +11,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { listMiningJobs, miningLaneCount, runNextChunk } from "@/lib/mining-jobs.functions";
-import { miningLeaseState, type MiningJob } from "@/lib/mining-jobs";
+import { MINING_POLL_MS, miningLeaseState, type MiningJob } from "@/lib/mining-jobs";
 import { useAuth } from "@/hooks/use-auth";
 
 const RUNNABLE = new Set(["queued", "running", "paused_quota", "error"]);
@@ -20,6 +20,7 @@ const RUNNABLE = new Set(["queued", "running", "paused_quota", "error"]);
 function playlistOrder(jobs: MiningJob[]): MiningJob[] {
   return jobs
     .filter((j) => RUNNABLE.has(j.status) && j.nextIndex < j.totalChunks)
+    .filter((j) => j.sourceKind !== "upload")
     .filter((j) => !j.retryAfter || new Date(j.retryAfter).getTime() <= Date.now())
     // A job the background worker (or another tab) holds is left alone; the
     // server's atomic claim still has the final say.
@@ -42,7 +43,6 @@ export function MiningAutoResume() {
   useEffect(() => {
     if (!isAuthenticated || !userId) return;
     let cancelled = false;
-    let idle = false;
     let timer: number | null = null;
 
     const drive = async () => {
@@ -52,7 +52,6 @@ export function MiningAutoResume() {
         const [jobs, laneCount] = await Promise.all([list(), lanes().catch(() => 1)]);
         const queue = playlistOrder(jobs);
         // Nothing queued or running: back off so the feed isn't disturbed.
-        idle = !jobs.some((j) => j.status === "running" || j.status === "queued");
         if (!queue.length) return;
         let outOfTokens = false;
         // Lane 0 is the Studio screen's own key; auto lanes start at 1 so a
@@ -86,12 +85,10 @@ export function MiningAutoResume() {
 
     const schedule = () => {
       if (cancelled) return;
-      const onHome = window.location.pathname === "/";
-      const delay = idle ? 10 * 60_000 : onHome ? 5 * 60_000 : 2 * 60_000;
       timer = window.setTimeout(async () => {
-        if (document.visibilityState === "visible") await drive();
+        await drive();
         schedule();
-      }, delay);
+      }, MINING_POLL_MS);
     };
 
     void drive().then(schedule);

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { Camera, Link2, Loader2, Monitor, Square, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch } from "@/lib/api-fetch";
-import { startUploadMining } from "@/lib/native-mining.functions";
+import { reportUploadMiningError, startUploadMining } from "@/lib/native-mining.functions";
 import { inspectVideoFile, uploadNativeVideoToStorage } from "@/lib/mine-file";
 import { extractParts } from "@/lib/video-extract";
 import { NativeMiningPills, type NativeStage } from "@/components/mining-wizard";
@@ -130,6 +131,8 @@ type Opt = { id: string; name: string; personaId?: string | null };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 export function ContentCreateWizard({ lang }: { lang: Lang }) {
+  const startMining = useServerFn(startUploadMining);
+  const reportError = useServerFn(reportUploadMiningError);
   const t = pickCopy(wz, lang);
   const [tab, setTab] = useState<WizTab>("upload");
   const [userId, setUserId] = useState<string | null>(null);
@@ -234,14 +237,16 @@ export function ContentCreateWizard({ lang }: { lang: Lang }) {
     if (!userId) { setError(t.signIn); return; }
     if (!file || !personaId || !projectId || !title.trim()) { setError(t.need); return; }
     setBusy(true); setError(""); setPct(0);
+    let jobId: string | null = null;
     try {
       setStage("upload");
       const meta = await inspectVideoFile(file).catch(() => null);
       const { storagePath, thumbnailPath } = await uploadNativeVideoToStorage(file, meta?.thumbnailBlob ?? null, userId, projectId, setPct);
       const durationSec = meta?.durationSeconds ?? info?.duration ?? 0;
-      const job = await startUploadMining({
+      const job = await startMining({
         data: { personaId, projectId, storagePath, thumbnailPath, title: title.trim(), durationSec, sourceType, category: "knowledge", language: lang },
       });
+      jobId = job.jobId;
       const total = job.plan.length;
       setStage("extract"); setPct(0);
       for await (const part of extractParts(file, () => setStage((s) => (s === "mine" ? s : "extract")), job.plan)) {
@@ -264,6 +269,7 @@ export function ContentCreateWizard({ lang }: { lang: Lang }) {
       setStage("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      if (jobId) await reportError({ data: { jobId, message: (e instanceof Error ? e.message : String(e)).slice(0, 500) } }).catch(() => {});
       setStage("idle");
     } finally {
       setBusy(false);

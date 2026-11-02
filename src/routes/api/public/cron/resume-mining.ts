@@ -33,8 +33,8 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         // while the mining keeps running in the background. ?sync=1 waits.
         const sync = url.searchParams.get("sync") === "1";
         const background = !sync && (url.searchParams.get("async") === "1" || /pg_net/i.test(ua));
-        if (background) {
-          const { keepAlive } = await import("@/lib/worker-context.server");
+        const { canKeepAlive, keepAlive } = await import("@/lib/worker-context.server");
+        if (background && canKeepAlive()) {
           const work = runMiningWorker().catch((err) => {
             console.error("resume-mining background run failed", err);
           });
@@ -126,7 +126,8 @@ async function runMiningWorker(): Promise<Response> {
     const nowIso = new Date().toISOString();
     // Single-flight lease: a job touched in the last 3 minutes is being mined
     // by an open tab or a previous run, so this worker leaves it alone.
-    const leaseIso = new Date(Date.now() - 3 * 60_000).toISOString();
+    const { MINING_LEASE_STALE_MS } = await import("@/lib/mining-jobs");
+    const leaseIso = new Date(Date.now() - MINING_LEASE_STALE_MS).toISOString();
     const { data: allJobs, error } = await supabaseAdmin
       .from("mining_jobs")
       // Creator-paused and stopped jobs are deliberately excluded.
@@ -138,7 +139,7 @@ async function runMiningWorker(): Promise<Response> {
       .neq("source_kind", "upload")
       // A video that keeps failing for a permanent reason is abandoned after
       // a few tries instead of re-mining itself forever.
-      .lt("updated_at", leaseIso)
+      .or(`status.neq.running,updated_at.lt.${leaseIso}`)
       .or(`retry_after.is.null,retry_after.lte.${nowIso}`)
       // Playlist order: oldest added first, then its place in the playlist.
       .order("created_at", { ascending: true })
@@ -183,8 +184,10 @@ async function runMiningWorker(): Promise<Response> {
         .update({ status: "running" })
         .eq("id", job.id)
         .eq("updated_at", job.updated_at)
-        .select("id");
+        .select("updated_at");
       if (!claimed?.length) continue;
+      const lease = claimed[0]?.updated_at;
+      if (!lease) continue;
       const chunks = (Array.isArray(job.chunks) ? job.chunks : []) as {
         start: number;
         end: number;
@@ -221,19 +224,20 @@ async function runMiningWorker(): Promise<Response> {
         await supabaseAdmin
           .from("mining_jobs")
           .update({
+            status: "paused_quota",
             last_error:
               "Choose and test a Gemini key for Mining videos in API Manager so background mining can continue.",
             retry_after: new Date(Date.now() + 20 * 60_000).toISOString(),
           })
-          .eq("id", job.id);
+          .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
         continue;
       }
       // Keep mining this video while there is time left, instead of one
       // chunk every five minutes.
       while (index < chunks.length && Date.now() < deadline) {
-        const chunk = chunks[index]!;
+        const chunk = chunks[index];
+        if (!chunk) break;
         // Claim the part (fresh updated_at) so an open tab leaves it alone.
-        await supabaseAdmin.from("mining_jobs").update({ status: "running" }).eq("id", job.id);
         try {
           const { tryTranscriptMine } = await import("@/lib/youtube-mine.server");
           const fast = await tryTranscriptMine({
@@ -264,7 +268,7 @@ async function runMiningWorker(): Promise<Response> {
             .update({
               results: nextResults as never,
               next_index: index + 1,
-              status: index + 1 >= chunks.length ? "done" : "running",
+              status: index + 1 >= chunks.length ? "done" : "queued",
               last_error: null,
               retry_after: null,
               // Real progress clears the failure budget.
@@ -274,6 +278,8 @@ async function runMiningWorker(): Promise<Response> {
             .eq("id", job.id)
             // An open tab already saved this part: never append it twice.
             .eq("next_index", index)
+            .eq("status", "running")
+            .eq("updated_at", lease)
             .select("id");
           if (!savedRow || savedRow.length === 0) break;
           results = nextResults;
@@ -284,6 +290,7 @@ async function runMiningWorker(): Promise<Response> {
               partial: { done: index, total: chunks.length },
             }).catch(() => null);
           }
+          break;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const quota = isQuotaMessage(message);
@@ -305,19 +312,20 @@ async function runMiningWorker(): Promise<Response> {
               .update({
                 results: nextResults as never,
                 next_index: index + 1,
-                status: index + 1 >= chunks.length ? "done" : "running",
+                status: index + 1 >= chunks.length ? "done" : "queued",
                 last_error: `Part ${index + 1} skipped: AI returned nothing for it.`,
                 retry_after: null,
                 attempts: 0,
               })
               .eq("id", job.id)
               .eq("next_index", index)
+              .eq("status", "running").eq("updated_at", lease)
               .select("id");
             if (!skippedRow || skippedRow.length === 0) break;
             results = nextResults;
             index += 1;
             job.attempts = 0;
-            continue;
+            break;
           }
           // Quota is transient and does not count against the budget;
           // every other failure does, with growing backoff between tries.
@@ -337,7 +345,7 @@ async function runMiningWorker(): Promise<Response> {
                 ? quotaRetryAfter(message)
                 : new Date(Date.now() + backoffMin * 60_000).toISOString(),
             })
-            .eq("id", job.id);
+            .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
           paused += 1;
           if (quota) quotaUsers.add(job.user_id);
           break;

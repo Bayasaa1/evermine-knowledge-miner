@@ -1,4 +1,5 @@
 import type { Chunk } from "./chunking";
+import { ensureVideoStorage } from "./native-mining.functions";
 import {
   normalizeChunkResult,
   type ChunkResult,
@@ -370,21 +371,24 @@ export function formatChunkPayload(
 
 /** Reads length/size and grabs a 640x360 poster at t=1s. Browser only. */
 export async function inspectVideoFile(file: File) {
+  const { waitForVideo, seek } = await import("./video-extract");
   const url = URL.createObjectURL(file);
   const v = document.createElement("video");
   v.muted = true;
   v.preload = "auto";
-  v.src = url;
   try {
-    await new Promise<void>((r, j) => { v.onloadeddata = () => r(); v.onerror = () => j(new Error("This video file could not be read.")); });
-    await new Promise<void>((r) => { v.onseeked = () => r(); v.currentTime = Math.min(1, (v.duration || 1) / 2); });
+    await waitForVideo(v, "loadeddata", () => { v.src = url; });
+    await seek(v, Math.min(1, (v.duration || 1) / 2));
     const c = document.createElement("canvas");
     c.width = 640; c.height = 360;
-    c.getContext("2d")!.drawImage(v, 0, 0, 640, 360);
+    const context = c.getContext("2d");
+    if (!context) throw new Error("Could not extract video poster.");
+    context.drawImage(v, 0, 0, 640, 360);
     const thumbnailDataUrl = c.toDataURL("image/jpeg", 0.7);
     const thumbnailBlob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.7));
     return { durationSeconds: v.duration, width: v.videoWidth, height: v.videoHeight, fileSizeBytes: file.size, thumbnailBlob, thumbnailDataUrl };
   } finally {
+    v.removeAttribute("src"); v.load();
     URL.revokeObjectURL(url);
   }
 }
@@ -403,17 +407,18 @@ export async function uploadNativeVideoToStorage(
   file: File, thumbnailBlob: Blob | null, userId: string, projectId: string, onProgress?: (pct: number) => void,
 ) {
   const { supabase } = await import("@/integrations/supabase/client");
+  const { bucket } = await ensureVideoStorage();
   const videoId = nativeVideoId(crypto.randomUUID());
   const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
   const storagePath = `${userId}/${projectId}/${videoId}.${ext}`;
   onProgress?.(0);
-  const up = await supabase.storage.from("creator-videos").upload(storagePath, file, { contentType: file.type || "video/mp4" });
-  if (up.error) throw new Error(up.error.message);
+  const up = await supabase.storage.from(bucket).upload(storagePath, file, { contentType: file.type || "video/mp4" });
+  if (up.error) throw new Error(`Video upload failed: ${up.error.message}`);
   let thumbnailPath: string | null = null;
   if (thumbnailBlob) {
     thumbnailPath = `${userId}/${projectId}/${videoId}-thumb.jpg`;
-    const t = await supabase.storage.from("creator-videos").upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg" });
-    if (t.error) thumbnailPath = null;
+    const t = await supabase.storage.from(bucket).upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg" });
+    if (t.error) throw new Error(`Video cover upload failed: ${t.error.message}`);
   }
   onProgress?.(100);
   return { videoId, storagePath, thumbnailPath };

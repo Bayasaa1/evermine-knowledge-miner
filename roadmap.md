@@ -1,5 +1,11 @@
 # Roadmap
 
+## Mining pipeline recovery
+- [x] Keep browser mining requests alive, poll every eight seconds, and recover two-minute stale leases
+- [x] Bound native decoding and extraction, verify private uploads and visible native job progress
+- [x] Reset the requesting owner's stalled jobs without losing checkpoints and run all tests
+- [ ] Verify a successfully completed real AI checkpoint — Gemini currently returns high-demand errors
+
 ## SEO findings
 - [x] Inspect the stored Explore/Profile heading finding against current pages
 - [x] Add a multilingual descriptive Profile heading; preserve Explore's redirect

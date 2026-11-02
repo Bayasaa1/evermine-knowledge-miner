@@ -237,6 +237,7 @@ export type MiningJobStatus =
 export type MiningJob = {
   id: string;
   sourceUrl: string;
+  sourceKind?: string;
   sourceLabel: string;
   playlistId: string | null;
   queuePosition: number;
@@ -334,10 +335,11 @@ export function withOwnerIdentity<T extends { speakerIdentity?: string }>(a: T, 
 /** A running job touched this recently is held by a worker or tab: never double-run it. */
 export const MINING_LEASE_HELD_MS = 90_000;
 /** A running job silent for longer than this is stuck and goes back to the queue. */
-export const MINING_LEASE_STALE_MS = 3 * 60_000;
+export const MINING_LEASE_STALE_MS = 2 * 60_000;
+export const MINING_POLL_MS = 8_000;
 
 /**
- * Single-flight lease state. Between 90s and 3min a running job is still
+ * Single-flight lease state. Between 90s and 2min a running job is still
  * treated as held, because one Gemini part can legitimately take that long.
  */
 export function miningLeaseState(
