@@ -3,6 +3,29 @@
 export const GEMINI_DEFAULT_MODEL = "gemini-3.1-flash-lite";
 export const GEMINI_PAID_MODEL = "gemini-3.8-flash";
 
+/**
+ * Free models tried in order when one model's capacity pool is congested
+ * (503 / 429). Each family runs on its own pool, so a busy model rarely means
+ * the next one is busy too. Retired models are skipped automatically.
+ */
+export const GEMINI_CONGESTION_CASCADE = [
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+] as const;
+
+/** Models to try after `current`, never repeating it. */
+export function geminiCascadeAfter(current: string): string[] {
+  return GEMINI_CONGESTION_CASCADE.filter((m) => m !== current);
+}
+
+/** 503 overload / 429 rate-limit: another model may succeed right away. */
+export function isGeminiCongestionError(status: number | undefined, message?: string | null): boolean {
+  if (status === 429 || status === 503 || status === 500 || status === 502 || status === 504) return true;
+  return /resource_exhausted|unavailable|overloaded|high demand|rate limit|too many requests/i.test(message ?? "");
+}
+
 // Google returns this when a model is retired for the key's user tier.
 // It is permanent — retrying only burns quota.
 export function isGeminiModelRetiredError(message: string | undefined | null): boolean {
