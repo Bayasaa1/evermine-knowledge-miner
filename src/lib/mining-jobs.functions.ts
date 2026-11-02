@@ -84,7 +84,7 @@ function toJob(row: JobRow): MiningJob {
   return {
     id: row.id,
     sourceUrl: row.source_url,
-    sourceKind: row.source_kind,
+    sourceKind: row.source_kind ?? "youtube",
     sourceLabel: row.source_label,
     playlistId: row.playlist_id,
     queuePosition: row.queue_position,

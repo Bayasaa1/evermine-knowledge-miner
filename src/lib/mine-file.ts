@@ -370,21 +370,24 @@ export function formatChunkPayload(
 
 /** Reads length/size and grabs a 640x360 poster at t=1s. Browser only. */
 export async function inspectVideoFile(file: File) {
+  const { waitForVideo, seek } = await import("./video-extract");
   const url = URL.createObjectURL(file);
   const v = document.createElement("video");
   v.muted = true;
   v.preload = "auto";
-  v.src = url;
   try {
-    await new Promise<void>((r, j) => { v.onloadeddata = () => r(); v.onerror = () => j(new Error("This video file could not be read.")); });
-    await new Promise<void>((r) => { v.onseeked = () => r(); v.currentTime = Math.min(1, (v.duration || 1) / 2); });
+    await waitForVideo(v, "loadeddata", () => { v.src = url; });
+    await seek(v, Math.min(1, (v.duration || 1) / 2));
     const c = document.createElement("canvas");
     c.width = 640; c.height = 360;
-    c.getContext("2d")!.drawImage(v, 0, 0, 640, 360);
+    const context = c.getContext("2d");
+    if (!context) throw new Error("Could not extract video poster.");
+    context.drawImage(v, 0, 0, 640, 360);
     const thumbnailDataUrl = c.toDataURL("image/jpeg", 0.7);
     const thumbnailBlob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.7));
     return { durationSeconds: v.duration, width: v.videoWidth, height: v.videoHeight, fileSizeBytes: file.size, thumbnailBlob, thumbnailDataUrl };
   } finally {
+    v.removeAttribute("src"); v.load();
     URL.revokeObjectURL(url);
   }
 }

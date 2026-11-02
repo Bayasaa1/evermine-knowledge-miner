@@ -10,6 +10,26 @@ export const PART_SECONDS = 300;
 export const AUDIO_RATE = 12_000;
 export const FRAMES_PER_PART = 24;
 export const FRAME_WIDTH = 512;
+export const DECODE_TIMEOUT_MS = 15_000;
+
+export function withDecodeTimeout<T>(work: Promise<T>, timeoutMs = DECODE_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Video decoding timed out after 15 seconds.")), timeoutMs);
+    work.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
+}
+
+export function waitForVideo(v: HTMLVideoElement, event: "loadeddata" | "loadedmetadata" | "seeked", start: () => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { clearTimeout(timer); v.removeEventListener(event, done); v.removeEventListener("error", fail); };
+    const done = () => { cleanup(); resolve(); };
+    const fail = () => { cleanup(); reject(new Error("This video file could not be decoded.")); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error("Video decoding timed out after 15 seconds.")); }, DECODE_TIMEOUT_MS);
+    v.addEventListener(event, done);
+    v.addEventListener("error", fail);
+    try { start(); } catch { fail(); }
+  });
+}
 
 export type PartWindow = { index: number; startSec: number; endSec: number };
 
@@ -63,41 +83,43 @@ export type ExtractProgress = { stage: "audio" | "frames"; done: number; total: 
 
 /** Reads the video length without loading the whole file. */
 export function readDuration(file: File): Promise<number> {
-  return new Promise((resolve, reject) => {
+  return (async () => {
     const url = URL.createObjectURL(file);
     const v = document.createElement("video");
     v.preload = "metadata";
-    v.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(v.duration); };
-    v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("This video file could not be read.")); };
-    v.src = url;
-  });
+    try {
+      await waitForVideo(v, "loadedmetadata", () => { v.src = url; });
+      if (!Number.isFinite(v.duration) || v.duration <= 0) throw new Error("This video has no readable duration.");
+      return v.duration;
+    } finally { v.removeAttribute("src"); v.load(); URL.revokeObjectURL(url); }
+  })();
 }
 
 /** Decodes the whole sound track once and resamples it to 12kHz mono. */
 async function decodeMonoAudio(file: File): Promise<AudioBuffer | null> {
+  let ctx: AudioContext | undefined;
   try {
-    const raw = await file.arrayBuffer();
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    const decoded = await ctx.decodeAudioData(raw);
-    void ctx.close();
+    ctx = new Ctx();
+    const audioContext = ctx;
+    return await withDecodeTimeout((async () => {
+    const raw = await file.arrayBuffer();
+    const decoded = await audioContext.decodeAudioData(raw);
     const off = new OfflineAudioContext(1, Math.ceil(decoded.duration * AUDIO_RATE), AUDIO_RATE);
     const src = off.createBufferSource();
     src.buffer = decoded;
     src.connect(off.destination);
     src.start();
     return await off.startRendering();
+    })());
   } catch {
     return null; // silent or unsupported audio — frames still go through
-  }
+  } finally { if (ctx) void ctx.close().catch(() => {}); }
 }
 
-function seek(v: HTMLVideoElement, t: number): Promise<void> {
-  return new Promise((resolve) => {
-    const done = () => { v.removeEventListener("seeked", done); resolve(); };
-    v.addEventListener("seeked", done);
-    v.currentTime = t;
-  });
+export function seek(v: HTMLVideoElement, t: number): Promise<void> {
+  if (Math.abs(v.currentTime - t) < 0.001 && v.readyState >= 2) return Promise.resolve();
+  return waitForVideo(v, "seeked", () => { v.currentTime = t; });
 }
 
 /**
@@ -122,15 +144,15 @@ export async function* extractParts(
   const video = document.createElement("video");
   video.muted = true;
   video.preload = "auto";
-  video.src = url;
-  await new Promise<void>((r, j) => { video.onloadeddata = () => r(); video.onerror = () => j(new Error("This video file could not be played.")); });
+  try {
+  await waitForVideo(video, "loadeddata", () => { video.src = url; });
   const canvas = document.createElement("canvas");
   const scale = Math.min(1, FRAME_WIDTH / (video.videoWidth || FRAME_WIDTH));
   canvas.width = Math.max(1, Math.round((video.videoWidth || FRAME_WIDTH) * scale));
   canvas.height = Math.max(1, Math.round((video.videoHeight || FRAME_WIDTH) * scale));
-  const g = canvas.getContext("2d")!;
+  const g = canvas.getContext("2d");
+  if (!g) throw new Error("Could not extract video frames.");
 
-  try {
     for (const win of windows) {
       const frames: { t: number; jpeg: string }[] = [];
       const times = frameTimes(win);
@@ -149,6 +171,7 @@ export async function* extractParts(
       yield { ...win, frames, audioWav };
     }
   } finally {
+    video.removeAttribute("src"); video.load();
     URL.revokeObjectURL(url);
   }
 }
