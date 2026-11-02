@@ -1484,8 +1484,8 @@ export async function mineChunk(
   signal?: AbortSignal,
   category?: MiningCategory,
 ): Promise<ChunkResult> {
-  const res = await geminiRequest(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+  const res = await requestWithCascade(model, (m) => geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(m)}:generateContent`,
     key,
     {
       method: "POST",
@@ -1557,8 +1557,8 @@ export async function mineUrlSegment(
   signal?: AbortSignal,
   category?: MiningCategory,
 ): Promise<ChunkResult> {
-  const res = await geminiRequest(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+  const res = await requestWithCascade(model, (m) => geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(m)}:generateContent`,
     key,
     {
       method: "POST",
