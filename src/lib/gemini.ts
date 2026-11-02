@@ -2,6 +2,17 @@ import { getGeminiAccessToken } from "./google-gemini-auth";
 import type { Lang } from "./i18n";
 
 import { recordUsage, readTokens } from "@/lib/token-usage";
+import { geminiCascadeAfter, isGeminiCongestionError } from "@/lib/gemini-models";
+
+/** On 503/429 from one model's pool, retries the same request on the free cascade. */
+async function requestWithCascade(model: string, send: (model: string) => Promise<Response>): Promise<Response> {
+  let res = await send(model);
+  for (const next of geminiCascadeAfter(model)) {
+    if (res.ok || !isGeminiCongestionError(res.status)) return res;
+    res = await send(next);
+  }
+  return res;
+}
 
 const BASE = "https://generativelanguage.googleapis.com";
 
@@ -1484,8 +1495,8 @@ export async function mineChunk(
   signal?: AbortSignal,
   category?: MiningCategory,
 ): Promise<ChunkResult> {
-  const res = await geminiRequest(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+  const res = await requestWithCascade(model, (m) => geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(m)}:generateContent`,
     key,
     {
       method: "POST",
@@ -1519,7 +1530,7 @@ export async function mineChunk(
         },
       }),
     },
-  );
+  ));
   if (!res.ok) throw await readError(res);
   const data = await res.json();
   void recordUsage({ provider: "gemini-builtin", model, stage: "perception", ...readTokens(data) });
@@ -1557,8 +1568,8 @@ export async function mineUrlSegment(
   signal?: AbortSignal,
   category?: MiningCategory,
 ): Promise<ChunkResult> {
-  const res = await geminiRequest(
-    `${BASE}/v1/models/${encodeURIComponent(model)}:generateContent`,
+  const res = await requestWithCascade(model, (m) => geminiRequest(
+    `${BASE}/v1/models/${encodeURIComponent(m)}:generateContent`,
     key,
     {
       method: "POST",
@@ -1588,7 +1599,7 @@ export async function mineUrlSegment(
         },
       }),
     },
-  );
+  ));
   if (!res.ok) throw await readError(res);
   const data = await res.json();
   void recordUsage({ provider: "gemini-builtin", model, stage: "perception", ...readTokens(data) });

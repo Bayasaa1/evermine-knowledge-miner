@@ -13,7 +13,7 @@ import { isSafeEndpoint } from "@/lib/safe-endpoint";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AiRole } from "@/lib/ai-roles";
-import { GEMINI_DEFAULT_MODEL, GEMINI_PAID_MODEL } from "@/lib/gemini-models";
+import { GEMINI_DEFAULT_MODEL, GEMINI_PAID_MODEL, geminiCascadeAfter, isGeminiCongestionError } from "@/lib/gemini-models";
 import { httpStatusOf, isServerBusyStatus, withBackoff } from "@/lib/retry";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
@@ -995,12 +995,46 @@ export async function geminiGenerate(opts: GeminiGenerateOpts): Promise<string> 
   try {
     return await geminiGenerateOnce({ ...opts, model });
   } catch (err) {
-    if (!(err instanceof UserAiError && err.code === "model_unavailable")) throw err;
-    FREE_MODEL_CACHE.set(key, { model, at: Date.now() });
-    const next = await resolveFreeGeminiModel(key, true);
-    if (next === model) throw err;
-    return geminiGenerateOnce({ ...opts, model: next });
+    if (err instanceof UserAiError && err.code === "model_unavailable") {
+      FREE_MODEL_CACHE.set(key, { model, at: Date.now() });
+      const next = await resolveFreeGeminiModel(key, true);
+      if (next !== model) {
+        try {
+          return await geminiGenerateOnce({ ...opts, model: next });
+        } catch (again) {
+          if (!isCongestion(again)) throw again;
+          return cascadeModels(opts, next, again);
+        }
+      }
+      throw err;
+    }
+    if (!isCongestion(err)) throw err;
+    return cascadeModels(opts, model, err);
   }
+}
+
+function isCongestion(err: unknown): boolean {
+  if (err instanceof UserAiError) return err.code === "rate_minute" || err.code === "quota";
+  if (err instanceof GeminiHttpError) return isGeminiCongestionError(err.status, err.message);
+  return false;
+}
+
+/**
+ * One model's pool is busy (503/429): walk the free cascade on the same key
+ * inside this request before the job is ever deferred. Retired models skip.
+ */
+async function cascadeModels(opts: GeminiGenerateOpts, tried: string, firstError: unknown): Promise<string> {
+  let lastError = firstError;
+  for (const model of geminiCascadeAfter(tried)) {
+    try {
+      return await geminiGenerateOnce({ ...opts, model });
+    } catch (err) {
+      if (err instanceof UserAiError && err.code === "model_unavailable") continue;
+      if (!isCongestion(err)) throw err;
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
 async function geminiGenerateOnce(opts: GeminiGenerateOpts): Promise<string> {
