@@ -1,5 +1,10 @@
 # Roadmap
 
+## Mining pipeline recovery
+- [ ] Keep browser mining requests alive, poll every eight seconds, and recover two-minute stale leases
+- [ ] Bound native decoding and extraction, verify private uploads and visible native job progress
+- [ ] Reset the requesting owner's stalled jobs without losing checkpoints and verify real mining plus tests
+
 ## SEO findings
 - [x] Inspect the stored Explore/Profile heading finding against current pages
 - [x] Add a multilingual descriptive Profile heading; preserve Explore's redirect
