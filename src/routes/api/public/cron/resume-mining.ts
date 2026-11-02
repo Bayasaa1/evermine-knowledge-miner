@@ -27,20 +27,8 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
           if (!projectKey || !token || token !== projectKey) return denied;
         }
 
-        const url = new URL(request.url);
-        const ua = request.headers.get("user-agent") ?? "";
-        // pg_net gives up after 5s, so it (and ?async=1) gets an instant 202
-        // while the mining keeps running in the background. ?sync=1 waits.
-        const sync = url.searchParams.get("sync") === "1";
-        const background = !sync && (url.searchParams.get("async") === "1" || /pg_net/i.test(ua));
-        const { canKeepAlive, keepAlive } = await import("@/lib/worker-context.server");
-        if (background && canKeepAlive()) {
-          const work = runMiningWorker().catch((err) => {
-            console.error("resume-mining background run failed", err);
-          });
-          keepAlive(work);
-          return json({ ok: true, dispatched: true }, 202);
-        }
+        // Always await the mining pass: a background promise after an early
+        // 202 is killed by the runtime and leaves the job locked with no progress.
         try {
           return await runMiningWorker();
         } catch (err) {
