@@ -186,7 +186,7 @@ async function runMiningWorker(): Promise<Response> {
         .eq("updated_at", job.updated_at)
         .select("updated_at");
       if (!claimed?.length) continue;
-      let lease = claimed[0]?.updated_at;
+      const lease = claimed[0]?.updated_at;
       if (!lease) continue;
       const chunks = (Array.isArray(job.chunks) ? job.chunks : []) as {
         start: number;
@@ -224,11 +224,12 @@ async function runMiningWorker(): Promise<Response> {
         await supabaseAdmin
           .from("mining_jobs")
           .update({
+            status: "paused_quota",
             last_error:
               "Choose and test a Gemini key for Mining videos in API Manager so background mining can continue.",
             retry_after: new Date(Date.now() + 20 * 60_000).toISOString(),
           })
-          .eq("id", job.id);
+          .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
         continue;
       }
       // Keep mining this video while there is time left, instead of one
@@ -311,19 +312,20 @@ async function runMiningWorker(): Promise<Response> {
               .update({
                 results: nextResults as never,
                 next_index: index + 1,
-                status: index + 1 >= chunks.length ? "done" : "running",
+                status: index + 1 >= chunks.length ? "done" : "queued",
                 last_error: `Part ${index + 1} skipped: AI returned nothing for it.`,
                 retry_after: null,
                 attempts: 0,
               })
               .eq("id", job.id)
               .eq("next_index", index)
+              .eq("status", "running").eq("updated_at", lease)
               .select("id");
             if (!skippedRow || skippedRow.length === 0) break;
             results = nextResults;
             index += 1;
             job.attempts = 0;
-            continue;
+            break;
           }
           // Quota is transient and does not count against the budget;
           // every other failure does, with growing backoff between tries.
@@ -343,7 +345,7 @@ async function runMiningWorker(): Promise<Response> {
                 ? quotaRetryAfter(message)
                 : new Date(Date.now() + backoffMin * 60_000).toISOString(),
             })
-            .eq("id", job.id);
+            .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
           paused += 1;
           if (quota) quotaUsers.add(job.user_id);
           break;

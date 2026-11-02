@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2 } from "lucide-react";
 
-import { clearMiningHistory, continueMiningNow, resumeStuckMiningJobs, listMiningJobs, setMiningJobState } from "@/lib/mining-jobs.functions";
+import { clearMiningHistory, continueMiningNow, resumeStuckMiningJobs, listMiningJobs, runNextChunk, setMiningJobState } from "@/lib/mining-jobs.functions";
 import { formatDuration, jobParts, jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 const COPY = {
   en: {
     title: "Live mining",
-    sub: "Mining runs on our servers. You can close this tab or the whole app — every checkpoint keeps saving.",
+    sub: "Checkpoints are saved. Keep an app tab open to continue mining; uploaded videos need their upload tab.",
     none: "No mining jobs yet. Start one from the Create wizard.",
     active: "Working now",
     finished: "Finished",
@@ -33,7 +33,7 @@ const COPY = {
   },
   mn: {
     title: "Шууд мining",
-    sub: "Мining сервер дээр ажиллана. Таб эсвэл апп-аа хаасан ч бүх хэсэг хадгалагдсаар байна.",
+    sub: "Хэсгүүд хадгалагдана. Майнинг үргэлжлүүлэхийн тулд аппын цонхоо, хуулсан видеонд хуулах цонхоо нээлттэй байлгаарай.",
     none: "Одоогоор ажил алга. Бүтээх хэсгээс эхлүүлнэ үү.",
     active: "Ажиллаж байна",
     finished: "Дууссан",
@@ -55,7 +55,7 @@ const COPY = {
   },
   ko: {
     title: "실시간 마이닝",
-    sub: "마이닝은 서버에서 실행됩니다. 탭이나 앱을 닫아도 체크포인트는 계속 저장됩니다.",
+    sub: "체크포인트는 저장됩니다. 계속하려면 앱 탭을 열어 두세요. 업로드 영상은 업로드 탭이 필요합니다.",
     none: "아직 작업이 없습니다. 만들기에서 시작하세요.",
     active: "진행 중",
     finished: "완료",
@@ -135,14 +135,24 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   });
 
   const wakeFn = useServerFn(resumeStuckMiningJobs);
+  const step = useServerFn(runNextChunk);
   const wake = useMutation({
-    mutationFn: () => wakeFn(),
+    mutationFn: async () => {
+      const result = await wakeFn();
+      const queue = await fetchJobs();
+      const job = queue.find((j) => j.status === "queued" && j.sourceKind !== "upload" && j.nextIndex < j.totalChunks);
+      if (job) await step({ data: { jobId: job.id, respectLease: true } });
+      return result;
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
   const continueNowFn = useServerFn(continueMiningNow);
   const kick = useMutation({
-    mutationFn: (jobId: string) => continueNowFn({ data: { jobId } }),
+    mutationFn: async (jobId: string) => {
+      await continueNowFn({ data: { jobId } });
+      if (jobs.find((j) => j.id === jobId)?.sourceKind !== "upload") await step({ data: { jobId, respectLease: true } });
+    },
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
@@ -234,7 +244,7 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
             </ul>
           </details>
         ) : null}
-        {job.status === "error" && job.lastError ? (
+        {job.lastError ? (
           <p className="mt-2 line-clamp-2 text-xs text-destructive">{job.lastError}</p>
         ) : null}
 

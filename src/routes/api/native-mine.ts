@@ -47,7 +47,17 @@ export const Route = createFileRoute("/api/native-mine")({
         const plan = (Array.isArray(job.chunks) ? job.chunks : []) as { start: number; end: number }[];
         const results = (Array.isArray(job.results) ? job.results : []) as unknown[];
         // Parts are saved strictly in order, so a retried request never doubles a part.
-        if (index < job.next_index) return json({ ok: true, skipped: true, nextIndex: job.next_index, total: plan.length }, 200);
+        if (index < job.next_index) {
+          if (job.next_index >= plan.length && !job.vault_id) {
+            try {
+              const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
+              const vault = await finalizeMiningJob(supabaseAdmin, job as never);
+              if (!vault) throw new Error("Could not save the Mind.");
+              await supabaseAdmin.from("mining_jobs").update({ status: "done", vault_id: vault, last_error: null }).eq("id", jobId);
+            } catch (err) { return json({ error: err instanceof Error ? err.message : "Could not save the Mind." }, 500); }
+          }
+          return json({ ok: true, skipped: true, nextIndex: job.next_index, total: plan.length }, 200);
+        }
         if (index !== job.next_index || !plan[index]) return json({ error: "Parts must be mined in order." }, 409);
         const window = plan[index];
         if (!window) return json({ error: "Part not found." }, 409);
@@ -95,7 +105,7 @@ export const Route = createFileRoute("/api/native-mine")({
         const nextResults = [...results.slice(0, index), result];
         const nextIndex = index + 1;
         const finished = nextIndex >= plan.length;
-        const { data: saved } = await supabaseAdmin
+        const { data: saved, error: saveError } = await supabaseAdmin
           .from("mining_jobs")
           .update({ results: nextResults as never, next_index: nextIndex, status: finished ? "done" : "queued", last_error: null, retry_after: null, attempts: 0 })
           .eq("id", jobId)
@@ -104,7 +114,8 @@ export const Route = createFileRoute("/api/native-mine")({
           .eq("next_index", index)
           .select("*")
           .maybeSingle();
-        if (!saved) return json({ ok: true, skipped: true, nextIndex, total: plan.length }, 200);
+        if (saveError) return json({ error: saveError.message }, 500);
+        if (!saved) return json({ error: "Mining was paused or restarted before this part finished. Retry this part." }, 409);
 
         let contentId: string | null = null;
         if (finished) {
