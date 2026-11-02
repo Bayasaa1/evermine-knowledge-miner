@@ -333,9 +333,9 @@ export function withOwnerIdentity<T extends { speakerIdentity?: string }>(a: T, 
 }
 
 /** A running job touched this recently is held by a worker or tab: never double-run it. */
-export const MINING_LEASE_HELD_MS = 90_000;
+export const MINING_LEASE_HELD_MS = 60_000;
 /** A running job silent for longer than this is stuck and goes back to the queue. */
-export const MINING_LEASE_STALE_MS = 2 * 60_000;
+export const MINING_LEASE_STALE_MS = 75_000;
 export const MINING_POLL_MS = 8_000;
 
 /**

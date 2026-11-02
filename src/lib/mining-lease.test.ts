@@ -8,11 +8,11 @@ const ago = (s: number) => new Date(now - s * 1000).toISOString();
 test("running job updated under 90s ago is held", () => {
   assert.equal(miningLeaseState("running", ago(60), now), "held");
 });
-test("running job silent over 2 minutes is stale", () => {
-  assert.equal(miningLeaseState("running", ago(121), now), "stale");
+test("running job silent over 75 seconds is stale", () => {
+  assert.equal(miningLeaseState("running", ago(76), now), "stale");
 });
-test("a two-minute running lease is still held", () => {
-  assert.equal(miningLeaseState("running", ago(120), now), "held");
+test("a 75-second running lease is still held", () => {
+  assert.equal(miningLeaseState("running", ago(75), now), "held");
 });
 test("open app polling interval is eight seconds", () => {
   assert.equal(MINING_POLL_MS, 8000);

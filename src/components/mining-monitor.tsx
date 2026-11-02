@@ -147,6 +147,19 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
+  const activeJob = jobs.find((j) => j.status === "running" && j.nextIndex < j.totalChunks) ?? null;
+  const mineNext = useMutation({
+    mutationFn: async () => {
+      const queue = await fetchJobs();
+      const job = queue.find(
+        (j) => (j.status === "queued" || j.status === "paused_quota" || j.status === "error") &&
+          j.sourceKind !== "upload" && j.nextIndex < j.totalChunks,
+      );
+      if (job) await step({ data: { jobId: job.id, respectLease: true } });
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
+  });
+
   const continueNowFn = useServerFn(continueMiningNow);
   const kick = useMutation({
     mutationFn: async (jobId: string) => {
@@ -325,6 +338,21 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
         {wake.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} {t.wake}
         {wake.data ? ` (${wake.data.count})` : ""}
       </button>
+      <button
+        type="button"
+        disabled={mineNext.isPending}
+        onClick={() => mineNext.mutate()}
+        className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+      >
+        {mineNext.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {lang === "mn" ? "▶️ Дараагийн хэсгийг одоо олборлох" : lang === "ko" ? "▶️ 다음 파트 지금 마이닝" : "▶️ Mine Next Part Now"}
+      </button>
+      {activeJob ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          {activeJob.sourceLabel} · {t.chunk} {activeJob.nextIndex + 1}/{activeJob.totalChunks}
+        </p>
+      ) : null}
 
       {live.length > 0 ? <ul className="space-y-3">{live.map((j) => row(j, true))}</ul> : null}
 
