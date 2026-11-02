@@ -271,18 +271,18 @@ export function jobProgress(job: MiningJob): number {
   return Math.round((job.nextIndex / job.totalChunks) * 100);
 }
 
+/** Longest pause after a busy/rate-limited part; the model cascade already tried others. */
+export const MINING_BUSY_RETRY_MS = 20_000;
+
 /**
- * When a stopped video may try again. A per-minute burst waits ~90s; the free
- * daily quota waits until Google's reset at midnight US Pacific, so no calls
- * are wasted while tokens are gone.
+ * When a stopped video may try again. Per-minute bursts, overload (503) and
+ * key hiccups wait at most 20s; only the used-up free daily quota waits until
+ * Google's reset at midnight US Pacific, so no calls are wasted while it's gone.
  */
 export function quotaRetryAfter(message: string, now = new Date()): string {
-  if (/one minute|per.?minute|rate_minute|wait a moment/i.test(message)) {
-    return new Date(now.getTime() + 90_000).toISOString();
-  }
-  // Overload (503) and key rejection are short-lived: try again in ~20 min.
-  if (/503|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid/i.test(message)) {
-    return new Date(now.getTime() + 20 * 60_000).toISOString();
+  if (/one minute|per.?minute|rate_minute|wait a moment|503|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid|429|resource_exhausted|too many requests/i.test(message)
+    && !/daily quota|per.?day/i.test(message)) {
+    return new Date(now.getTime() + MINING_BUSY_RETRY_MS).toISOString();
   }
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
