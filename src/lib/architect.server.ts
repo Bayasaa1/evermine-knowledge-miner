@@ -44,7 +44,7 @@ async function projectVaults(userId: string, projectId: string) {
     .select("id,title,payload,updated_at")
     .eq("user_id", userId)
     .eq("project_id", projectId)
-    .eq("kind", "review")
+    .in("kind", ["mine", "review"])
     .order("updated_at", { ascending: false })
     .limit(40);
   return (data ?? []) as { id: string; title: string; payload: MindPayload }[];
@@ -290,7 +290,7 @@ export async function auditEntireSystem(userId: string): Promise<ArchitectResult
 
 async function deepenVault(userId: string, row: MineRow): Promise<boolean> {
   const result = (row.payload["result"] ?? {}) as Record<string, unknown>;
-  const evidence = JSON.stringify({ journal: result["journal"], transcript: result["transcript"], knowledge: result["knowledge"], knowledgeNodes: result["knowledgeNodes"] }).slice(0, 14000);
+    const evidence = JSON.stringify({ journal: result["journal"], transcript: result["transcript"], knowledge: result["knowledge"], knowledgeNodes: result["knowledgeNodes"], screenItems: result["screenItems"] }).slice(0, 14000);
   if (evidence.length < 200) return false;
   const out = await ask(
     userId,

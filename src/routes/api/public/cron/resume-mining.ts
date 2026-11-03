@@ -229,6 +229,8 @@ async function runMiningWorker(): Promise<Response> {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const quota = isQuotaMessage(message);
+          const { httpStatusOf } = await import("@/lib/retry");
+          const providerStatus = httpStatusOf(err) ?? (err as { httpStatus?: number })?.httpStatus;
           // An empty AI answer on one part must never strand the whole
           // video: after repeated empty answers, mark that one part as
           // skipped (flagged for later repair) and continue with the next.
@@ -272,7 +274,7 @@ async function runMiningWorker(): Promise<Response> {
           await supabaseAdmin
             .from("mining_jobs")
             .update({
-              status: quota ? "paused_quota" : giveUp ? "abandoned" : "error",
+              status: providerStatus === 403 || providerStatus === 422 ? "stopped" : quota ? "paused_quota" : giveUp ? "abandoned" : "error",
               last_error: message.slice(0, 500),
               attempts: tries,
               retry_after: quotaRetryAfter(message),
