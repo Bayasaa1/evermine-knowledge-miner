@@ -280,21 +280,8 @@ export const MINING_BUSY_RETRY_MS = 20_000;
  * Google's reset at midnight US Pacific, so no calls are wasted while it's gone.
  */
 export function quotaRetryAfter(message: string, now = new Date()): string {
-  if (/one minute|per.?minute|rate_minute|wait a moment|503|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid|429|resource_exhausted|too many requests/i.test(message)
-    && !/daily quota|per.?day/i.test(message)) {
-    return new Date(now.getTime() + MINING_BUSY_RETRY_MS).toISOString();
-  }
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(now);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
-  const elapsed = (get("hour") * 3600 + get("minute") * 60 + get("second")) * 1000;
-  // +2 minutes of margin after the reset.
-  return new Date(now.getTime() + (86_400_000 - elapsed) + 120_000).toISOString();
+  void message;
+  return new Date(now.getTime() + MINING_BUSY_RETRY_MS).toISOString();
 }
 
 export function isQuotaMessage(message: string): boolean {
@@ -339,8 +326,7 @@ export const MINING_LEASE_STALE_MS = 75_000;
 export const MINING_POLL_MS = 8_000;
 
 /**
- * Single-flight lease state. Between 90s and 2min a running job is still
- * treated as held, because one Gemini part can legitimately take that long.
+ * Single-flight lease state: a running job stays held for 75 seconds.
  */
 export function miningLeaseState(
   status: string,

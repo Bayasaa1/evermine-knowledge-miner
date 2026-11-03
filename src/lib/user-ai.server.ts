@@ -374,16 +374,16 @@ function sameKeyRetry<T>(run: () => Promise<T>): Promise<T> {
 
 /** Short rest for a busy key, an hour for a used-up one. */
 function limitCooldown(error: unknown): { status: "ok" | "exhausted"; until: string } {
-  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 60 * 1000).toISOString() };
+  if (isBusyError(error)) return { status: "ok", until: new Date(Date.now() + 20_000).toISOString() };
   const minute = error instanceof UserAiError && error.code === "rate_minute";
   if (minute) {
-    const ms = Math.max(20, (error as UserAiError).retryAfterSec) * 1000;
+    const ms = 20_000;
     return { status: "ok", until: new Date(Date.now() + ms).toISOString() };
   }
   // Free-tier Gemini 429s are almost always per-minute bursts, not a used-up
   // day: rest briefly and stay "ok" so the key is never shown as dead.
   if (error instanceof GeminiHttpError && error.status === 429) {
-    return { status: "ok", until: new Date(Date.now() + 2 * 60 * 1000).toISOString() };
+    return { status: "ok", until: new Date(Date.now() + 20_000).toISOString() };
   }
   return { status: "exhausted", until: new Date(Date.now() + 20 * 60 * 1000).toISOString() };
 }
@@ -590,7 +590,7 @@ export async function generateRoleText(opts: {
     }
     try {
       const current = resolved;
-      const run = await sameKeyRetry(() => call(current));
+      const run = await call(current);
       await log(resolved, run);
       return {
         text: run.text,
@@ -612,20 +612,12 @@ export async function generateRoleText(opts: {
         // back on its own in case the refusal was temporary.
         await markKeyUnavailable(resolved.id, "invalid", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
       }
-      if (limit && isBusyError(error)) {
+      if (limit) {
         // 5xx after same-key retries: brief rest, never "exhausted".
         const rest = limitCooldown(error);
         await markKeyUnavailable(resolved.id, rest.status, rest.until);
-      } else if (limit) {
-        // A minute burst is not an exhausted key. Briefly cool it down, then
-        // let it rejoin the fallback pool automatically. Only daily/provider
-        // credit exhaustion receives the persistent exhausted status.
-        const minute = error instanceof UserAiError && error.code === "rate_minute";
-        const cooldown = minute
-          ? new Date(Date.now() + Math.max(20, error.retryAfterSec) * 1000).toISOString()
-          : new Date(Date.now() + 60 * 60 * 1000).toISOString();
-        await markKeyUnavailable(resolved.id, minute ? "ok" : "exhausted", cooldown);
       }
+      if (httpStatusOf(error) === 403 || (error instanceof UserAiError && error.httpStatus === 403) || httpStatusOf(error) === 422) throw error;
       skipped.push(resolved.id);
       if (!resolved.autoFallback) throw error;
     }
@@ -879,7 +871,8 @@ async function raiseForGemini(res: Response): Promise<never> {
   if (res.status === 400 && /api key|key not valid|permission/i.test(detail)) {
     throw new UserAiError("no_credential", "That Gemini key was rejected. Add or replace it in API Manager.", 401);
   }
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 403) throw new UserAiError("unsupported_task", detail || "Gemini denied access to this request.", 403);
+  if (res.status === 401) {
     throw new UserAiError("no_credential", "Gemini rejected this key. Add or replace it in API Manager.", 401);
   }
   throw new GeminiHttpError(res.status, detail || `Gemini request failed (${res.status}).`);
@@ -989,7 +982,10 @@ type GeminiGenerateOpts = {
  * that once — the user never sees an "update your model" error.
  */
 export async function geminiGenerate(opts: GeminiGenerateOpts): Promise<string> {
-  if (!isAutoModel(opts.model)) return geminiGenerateOnce(opts);
+  if (!isAutoModel(opts.model)) {
+    try { return await geminiGenerateOnce(opts); }
+    catch (err) { if (!isCongestion(err)) throw err; return cascadeModels(opts, opts.model ?? GEMINI_DEFAULT_MODEL, err); }
+  }
   const key = opts.credential.value;
   const model = FREE_MODEL_CACHE.get(key)?.model ?? GEMINI_DEFAULT_MODEL;
   try {
@@ -1026,6 +1022,7 @@ function isCongestion(err: unknown): boolean {
 async function cascadeModels(opts: GeminiGenerateOpts, tried: string, firstError: unknown): Promise<string> {
   let lastError = firstError;
   for (const model of geminiCascadeAfter(tried)) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     try {
       return await geminiGenerateOnce({ ...opts, model });
     } catch (err) {
