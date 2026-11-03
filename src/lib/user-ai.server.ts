@@ -278,7 +278,7 @@ export async function runGeminiRoleWithFallback<T>(
         const key = await resolveUserAiKey(userId, role, ids.filter((id) => id !== preferred));
         if (key.id === preferred && key.provider === "gemini") {
           try {
-            const value = await sameKeyRetry(() => run({ kind: "gemini_key", value: key.apiKey }, key));
+            const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
             await markKeyUnavailable(key.id, "ok", null);
             return { value, key };
           } catch (error) {
@@ -306,7 +306,7 @@ export async function runGeminiRoleWithFallback<T>(
       continue;
     }
     try {
-      const value = await sameKeyRetry(() => run({ kind: "gemini_key", value: key.apiKey }, key));
+      const value = await run({ kind: "gemini_key", value: key.apiKey }, key);
       await markKeyUnavailable(key.id, "ok", null);
       return { value, key };
     } catch (error) {

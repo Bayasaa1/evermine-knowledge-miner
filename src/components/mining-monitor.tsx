@@ -7,6 +7,8 @@ import { clearMiningHistory, continueMiningNow, resumeStuckMiningJobs, listMinin
 import { formatDuration, jobParts, jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
+import { nativePlaybackUrls } from "@/lib/native-mining.functions";
+import { Button } from "@/components/ui/button";
 
 const COPY = {
   en: {
@@ -118,6 +120,10 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   const fetchJobs = useServerFn(listMiningJobs);
   const setState = useServerFn(setMiningJobState);
   const qc = useQueryClient();
+  const playback = useServerFn(nativePlaybackUrls);
+  const [playbackUrl, setPlaybackUrl] = useState<{ id: string; url: string } | null>(null);
+  const [playbackError, setPlaybackError] = useState("");
+  useEffect(() => { setPlaybackUrl(null); setPlaybackError(""); }, [userId]);
 
   const { data: jobs = [], isLoading } = useQuery({
     queryKey: ["mining-jobs", userId],
@@ -259,6 +265,13 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
         ) : null}
         {job.lastError ? (
           <p className="mt-2 line-clamp-2 text-xs text-destructive">{job.lastError}</p>
+        ) : null}
+        {job.sourceKind === "upload" ? (
+          <div className="mt-3">
+            <Button variant="outline" size="sm" onClick={() => void playback({ data: { jobId: job.id } }).then((r) => { setPlaybackError(""); setPlaybackUrl({ id: job.id, url: r.url }); }).catch((e: unknown) => setPlaybackError(e instanceof Error ? e.message : String(e)))}><Play className="h-3.5 w-3.5" />{lang === "mn" ? "Видео үзэх" : lang === "ko" ? "영상 재생" : "Play video"}</Button>
+            {playbackUrl?.id === job.id ? <video src={playbackUrl.url} controls playsInline className="mt-2 aspect-video w-full bg-muted" /> : null}
+            {playbackError ? <p className="text-xs text-destructive">{playbackError}</p> : null}
+          </div>
         ) : null}
 
         {controls ? (

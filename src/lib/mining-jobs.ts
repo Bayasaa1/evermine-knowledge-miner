@@ -275,9 +275,8 @@ export function jobProgress(job: MiningJob): number {
 export const MINING_BUSY_RETRY_MS = 20_000;
 
 /**
- * When a stopped video may try again. Per-minute bursts, overload (503) and
- * key hiccups wait at most 20s; only the used-up free daily quota waits until
- * Google's reset at midnight US Pacific, so no calls are wasted while it's gone.
+ * Job retry timers are at most 20s. Exhausted credentials remain separately
+ * parked by the account resolver, so a short job timer cannot revive a spent key.
  */
 export function quotaRetryAfter(message: string, now = new Date()): string {
   void message;
