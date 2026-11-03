@@ -14,8 +14,12 @@ export const ensureVideoStorage = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.storage.getBucket(bucket);
     if (error) {
       if (!/not found|does not exist/i.test(error.message)) throw new Error(`Video storage unavailable: ${error.message}`);
-      const { error: createError } = await supabaseAdmin.storage.createBucket(bucket, { public: false, fileSizeLimit: 1_073_741_824 });
-      if (createError && !/already exists|duplicate/i.test(createError.message)) throw new Error(`Could not prepare private video storage: ${createError.message}`);
+      // Legacy storage stays private; never turn it into a public bucket.
+      for (const fallback of ["user_media", "user-media"]) {
+        const { data: legacy } = await supabaseAdmin.storage.getBucket(fallback);
+        if (legacy && !legacy.public) return { bucket: fallback };
+      }
+      throw new Error("Private video storage is unavailable.");
     }
     return { bucket };
   });
@@ -24,9 +28,12 @@ export const reportUploadMiningError = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ jobId: z.string().uuid(), message: z.string().min(1).max(500) }).parse(input))
   .handler(async ({ data, context }) => {
+    const { data: row } = await context.supabase.from("mining_jobs").select("updated_at,status").eq("id", data.jobId).eq("user_id", context.userId).maybeSingle();
+    if (!row || row.status === "done" || row.status === "paused_quota") return { ok: true };
     const { error } = await context.supabase.from("mining_jobs")
       .update({ status: "error", last_error: data.message })
       .eq("id", data.jobId).eq("user_id", context.userId).eq("source_kind", "upload")
+      .eq("updated_at", row.updated_at)
       .in("status", ["queued", "running", "error"]);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -57,7 +64,9 @@ export const startUploadMining = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { assertNotBanned } = await import("@/lib/api-guard.server");
     await assertNotBanned(context.supabase, context.userId);
-    if (!data.storagePath.startsWith(`${context.userId}/`)) throw new Error("That file is not yours.");
+    const match = /^(creator-videos|user_media|user-media):\/(.+)$/.exec(data.storagePath);
+    const path = match?.[2] ?? data.storagePath;
+    if (!path.startsWith(`${context.userId}/${data.projectId}/`) || path.includes("..")) throw new Error("That file is not in your project.");
     const { data: project } = await context.supabase
       .from("projects")
       .select("id")
@@ -101,4 +110,21 @@ export const startUploadMining = createServerFn({ method: "POST" })
       personaName: (persona?.name as string | undefined) ?? "",
       plan: chunks.map((c) => ({ index: c.index, startSec: c.start, endSec: c.end })),
     };
+  });
+
+/** Owner-only signed playback, supports canonical and legacy private source pointers. */
+export const nativePlaybackUrls = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: job } = await context.supabase.from("mining_jobs").select("source_url").eq("id", data.jobId).eq("user_id", context.userId).eq("source_kind", "upload").maybeSingle();
+    if (!job) throw new Error("Uploaded video not found.");
+    const match = /^(creator-videos|user_media|user-media):\/(.+)$/.exec(job.source_url);
+    const path = match?.[2] ?? job.source_url;
+    if (!path.startsWith(`${context.userId}/`)) throw new Error("Not your video.");
+    for (const bucket of match?.[1] ? [match[1]] : ["creator-videos", "user_media", "user-media"]) {
+      const { data: signed } = await context.supabase.storage.from(bucket).createSignedUrl(path, 60);
+      if (signed) return { url: signed.signedUrl };
+    }
+    throw new Error("Video is unavailable in private storage.");
   });

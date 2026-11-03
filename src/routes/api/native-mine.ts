@@ -132,7 +132,8 @@ export const Route = createFileRoute("/api/native-mine")({
           if (vaultId) {
             await supabaseAdmin.from("mining_jobs").update({ vault_id: vaultId }).eq("id", jobId);
             const sourceType = body.sourceType === "camera_record" ? "camera_record" : "native_upload";
-            const thumb = typeof body.thumbnailPath === "string" && body.thumbnailPath.startsWith(`${auth.userId}/`) ? body.thumbnailPath : null;
+            const thumbPath = typeof body.thumbnailPath === "string" ? body.thumbnailPath : "";
+            const thumb = thumbPath.replace(/^(creator-videos|user_media|user-media):\//, "").startsWith(`${auth.userId}/`) ? thumbPath : null;
             const duration = Number(body.durationSec);
             const { data: content } = await supabaseAdmin
               .from("project_content")

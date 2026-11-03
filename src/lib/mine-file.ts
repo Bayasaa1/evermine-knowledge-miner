@@ -421,5 +421,5 @@ export async function uploadNativeVideoToStorage(
     if (t.error) throw new Error(`Video cover upload failed: ${t.error.message}`);
   }
   onProgress?.(100);
-  return { videoId, storagePath, thumbnailPath };
+  return { videoId, storagePath: bucket === "creator-videos" ? storagePath : `${bucket}:/${storagePath}`, thumbnailPath: thumbnailPath && bucket !== "creator-videos" ? `${bucket}:/${thumbnailPath}` : thumbnailPath };
 }
