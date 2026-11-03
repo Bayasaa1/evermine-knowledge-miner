@@ -46,61 +46,8 @@ async function runMiningWorker(): Promise<Response> {
     const { unpackInstructions, isQuotaMessage, quotaRetryAfter } = await import("@/lib/mining-jobs");
     const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
 
-    // Rescue pass: jobs that finished earlier but were never written into a
-    // Mind (the creator's tab was closed) get saved now.
-    const { data: stranded } = await supabaseAdmin
-      .from("mining_jobs")
-      .select("*")
-      .eq("status", "done")
-      .is("vault_id", null)
-      .limit(10);
-    let saved = 0;
-    for (const row of stranded ?? []) {
-      const vaultId = await finalizeMiningJob(supabaseAdmin, row as never).catch(() => null);
-      if (vaultId) saved += 1;
-    }
-    // Self-heal pass: finished videos whose subtitles still have lines
-    // without a clock get estimated times saved, with no creator action.
-    // Words are never changed — only empty timestamps are filled.
-    let healed = 0;
-    try {
-      const { repairTimingsLocal } = await import("@/lib/repair-timings");
-      const { data: untimed } = await supabaseAdmin
-        .from("project_content")
-        .select("id, transcript")
-        .contains("transcript", [{ timestamp: "" }] as never)
-        .limit(10);
-      for (const row of untimed ?? []) {
-        const lines = Array.isArray(row.transcript) ? (row.transcript as never[]) : [];
-        if (!lines.length) continue;
-        const fixed = repairTimingsLocal(lines);
-        const { error: upErr } = await supabaseAdmin
-          .from("project_content")
-          .update({ transcript: fixed as never })
-          .eq("id", row.id);
-        if (!upErr) healed += 1;
-      }
-    } catch {
-      /* healing is best-effort; mining continues */
-    }
-    void healed;
-    // Keep one worker run well inside the platform request budget.
     const deadline = Date.now() + 4 * 60_000;
-    // Repair pass: finished videos with broken parts are re-mined silently.
-    try {
-      const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server");
-      await autoRepairFinishedVideos(supabaseAdmin, Date.now() + 90_000);
-    } catch {
-      /* best-effort */
-    }
-    // Proof-reading pass: only flags suspicious lines, never edits them.
-    try {
-      const { reviewFinishedJournals } = await import("@/lib/journal-review.server");
-      await reviewFinishedJournals(supabaseAdmin, Date.now() + 60_000);
-    } catch {
-      /* best-effort */
-    }
-
+    let saved = 0;
     // Stuck recovery: a running job silent for over 3 minutes goes back
     // to the queue (its finished parts stay saved).
     {
@@ -215,7 +162,7 @@ async function runMiningWorker(): Promise<Response> {
             status: "paused_quota",
             last_error:
               "Choose and test a Gemini key for Mining videos in API Manager so background mining can continue.",
-            retry_after: new Date(Date.now() + 20 * 60_000).toISOString(),
+            retry_after: quotaRetryAfter("No working key"),
           })
           .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
         continue;
@@ -282,6 +229,8 @@ async function runMiningWorker(): Promise<Response> {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const quota = isQuotaMessage(message);
+          const { httpStatusOf } = await import("@/lib/retry");
+          const providerStatus = httpStatusOf(err) ?? (err as { httpStatus?: number })?.httpStatus;
           // An empty AI answer on one part must never strand the whole
           // video: after repeated empty answers, mark that one part as
           // skipped (flagged for later repair) and continue with the next.
@@ -318,7 +267,6 @@ async function runMiningWorker(): Promise<Response> {
           // Quota is transient and does not count against the budget;
           // every other failure does, with growing backoff between tries.
           const tries = quota ? (job.attempts ?? 0) : (job.attempts ?? 0) + 1;
-          const backoffMin = quota ? 15 : Math.min(120, 15 * 2 ** (tries - 1));
           // A permanent failure that used up its tries is abandoned so it
           // never blocks the worker queue again; the creator can still
           // retry it by hand from the Studio.
@@ -326,12 +274,10 @@ async function runMiningWorker(): Promise<Response> {
           await supabaseAdmin
             .from("mining_jobs")
             .update({
-              status: quota ? "paused_quota" : giveUp ? "abandoned" : "error",
+              status: providerStatus === 403 || providerStatus === 422 ? "stopped" : quota ? "paused_quota" : giveUp ? "abandoned" : "error",
               last_error: message.slice(0, 500),
               attempts: tries,
-              retry_after: quota
-                ? quotaRetryAfter(message)
-                : new Date(Date.now() + backoffMin * 60_000).toISOString(),
+              retry_after: quotaRetryAfter(message),
             })
             .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
           paused += 1;
@@ -357,6 +303,63 @@ async function runMiningWorker(): Promise<Response> {
       if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
     }
 
+    if (resumed === 0 && jobs.length === 0) {
+    // Rescue pass: jobs that finished earlier but were never written into a
+    // Mind (the creator's tab was closed) get saved now.
+    const { data: stranded } = await supabaseAdmin
+      .from("mining_jobs")
+      .select("*")
+      .eq("status", "done")
+      .is("vault_id", null)
+      .limit(10);
+
+    for (const row of stranded ?? []) {
+      const vaultId = await finalizeMiningJob(supabaseAdmin, row as never).catch(() => null);
+      if (vaultId) saved += 1;
+    }
+    // Self-heal pass: finished videos whose subtitles still have lines
+    // without a clock get estimated times saved, with no creator action.
+    // Words are never changed — only empty timestamps are filled.
+    let healed = 0;
+    try {
+      const { repairTimingsLocal } = await import("@/lib/repair-timings");
+      const { data: untimed } = await supabaseAdmin
+        .from("project_content")
+        .select("id, transcript")
+        .contains("transcript", [{ timestamp: "" }] as never)
+        .limit(10);
+      for (const row of untimed ?? []) {
+        const lines = Array.isArray(row.transcript) ? (row.transcript as never[]) : [];
+        if (!lines.length) continue;
+        const fixed = repairTimingsLocal(lines);
+        const { error: upErr } = await supabaseAdmin
+          .from("project_content")
+          .update({ transcript: fixed as never })
+          .eq("id", row.id);
+        if (!upErr) healed += 1;
+      }
+    } catch {
+      /* healing is best-effort; mining continues */
+    }
+    void healed;
+    // Keep one worker run well inside the platform request budget.
+
+    // Repair pass: finished videos with broken parts are re-mined silently.
+    try {
+      const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server");
+      await autoRepairFinishedVideos(supabaseAdmin, Date.now() + 90_000);
+    } catch {
+      /* best-effort */
+    }
+    // Proof-reading pass: only flags suspicious lines, never edits them.
+    try {
+      const { reviewFinishedJournals } = await import("@/lib/journal-review.server");
+      await reviewFinishedJournals(supabaseAdmin, Date.now() + 60_000);
+    } catch {
+      /* best-effort */
+    }
+
+    }
     // Leftover time grows knowledge roots that still have unsorted facts,
     // one batch per project on each owner's own key. Never alters mined data.
     let rooted = 0;

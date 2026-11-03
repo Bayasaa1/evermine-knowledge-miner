@@ -417,8 +417,10 @@ export const runNextChunk = createServerFn({ method: "POST" })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const quota = isQuotaMessage(message);
-      const status: MiningJobStatus = quota ? "paused_quota" : "error";
-      const retryAfter = quota ? quotaRetryAfter(message) : new Date(Date.now() + 10 * 60_000).toISOString();
+      const { httpStatusOf } = await import("@/lib/retry");
+      const providerStatus = httpStatusOf(err) ?? (err as { httpStatus?: number })?.httpStatus;
+      const status: MiningJobStatus = providerStatus === 403 || providerStatus === 422 ? "stopped" : quota ? "paused_quota" : "error";
+      const retryAfter = quotaRetryAfter(message);
       await context.supabase
         .from("mining_jobs")
         .update({ status, last_error: message.slice(0, 500), retry_after: retryAfter })

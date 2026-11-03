@@ -41,6 +41,26 @@ export type CoreBrain = {
 const s = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const arr = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
 
+/** A separate evidence layer; original speech, visual steps and facts remain untouched. */
+export function fuseVisualAndTranscriptBrain(result: Record<string, unknown>): Record<string, unknown> | null {
+  const lines = arr(result["transcript"]).map((x) => ({ quote: s(x["speech"] ?? x["text"]), timestamp: s(x["timestamp"]) })).filter((x) => x.quote.length > 12);
+  const visual = arr(result["screenItems"]).flatMap((x) => {
+    const e = (x["embodied"] ?? null) as Record<string, unknown> | null;
+    return e && s(e["action_primitive"]) ? [{ e, timestamp: s(x["timestamp"]), title: s(x["title"]) }] : [];
+  });
+  if (!lines.length && !visual.length) return null;
+  return {
+    source: "visual-transcript-fusion",
+    mentalModels: [],
+    verbatimQuotes: lines.slice(0, 80).map((x) => ({ ...x, context: "Stored transcript" })),
+    frameworks: visual.map(({ e, timestamp, title }) => ({
+      name: title || s(e["action_primitive"]), trigger: s(e["precondition"]), action: s(e["action_primitive"]), because: s(e["postcondition"]),
+      steps: [s(e["precondition"]), s(e["action_primitive"]), s(e["postcondition"])].filter(Boolean), timestamp,
+    })),
+    voice: { tone: [], catchphrases: [], contrarianBeliefs: [], metaphors: [] },
+  };
+}
+
 /** Merges per-part deepBrain blocks into one ranked Core Brain (pure, no AI). */
 export function synthesizeCoreBrain(parts: { deep: unknown; video?: string }[]): CoreBrain {
   const models = new Map<string, CoreBrain["core_mental_models"][number] & { score: number }>();
@@ -77,9 +97,14 @@ export function synthesizeCoreBrain(parts: { deep: unknown; video?: string }[]):
     const v = (d["voice"] ?? {}) as Record<string, unknown>;
     const push = (to: string[], from: unknown) => { for (const x of Array.isArray(from) ? from : []) { const t = s(x); if (t) to.push(t); } };
     push(voice.tone, v["tone"]);
+    push(voice.speaking_style, v["speakingStyle"]);
     push(voice.signature_phrases, v["catchphrases"]);
     push(voice.metaphors, v["metaphors"]);
-    for (const c of arr(v["contrarianBeliefs"])) { const b = s(c["belief"]); if (b) voice.contrarian_beliefs.push(s(c["against"]) ? `${b} (against: ${s(c["against"])})` : b); }
+    for (const c of Array.isArray(v["contrarianBeliefs"]) ? v["contrarianBeliefs"] : []) {
+      if (typeof c === "string") { voice.contrarian_beliefs.push(c); continue; }
+      if (!c || typeof c !== "object") continue;
+      const b = s(c["belief"]); if (b) voice.contrarian_beliefs.push(s(c["against"]) ? `${b} (against: ${s(c["against"])})` : b);
+    }
   }
   const ranked = [...models.values()].sort((a, b) => b.score - a.score).slice(0, 40).map(({ score: _s, ...m }, i) => ({ ...m, rank: i + 1 }));
   return {
@@ -154,7 +179,7 @@ async function loadMinedPersona(projectId: string) {
       .eq("project_id", projectId)
       .eq("kind", "mine")
       .order("updated_at", { ascending: false })
-      .limit(8);
+      .limit(400);
     if (!data?.length) return empty;
     const merged = { ...empty };
     // The topic map (built after mining) gives the chat an index of what this person talks about.

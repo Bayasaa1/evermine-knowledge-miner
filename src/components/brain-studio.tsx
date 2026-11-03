@@ -1,4 +1,6 @@
 import { ArchitectLauncher } from "@/components/diagnostic-chat";
+import { apiFetch } from "@/lib/api-fetch";
+import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -55,6 +57,7 @@ const L = {
     custom: "Custom",
     edited: "Edited",
     regenerate: "Regenerate Brain from Vault",
+    deepen: "🧠 Deepen Legacy Vaults",
     download: "Download Brain (.json)",
     import: "Import Brain",
     saved: "Core Brain saved",
@@ -96,6 +99,7 @@ const L = {
     custom: "Нэмсэн",
     edited: "Засварласан",
     regenerate: "Тархийг сангаас дахин үүсгэх",
+    deepen: "🧠 Хуучин сангуудыг гүнзгийрүүлэх",
     download: "Тархи татах (.json)",
     import: "Тархи оруулах",
     saved: "Үндсэн тархи хадгалагдлаа",
@@ -137,6 +141,7 @@ const L = {
     custom: "사용자 지정",
     edited: "수정됨",
     regenerate: "저장소에서 브레인 재생성",
+    deepen: "🧠 기존 저장소 심화",
     download: "브레인 다운로드 (.json)",
     import: "브레인 가져오기",
     saved: "코어 브레인이 저장되었습니다",
@@ -219,6 +224,7 @@ export function BrainStudio({
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [adding, setAdding] = useState<BrainCategory | null>(null);
+  const [deepening, setDeepening] = useState(false);
   const importRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -327,6 +333,19 @@ export function BrainStudio({
       toast.error(`${t.importFailed}: ${reason}`);
       onLog?.(`${t.importFailed}: ${reason}`);
     }
+  };
+
+  const deepenLegacy = async () => {
+    if (!mindId || deepening) return;
+    setDeepening(true);
+    try {
+      const res = await apiFetch("/api/diagnose-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "deepen_legacy", args: { vaultId: mindId } }) });
+      const out = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
+      toast.success(t.regenerated);
+      onLog?.(t.regenerated);
+    } catch (err) { toast.error(err instanceof Error ? err.message : String(err)); }
+    finally { setDeepening(false); }
   };
 
   const total =
@@ -481,6 +500,7 @@ export function BrainStudio({
           <RefreshCw className="h-3.5 w-3.5" />
           {t.regenerate}
         </button>
+        {mindId ? <Button variant="outline" size="sm" disabled={deepening} onClick={() => void deepenLegacy()}><Brain className="h-3.5 w-3.5" /> {t.deepen}</Button> : null}
         <button
           type="button"
           onClick={() => downloadBrainDoc(doc)}

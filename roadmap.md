@@ -1,5 +1,14 @@
 # Roadmap
 
+## Consolidated mining fix
+- [x] Harden bounded Gemini/key cascade and configured text-provider fallback; no shared credit fallback
+- [x] Prioritize awaited checkpoints, preserve leases, and bound retry cooldowns
+- [x] Verify private native playback; share storage upload helper and preserve visible upload failures
+- [x] Add stored-transcript/visual evidence fusion and explicit legacy deepening
+- [x] Upgrade requested Ramsay vault; preserve 14 screen items and 10 actually stored embodied primitives; include all project vaults in synthesis
+- [x] Reset owner's stalled jobs preserving checkpoints; 104 tests pass and signed-in playback works
+- [ ] Verify new Gemini checkpoint and project Core Brain readback — provider overload and authenticated data-read timeout remain blockers
+
 ## Mining pipeline recovery
 - [x] Keep browser mining requests alive, poll every eight seconds, and recover two-minute stale leases
 - [x] Bound native decoding and extraction, verify private uploads and visible native job progress

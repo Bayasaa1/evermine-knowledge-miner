@@ -9,8 +9,9 @@ import { Camera, CheckCircle2, Film, Loader2, Square, Upload } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch } from "@/lib/api-fetch";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { ensureVideoStorage, reportUploadMiningError, startUploadMining } from "@/lib/native-mining.functions";
+import { reportUploadMiningError, startUploadMining } from "@/lib/native-mining.functions";
 import { extractParts, readDuration, type ExtractProgress } from "@/lib/video-extract";
+import { uploadNativeVideoToStorage } from "@/lib/mine-file";
 
 const copy = {
   en: {
@@ -46,7 +47,6 @@ type Opt = { id: string; name: string };
 type ProjectOpt = Opt & { personaId: string | null };
 
 export function NativeVideoUpload({ lang }: { lang: Lang }) {
-  const ensureStorage = useServerFn(ensureVideoStorage);
   const startMining = useServerFn(startUploadMining);
   const reportError = useServerFn(reportUploadMiningError);
   const t = pickCopy(copy, lang);
@@ -131,16 +131,9 @@ export function NativeVideoUpload({ lang }: { lang: Lang }) {
     setBusy(true); setError(""); setFinished(false); setPct(0);
     let jobId: string | null = null;
     try {
-      const { bucket } = await ensureStorage();
-      const ext = (file.name.split(".").pop() ?? "mp4").toLowerCase().replace(/[^a-z0-9]/g, "") || "mp4";
-      const base = `${userId}/${crypto.randomUUID()}`;
-      const storagePath = `${base}.${ext}`;
       setStage(t.uploading);
-      // The file uploads while the browser is already cutting it.
-      const upload = supabase.storage.from(bucket).upload(storagePath, file, { contentType: file.type || "video/mp4", upsert: false });
       const durationSec = await readDuration(file);
-      const { error: upErr } = await upload;
-      if (upErr) throw new Error(`Video upload failed: ${upErr.message}`);
+      const { storagePath } = await uploadNativeVideoToStorage(file, null, userId, projectId);
 
       const job = await startMining({
         data: { personaId, projectId, storagePath, thumbnailPath: null, title: title.trim(), durationSec, sourceType, category: "knowledge", language: lang },
@@ -148,16 +141,6 @@ export function NativeVideoUpload({ lang }: { lang: Lang }) {
       jobId = job.jobId;
 
       let thumbnailPath: string | null = null;
-      const first = extractParts(file, undefined, [{ index: 0, startSec: 0, endSec: Math.min(2, durationSec) }]);
-      const firstPart = (await first.next()).value;
-      await first.return(undefined);
-      const thumb = firstPart?.frames?.[0]?.jpeg;
-      if (thumb) {
-        const bytes = Uint8Array.from(atob(thumb), (c) => c.charCodeAt(0));
-        const { error: tErr } = await supabase.storage.from(bucket).upload(`${base}.jpg`, bytes, { contentType: "image/jpeg" });
-        if (tErr) throw new Error(`Video cover upload failed: ${tErr.message}`);
-        thumbnailPath = `${base}.jpg`;
-      }
 
       const total = job.plan.length;
       const onProgress = (p: ExtractProgress) => {

@@ -29,12 +29,14 @@ test("busy Gemini parts retry within 20 seconds", () => {
     assert.equal(Date.parse(qra(m, now)) - now.getTime(), 20_000);
   }
 });
-test("daily quota still waits for the reset", () => {
+test("all job cooldowns are capped at 20 seconds; key cooldowns remain separate", () => {
   const now = new Date("2026-11-02T12:00:00Z");
-  assert.ok(Date.parse(qra("Your free Gemini daily quota is used up", now)) - now.getTime() > 60_000);
+  assert.equal(Date.parse(qra("Your free Gemini daily quota is used up", now)) - now.getTime(), 20_000);
 });
 test("cascade order after a congested model", () => {
   assert.deepEqual(geminiCascadeAfter("gemini-2.5-flash"), ["gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]);
   assert.equal(isGeminiCongestionError(503), true);
   assert.equal(isGeminiCongestionError(400, "bad request"), false);
+  assert.equal(isGeminiCongestionError(403, "unavailable"), false);
+  assert.deepEqual(geminiCascadeAfter("gemini-2.0-flash"), ["gemini-1.5-flash"]);
 });

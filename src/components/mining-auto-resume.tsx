@@ -75,7 +75,8 @@ export function MiningAutoResume() {
             if (current.status === "paused_quota" && laneCount <= 1) outOfTokens = true;
           }
         };
-        await Promise.allSettled(Array.from({ length: laneCount }, (_, i) => lane(i + 1)));
+        // One awaited checkpoint lane avoids amplifying the shared free-tier rate limit.
+        await lane(1);
       } catch {
         /* the background worker keeps mining regardless */
       } finally {

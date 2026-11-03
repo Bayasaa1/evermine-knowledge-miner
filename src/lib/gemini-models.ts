@@ -5,8 +5,7 @@ export const GEMINI_PAID_MODEL = "gemini-3.8-flash";
 
 /**
  * Free models tried in order when one model's capacity pool is congested
- * (503 / 429). Each family runs on its own pool, so a busy model rarely means
- * the next one is busy too. Retired models are skipped automatically.
+ * (503 / 429). Capacity and free-tier availability are not guaranteed.
  */
 export const GEMINI_CONGESTION_CASCADE = [
   "gemini-2.5-flash",
@@ -17,12 +16,13 @@ export const GEMINI_CONGESTION_CASCADE = [
 
 /** Models to try after `current`, never repeating it. */
 export function geminiCascadeAfter(current: string): string[] {
-  return GEMINI_CONGESTION_CASCADE.filter((m) => m !== current);
+  const index = GEMINI_CONGESTION_CASCADE.findIndex((m) => m === current);
+  return GEMINI_CONGESTION_CASCADE.slice(index + 1);
 }
 
 /** 503 overload / 429 rate-limit: another model may succeed right away. */
 export function isGeminiCongestionError(status: number | undefined, message?: string | null): boolean {
-  if (status === 429 || status === 503 || status === 500 || status === 502 || status === 504) return true;
+  if (status !== undefined) return status === 429 || status === 503 || status === 500 || status === 502 || status === 504;
   return /resource_exhausted|unavailable|overloaded|high demand|rate limit|too many requests/i.test(message ?? "");
 }
 

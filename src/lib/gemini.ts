@@ -9,6 +9,7 @@ async function requestWithCascade(model: string, send: (model: string) => Promis
   let res = await send(model);
   for (const next of geminiCascadeAfter(model)) {
     if (res.ok || !isGeminiCongestionError(res.status)) return res;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     res = await send(next);
   }
   return res;

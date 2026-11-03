@@ -97,7 +97,11 @@ export const Route = createFileRoute("/api/native-mine")({
         } catch (err) {
           const message = err instanceof Error ? err.message : "Mining failed";
           const quota = isQuotaMessage(message);
-          await supabaseAdmin.from("mining_jobs").update({ status: quota ? "paused_quota" : "error", last_error: message.slice(0, 500), retry_after: quota ? quotaRetryAfter(message) : null, attempts: quota ? job.attempts : job.attempts + 1 }).eq("id", jobId).eq("status", "running").eq("updated_at", claim.updated_at);
+          if ((err as { status?: number; httpStatus?: number })?.status === 403 || (err as { httpStatus?: number })?.httpStatus === 403) {
+            await supabaseAdmin.from("mining_jobs").update({ status: "stopped", last_error: message.slice(0, 500), retry_after: null }).eq("id", jobId).eq("status", "running").eq("updated_at", claim.updated_at);
+            return aiErrorResponse(err);
+          }
+          await supabaseAdmin.from("mining_jobs").update({ status: quota ? "paused_quota" : "error", last_error: message.slice(0, 500), retry_after: quotaRetryAfter(message), attempts: quota ? job.attempts : job.attempts + 1 }).eq("id", jobId).eq("status", "running").eq("updated_at", claim.updated_at);
           if (err instanceof Error && !/quota|rate|key/i.test(err.message)) return json({ error: err.message }, 502);
           return aiErrorResponse(err);
         }
@@ -132,7 +136,8 @@ export const Route = createFileRoute("/api/native-mine")({
           if (vaultId) {
             await supabaseAdmin.from("mining_jobs").update({ vault_id: vaultId }).eq("id", jobId);
             const sourceType = body.sourceType === "camera_record" ? "camera_record" : "native_upload";
-            const thumb = typeof body.thumbnailPath === "string" && body.thumbnailPath.startsWith(`${auth.userId}/`) ? body.thumbnailPath : null;
+            const thumbPath = typeof body.thumbnailPath === "string" ? body.thumbnailPath : "";
+            const thumb = thumbPath.replace(/^(creator-videos|user_media|user-media):\//, "").startsWith(`${auth.userId}/`) ? thumbPath : null;
             const duration = Number(body.durationSec);
             const { data: content } = await supabaseAdmin
               .from("project_content")
