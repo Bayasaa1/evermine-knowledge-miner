@@ -42,6 +42,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
               : body.action === "audit_system" ? await a.auditEntireSystem(auth.userId)
               : body.action === "auto_heal" ? await a.autoHealSystem(auth.userId)
               : body.action === "bind_persona" ? await a.bindPersona(auth.userId, pid, s("name"))
+              : body.action === "deepen_legacy" ? await a.deepenLegacyVault(auth.userId, s("vaultId"))
               : null;
             if (!result) return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400 });
             return new Response(JSON.stringify(result), { status: 200, headers: { "Content-Type": "application/json" } });

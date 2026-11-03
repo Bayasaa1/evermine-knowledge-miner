@@ -209,6 +209,24 @@ const HEAL_DEEPEN_LIMIT = 3;
 
 type MineRow = { id: string; project_id: string | null; title: string; payload: Record<string, unknown> };
 
+/** Explicit owner action; no AI credits, re-mining or source-data changes. */
+export async function deepenLegacyVault(userId: string, vaultId: string): Promise<ArchitectResult> {
+  const sb = await db();
+  const { data } = await sb.from("mind_vaults").select("id,project_id,payload,updated_at").eq("id", vaultId).eq("user_id", userId).eq("kind", "mine").maybeSingle();
+  if (!data || !data.project_id || !await ownedProject(userId, data.project_id)) throw new Error("Owned mined Mind not found.");
+  const payload = (data.payload ?? {}) as Record<string, unknown>;
+  const result = (payload["result"] ?? {}) as Record<string, unknown>;
+  if (result["deepBrain"]) return { text: "This Mind already has its deep layer.", actions_taken: [], interactive_cards: [] };
+  const { fuseVisualAndTranscriptBrain } = await import("@/lib/project-mind.server");
+  const layer = fuseVisualAndTranscriptBrain(result);
+  if (!layer) throw new Error("No saved speech or visual steps to deepen.");
+  const prev = Array.isArray(payload["deepBrainRebuild"]) ? payload["deepBrainRebuild"] as unknown[] : [];
+  if (prev.some((x) => x && typeof x === "object" && (x as Record<string, unknown>)["source"] === "visual-transcript-fusion")) return { text: "This Mind is already deepened.", actions_taken: [], interactive_cards: [] };
+  const { data: saved, error } = await sb.from("mind_vaults").update({ payload: { ...payload, deepBrainRebuild: [...prev, layer] } as never }).eq("id", vaultId).eq("user_id", userId).eq("updated_at", data.updated_at).select("id");
+  if (error || !saved?.length) throw new Error(error?.message || "Mind changed while deepening. Try again.");
+  return { text: "Saved speech and visual playbooks added; original data preserved.", actions_taken: ["Added a separate evidence layer without AI"], interactive_cards: [] };
+}
+
 const isShallow = (p: Record<string, unknown>) => {
   const result = (p["result"] ?? {}) as Record<string, unknown>;
   const deep = (result["deepBrain"] ?? {}) as Record<string, unknown>;
