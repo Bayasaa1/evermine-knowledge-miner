@@ -1,5 +1,13 @@
 # Roadmap
 
+## Consolidated mining fix
+- [ ] Verify and harden bounded Gemini/key cascade and configured text-provider fallback
+- [ ] Prioritize awaited checkpoints, preserve leases, and bound retry cooldowns
+- [ ] Verify private native storage compatibility and visible upload job failures
+- [ ] Add stored-transcript/visual fusion and explicit legacy deepening
+- [ ] Upgrade the requested Ramsay vault without changing visual evidence; rebuild its project
+- [ ] Reset the requesting owner's stalled jobs preserving checkpoints; verify tests and real flow
+
 ## Mining pipeline recovery
 - [x] Keep browser mining requests alive, poll every eight seconds, and recover two-minute stale leases
 - [x] Bound native decoding and extraction, verify private uploads and visible native job progress
