@@ -97,7 +97,7 @@ export const Route = createFileRoute("/api/native-mine")({
         } catch (err) {
           const message = err instanceof Error ? err.message : "Mining failed";
           const quota = isQuotaMessage(message);
-          await supabaseAdmin.from("mining_jobs").update({ status: quota ? "paused_quota" : "error", last_error: message.slice(0, 500), retry_after: quota ? quotaRetryAfter(message) : null, attempts: quota ? job.attempts : job.attempts + 1 }).eq("id", jobId).eq("status", "running").eq("updated_at", claim.updated_at);
+          await supabaseAdmin.from("mining_jobs").update({ status: quota ? "paused_quota" : "error", last_error: message.slice(0, 500), retry_after: quotaRetryAfter(message), attempts: quota ? job.attempts : job.attempts + 1 }).eq("id", jobId).eq("status", "running").eq("updated_at", claim.updated_at);
           if (err instanceof Error && !/quota|rate|key/i.test(err.message)) return json({ error: err.message }, 502);
           return aiErrorResponse(err);
         }
