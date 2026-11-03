@@ -14,7 +14,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { AiRole } from "@/lib/ai-roles";
 import { GEMINI_DEFAULT_MODEL, GEMINI_PAID_MODEL, geminiCascadeAfter, isGeminiCongestionError } from "@/lib/gemini-models";
-import { httpStatusOf, isServerBusyStatus, withBackoff } from "@/lib/retry";
+import { httpStatusOf, isServerBusyStatus } from "@/lib/retry";
 
 export type AiCredential = { kind: "gemini_key"; value: string };
 
@@ -365,11 +365,6 @@ function isLimitError(error: unknown): boolean {
 /** Provider 500/502/503/504: the key is fine, the model is momentarily busy. */
 function isBusyError(error: unknown): boolean {
   return isServerBusyStatus(httpStatusOf(error));
-}
-
-/** Retries the SAME key with exponential backoff (1s, 2s) on 5xx before any failover. */
-function sameKeyRetry<T>(run: () => Promise<T>): Promise<T> {
-  return withBackoff(run, isBusyError, { retries: 2, baseMs: 1000 });
 }
 
 /** Short rest for a busy key, an hour for a used-up one. */

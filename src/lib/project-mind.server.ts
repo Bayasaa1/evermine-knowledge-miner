@@ -179,7 +179,7 @@ async function loadMinedPersona(projectId: string) {
       .eq("project_id", projectId)
       .eq("kind", "mine")
       .order("updated_at", { ascending: false })
-      .limit(8);
+      .limit(400);
     if (!data?.length) return empty;
     const merged = { ...empty };
     // The topic map (built after mining) gives the chat an index of what this person talks about.

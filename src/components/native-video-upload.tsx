@@ -9,7 +9,7 @@ import { Camera, CheckCircle2, Film, Loader2, Square, Upload } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { apiFetch } from "@/lib/api-fetch";
 import { pickCopy, type Lang } from "@/lib/i18n";
-import { ensureVideoStorage, reportUploadMiningError, startUploadMining } from "@/lib/native-mining.functions";
+import { reportUploadMiningError, startUploadMining } from "@/lib/native-mining.functions";
 import { extractParts, readDuration, type ExtractProgress } from "@/lib/video-extract";
 import { uploadNativeVideoToStorage } from "@/lib/mine-file";
 
@@ -47,7 +47,6 @@ type Opt = { id: string; name: string };
 type ProjectOpt = Opt & { personaId: string | null };
 
 export function NativeVideoUpload({ lang }: { lang: Lang }) {
-  const ensureStorage = useServerFn(ensureVideoStorage);
   const startMining = useServerFn(startUploadMining);
   const reportError = useServerFn(reportUploadMiningError);
   const t = pickCopy(copy, lang);
