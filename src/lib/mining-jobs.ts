@@ -321,11 +321,13 @@ export function withOwnerIdentity<T extends { speakerIdentity?: string }>(a: T, 
 /** A running job touched this recently is held by a worker or tab: never double-run it. */
 export const MINING_LEASE_HELD_MS = 60_000;
 /** A running job silent for longer than this is stuck and goes back to the queue. */
-export const MINING_LEASE_STALE_MS = 75_000;
+// One 5-minute part plus the model cascade can legitimately take several minutes and the
+// Gemini call does not refresh the lease, so stale must exceed the longest real part.
+export const MINING_LEASE_STALE_MS = 6 * 60_000;
 export const MINING_POLL_MS = 8_000;
 
 /**
- * Single-flight lease state: a running job stays held for 75 seconds.
+ * Single-flight lease state: a running job stays held for 6 minutes.
  */
 export function miningLeaseState(
   status: string,
