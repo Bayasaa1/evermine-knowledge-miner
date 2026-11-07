@@ -15,6 +15,8 @@ import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { ShareModal } from "@/components/share-modal";
 import type { ShareContent } from "@/lib/share-content";
 import { loadGraph, type Person } from "@/lib/friends";
+import { AddPersonSearch } from "@/components/add-person-search";
+import { rememberChatHead } from "@/components/chat-heads";
 import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnIsActive, withTurnDeadline, ROOM_TURN_TIMEOUT_MS } from "@/lib/room-turns";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
@@ -252,6 +254,7 @@ function RoomPage() {
           <div className="truncate font-semibold">{room.title}</div>
           <div className="text-xs text-muted-foreground">👥 {members.length} · 🤖 {minds.length}</div>
         </div>
+        <Button variant="ghost" size="icon" aria-label="Minimize" title="Minimize" onClick={() => { rememberChatHead({ id: roomId, title: room.title }); window.history.length > 1 ? window.history.back() : void navigate({ to: "/" }); }}><Minus className="h-5 w-5" /></Button>
         <Button variant="ghost" size="icon" aria-label={t.settings} onClick={() => { setShowSettings(true); setName(room.title); void listInvitableMinds().then(setInvitable); void loadGraph().then((g) => setFriends(g.friends)).catch((e) => toast.error(e.message)); }}><Settings className="h-5 w-5" /></Button>
       </header>
 
@@ -366,7 +369,7 @@ function RoomPage() {
             <section className="space-y-2">
               <div className="text-sm font-semibold">{t.people}</div>
               {isOwner && room.kind !== "dm" && <select aria-label={x.addFriend} value="" className="w-full rounded-lg border border-border bg-background p-2 text-sm" onChange={(e) => { if (e.target.value) void addRoomFriend(roomId, e.target.value).then(reload).catch((err) => toast.error(err.message)); }}><option value="">+ {x.addFriend}</option>{friends.filter((f) => !members.some((m) => m.user_id === f.id)).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>}
-              {isOwner && !friends.filter((f) => !members.some((m) => m.user_id === f.id)).length && <p className="text-xs text-muted-foreground">{x.noFriends}</p>}
+              {(isOwner || me?.role === "admin") && room.kind !== "dm" && <AddPersonSearch exclude={members.map((m) => m.user_id)} placeholder={lang === "mn" ? "Хэнийг ч нэр / @username-ээр хайж нэмэх" : lang === "ko" ? "이름 / @username으로 누구나 추가" : "Add anyone by name / @username"} onAdd={(p) => void addRoomFriend(roomId, p.id).then(reload).then(() => toast.success(p.name)).catch((err) => toast.error(err.message))} />}
               {members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm">
                   <span className="flex-1 truncate">{m.display_name || "—"} <span className="text-xs text-muted-foreground">({m.role})</span></span>
