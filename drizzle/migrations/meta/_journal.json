@@ -281,6 +281,13 @@
       "when": 1793287820926,
       "tag": "0039_creator_videos_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793300000000,
+      "tag": "0040_room_add_any_user",
+      "breakpoints": true
     }
   ]
 }
