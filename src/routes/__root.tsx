@@ -15,6 +15,7 @@ import { MODULE_LOAD_RECOVERY_SCRIPT } from "@/lib/module-load-recovery";
 
 import { Toaster } from "@/components/ui/sonner";
 import { CheckoutHost } from "@/components/subscription-panel";
+import { ChatHeads } from "@/components/chat-heads";
 import { DiagnosticChat } from "@/components/diagnostic-chat";
 import { BottomNav } from "@/components/bottom-nav";
 import { LanguageSelector } from "@/components/language-selector";
@@ -224,6 +225,7 @@ function RootComponent() {
       {showNav && !/^\/chats\/[^/]+\/?$/.test(pathname) && <BottomNav />}
       <DiagnosticChat />
       <CheckoutHost />
+      <ChatHeads />
     </QueryClientProvider>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Bot, Copy, Download, ImagePlus, Loader2, Paperclip, Pause, Play, Send, Settings, Trash2, X } from "lucide-react";
+import { ArrowLeft, Bot, Copy, Download, ImagePlus, Loader2, Minus, Paperclip, Pause, Play, Send, Settings, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/hooks/use-auth";
@@ -368,7 +368,7 @@ function RoomPage() {
 
             <section className="space-y-2">
               <div className="text-sm font-semibold">{t.people}</div>
-              {isOwner && room.kind !== "dm" && <select aria-label={x.addFriend} value="" className="w-full rounded-lg border border-border bg-background p-2 text-sm" onChange={(e) => { if (e.target.value) void addRoomFriend(roomId, e.target.value).then(reload).catch((err) => toast.error(err.message)); }}><option value="">+ {x.addFriend}</option>{friends.filter((f) => !members.some((m) => m.user_id === f.id)).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>}
+              {isOwner && room.kind !== "dm" && friends.some((f) => !members.some((m) => m.user_id === f.id)) && <select aria-label={x.addFriend} value="" className="w-full rounded-lg border border-border bg-background p-2 text-sm" onChange={(e) => { if (e.target.value) void addRoomFriend(roomId, e.target.value).then(reload).catch((err) => toast.error(err.message)); }}><option value="">+ {x.addFriend}</option>{friends.filter((f) => !members.some((m) => m.user_id === f.id)).map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select>}
               {(isOwner || me?.role === "admin") && room.kind !== "dm" && <AddPersonSearch exclude={members.map((m) => m.user_id)} placeholder={lang === "mn" ? "Хэнийг ч нэр / @username-ээр хайж нэмэх" : lang === "ko" ? "이름 / @username으로 누구나 추가" : "Add anyone by name / @username"} onAdd={(p) => void addRoomFriend(roomId, p.id).then(reload).then(() => toast.success(p.name)).catch((err) => toast.error(err.message))} />}
               {members.map((m) => (
                 <div key={m.id} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm">

@@ -488,16 +488,7 @@ export function TalkToMindModal({
           <button type="button" onClick={() => { setShowMastery(false); void mergeCurrentSession(); setCallMode("voice"); }} className={`rounded-full px-3 py-1 ${!showMastery && callMode !== "chat" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
             📞 {lang === "mn" ? "Дуудлага" : lang === "ko" ? "통화" : "Call"}
           </button>
-          <button type="button" onClick={() => setShowMastery((v) => !v)} className={`flex items-center gap-1 rounded-full px-3 py-1 ${showMastery ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
-            <Target className="h-3 w-3" /> {lang === "mn" ? "Сорилт & Даалгавар" : lang === "ko" ? "챌린지 & 과제" : "Challenges & Tasks"}
-          </button>
         </div>
-
-        {showMastery && (
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <MasteryChallengePanel mindId={mindId} lang={lang} topicTitle={topicTitle} />
-          </div>
-        )}
 
         {callMode !== "chat" && (
           <div className="flex flex-col items-center gap-3 border-b border-border bg-muted/30 p-5">
