@@ -17,6 +17,7 @@ import { SubtitleHealth } from "@/components/subtitle-health";
 import { VaultHub, type VaultPersonaSelection } from "@/components/vault-hub";
 import { CreatorProfileEditor } from "@/components/creator-profile-editor";
 import { AiKeysCard } from "@/components/ai-keys-card";
+import { CreatorEarnings, PayoutSetup } from "@/components/payout-setup";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
 import { setProfilePicture } from "@/lib/community";
 import { pickCopy, useLang } from "@/lib/i18n";
@@ -62,6 +63,7 @@ function ProfilePage() {
   const [picture, setPicture] = useState<string | null>(null);
   const avatar = picture ?? profile?.avatarUrl ?? null;
   const [editInterests, setEditInterests] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false);
   const [myInterests, setMyInterests] = useState<string[]>([]);
   useEffect(() => {
     setMyInterests(readLocalInterests()?.tags ?? []);
@@ -193,9 +195,16 @@ function ProfilePage() {
               <Link to="/community" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
                 <PenSquare className="h-5 w-5" /><span className="text-sm font-medium">{t.posts}</span>
               </Link>
-              <Link to="/creator" hash="analytics" className="flex items-center gap-3 rounded-xl border border-border bg-card p-4">
-                <Wallet className="h-5 w-5 text-primary" /><span className="text-sm font-medium">{t.earnings}</span>
-              </Link>
+              <button type="button" onClick={() => setWalletOpen((v) => !v)} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-left">
+                <span className="flex items-center gap-3"><Wallet className="h-5 w-5 text-primary" /><span className="text-sm font-medium">{t.earnings}</span></span>
+                <ArrowRight className={`h-4 w-4 transition-transform ${walletOpen ? "rotate-90" : ""}`} />
+              </button>
+              {walletOpen && (
+                <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                  <CreatorEarnings lang={lang} />
+                  <PayoutSetup lang={lang} defaultEmail={profile?.email ?? ""} onConnected={() => toast.success(lang === "mn" ? "Мөнгө татах данс хадгалагдлаа" : lang === "ko" ? "출금 방법이 저장되었습니다" : "Withdrawal method saved")} />
+                </div>
+              )}
               <ThemeSwitcher />
             </div>
           )}
