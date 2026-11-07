@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play, Target } from "lucide-react";
-import { MasteryChallengePanel } from "@/components/mastery-challenge-panel";
+import { Eraser, FileText, Loader2, Paperclip, Mic, MicOff, Pencil, PhoneOff, Send, Sparkles, Trash2, Video, X, Star, Flag, Play } from "lucide-react";
 import { toast } from "sonner";
 import { reportMindReply } from "@/lib/viewer-signals.functions";
 import { useServerFn } from "@tanstack/react-start";
