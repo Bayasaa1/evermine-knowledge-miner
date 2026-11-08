@@ -17,32 +17,30 @@ export function repairTimingsLocal(lines: TranscriptLine[]): TranscriptLine[] {
   const durationGuess = Math.max(30, Math.round(total * 0.08)); // ~12 chars/sec speech
 
   const out = lines.map((line) => ({ ...line }));
+  // Look ahead once. Generated anchors become the preceding anchor on the
+  // next iteration, exactly as before; suffix sums avoid re-scanning the gap.
+  const nextTimed: number[] = new Array(out.length);
+  const sums: number[] = new Array(out.length + 1).fill(0);
+  let next = out.length;
+  for (let i = out.length - 1; i >= 0; i -= 1) {
+    nextTimed[i] = next;
+    if (anchors[i] != null) next = i;
+    sums[i] = (sums[i + 1] ?? 0) + (weights[i] ?? 1);
+  }
+  let before = 0;
   for (let index = 0; index < out.length; index += 1) {
-    if (anchors[index] != null) continue;
-    let before = 0;
-    for (let i = index - 1; i >= 0; i -= 1)
-      if (anchors[i] != null) {
-        before = anchors[i]!;
-        break;
-      }
-    let afterIndex = out.length;
-    let after = durationGuess;
-    for (let i = index + 1; i < out.length; i += 1)
-      if (anchors[i] != null) {
-        afterIndex = i;
-        after = anchors[i]!;
-        break;
-      }
-    let startOfRun = index;
-    while (startOfRun > 0 && anchors[startOfRun - 1] == null) startOfRun -= 1;
-    const runWeights = weights.slice(startOfRun, afterIndex);
-    const runTotal = runWeights.reduce((s, w) => s + w, 0) || 1;
-    const consumed = weights.slice(startOfRun, index).reduce((s, w) => s + w, 0);
-    const span = Math.max(after - before, runWeights.length * 2);
-    const start = before + (span * consumed) / runTotal;
-    const end = before + (span * (consumed + weights[index]!)) / runTotal;
+    const anchor = anchors[index];
+    if (anchor != null) { before = anchor; continue; }
+    const afterIndex = nextTimed[index] ?? out.length;
+    const after = anchors[afterIndex] ?? durationGuess;
+    const runTotal = ((sums[index] ?? 0) - (sums[afterIndex] ?? 0)) || 1;
+    const span = Math.max(after - before, (afterIndex - index) * 2);
+    const start = before;
+    const end = before + (span * (weights[index] ?? 1)) / runTotal;
     anchors[index] = start;
-    out[index]!.timestamp = `${secondsToStamp(start)} - ${secondsToStamp(Math.max(end, start + 1))}`;
+    const line = out[index];
+    if (line) line.timestamp = `${secondsToStamp(start)} - ${secondsToStamp(Math.max(end, start + 1))}`;
+    before = start;
   }
   return out;
 }

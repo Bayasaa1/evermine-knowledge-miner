@@ -1038,6 +1038,30 @@ export type Database = {
           },
         ]
       }
+      mining_worker_state: {
+        Row: {
+          cursors: Json
+          lease_until: string
+          name: string
+          phase: number
+          token: string | null
+        }
+        Insert: {
+          cursors?: Json
+          lease_until?: string
+          name: string
+          phase?: number
+          token?: string | null
+        }
+        Update: {
+          cursors?: Json
+          lease_until?: string
+          name?: string
+          phase?: number
+          token?: string | null
+        }
+        Relationships: []
+      }
       persona_clones: {
         Row: {
           consent: boolean
@@ -1816,6 +1840,22 @@ export type Database = {
       }
       author_is_banned: { Args: { _user_id: string }; Returns: boolean }
       block_user: { Args: { _other: string }; Returns: boolean }
+      claim_mining_worker: {
+        Args: { p_token: string }
+        Returns: {
+          cursors: Json
+          lease_until: string
+          name: string
+          phase: number
+          token: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "mining_worker_state"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_room_turn: {
         Args: { _message: string; _mind: string; _room: string }
         Returns: string

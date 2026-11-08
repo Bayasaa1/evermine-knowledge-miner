@@ -288,6 +288,13 @@
       "when": 1793300000000,
       "tag": "0040_room_add_any_user",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794144804989,
+      "tag": "0041_mining_worker_work_lease",
+      "breakpoints": true
     }
   ]
 }
