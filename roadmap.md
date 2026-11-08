@@ -2,7 +2,7 @@
 
 ## Project monitoring — November 8
 - [x] Confirm production mining CPU-limit failures and phone-only chat dismissal issue
-- [ ] Make minimized chats dismissible on touch screens and verify persistent removal
+- [x] Make minimized chats dismissible on touch screens and verify persistent removal; 104 tests pass
 - [ ] Bound mining/finalization and maintenance work — awaiting approval of the mining plan
 
 ## Consolidated mining fix
