@@ -27,7 +27,7 @@
 
 
 - The project map shows the topic map as a root tree (groups → topics → nested sub-topics via parentId), with thickness = facts + Q&A under it; it replaces the old network graph because a weighted hierarchy shows where knowledge is richest.
-- Topic roots grow automatically at the end of finalizeMiningJob (owner's key, a few batches, failures swallowed) and root colour comes from viewer questions/reports matched read-only at view time, because creators should never have to hand-run the tree and stats must never alter mined data.
+- Topic roots grow automatically on the owner's key; background finalization defers growth to a separately leased maintenance unit, while viewer question/report colour remains read-only, because topic growth must not share a checkpoint's processing budget.
 - Mongolian questions reach English-titled topic branches through a fixed read-only word bridge (bridgeQuery), and near-duplicate topics are only nested via parentId, never merged, because facts must never move or vanish.
 
 ## Anti-Regression & Surgical Edit Rules (apply on every prompt)
@@ -38,6 +38,7 @@
 - Single source of truth for AI keys: server-side AI execution resolves keys and role teams only through `src/lib/user-ai.server.ts` and `src/lib/ai-roles.functions.ts` (backed by tables `user_ai_keys` and `user_ai_roles`). Never add another localStorage key store, and never read legacy `src/lib/keystore.ts` / `src/lib/key-vault.ts` for server calls, because a second key source splits quota state and re-creates the false "quota exhausted" failures.
 - Single source of truth for mining: every video mining job goes through `src/lib/mining-jobs.functions.ts` and `src/lib/youtube-mine.server.ts`, because the lease/claim guards that stop two workers mining the same part live only on that path.
 - Browser mining awaits each checkpoint and releases its timestamp-checked lease after saving; cron returns early only with a real continuation context, because detached promises may be terminated after a response.
+- Background mining hydrates one candidate and saves one checkpoint per invocation; database-leased maintenance rotates durable cursors separately, because bulk result reads and combined repairs exceed published CPU limits.
 - Native videos use the canonical private creator-videos bucket and owner-scoped upload jobs; extraction failures are persisted on those jobs, because browser-only decoding must stay visible in the monitor.
 - Legacy native storage uses bucket-qualified pointers and owner-only signed playback; never publicize either bucket, because fallback must preserve account privacy.
 - Legacy Brain fusion adds evidence layers from stored speech and embodied steps without generating mental models, because deterministic extraction cannot invent first-principles reasoning.
