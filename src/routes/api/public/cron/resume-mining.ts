@@ -8,7 +8,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
-const MAX_JOBS_PER_RUN = 5;
+const MAX_JOBS_PER_RUN = 1;
 /** Permanent failures (bad link, unsupported video) stop after this many tries. */
 const MAX_ATTEMPTS = 4;
 
@@ -30,7 +30,17 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
         // Always await the mining pass: a background promise after an early
         // 202 is killed by the runtime and leaves the job locked with no progress.
         try {
-          return await runMiningWorker();
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const token = crypto.randomUUID();
+          const { data: leases, error } = await supabaseAdmin.rpc("claim_mining_worker", { p_token: token });
+          if (error) throw error;
+          const state = leases?.[0];
+          if (!state) return json({ ok: true, busy: true }, 200);
+          try {
+            return await runMiningWorker(state);
+          } finally {
+            await supabaseAdmin.from("mining_worker_state").update({ token: null, lease_until: new Date().toISOString() }).eq("name", "resume-mining").eq("token", token);
+          }
         } catch (err) {
           return json({ error: err instanceof Error ? err.message : String(err) }, 500);
         }
@@ -40,11 +50,10 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
 });
 
 /** One full worker pass: rescue, repair, then mine queued parts. */
-async function runMiningWorker(): Promise<Response> {
+async function runMiningWorker(state: { phase: number; cursors: unknown; token: string | null }): Promise<Response> {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
     const { unpackInstructions, isQuotaMessage, quotaRetryAfter } = await import("@/lib/mining-jobs");
-    const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
 
     const deadline = Date.now() + 4 * 60_000;
     let saved = 0;
@@ -66,7 +75,7 @@ async function runMiningWorker(): Promise<Response> {
     const { data: allJobs, error } = await supabaseAdmin
       .from("mining_jobs")
       // Creator-paused and stopped jobs are deliberately excluded.
-      .select("*")
+      .select("id,user_id,attempts,last_error,updated_at")
       // "error" is included so a one-off network/timeout failure is retried
       // automatically instead of stranding the video forever.
       .in("status", ["paused_quota", "queued", "running", "error"])
@@ -109,7 +118,11 @@ async function runMiningWorker(): Promise<Response> {
     // Quota belongs to one person's keys: only that person's videos wait.
     const quotaUsers = new Set<string>();
 
-    for (const job of jobs ?? []) {
+    for (const candidate of jobs ?? []) {
+      // Hydrate exactly one selected row, never fifty accumulated result arrays.
+      const { data: job, error: rowError } = await supabaseAdmin.from("mining_jobs").select("*").eq("id", candidate.id).eq("updated_at", candidate.updated_at).maybeSingle();
+      if (rowError) throw rowError;
+      if (!job) continue;
       if (Date.now() > deadline) break;
       if (quotaUsers.has(job.user_id)) continue;
       // Atomic claim: only proceed if nobody touched the job since we read
@@ -131,8 +144,6 @@ async function runMiningWorker(): Promise<Response> {
       let index = job.next_index ?? 0;
       if (index >= chunks.length) {
         await supabaseAdmin.from("mining_jobs").update({ status: "done" }).eq("id", job.id);
-        const done = await finalizeMiningJob(supabaseAdmin, { ...job, results, vault_id: null } as never).catch(() => null);
-        if (done) saved += 1;
         continue;
       }
       // Same context the creator's tab uses: speaker hint, source metadata
@@ -220,11 +231,6 @@ async function runMiningWorker(): Promise<Response> {
           results = nextResults;
           index += 1;
           resumed += 1;
-          if (index < chunks.length) {
-            await finalizeMiningJob(supabaseAdmin, { ...job, results, vault_id: null } as never, {
-              partial: { done: index, total: chunks.length },
-            }).catch(() => null);
-          }
           break;
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -285,15 +291,7 @@ async function runMiningWorker(): Promise<Response> {
           break;
         }
       }
-      // Everything mined: store it as a real Mind right here, so the
-      // creator finds it in My Vaults even if the app was never reopened.
-      if (index >= chunks.length) {
-        const vaultId = await finalizeMiningJob(
-          supabaseAdmin,
-          { ...job, results, next_index: index } as never,
-        ).catch(() => null);
-        if (vaultId) saved += 1;
-      }
+      // Finalization is rescued in its own invocation, after durable progress.
       // A creator pause/stop mid-run must win over this worker.
       const { data: fresh } = await supabaseAdmin
         .from("mining_jobs")
@@ -303,70 +301,16 @@ async function runMiningWorker(): Promise<Response> {
       if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
     }
 
-    if (resumed === 0 && jobs.length === 0) {
-    // Rescue pass: jobs that finished earlier but were never written into a
-    // Mind (the creator's tab was closed) get saved now.
-    const { data: stranded } = await supabaseAdmin
-      .from("mining_jobs")
-      .select("*")
-      .eq("status", "done")
-      .is("vault_id", null)
-      .limit(10);
-
-    for (const row of stranded ?? []) {
-      const vaultId = await finalizeMiningJob(supabaseAdmin, row as never).catch(() => null);
-      if (vaultId) saved += 1;
+    // Mining and maintenance never share a CPU budget. Rotate one small
+    // maintenance unit with a durable cursor under the invocation lease.
+    if (jobs.length === 0) {
+      const { runMiningMaintenance } = await import("@/lib/mining-worker-maintenance.server");
+      const next = await runMiningMaintenance(supabaseAdmin, state);
+      const { error: stateError } = await supabaseAdmin.from("mining_worker_state")
+        .update(next).eq("name", "resume-mining").eq("token", state.token ?? "");
+      if (stateError) throw stateError;
     }
-    // Self-heal pass: finished videos whose subtitles still have lines
-    // without a clock get estimated times saved, with no creator action.
-    // Words are never changed — only empty timestamps are filled.
-    let healed = 0;
-    try {
-      const { repairTimingsLocal } = await import("@/lib/repair-timings");
-      const { data: untimed } = await supabaseAdmin
-        .from("project_content")
-        .select("id, transcript")
-        .contains("transcript", [{ timestamp: "" }] as never)
-        .limit(10);
-      for (const row of untimed ?? []) {
-        const lines = Array.isArray(row.transcript) ? (row.transcript as never[]) : [];
-        if (!lines.length) continue;
-        const fixed = repairTimingsLocal(lines);
-        const { error: upErr } = await supabaseAdmin
-          .from("project_content")
-          .update({ transcript: fixed as never })
-          .eq("id", row.id);
-        if (!upErr) healed += 1;
-      }
-    } catch {
-      /* healing is best-effort; mining continues */
-    }
-    void healed;
-    // Keep one worker run well inside the platform request budget.
-
-    // Repair pass: finished videos with broken parts are re-mined silently.
-    try {
-      const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server");
-      await autoRepairFinishedVideos(supabaseAdmin, Date.now() + 90_000);
-    } catch {
-      /* best-effort */
-    }
-    // Proof-reading pass: only flags suspicious lines, never edits them.
-    try {
-      const { reviewFinishedJournals } = await import("@/lib/journal-review.server");
-      await reviewFinishedJournals(supabaseAdmin, Date.now() + 60_000);
-    } catch {
-      /* best-effort */
-    }
-
-    }
-    // Leftover time grows knowledge roots that still have unsorted facts,
-    // one batch per project on each owner's own key. Never alters mined data.
-    let rooted = 0;
-    if (Date.now() < deadline - 60_000) {
-      const { growPendingTopicMaps } = await import("@/lib/topic-map.server");
-      rooted = await growPendingTopicMaps(supabaseAdmin, deadline).catch(() => 0);
-    }
+    const rooted = 0;
     return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused, saved, rooted }, 200);
 }
 
