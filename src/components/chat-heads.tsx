@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { pickCopy, useLang } from "@/lib/i18n";
 
 /** Messenger-style minimized chats: small round bubbles bottom-right. */
 type Head = { id: string; title: string };
@@ -19,6 +21,8 @@ export function rememberChatHead(h: Head) {
 }
 
 export function ChatHeads() {
+  const { lang } = useLang();
+  const closeLabel = pickCopy({ en: "Close minimized chat", mn: "Жижигрүүлсэн чатыг хаах", ko: "최소화된 채팅 닫기" }, lang);
   const [heads, setHeads] = useState<Head[]>([]);
   const path = useRouterState({ select: (s) => s.location.pathname });
   useEffect(() => {
@@ -37,9 +41,9 @@ export function ChatHeads() {
           <Link to="/chats/$roomId" params={{ roomId: h.id }} title={h.title} aria-label={h.title} className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-background bg-primary text-lg font-bold text-primary-foreground shadow-lg">
             {(h.title.trim()[0] || "💬").toUpperCase()}
           </Link>
-          <button type="button" aria-label="Close" onClick={() => write(read().filter((x) => x.id !== h.id))} className="absolute -right-1 -top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-muted text-muted-foreground shadow group-hover:flex">
-            <X className="h-3 w-3" />
-          </button>
+          <Button type="button" variant="secondary" size="icon-sm" aria-label={closeLabel} title={closeLabel} onClick={() => write(read().filter((x) => x.id !== h.id))} className="absolute -right-2 -top-2 flex rounded-full border border-background shadow">
+            <X className="h-4 w-4" />
+          </Button>
         </div>
       ))}
     </div>
