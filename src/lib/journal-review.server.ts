@@ -65,12 +65,14 @@ function parseFlags(raw: string, batch: { i: number; line: Line }[]): ReviewFlag
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function reviewFinishedJournals(admin: any, deadline: number): Promise<number> {
-  const { data: rows } = await admin
+export async function reviewFinishedJournals(admin: any, deadline: number, selectedContentId?: string): Promise<number> {
+  let query = admin
     .from("project_content")
-    .select("id, user_id, title, transcript")
+    .select("id, user_id, title, transcript");
+  if (selectedContentId) query = query.eq("id", selectedContentId);
+  const { data: rows } = await query
     .order("updated_at", { ascending: true })
-    .limit(200);
+    .limit(selectedContentId ? 1 : 200);
   let reviewedBatches = 0;
   let videos = 0;
   for (const row of rows ?? []) {
@@ -89,7 +91,7 @@ export async function reviewFinishedJournals(admin: any, deadline: number): Prom
       : { contentId: row.id, total: lines.length, reviewed: 0, flags: [], done: false, updatedAt: "" };
     videos += 1;
 
-    for (let b = 0; b < BATCHES_PER_RUN && review.reviewed < lines.length && Date.now() < deadline; b++) {
+    for (let b = 0; b < (selectedContentId ? 1 : BATCHES_PER_RUN) && review.reviewed < lines.length && Date.now() < deadline; b++) {
       const batch = lines.slice(review.reviewed, review.reviewed + BATCH).map((line, k) => ({ i: review.reviewed + k, line }));
       const listing = batch.map((x) => `${x.i}\t${x.line.timestamp ?? ""}\t${x.line.speaker ?? ""}: ${x.line.speech ?? ""}`).join("\n");
       try {

@@ -48,7 +48,7 @@ export async function finalizeMiningJob(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: any,
   job: JobRow,
-  opts: { partial?: { done: number; total: number } } = {},
+  opts: { partial?: { done: number; total: number }; deferTopics?: boolean } = {},
 ): Promise<string | null> {
   // A partial save never marks the job finished, so the final save still runs.
   if (job.vault_id) return job.vault_id;
@@ -317,7 +317,7 @@ export async function finalizeMiningJob(
     .eq("id", job.id);
 
   // Roots grow by themselves once a video is fully mined; never blocks the save.
-  if (!partial && projectId) {
+  if (!partial && projectId && !opts.deferTopics) {
     const { growProjectTopics } = await import("@/lib/topic-map.server");
     await growProjectTopics(admin, job.user_id, projectId).catch(() => 0);
   }

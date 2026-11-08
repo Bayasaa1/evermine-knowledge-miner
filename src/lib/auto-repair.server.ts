@@ -15,14 +15,16 @@ function videoIdOf(url: string): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function autoRepairFinishedVideos(admin: any, deadline: number): Promise<number> {
-  const { data: jobs } = await admin
+export async function autoRepairFinishedVideos(admin: any, deadline: number, selectedJobId?: string): Promise<number> {
+  let query = admin
     .from("mining_jobs")
     .select("id, user_id, source_url, chunks, next_index, results")
     .eq("status", "done")
-    .not("vault_id", "is", null)
+    .not("vault_id", "is", null);
+  if (selectedJobId) query = query.eq("id", selectedJobId);
+  const { data: jobs } = await query
     .order("updated_at", { ascending: true })
-    .limit(VIDEOS_SCANNED);
+    .limit(selectedJobId ? 1 : VIDEOS_SCANNED);
   let fixedParts = 0;
   for (const lite of jobs ?? []) {
     if (fixedParts >= PARTS_PER_RUN || Date.now() > deadline) break;
@@ -56,7 +58,7 @@ export async function autoRepairFinishedVideos(admin: any, deadline: number): Pr
     });
     const todo = [...new Set(problems.map((p) => p.part))]
       .filter((i) => i < results.length && !results[i]?.["autoRepaired"])
-      .slice(0, PARTS_PER_RUN - fixedParts);
+      .slice(0, selectedJobId ? 1 : PARTS_PER_RUN - fixedParts);
     if (!todo.length) continue;
 
     const { data: job } = await admin.from("mining_jobs").select("*").eq("id", lite.id).maybeSingle();
@@ -70,7 +72,8 @@ export async function autoRepairFinishedVideos(admin: any, deadline: number): Pr
 
     let changed = false;
     for (const index of todo) {
-      const part = plan[index]!;
+      const part = plan[index];
+      if (!part) continue;
       try {
         const fast = await tryTranscriptMine({ url: job.source_url, startSec: part.start, endSec: part.end, assessment, usage });
         const mined = fast
@@ -89,7 +92,7 @@ export async function autoRepairFinishedVideos(admin: any, deadline: number): Pr
     if (!changed) continue;
     await admin.from("mining_jobs").update({ results: results as never }).eq("id", job.id);
     const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
-    await finalizeMiningJob(admin, { ...job, results, vault_id: null } as never).catch(() => null);
+    await finalizeMiningJob(admin, { ...job, results, vault_id: null } as never, { deferTopics: !!selectedJobId }).catch(() => null);
   }
   return fixedParts;
 }
