@@ -3,7 +3,9 @@
 ## Project monitoring — November 8
 - [x] Confirm production mining CPU-limit failures and phone-only chat dismissal issue
 - [x] Make minimized chats dismissible on touch screens and verify persistent removal; 104 tests pass
-- [ ] Bound mining/finalization and maintenance work — awaiting approval of the mining plan
+- [x] Bound mining to one checkpoint and independent leased maintenance; lightweight candidates and durable cursors
+- [x] Preserve timing output with linear processing; 108 tests pass, authenticated worker and overlap guards verified
+- [ ] Verify a new AI checkpoint and published CPU-limit recovery — all 247 jobs are already done; updated code not published
 
 ## Consolidated mining fix
 - [x] Harden bounded Gemini/key cascade and configured text-provider fallback; no shared credit fallback

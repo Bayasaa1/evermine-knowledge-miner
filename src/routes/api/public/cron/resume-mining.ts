@@ -49,15 +49,15 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
   },
 });
 
-/** One full worker pass: rescue, repair, then mine queued parts. */
+/** One checkpoint or one independent maintenance unit per invocation. */
 async function runMiningWorker(state: { phase: number; cursors: unknown; token: string | null }): Promise<Response> {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { analyzeYoutubeVideo } = await import("@/lib/youtube-mine.server");
     const { unpackInstructions, isQuotaMessage, quotaRetryAfter } = await import("@/lib/mining-jobs");
 
     const deadline = Date.now() + 4 * 60_000;
-    let saved = 0;
-    // Stuck recovery: a running job silent for over 3 minutes goes back
+    const saved = 0;
+    // Stuck recovery: a running job silent for over 6 minutes goes back
     // to the queue (its finished parts stay saved).
     {
       const { MINING_LEASE_STALE_MS } = await import("@/lib/mining-jobs");
@@ -68,7 +68,7 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
         .lt("updated_at", new Date(Date.now() - MINING_LEASE_STALE_MS).toISOString());
     }
     const nowIso = new Date().toISOString();
-    // Single-flight lease: a job touched in the last 3 minutes is being mined
+    // Single-flight lease: a job touched in the last 6 minutes is being mined
     // by an open tab or a previous run, so this worker leaves it alone.
     const { MINING_LEASE_STALE_MS } = await import("@/lib/mining-jobs");
     const leaseIso = new Date(Date.now() - MINING_LEASE_STALE_MS).toISOString();
@@ -123,6 +123,7 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
       const { data: job, error: rowError } = await supabaseAdmin.from("mining_jobs").select("*").eq("id", candidate.id).eq("updated_at", candidate.updated_at).maybeSingle();
       if (rowError) throw rowError;
       if (!job) continue;
+      job.attempts = candidate.attempts;
       if (Date.now() > deadline) break;
       if (quotaUsers.has(job.user_id)) continue;
       // Atomic claim: only proceed if nobody touched the job since we read
@@ -143,7 +144,7 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
       let results = (Array.isArray(job.results) ? job.results : []) as unknown[];
       let index = job.next_index ?? 0;
       if (index >= chunks.length) {
-        await supabaseAdmin.from("mining_jobs").update({ status: "done" }).eq("id", job.id);
+        await supabaseAdmin.from("mining_jobs").update({ status: "done" }).eq("id", job.id).eq("status", "running").eq("updated_at", lease);
         continue;
       }
       // Same context the creator's tab uses: speaker hint, source metadata
@@ -178,8 +179,7 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
           .eq("id", job.id).eq("status", "running").eq("updated_at", lease);
         continue;
       }
-      // Keep mining this video while there is time left, instead of one
-      // chunk every five minutes.
+      // One checkpoint only; later invocations continue the saved plan.
       while (index < chunks.length && Date.now() < deadline) {
         const chunk = chunks[index];
         if (!chunk) break;
