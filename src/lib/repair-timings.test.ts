@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { repairTimingsLocal } from "./repair-timings";
 import { stampToSeconds, secondsToStamp, type TranscriptLine } from "./subtitle-health";
 
@@ -32,17 +33,17 @@ function reference(lines: TranscriptLine[]) {
 test("timing optimization preserves every original interpolation and word", () => {
   for(let seed=0;seed<100;seed++) {
     const lines=Array.from({length:80},(_,i)=>({timestamp:(i*17+seed)%9===0?secondsToStamp(i*3):"",speech:"word ".repeat(1+(i+seed)%13)}));
-    expect(repairTimingsLocal(lines)).toEqual(reference(lines));
-    expect(lines.filter(l=>l.timestamp==="").length).toBeGreaterThan(0);
+    assert.deepEqual(repairTimingsLocal(lines), reference(lines));
+    assert.ok((lines.filter(l=>l.timestamp==="").length) > (0));
   }
 });
 test("long untimed transcript preserves all 30000 words without repeated gap scans", () => {
   const lines=Array.from({length:30000},(_,i)=>({timestamp:"",speech:`original ${i}`}));
   const repaired=repairTimingsLocal(lines);
-  expect(repaired.length).toBe(30000);
-  expect(repaired.map(l=>l.speech)).toEqual(lines.map(l=>l.speech));
-  expect(repaired.every(l=>stampToSeconds(l.timestamp)!=null)).toBe(true);
-  expect(repairTimingsLocal([])).toEqual([]);
+  assert.equal(repaired.length, 30000);
+  assert.deepEqual(repaired.map(l=>l.speech), lines.map(l=>l.speech));
+  assert.equal(repaired.every(l=>stampToSeconds(l.timestamp)!=null), true);
+  assert.deepEqual(repairTimingsLocal([]), []);
   const timed=[{timestamp:"00:15",speech:"unchanged"}];
-  expect(repairTimingsLocal(timed)).toBe(timed);
+  assert.equal(repairTimingsLocal(timed), timed);
 });

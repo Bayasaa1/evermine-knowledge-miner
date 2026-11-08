@@ -1,4 +1,5 @@
-import { test, expect } from "bun:test";
+import { test } from "node:test";
+import assert from "node:assert/strict";
 import { runMiningMaintenance } from "./mining-worker-maintenance.server";
 
 test("maintenance scans one lightweight row and wraps its durable cursor", async () => {
@@ -10,11 +11,11 @@ test("maintenance scans one lightweight row and wraps its durable cursor", async
   query.maybeSingle=async()=>({data:null,error:null});
   const admin={from:(table:string)=>{calls.push(["from",table]);return query;}};
   const next=await runMiningMaintenance(admin,{phase:2,cursors:{"2":"last-video","3":"other-video"}});
-  expect(calls.filter(c=>c[0]==="from")).toEqual([["from","mining_jobs"]]);
-  expect(calls.find(c=>c[0]==="select")?.[1]).toEqual(["id"]);
-  expect(calls.find(c=>c[0]==="limit")?.[1]).toEqual([1]);
-  expect(calls.find(c=>c[0]==="gt")?.[1]).toEqual(["id","last-video"]);
-  expect(next).toEqual({phase:3,cursors:{"3":"other-video"}});
+  assert.deepEqual(calls.filter(c=>c[0]==="from"), [["from","mining_jobs"]]);
+  assert.deepEqual(calls.find(c=>c[0]==="select")?.[1], ["id"]);
+  assert.deepEqual(calls.find(c=>c[0]==="limit")?.[1], [1]);
+  assert.deepEqual(calls.find(c=>c[0]==="gt")?.[1], ["id","last-video"]);
+  assert.deepEqual(next, {phase:3,cursors:{"3":"other-video"}});
 });
 
 test("all five automatic maintenance phases rotate without bulk JSON reads",async()=>{
@@ -24,6 +25,6 @@ test("all five automatic maintenance phases rotate without bulk JSON reads",asyn
   let state={phase:0,cursors:{}};
   for(let i=0;i<5;i++) {
     state=await runMiningMaintenance(admin,state);
-    expect(state.phase).toBe((i+1)%5);
+    assert.equal(state.phase, (i+1)%5);
   }
 });
