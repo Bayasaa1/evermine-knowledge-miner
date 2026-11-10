@@ -43,7 +43,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
               : body.action === "validate_operator_project" ? { project: await a.operatorProject(auth.userId, body.attachedMindIds, pid) }
               : body.action === "mind_roster" ? { minds: await a.attachedMindChoices(auth.userId), directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang), operatorProjects: await a.operatorProjects(auth.userId, body.attachedMindIds) }
               : body.action === "mind_directives" ? { directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang) }
-              : body.action === "execute_mind_directive" ? await a.executeMindDirective(auth.userId, body.attachedMindIds, s("directiveId"), body.lang)
+              : body.action === "execute_mind_directive" ? await a.executeMindDirective(auth.userId, body.attachedMindIds, s("directiveId"), body.lang, body.operatorMindId)
               : needsProject && !pid ? await a.projectChoices(auth.userId, body.action)
               : body.action === "scout" ? await a.scoutYoutubeSources(auth.userId, s("topic"), pid || undefined)
               : body.action === "health" ? await a.analyzeBrainHealth(auth.userId, pid)

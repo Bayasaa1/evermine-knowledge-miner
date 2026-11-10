@@ -71,10 +71,11 @@ export async function resolveOperatorMind(userId: string, requested: unknown) {
 
 async function inspectProject(userId: string, projectId: string) {
   const sb = await db();
-  const [jobs, vaults, videos] = await Promise.all([
+  const [jobs, vaults, videos, project] = await Promise.all([
     sb.from("mining_jobs").select("id,status,updated_at,source_url,next_index,chunks").eq("user_id", userId).eq("project_id", projectId),
     sb.from("mind_vaults").select("id,deep:payload->result->deepBrain,rebuilt:payload->deepBrainRebuild").eq("user_id", userId).eq("project_id", projectId).eq("kind", "mine"),
     sb.from("project_content").select("youtube_id,transcript").eq("user_id", userId).eq("project_id", projectId),
+    sb.from("projects").select("published").eq("user_id", userId).eq("id", projectId).maybeSingle(),
   ]);
   if (jobs.error || vaults.error || videos.error) throw new Error(jobs.error?.message || vaults.error?.message || videos.error?.message);
   const stalled = (jobs.data ?? []).filter((j) => stalledJob(j.status, j.updated_at));
@@ -97,7 +98,7 @@ async function inspectProject(userId: string, projectId: string) {
     missing += surrounded.length;
     if ((lines.length && analyzeTiming(lines).status !== "synced") || problems.some((p) => p.kind === "time_jump") || surrounded.length) timingJobs.push(job.id);
   }
-  return { stalled, failed, shallow, timingJobs, missing };
+  return { stalled, failed, shallow, timingJobs, missing, unposted: project.data?.published === false ? videos.data?.length ?? 0 : 0 };
 }
 
 export async function inspectAttachedMinds(userId: string, ids: unknown, lang = "en"): Promise<MindDirective[]> {
@@ -115,17 +116,18 @@ export async function inspectAttachedMinds(userId: string, ids: unknown, lang = 
     for (const project of projects) {
       let h = health.get(project.id);
       if (!h) { h = await inspectProject(userId, project.id); health.set(project.id, h); }
-      directives.push(...generateMindDirectives({ mindId: id, mindName: mind.name, mindAvatar: mind.avatar, projectId: project.id, stalled: h.stalled.length, failed: h.failed.length, shallow: h.shallow.length, timing: h.timingJobs.length, missing: h.missing }, lang));
+      directives.push(...generateMindDirectives({ mindId: id, mindName: mind.name, mindAvatar: mind.avatar, projectId: project.id, stalled: h.stalled.length, failed: h.failed.length, shallow: h.shallow.length, timing: h.timingJobs.length, missing: h.missing, unposted: h.unposted }, lang));
     }
   }
   return directives;
 }
 
 /** Never trust a client-supplied tool/target: re-read ownership and the condition. */
-export async function executeMindDirective(userId: string, ids: unknown, directiveId: string, lang = "en"): Promise<ArchitectResult> {
+export async function executeMindDirective(userId: string, ids: unknown, directiveId: string, lang = "en", operatorMindId: unknown = "builtin:architect"): Promise<ArchitectResult> {
   const directives = await inspectAttachedMinds(userId, ids, lang);
   const directive = directives.find((d) => d.id === directiveId);
   if (!directive) throw new Error("Directive is no longer active or this Mind is not yours.");
+  if (directive.suggestedTool === "draft_post") return runOperatorSkill(userId, ids, directive.targetProjectId, "draft_post", lang, operatorMindId);
   const h = await inspectProject(userId, directive.targetProjectId);
   const sb = await db(); let count = 0;
   if (directive.suggestedTool === "resume_mining" || directive.suggestedTool === "clear_failed_jobs") {
