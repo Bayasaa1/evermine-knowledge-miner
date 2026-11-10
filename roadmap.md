@@ -2,8 +2,9 @@
 
 ## Finished Minds during active mining — November 10
 - [x] Confirm finalization is starved while mining candidates exist
-- [ ] Alternate independent saving and mining invocations; restore partial checkpoint saves
-- [ ] Test completed and partial saving with an active queue; verify worker response
+- [x] Alternate independent saving and mining invocations; restore partial checkpoint saves
+- [x] Completed/partial save regression coverage; 113 tests pass, preview build OK; authenticated checkpoint then partial vault save succeeded with 20 queued jobs
+- [ ] Verify published worker uses the revised scheduling — requires publishing; signed-in project list readback was intermittent
 
 ## Project monitoring — November 8
 - [x] Confirm production mining CPU-limit failures and phone-only chat dismissal issue
