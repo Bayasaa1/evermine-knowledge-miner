@@ -25,16 +25,18 @@ import {
   type CapturedError,
 } from "@/lib/error-capture";
 import { apiFetch } from "@/lib/api-fetch";
+import { MindRoster, useArchitectRoster } from "@/components/chat/mind-roster";
 
 type ChatMsg = { role: "user" | "model"; text: string; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
 
 /** The account's Chatting role is the only path used for diagnostics. */
-async function askBackend(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {
+async function askBackend(lang: Lang, history: ChatMsg[], attachedMindIds: string[]): Promise<ChatMsg> {
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
     body: JSON.stringify({
       lang,
+      attachedMindIds,
       errors: getCapturedErrors().slice(-10),
       messages: history.map((m) => ({ role: m.role, text: m.text })),
     }),
@@ -47,19 +49,19 @@ async function askBackend(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {
 }
 
 /** Runs one Architect tool. Writing tools only fire from buttons the user presses. */
-async function runAction(action: string, args: Record<string, unknown>): Promise<ChatMsg> {
+async function runAction(action: string, args: Record<string, unknown>, attachedMindIds: string[]): Promise<ChatMsg> {
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
-    body: JSON.stringify({ action, args }),
+    body: JSON.stringify({ action, args, attachedMindIds }),
   });
   const data = (await res.json().catch(() => ({}))) as Partial<ArchitectResult> & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `Co-Pilot error (${res.status}).`);
   return { role: "model", text: data.text ?? "", provider: data.provider, actions: data.actions_taken, cards: data.interactive_cards };
 }
 
-async function answer(lang: Lang, history: ChatMsg[]): Promise<ChatMsg> {
-  return askBackend(lang, history);
+async function answer(lang: Lang, history: ChatMsg[], attachedMindIds: string[]): Promise<ChatMsg> {
+  return askBackend(lang, history, attachedMindIds);
 }
 
 const COPY = {
@@ -95,6 +97,7 @@ export function ArchitectLauncher({ projectId, lang }: { projectId?: string | nu
 
 export function DiagnosticChat() {
   const { lang, t } = useLang();
+  const roster = useArchitectRoster();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // The watching screen stays clean: the helper bubble covered the video and
   // the Home button there. It lives on the other screens instead.
@@ -144,14 +147,14 @@ export function DiagnosticChat() {
 
     setThinking(true);
     try {
-      const reply = await answer(lang, next);
+      const reply = await answer(lang, next, roster.ids);
       setMessages([...next, reply]);
     } catch (err) {
       setMessages([...next, { role: "model", text: describeThrowable(err) }]);
     } finally {
       setThinking(false);
     }
-  }, [input, thinking, messages, lang]);
+  }, [input, thinking, messages, lang, roster.ids]);
 
   const copy = COPY[(lang in COPY ? lang : "en") as keyof typeof COPY];
   const [done, setDone] = useState<Record<string, boolean>>({});
@@ -162,7 +165,7 @@ export function DiagnosticChat() {
       if (label) setMessages((m) => [...m, { role: "user", text: label }]);
       setThinking(true);
       try {
-        const reply = await runAction(action, args);
+        const reply = await runAction(action, args, roster.ids);
         setMessages((m) => [...m, reply]);
       } catch (err) {
         setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]);
@@ -170,7 +173,7 @@ export function DiagnosticChat() {
         setThinking(false);
       }
     },
-    [thinking],
+    [thinking, roster.ids],
   );
 
   const mine = useCallback(async (key: string, c: Extract<ArchitectCard, { type: "video" }>) => {
@@ -281,7 +284,7 @@ export function DiagnosticChat() {
           role="dialog"
           aria-label={t("botTitle")}
           style={{ bottom: "calc(env(safe-area-inset-bottom) + 9rem)" }}
-          className="fixed left-4 z-50 flex h-[26rem] max-h-[60vh] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          className="fixed left-4 z-50 flex h-[38rem] max-h-[calc(100dvh-11rem)] w-[26rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         >
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
             <Bot className="h-4 w-4 text-primary" />
@@ -310,6 +313,7 @@ export function DiagnosticChat() {
             </button>
           </div>
 
+          <MindRoster ids={roster.ids} onChange={roster.change} refreshToken={errorCount + messages.length} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken }])} />
           {errorCount > 0 && (
             <div className="border-b border-border bg-primary/5 px-4 py-2 text-[11px] text-muted-foreground">
               {t("botErrorContext")}: <span className="font-medium text-foreground">{errorCount}</span> —{" "}
