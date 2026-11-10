@@ -1,6 +1,6 @@
 /** Alternate independent save/maintenance and checkpoint CPU budgets. */
 export function maintenanceTurn(cursors: unknown, hasMiningJobs: boolean) {
-  return !hasMiningJobs || (cursors as Record<string, string> | null)?.lastWork === "mining";
+  return !hasMiningJobs || (cursors as Record<string, string> | null)?.["lastWork"] === "mining";
 }
 
 /** Finished jobs always win; partial saves never claim or finish a mining job. */
@@ -21,8 +21,8 @@ export async function savePendingMiningMind(
     query = admin.from("mining_jobs").select("id,updated_at")
       .in("status", ["queued", "paused_quota", "error"])
       .is("vault_id", null).gt("next_index", 0).neq("source_kind", "upload");
-    if (cursors.partialJob && cursors.partialIndex) {
-      query = query.or(`id.neq.${cursors.partialJob},next_index.neq.${cursors.partialIndex}`);
+    if (cursors["partialJob"] && cursors["partialIndex"]) {
+      query = query.or(`id.neq.${cursors["partialJob"]},next_index.neq.${cursors["partialIndex"]}`);
     }
     ({ data: row, error } = await query.order("created_at").limit(1).maybeSingle());
     if (error) throw error;
