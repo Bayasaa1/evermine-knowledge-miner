@@ -34,7 +34,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
           try {
             const result =
               body.action === "operator_tick" ? await a.operatorTick(auth.userId, body.attachedMindIds, body.lang || "en", args["approved"] === true)
-              : body.action === "operator_skill" && (s("skill") === "draft_post" || args["confirmed"] === true) ? await a.runOperatorSkill(auth.userId, body.attachedMindIds, pid, s("skill"))
+              : body.action === "operator_skill" && (s("skill") === "draft_post" || args["confirmed"] === true) ? await a.runOperatorSkill(auth.userId, body.attachedMindIds, pid, s("skill"), body.lang)
               : body.action === "publish_operator_post" && args["confirmed"] === true ? await a.publishOperatorPost(auth.userId, body.attachedMindIds, pid, s("draft"))
               : body.action === "undo_operator_post" ? await a.undoOperatorPost(auth.userId, s("postId"))
               : body.action === "validate_operator_project" ? { project: await a.operatorProject(auth.userId, body.attachedMindIds, pid) }

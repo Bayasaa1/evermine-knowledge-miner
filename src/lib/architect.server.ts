@@ -10,7 +10,7 @@ import type { MindPayload } from "@/lib/mind-json";
 
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
-import { automaticDirective, strongestModel, sourceVideoUrl } from "@/lib/architect-operator";
+import { automaticDirective, strongestModel, sourceVideoUrl, missingPostEvidence } from "@/lib/architect-operator";
 import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
@@ -169,7 +169,7 @@ export async function operatorProjects(userId: string, ids: unknown): Promise<At
   return (data ?? []).filter((p) => roster.includes(`project:${p.id}`) || roster.includes(`persona:${p.persona_id}`)).map((p) => ({ mindId: `project:${p.id}`, name: p.title, avatar: p.creator_avatar_url, kind: "project" }));
 }
 
-export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string): Promise<ArchitectResult> {
+export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string, lang = "en"): Promise<ArchitectResult> {
   const project = await operatorProject(userId, ids, projectId);
   const sb = await db();
   if (skill === "advance_mining") {
@@ -213,7 +213,7 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
     const draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["principle"] ?? model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
     return { text: draft, actions_taken: [], interactive_cards: [], operator: { projectId, draft, clipUrl } };
   }
-  throw new Error("No stored mental model with a verified video timestamp. No clip was invented.");
+  return { text: missingPostEvidence(lang), actions_taken: [], interactive_cards: [] };
 }
 
 export async function publishOperatorPost(userId: string, ids: unknown, projectId: string, approvedDraft: string): Promise<ArchitectResult> {

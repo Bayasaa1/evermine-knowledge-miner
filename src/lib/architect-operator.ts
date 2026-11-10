@@ -22,3 +22,6 @@ export function sourceVideoUrl(source: unknown): string {
   if (source && typeof source === "object" && "url" in source && typeof source.url === "string") return source.url;
   return "";
 }
+export function missingPostEvidence(lang = "en"): string {
+  return lang === "mn" ? "Нотолгоотой видео мөч бүхий хадгалсан загвар олдсонгүй. Нийтлэл үүсгээгүй." : lang === "ko" ? "검증된 영상 시점이 있는 저장된 모델이 없습니다. 게시물을 만들지 않았습니다." : "No stored mental model with a verified video timestamp. No post was created.";
+}
