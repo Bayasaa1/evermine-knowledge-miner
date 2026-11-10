@@ -10,7 +10,7 @@ import type { MindPayload } from "@/lib/mind-json";
 
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
-import { automaticDirective, strongestModel, sourceVideoUrl, missingPostEvidence } from "@/lib/architect-operator";
+import { automaticDirective, strongestModel, sourceVideoUrl, missingPostResult } from "@/lib/architect-operator";
 import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
@@ -213,7 +213,7 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
     const draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["principle"] ?? model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
     return { text: draft, actions_taken: [], interactive_cards: [], operator: { projectId, draft, clipUrl } };
   }
-  return { text: missingPostEvidence(lang), actions_taken: [], interactive_cards: [] };
+  return missingPostResult(lang);
 }
 
 export async function publishOperatorPost(userId: string, ids: unknown, projectId: string, approvedDraft: string): Promise<ArchitectResult> {

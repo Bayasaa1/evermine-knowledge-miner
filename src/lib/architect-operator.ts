@@ -1,4 +1,4 @@
-import type { MindDirective } from "./architect-types";
+import type { ArchitectResult, MindDirective } from "./architect-types";
 
 export const OPERATOR_SKILLS = ["advance_mining", "deepen_brains", "draft_post", "challenge_pack"] as const;
 export type OperatorSkill = typeof OPERATOR_SKILLS[number];
@@ -24,4 +24,7 @@ export function sourceVideoUrl(source: unknown): string {
 }
 export function missingPostEvidence(lang = "en"): string {
   return lang === "mn" ? "Нотолгоотой видео мөч бүхий хадгалсан загвар олдсонгүй. Нийтлэл үүсгээгүй." : lang === "ko" ? "검증된 영상 시점이 있는 저장된 모델이 없습니다. 게시물을 만들지 않았습니다." : "No stored mental model with a verified video timestamp. No post was created.";
+}
+export function missingPostResult(lang = "en"): ArchitectResult {
+  return { text: missingPostEvidence(lang), actions_taken: [], interactive_cards: [] };
 }

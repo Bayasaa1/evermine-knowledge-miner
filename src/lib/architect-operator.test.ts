@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { automaticDirective, operatorIntent, strongestModel, sourceVideoUrl, missingPostEvidence, OPERATOR_SKILLS } from "./architect-operator";
+import { automaticDirective, operatorIntent, strongestModel, sourceVideoUrl, missingPostResult, OPERATOR_SKILLS } from "./architect-operator";
 import type { MindDirective } from "./architect-types";
 const directive = (tool: MindDirective["suggestedTool"]): MindDirective => ({ id: tool, mindId: "project:x", mindName: "Mind", mindAvatar: null, severity: "warning", issueSummary: "issue", directiveForChatbot: "repair", suggestedTool: tool, targetProjectId: "x" });
 test("autopilot excludes brain mutations and failed-job retries", () => {
@@ -25,8 +25,9 @@ test("post grounding accepts structured mining sources and legacy URLs", () => {
   assert.equal(sourceVideoUrl(url), url);
   assert.equal(sourceVideoUrl({ kind: "upload" }), "");
 });
-test("missing post evidence produces an informational result without an executable draft", async () => {
-  const { runOperatorSkill } = await import("./architect.server");
-  assert.equal(typeof runOperatorSkill, "function");
-  assert.equal(typeof missingPostEvidence("mn"), "string");
+test("missing post evidence produces an informational result without an executable draft", () => {
+  const result = missingPostResult("mn");
+  assert.deepEqual(result.actions_taken, []);
+  assert.equal(result.operator, undefined);
+  assert.deepEqual(result.interactive_cards, []);
 });
