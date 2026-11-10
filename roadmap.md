@@ -1,5 +1,13 @@
 # Roadmap
 
+## Active Architect operator
+- [x] Add consent-scoped Auto-Pilot and timestamped activity stream; stopping/closing cancels further work
+- [x] Add attached-project mining, evidence fusion/Core Brain preview, post draft/publish with Undo, and three-level challenge tools
+- [x] 126 tests pass; build OK; signed-in project selection, draft validation, natural-chat confirmation/cancel, and mobile layout verified
+- [ ] Verify post publishing — tested finance Mind lacks a stored mental model with a usable video timestamp; no evidence invented or post published
+- [ ] Verify live automatic repair, next checkpoint and full challenge pack — not executed to avoid changing mined evidence or spending customer-key quota during verification
+- [ ] Add unposted-video health directives — publication remains a manually confirmed tool; no automatic publishing
+
 ## Attached Mind repair directives — November 10
 - [x] Add account-scoped Architect roster and room moderator roster controls
 - [x] Inspect attached owned Minds without AI; execute revalidated project-specific directives only after confirmation

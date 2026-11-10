@@ -1,0 +1,30 @@
+import type { ArchitectResult, MindDirective } from "./architect-types";
+
+export const OPERATOR_SKILLS = ["advance_mining", "deepen_brains", "draft_post", "challenge_pack"] as const;
+export type OperatorSkill = typeof OPERATOR_SKILLS[number];
+export function automaticDirective(directives: MindDirective[]): MindDirective | undefined {
+  return directives.find((d) => d.suggestedTool === "resume_mining" || d.suggestedTool === "repair_timings");
+}
+export function operatorIntent(text: string): OperatorSkill | undefined {
+  if (/\b(mining|queue)\b|олборлолт|마이닝/i.test(text)) return "advance_mining";
+  if (/\b(deepen|fuse|brain)\b|тархи|브레인/i.test(text)) return "deepen_brains";
+  if (/\b(post|highlight)\b|нийтлэл|게시물/i.test(text)) return "draft_post";
+  if (/\b(challenge|assignment)\b|сорилт|даалгавар|챌린지/i.test(text)) return "challenge_pack";
+  return undefined;
+}
+export function strongestModel(models: unknown): Record<string, unknown> | undefined {
+  if (!Array.isArray(models)) return;
+  return models.filter((m): m is Record<string, unknown> => !!m && typeof m === "object")
+    .sort((a, b) => (Number(b["weight"] ?? b["importance"] ?? 0) || 0) - (Number(a["weight"] ?? a["importance"] ?? 0) || 0))[0];
+}
+export function sourceVideoUrl(source: unknown): string {
+  if (typeof source === "string") return source;
+  if (source && typeof source === "object" && "url" in source && typeof source.url === "string") return source.url;
+  return "";
+}
+export function missingPostEvidence(lang = "en"): string {
+  return lang === "mn" ? "Нотолгоотой видео мөч бүхий хадгалсан загвар олдсонгүй. Нийтлэл үүсгээгүй." : lang === "ko" ? "검증된 영상 시점이 있는 저장된 모델이 없습니다. 게시물을 만들지 않았습니다." : "No stored mental model with a verified video timestamp. No post was created.";
+}
+export function missingPostResult(lang = "en"): ArchitectResult {
+  return { text: missingPostEvidence(lang), actions_taken: [], interactive_cards: [] };
+}

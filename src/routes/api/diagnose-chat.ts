@@ -33,7 +33,12 @@ export const Route = createFileRoute("/api/diagnose-chat")({
           const needsProject = ["health", "fix", "stress"].includes(body.action) || (body.action === "scout" && !s("topic"));
           try {
             const result =
-              body.action === "mind_roster" ? { minds: await a.attachedMindChoices(auth.userId), directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang) }
+              body.action === "operator_tick" ? await a.operatorTick(auth.userId, body.attachedMindIds, body.lang || "en", args["approved"] === true)
+              : body.action === "operator_skill" && (s("skill") === "draft_post" || args["confirmed"] === true) ? await a.runOperatorSkill(auth.userId, body.attachedMindIds, pid, s("skill"), body.lang)
+              : body.action === "publish_operator_post" && args["confirmed"] === true ? await a.publishOperatorPost(auth.userId, body.attachedMindIds, pid, s("draft"))
+              : body.action === "undo_operator_post" ? await a.undoOperatorPost(auth.userId, s("postId"))
+              : body.action === "validate_operator_project" ? { project: await a.operatorProject(auth.userId, body.attachedMindIds, pid) }
+              : body.action === "mind_roster" ? { minds: await a.attachedMindChoices(auth.userId), directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang), operatorProjects: await a.operatorProjects(auth.userId, body.attachedMindIds) }
               : body.action === "mind_directives" ? { directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang) }
               : body.action === "execute_mind_directive" ? await a.executeMindDirective(auth.userId, body.attachedMindIds, s("directiveId"), body.lang)
               : needsProject && !pid ? await a.projectChoices(auth.userId, body.action)

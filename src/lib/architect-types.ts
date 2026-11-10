@@ -26,5 +26,6 @@ export type ArchitectResult = {
   actions_taken: string[];
   interactive_cards: ArchitectCard[];
   directives?: MindDirective[];
+  operator?: { jobId?: string; projectId?: string; postId?: string; draft?: string; clipUrl?: string; published?: boolean };
 };
 
