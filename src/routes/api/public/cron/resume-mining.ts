@@ -112,6 +112,25 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
       .slice(0, MAX_JOBS_PER_RUN)
       .map((j) => ((j.attempts ?? 0) >= MAX_ATTEMPTS ? { ...j, attempts: MAX_ATTEMPTS - 2 } : j));
 
+    const { maintenanceTurn, savePendingMiningMind, runMiningMaintenance } = await import("@/lib/mining-worker-maintenance.server");
+    const cursors = { ...(state.cursors as Record<string, string> ?? {}) };
+    if (maintenanceTurn(cursors, jobs.length > 0)) {
+      const pending = await savePendingMiningMind(supabaseAdmin, cursors);
+      const next = pending.handled
+        ? { phase: state.phase, cursors: pending.cursors }
+        : await runMiningMaintenance(supabaseAdmin, { ...state, cursors });
+      const { error: stateError } = await supabaseAdmin.from("mining_worker_state")
+        .update({ ...next, cursors: { ...next.cursors, lastWork: "maintenance" } })
+        .eq("name", "resume-mining").eq("token", state.token ?? "");
+      if (stateError) throw stateError;
+      return json({ ok: true, scanned: 0, resumed: 0, paused: 0, saved: pending.saved, rooted: 0 }, 200);
+    }
+    // Persist before a slow checkpoint: even a terminated pass yields a save turn next.
+    const { error: turnError } = await supabaseAdmin.from("mining_worker_state")
+      .update({ cursors: { ...cursors, lastWork: "mining" } })
+      .eq("name", "resume-mining").eq("token", state.token ?? "");
+    if (turnError) throw turnError;
+
     let resumed = 0;
     let paused = 0;
 
@@ -301,15 +320,7 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
       if (fresh && (fresh.status === "paused_user" || fresh.status === "stopped")) break;
     }
 
-    // Mining and maintenance never share a CPU budget. Rotate one small
-    // maintenance unit with a durable cursor under the invocation lease.
-    if (jobs.length === 0) {
-      const { runMiningMaintenance } = await import("@/lib/mining-worker-maintenance.server");
-      const next = await runMiningMaintenance(supabaseAdmin, state);
-      const { error: stateError } = await supabaseAdmin.from("mining_worker_state")
-        .update(next).eq("name", "resume-mining").eq("token", state.token ?? "");
-      if (stateError) throw stateError;
-    }
+    // Saving gets the next independent invocation, even while this queue is busy.
     const rooted = 0;
     return json({ ok: true, scanned: jobs?.length ?? 0, resumed, paused, saved, rooted }, 200);
 }
