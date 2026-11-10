@@ -191,6 +191,12 @@ export async function operatorProjects(userId: string, ids: unknown): Promise<At
 export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string, lang = "en", operatorMindId: unknown = "builtin:architect"): Promise<ArchitectResult> {
   const project = await operatorProject(userId, ids, projectId);
   const sb = await db();
+  if (skill === "team_briefing") {
+    // Read-only: aggregates every attached Mind's deterministic health report.
+    const { teamBriefing } = await import("@/lib/architect-operator");
+    const directives = await inspectAttachedMinds(userId, ids, lang);
+    return { text: teamBriefing(directives, lang), actions_taken: [], interactive_cards: [], directives };
+  }
   if (skill === "advance_mining") {
     const h = await inspectProject(userId, projectId);
     for (const job of [...h.stalled, ...h.failed].slice(0, 1)) {
@@ -235,7 +241,8 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
       const { generateRoleText } = await import("@/lib/user-ai.server");
       const generated = await generateRoleText({ userId, role: "assistant", system: `${brain.prompt}\nWrite a short feed-post draft in ${lang}. Use only the supplied source facts. Do not invent quotes, facts or video times. Do not impersonate the real person. Omit the link; it will be appended by the system.`, prompt: JSON.stringify({ project: project.title, mentalModel: model }), maxTokens: 500, subjectKind: "project", subjectId: projectId, subjectLabel: "Operator post draft" });
       if (!generated.text.trim()) throw new Error("Operator returned an empty draft.");
-      draft = `${generated.text.trim()}\n${clipUrl}`;
+      const { toneGuard } = await import("@/lib/architect-operator");
+      draft = `${toneGuard(generated.text.trim()).clean}\n${clipUrl}`;
     }
     return { text: draft, actions_taken: [], interactive_cards: [], operator: { projectId, draft, clipUrl } };
   }
@@ -245,6 +252,8 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
 export async function publishOperatorPost(userId: string, ids: unknown, projectId: string, approvedDraft: string): Promise<ArchitectResult> {
   const current = await runOperatorSkill(userId, ids, projectId, "draft_post");
   if (!current.operator?.clipUrl || !approvedDraft.endsWith(current.operator.clipUrl) || approvedDraft.length > 6000) throw new Error("Video evidence changed. Review the draft again before publishing.");
+  const { toneGuard } = await import("@/lib/architect-operator");
+  if (toneGuard(approvedDraft).flagged > 0) throw new Error("The draft contains offensive words. Edit it before publishing.");
   const sb = await db();
   const { data: profile } = await sb.from("profiles").select("display_name,avatar_url").eq("id", userId).maybeSingle();
   const { data, error } = await sb.from("user_posts").insert({ user_id: userId, author_name: profile?.display_name || "Creator", author_avatar: profile?.avatar_url ?? null, body: approvedDraft, media_kind: "none" }).select("id").single();
