@@ -10,6 +10,7 @@ import type { MindPayload } from "@/lib/mind-json";
 
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
+import { automaticDirective, strongestModel } from "@/lib/architect-operator";
 import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
@@ -138,6 +139,80 @@ async function projectVaults(userId: string, projectId: string) {
     .order("updated_at", { ascending: false })
     .limit(40);
   return (data ?? []) as { id: string; title: string; payload: MindPayload }[];
+}
+
+/** Explicit operator scope: a selected project must belong to an attached owned Mind. */
+export async function operatorProject(userId: string, ids: unknown, projectId: string) {
+  const project = await ownedProject(userId, projectId);
+  const roster = normalizeMindRoster(ids);
+  if (!project || !roster.some((id) => id === `project:${project.id}` || id === `persona:${project.persona_id}`)) throw new Error("Select an attached project you own.");
+  return project;
+}
+
+export async function operatorTick(userId: string, ids: unknown, lang: string, approved: boolean): Promise<ArchitectResult> {
+  const directives = await inspectAttachedMinds(userId, ids, lang);
+  const next = automaticDirective(directives);
+  if (!approved || !next) return { text: lang === "mn" ? "Mind-уудыг шалгалаа. Автомат засвар шаардлагагүй." : lang === "ko" ? "마인드 점검 완료. 자동 복구 없음." : "Minds checked. No automatic repair needed.", actions_taken: [], interactive_cards: [], directives };
+  return executeMindDirective(userId, ids, next.id, lang);
+}
+
+export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string): Promise<ArchitectResult> {
+  const project = await operatorProject(userId, ids, projectId);
+  const sb = await db();
+  if (skill === "advance_mining") {
+    const h = await inspectProject(userId, projectId);
+    for (const job of [...h.stalled, ...h.failed].slice(0, 1)) {
+      const { error } = await sb.from("mining_jobs").update({ status: "queued", retry_after: null, last_error: null }).eq("id", job.id).eq("user_id", userId).eq("updated_at", job.updated_at);
+      if (error) throw new Error(error.message);
+    }
+    const { data, error } = await sb.from("mining_jobs").select("id").eq("user_id", userId).eq("project_id", projectId).eq("source_kind", "youtube").eq("status", "queued").order("queue_position").limit(1).maybeSingle();
+    if (error) throw new Error(error.message);
+    return { text: data ? "Mining checkpoint selected." : "No queued YouTube checkpoint. Native uploads require the original file.", actions_taken: [], interactive_cards: [], operator: { projectId, ...(data ? { jobId: data.id } : {}) } };
+  }
+  if (skill === "deepen_brains") {
+    const h = await inspectProject(userId, projectId);
+    const first = h.shallow[0];
+    if (first) await deepenLegacyVault(userId, first.id);
+    const { synthesizeProjectMind } = await import("@/lib/project-mind.server");
+    await synthesizeProjectMind(userId, projectId);
+    return { text: "Core Brain rebuilt from saved evidence; originals preserved.", actions_taken: ["deepen_brains"], interactive_cards: [] };
+  }
+  if (skill !== "draft_post") throw new Error("Unknown operator skill.");
+  const vaults = await projectVaults(userId, projectId);
+  for (const vault of vaults) {
+    const r = vault.payload.result ?? {};
+    const deep = (r["deepBrain"] ?? {}) as Record<string, unknown>;
+    const model = strongestModel(deep["mentalModels"]);
+    if (!model) continue;
+    const source = String(vault.payload["source"] ?? "");
+    const videoId = /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(source)?.[1];
+    if (!videoId) continue;
+    const { data: video } = await sb.from("project_content").select("id").eq("user_id", userId).eq("project_id", projectId).eq("youtube_id", videoId).maybeSingle();
+    if (!video) continue;
+    const stamp = model["timestamp"] ?? model["timestamp_start"] ?? model["sourceTimestamp"];
+    const start = typeof stamp === "number" ? stamp : stampToSeconds(String(stamp ?? ""));
+    if (start == null || !Number.isFinite(start) || start < 0) continue;
+    const clipUrl = `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(start)}s`;
+    const draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
+    return { text: draft, actions_taken: [], interactive_cards: [], operator: { projectId, draft, clipUrl } };
+  }
+  throw new Error("No stored mental model with a verified video timestamp. No clip was invented.");
+}
+
+export async function publishOperatorPost(userId: string, ids: unknown, projectId: string, approvedDraft: string): Promise<ArchitectResult> {
+  const current = await runOperatorSkill(userId, ids, projectId, "draft_post");
+  if (!current.operator?.draft || current.operator.draft !== approvedDraft) throw new Error("Draft changed. Review it again before publishing.");
+  const sb = await db();
+  const { data: profile } = await sb.from("profiles").select("display_name,avatar_url").eq("id", userId).maybeSingle();
+  const { data, error } = await sb.from("user_posts").insert({ user_id: userId, author_name: profile?.display_name || "Creator", author_avatar: profile?.avatar_url ?? null, body: approvedDraft, media_kind: "none" }).select("id").single();
+  if (error) throw new Error(error.message);
+  return { text: "Post published.", actions_taken: ["publish_post"], interactive_cards: [], operator: { postId: data.id, published: true } };
+}
+
+export async function undoOperatorPost(userId: string, postId: string): Promise<ArchitectResult> {
+  const { error } = await (await db()).from("user_posts").delete().eq("id", postId).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return { text: "Post removed.", actions_taken: ["undo_post"], interactive_cards: [] };
 }
 
 export async function projectChoices(userId: string, next: string): Promise<ArchitectResult> {

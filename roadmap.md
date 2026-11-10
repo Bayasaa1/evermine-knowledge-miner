@@ -1,5 +1,10 @@
 # Roadmap
 
+## Active Architect operator
+- [ ] Add consent-scoped Auto-Pilot and timestamped activity stream
+- [ ] Add attached-project mining, brain, post draft/publish and three-level challenge tools
+- [ ] Run regression tests and verify signed-in operator flow
+
 ## Attached Mind repair directives — November 10
 - [x] Add account-scoped Architect roster and room moderator roster controls
 - [x] Inspect attached owned Minds without AI; execute revalidated project-specific directives only after confirmation
