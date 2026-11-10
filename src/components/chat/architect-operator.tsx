@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, Brain, Film, Play, ShieldCheck, Target, Undo2 } from "lucide-react";
+import { Activity, Brain, Film, Play, ShieldCheck, Target, Undo2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,16 +8,16 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
 import { apiFetch } from "@/lib/api-fetch";
 import { runNextChunk } from "@/lib/mining-jobs.functions";
-import { OPERATOR_SKILLS, type OperatorSkill } from "@/lib/architect-operator";
+import { OPERATOR_SKILLS, autopilotAllowance, type OperatorSkill } from "@/lib/architect-operator";
 import type { ArchitectResult, AttachedMind } from "@/lib/architect-types";
 
 
 const COPY = {
-  en: { activity: "Autonomous Activity Log", pilot: "Auto-Pilot", ready: "Ready", choose: "Select attached project", enable: "Allow automatic stalled-job recovery and timing repair while this chat is open? One repair per minute; your mining keys may be used. Brain changes and posting still require confirmation.", confirm: "Confirm", cancel: "Cancel", skills: ["Fix & advance mining", "Deepen & fuse brains", "Draft feed post", "Mastery pack · Levels 1–3"], consent: "Run this action for the selected project? Mining and challenges use your own assigned keys. Original evidence is preserved.", publish: "Publish", publishConfirm: "Publish this reviewed draft publicly?", undo: "Undo post", checking: "Checking attached Minds", empty: "Attach a Mind to begin", failed: "Failed", complete: "Completed", mining: "Saved mining checkpoint", preview: "Video moment" },
-  mn: { activity: "Автомат ажиллагааны бүртгэл", pilot: "Автомат горим", ready: "Бэлэн", choose: "Холбосон төслөө сонгох", enable: "Энэ чат нээлттэй үед гацсан олборлолт, хадмалын хугацааг автоматаар засахыг зөвшөөрөх үү? Минут тутам нэг засвар; таны олборлолтын түлхүүр ашиглагдаж болно. Тархи өөрчлөх, нийтлэхдээ тусад нь асууна.", confirm: "Зөвшөөрөх", cancel: "Болих", skills: ["Олборлолт засаж ахиулах", "Тархи гүнзгийрүүлж нэгтгэх", "Нийтлэл бэлдэх", "Сорилтын багц · 1–3 түвшин"], consent: "Сонгосон төсөл дээр энэ үйлдлийг хийх үү? Олборлолт, сорилт таны хуваарилсан түлхүүрээр ажиллана. Эх нотолгоо хэвээр үлдэнэ.", publish: "Нийтлэх", publishConfirm: "Энэ хянасан нийтлэлийг олон нийтэд нийтлэх үү?", undo: "Нийтлэл буцаах", checking: "Холбосон Mind-уудыг шалгаж байна", empty: "Mind холбоно уу", failed: "Алдаа", complete: "Дууслаа", mining: "Олборлолтын хэсэг хадгалагдлаа", preview: "Бичлэгийн мөч" },
-  ko: { activity: "자동 활동 기록", pilot: "자동 모드", ready: "준비", choose: "연결된 프로젝트 선택", enable: "이 채팅이 열려 있는 동안 정지 작업과 자막 시간을 자동 복구할까요? 분당 한 건, 내 마이닝 키를 사용합니다. 브레인 변경과 게시는 별도 승인이 필요합니다.", confirm: "승인", cancel: "취소", skills: ["마이닝 복구 및 진행", "브레인 심화·융합", "피드 게시물 초안", "챌린지 팩 · 레벨 1–3"], consent: "선택한 프로젝트에서 실행할까요? 마이닝과 챌린지는 내 키를 사용하며 원본 근거는 보존됩니다.", publish: "게시", publishConfirm: "검토한 초안을 공개할까요?", undo: "게시 취소", checking: "연결된 마인드 점검 중", empty: "마인드를 연결하세요", failed: "실패", complete: "완료", mining: "마이닝 구간 저장됨", preview: "영상 시점" },
+  en: { activity: "Autonomous Activity Log", pilot: "Auto-Pilot", ready: "Ready", choose: "Select attached project", enable: "Allow automatic stalled-job recovery and timing repair while this chat is open? One repair per minute; your mining keys may be used. Brain changes and posting still require confirmation.", confirm: "Confirm", cancel: "Cancel", skills: ["Fix & advance mining", "Deepen & fuse brains", "Draft feed post", "Mastery pack · Levels 1–3", "Team briefing"], consent: "Run this action for the selected project? Mining and challenges use your own assigned keys. Original evidence is preserved.", publish: "Publish", publishConfirm: "Publish this reviewed draft publicly?", undo: "Undo post", checking: "Checking attached Minds", empty: "Attach a Mind to begin", failed: "Failed", complete: "Completed", mining: "Saved mining checkpoint", capped: "Daily Auto-Pilot limit reached (20). Resumes tomorrow.", preview: "Video moment" },
+  mn: { activity: "Автомат ажиллагааны бүртгэл", pilot: "Автомат горим", ready: "Бэлэн", choose: "Холбосон төслөө сонгох", enable: "Энэ чат нээлттэй үед гацсан олборлолт, хадмалын хугацааг автоматаар засахыг зөвшөөрөх үү? Минут тутам нэг засвар; таны олборлолтын түлхүүр ашиглагдаж болно. Тархи өөрчлөх, нийтлэхдээ тусад нь асууна.", confirm: "Зөвшөөрөх", cancel: "Болих", skills: ["Олборлолт засаж ахиулах", "Тархи гүнзгийрүүлж нэгтгэх", "Нийтлэл бэлдэх", "Сорилтын багц · 1–3 түвшин", "Багийн тайлан"], consent: "Сонгосон төсөл дээр энэ үйлдлийг хийх үү? Олборлолт, сорилт таны хуваарилсан түлхүүрээр ажиллана. Эх нотолгоо хэвээр үлдэнэ.", publish: "Нийтлэх", publishConfirm: "Энэ хянасан нийтлэлийг олон нийтэд нийтлэх үү?", undo: "Нийтлэл буцаах", checking: "Холбосон Mind-уудыг шалгаж байна", empty: "Mind холбоно уу", failed: "Алдаа", complete: "Дууслаа", mining: "Олборлолтын хэсэг хадгалагдлаа", capped: "Өдрийн автомат засварын хязгаар (20) дууслаа. Маргааш үргэлжилнэ.", preview: "Бичлэгийн мөч" },
+  ko: { activity: "자동 활동 기록", pilot: "자동 모드", ready: "준비", choose: "연결된 프로젝트 선택", enable: "이 채팅이 열려 있는 동안 정지 작업과 자막 시간을 자동 복구할까요? 분당 한 건, 내 마이닝 키를 사용합니다. 브레인 변경과 게시는 별도 승인이 필요합니다.", confirm: "승인", cancel: "취소", skills: ["마이닝 복구 및 진행", "브레인 심화·융합", "피드 게시물 초안", "챌린지 팩 · 레벨 1–3", "팀 브리핑"], consent: "선택한 프로젝트에서 실행할까요? 마이닝과 챌린지는 내 키를 사용하며 원본 근거는 보존됩니다.", publish: "게시", publishConfirm: "검토한 초안을 공개할까요?", undo: "게시 취소", checking: "연결된 마인드 점검 중", empty: "마인드를 연결하세요", failed: "실패", complete: "완료", mining: "마이닝 구간 저장됨", capped: "오늘 자동 모드 한도(20)에 도달했습니다. 내일 재개됩니다.", preview: "영상 시점" },
 };
-const ICONS = [Play, Brain, Film, Target];
+const ICONS = [Play, Brain, Film, Target, Users];
 
 export function ArchitectOperator({ ids, onResult, proposal, operatorMindId }: { operatorMindId: string; ids: string[]; onResult: (result: ArchitectResult) => void; proposal?: { skill: OperatorSkill; serial: number } | null }) {
   const { userId } = useAuth(); const { lang } = useLang();
@@ -62,9 +62,14 @@ export function ArchitectOperator({ ids, onResult, proposal, operatorMindId }: {
     const token = generation.current; const controller = new AbortController();
     const tick = async () => {
       if (flight.current || document.visibilityState !== "visible") return;
+      const capKey = `evermind:autopilot-count:${userId}`; const today = new Date().toISOString().slice(0, 10);
+      let stored: { day?: string; count?: number } | null = null; try { stored = JSON.parse(localStorage.getItem(capKey) || "null"); } catch { stored = null; }
+      const budget = autopilotAllowance(stored, today);
+      if (!budget.allowed) { append(t.capped); setPilot(false); return; }
       flight.current = true; setBusy(true); append(t.checking);
       try {
         let result = await request("operator_tick", { approved: true }, controller.signal);
+        if ((result.actions_taken ?? []).length) localStorage.setItem(capKey, JSON.stringify({ day: today, count: budget.count + 1 }));
         if (generation.current !== token || controller.signal.aborted) return;
         if (result.operator?.jobId) {
           const step = await nextChunk({ data: { jobId: result.operator.jobId, respectLease: true } });
