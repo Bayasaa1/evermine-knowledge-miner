@@ -17,3 +17,8 @@ export function strongestModel(models: unknown): Record<string, unknown> | undef
   return models.filter((m): m is Record<string, unknown> => !!m && typeof m === "object")
     .sort((a, b) => (Number(b["weight"] ?? b["importance"] ?? 0) || 0) - (Number(a["weight"] ?? a["importance"] ?? 0) || 0))[0];
 }
+export function sourceVideoUrl(source: unknown): string {
+  if (typeof source === "string") return source;
+  if (source && typeof source === "object" && "url" in source && typeof source.url === "string") return source.url;
+  return "";
+}

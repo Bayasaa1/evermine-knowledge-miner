@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { automaticDirective, operatorIntent, strongestModel, OPERATOR_SKILLS } from "./architect-operator";
+import { automaticDirective, operatorIntent, strongestModel, sourceVideoUrl, OPERATOR_SKILLS } from "./architect-operator";
 import type { MindDirective } from "./architect-types";
 const directive = (tool: MindDirective["suggestedTool"]): MindDirective => ({ id: tool, mindId: "project:x", mindName: "Mind", mindAvatar: null, severity: "warning", issueSummary: "issue", directiveForChatbot: "repair", suggestedTool: tool, targetProjectId: "x" });
 test("autopilot excludes brain mutations and failed-job retries", () => {
@@ -18,4 +18,10 @@ test("highlight selects highest weighted stored model without changing source or
   assert.equal(strongestModel(models)?.["name"], "high");
   assert.equal(models[0]?.name, "low");
   assert.equal(strongestModel(null), undefined);
+});
+test("post grounding accepts structured mining sources and legacy URLs", () => {
+  const url = "https://www.youtube.com/watch?v=abcdefghijk";
+  assert.equal(sourceVideoUrl({ kind: "youtube", url }), url);
+  assert.equal(sourceVideoUrl(url), url);
+  assert.equal(sourceVideoUrl({ kind: "upload" }), "");
 });

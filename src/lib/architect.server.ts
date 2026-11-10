@@ -10,7 +10,7 @@ import type { MindPayload } from "@/lib/mind-json";
 
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
-import { automaticDirective, strongestModel } from "@/lib/architect-operator";
+import { automaticDirective, strongestModel, sourceVideoUrl } from "@/lib/architect-operator";
 import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
@@ -201,7 +201,7 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
     const deep = (r["deepBrain"] ?? {}) as Record<string, unknown>;
     const model = strongestModel(deep["mentalModels"]);
     if (!model) continue;
-    const source = String(vault.payload["source"] ?? "");
+    const source = sourceVideoUrl(vault.payload["source"]);
     const videoId = /(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/.exec(source)?.[1];
     if (!videoId) continue;
     const { data: video } = await sb.from("project_content").select("id").eq("user_id", userId).eq("project_id", projectId).eq("youtube_id", videoId).maybeSingle();
