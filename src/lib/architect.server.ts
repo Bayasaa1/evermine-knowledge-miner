@@ -60,13 +60,13 @@ export async function resolveOperatorMind(userId: string, requested: unknown) {
   const name = choices.find((m) => m.mindId === id)?.name ?? (id === "builtin:musk" ? "Elon Musk-inspired Operator" : id === "builtin:ramsay" ? "Gordon Ramsay-inspired Operator" : "System Architect");
   if (id.startsWith("builtin:")) return { id, name, prompt: operatorLens(id) };
   const sb = await db();
-  let query = sb.from("mind_vaults").select("deep:payload->result->deepBrain,rebuilt:payload->deepBrainRebuild,core:payload->core_brain").eq("user_id", userId).in("kind", ["mine", "core_brain"]);
+  let query = sb.from("mind_vaults").select("deep:payload->result->deepBrain,rebuilt:payload->deepBrainRebuild,core:payload->core_brain,sub:payload->result->subconsciousness,owner:payload->result->ownerBrain").eq("user_id", userId).in("kind", ["mine", "core_brain"]);
   query = id.startsWith("project:") ? query.eq("project_id", id.slice(8)) : query.eq("persona_id", id.slice(8));
   const { data, error } = await query.order("updated_at", { ascending: false }).limit(40);
   if (error) throw new Error(error.message);
   const parts = (data ?? []).flatMap((row) => [row.deep, ...(Array.isArray(row.rebuilt) ? row.rebuilt : [])].filter(Boolean).map((deep) => ({ deep })));
   const { synthesizeCoreBrain } = await import("@/lib/project-mind.server");
-  return { id, name, prompt: operatorLens(id, { name, coreBrain: synthesizeCoreBrain(parts), savedCoreBrains: (data ?? []).map((row) => row.core).filter(Boolean) }) };
+  return { id, name, prompt: operatorLens(id, { name, coreBrain: synthesizeCoreBrain(parts), savedCoreBrains: (data ?? []).map((row) => row.core).filter(Boolean), savedPersonality: (data ?? []).map((row) => row.sub).filter(Boolean), ownerVoice: (data ?? []).map((row) => row.owner).filter(Boolean) }) };
 }
 
 async function inspectProject(userId: string, projectId: string) {
