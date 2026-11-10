@@ -1,12 +1,18 @@
 # Roadmap
 
+## Selectable Operator Mind
+- [x] Add account-scoped Operator selector with three labeled archetypes and all 72 owned Minds; preserve separate Sub-Mind roster and room-owner controls
+- [x] Ground chat, post drafting and challenge packs in the chosen lens; retain confirmation, ownership and evidence safeguards
+- [x] 132 tests pass and build OK; signed-in 75-choice selector, persistence, mined Operator context and desktop/mobile layout verified
+- [ ] Verify generated Operator reply, persona post and challenge pack — Gemini returned 429 per-minute throttling during the real chat test; no shared-credit fallback
+
 ## Active Architect operator
 - [x] Add consent-scoped Auto-Pilot and timestamped activity stream; stopping/closing cancels further work
 - [x] Add attached-project mining, evidence fusion/Core Brain preview, post draft/publish with Undo, and three-level challenge tools
 - [x] 126 tests pass; build OK; signed-in project selection, draft validation, natural-chat confirmation/cancel, and mobile layout verified
 - [ ] Verify post publishing — tested finance Mind lacks a stored mental model with a usable video timestamp; no evidence invented or post published
 - [ ] Verify live automatic repair, next checkpoint and full challenge pack — not executed to avoid changing mined evidence or spending customer-key quota during verification
-- [ ] Add unposted-video health directives — publication remains a manually confirmed tool; no automatic publishing
+- [x] Add unpublished-project video draft suggestions; publication remains manually confirmed, never automatic
 
 ## Attached Mind repair directives — November 10
 - [x] Add account-scoped Architect roster and room moderator roster controls

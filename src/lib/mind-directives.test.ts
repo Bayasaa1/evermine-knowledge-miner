@@ -21,6 +21,9 @@ test("failed jobs are requeued rather than deleted; timing and missing chunks re
   assert.deepEqual(generateMindDirectives({ ...health, failed: 2, timing: 1, missing: 1 }).map((d) => d.suggestedTool), ["clear_failed_jobs", "repair_timings", "repair_timings"]);
 });
 test("healthy Mind produces no directive", () => assert.deepEqual(generateMindDirectives(health), []));
+test("unpublished video suggestion can only draft, never publish", () => {
+  assert.equal(generateMindDirectives({ ...health, unposted: 2 })[0]?.suggestedTool, "draft_post");
+});
 test("slow mining is not stalled until existing six-minute lease expires", () => {
   const now = Date.parse("2026-11-10T05:45:00Z");
   assert.equal(stalledJob("running", new Date(now - 300_000).toISOString(), now), false);

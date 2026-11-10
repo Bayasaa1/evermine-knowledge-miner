@@ -3,7 +3,7 @@ export type MindDirective = {
   id: string; mindId: string; mindName: string; mindAvatar: string | null;
   severity: "critical" | "warning" | "enhance";
   issueSummary: string; directiveForChatbot: string;
-  suggestedTool: "resume_mining" | "deepen_legacy_vaults" | "repair_timings" | "rebuild_core_brain" | "clear_failed_jobs";
+  suggestedTool: "resume_mining" | "deepen_legacy_vaults" | "repair_timings" | "rebuild_core_brain" | "clear_failed_jobs" | "draft_post";
   targetProjectId: string;
 };
 export type AttachedMind = { mindId: string; name: string; avatar: string | null; kind: "persona" | "project" };
@@ -27,5 +27,6 @@ export type ArchitectResult = {
   interactive_cards: ArchitectCard[];
   directives?: MindDirective[];
   operator?: { jobId?: string; projectId?: string; postId?: string; draft?: string; clipUrl?: string; published?: boolean };
+  operatorMind?: { id: string; name: string };
 };
 

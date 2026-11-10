@@ -11,6 +11,7 @@ import type { MindPayload } from "@/lib/mind-json";
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
 import { automaticDirective, strongestModel, sourceVideoUrl, missingPostResult } from "@/lib/architect-operator";
+import { allowedOperator, operatorLens } from "@/lib/operator-mind";
 import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
@@ -52,12 +53,29 @@ export async function attachedMindChoices(userId: string): Promise<AttachedMind[
   return [...(personas.data ?? []).map((p) => ({ mindId: `persona:${p.id}`, name: p.name, avatar: p.avatar_url, kind: "persona" as const })), ...(projects.data ?? []).map((p) => ({ mindId: `project:${p.id}`, name: p.title, avatar: p.creator_avatar_url, kind: "project" as const }))];
 }
 
+/** Operator knowledge is always resolved from this account; never accepts client prompt prose. */
+export async function resolveOperatorMind(userId: string, requested: unknown) {
+  const choices = await attachedMindChoices(userId);
+  const id = allowedOperator(requested, choices);
+  const name = choices.find((m) => m.mindId === id)?.name ?? (id === "builtin:musk" ? "Elon Musk-inspired Operator" : id === "builtin:ramsay" ? "Gordon Ramsay-inspired Operator" : "System Architect");
+  if (id.startsWith("builtin:")) return { id, name, prompt: operatorLens(id) };
+  const sb = await db();
+  let query = sb.from("mind_vaults").select("deep:payload->result->deepBrain,rebuilt:payload->deepBrainRebuild,core:payload->core_brain,sub:payload->result->subconsciousness,owner:payload->result->ownerBrain").eq("user_id", userId).in("kind", ["mine", "core_brain"]);
+  query = id.startsWith("project:") ? query.eq("project_id", id.slice(8)) : query.eq("persona_id", id.slice(8));
+  const { data, error } = await query.order("updated_at", { ascending: false }).limit(40);
+  if (error) throw new Error(error.message);
+  const parts = (data ?? []).flatMap((row) => [row.deep, ...(Array.isArray(row.rebuilt) ? row.rebuilt : [])].filter(Boolean).map((deep) => ({ deep })));
+  const { synthesizeCoreBrain } = await import("@/lib/project-mind.server");
+  return { id, name, prompt: operatorLens(id, { name, coreBrain: synthesizeCoreBrain(parts), savedCoreBrains: (data ?? []).map((row) => row.core).filter(Boolean), savedPersonality: (data ?? []).map((row) => row.sub).filter(Boolean), ownerVoice: (data ?? []).map((row) => row.owner).filter(Boolean) }) };
+}
+
 async function inspectProject(userId: string, projectId: string) {
   const sb = await db();
-  const [jobs, vaults, videos] = await Promise.all([
+  const [jobs, vaults, videos, project] = await Promise.all([
     sb.from("mining_jobs").select("id,status,updated_at,source_url,next_index,chunks").eq("user_id", userId).eq("project_id", projectId),
     sb.from("mind_vaults").select("id,deep:payload->result->deepBrain,rebuilt:payload->deepBrainRebuild").eq("user_id", userId).eq("project_id", projectId).eq("kind", "mine"),
     sb.from("project_content").select("youtube_id,transcript").eq("user_id", userId).eq("project_id", projectId),
+    sb.from("projects").select("published").eq("user_id", userId).eq("id", projectId).maybeSingle(),
   ]);
   if (jobs.error || vaults.error || videos.error) throw new Error(jobs.error?.message || vaults.error?.message || videos.error?.message);
   const stalled = (jobs.data ?? []).filter((j) => stalledJob(j.status, j.updated_at));
@@ -80,7 +98,7 @@ async function inspectProject(userId: string, projectId: string) {
     missing += surrounded.length;
     if ((lines.length && analyzeTiming(lines).status !== "synced") || problems.some((p) => p.kind === "time_jump") || surrounded.length) timingJobs.push(job.id);
   }
-  return { stalled, failed, shallow, timingJobs, missing };
+  return { stalled, failed, shallow, timingJobs, missing, unposted: project.data?.published === false ? videos.data?.length ?? 0 : 0 };
 }
 
 export async function inspectAttachedMinds(userId: string, ids: unknown, lang = "en"): Promise<MindDirective[]> {
@@ -98,17 +116,18 @@ export async function inspectAttachedMinds(userId: string, ids: unknown, lang = 
     for (const project of projects) {
       let h = health.get(project.id);
       if (!h) { h = await inspectProject(userId, project.id); health.set(project.id, h); }
-      directives.push(...generateMindDirectives({ mindId: id, mindName: mind.name, mindAvatar: mind.avatar, projectId: project.id, stalled: h.stalled.length, failed: h.failed.length, shallow: h.shallow.length, timing: h.timingJobs.length, missing: h.missing }, lang));
+      directives.push(...generateMindDirectives({ mindId: id, mindName: mind.name, mindAvatar: mind.avatar, projectId: project.id, stalled: h.stalled.length, failed: h.failed.length, shallow: h.shallow.length, timing: h.timingJobs.length, missing: h.missing, unposted: h.unposted }, lang));
     }
   }
   return directives;
 }
 
 /** Never trust a client-supplied tool/target: re-read ownership and the condition. */
-export async function executeMindDirective(userId: string, ids: unknown, directiveId: string, lang = "en"): Promise<ArchitectResult> {
+export async function executeMindDirective(userId: string, ids: unknown, directiveId: string, lang = "en", operatorMindId: unknown = "builtin:architect"): Promise<ArchitectResult> {
   const directives = await inspectAttachedMinds(userId, ids, lang);
   const directive = directives.find((d) => d.id === directiveId);
   if (!directive) throw new Error("Directive is no longer active or this Mind is not yours.");
+  if (directive.suggestedTool === "draft_post") return runOperatorSkill(userId, ids, directive.targetProjectId, "draft_post", lang, operatorMindId);
   const h = await inspectProject(userId, directive.targetProjectId);
   const sb = await db(); let count = 0;
   if (directive.suggestedTool === "resume_mining" || directive.suggestedTool === "clear_failed_jobs") {
@@ -169,7 +188,7 @@ export async function operatorProjects(userId: string, ids: unknown): Promise<At
   return (data ?? []).filter((p) => roster.includes(`project:${p.id}`) || roster.includes(`persona:${p.persona_id}`)).map((p) => ({ mindId: `project:${p.id}`, name: p.title, avatar: p.creator_avatar_url, kind: "project" }));
 }
 
-export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string, lang = "en"): Promise<ArchitectResult> {
+export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string, lang = "en", operatorMindId: unknown = "builtin:architect"): Promise<ArchitectResult> {
   const project = await operatorProject(userId, ids, projectId);
   const sb = await db();
   if (skill === "advance_mining") {
@@ -210,7 +229,14 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
     const start = typeof stamp === "number" ? stamp : stampToSeconds(String(stamp ?? ""));
     if (start == null || !Number.isFinite(start) || start < 0) continue;
     const clipUrl = `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(start)}s`;
-    const draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["principle"] ?? model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
+    let draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["principle"] ?? model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
+    const brain = await resolveOperatorMind(userId, operatorMindId);
+    if (brain.id !== "builtin:architect") {
+      const { generateRoleText } = await import("@/lib/user-ai.server");
+      const generated = await generateRoleText({ userId, role: "assistant", system: `${brain.prompt}\nWrite a short feed-post draft in ${lang}. Use only the supplied source facts. Do not invent quotes, facts or video times. Do not impersonate the real person. Omit the link; it will be appended by the system.`, prompt: JSON.stringify({ project: project.title, mentalModel: model }), maxTokens: 500, subjectKind: "project", subjectId: projectId, subjectLabel: "Operator post draft" });
+      if (!generated.text.trim()) throw new Error("Operator returned an empty draft.");
+      draft = `${generated.text.trim()}\n${clipUrl}`;
+    }
     return { text: draft, actions_taken: [], interactive_cards: [], operator: { projectId, draft, clipUrl } };
   }
   return missingPostResult(lang);
@@ -218,12 +244,24 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
 
 export async function publishOperatorPost(userId: string, ids: unknown, projectId: string, approvedDraft: string): Promise<ArchitectResult> {
   const current = await runOperatorSkill(userId, ids, projectId, "draft_post");
-  if (!current.operator?.draft || current.operator.draft !== approvedDraft) throw new Error("Draft changed. Review it again before publishing.");
+  if (!current.operator?.clipUrl || !approvedDraft.endsWith(current.operator.clipUrl) || approvedDraft.length > 6000) throw new Error("Video evidence changed. Review the draft again before publishing.");
   const sb = await db();
   const { data: profile } = await sb.from("profiles").select("display_name,avatar_url").eq("id", userId).maybeSingle();
   const { data, error } = await sb.from("user_posts").insert({ user_id: userId, author_name: profile?.display_name || "Creator", author_avatar: profile?.avatar_url ?? null, body: approvedDraft, media_kind: "none" }).select("id").single();
   if (error) throw new Error(error.message);
   return { text: "Post published.", actions_taken: ["publish_post"], interactive_cards: [], operator: { postId: data.id, published: true } };
+}
+
+export async function operatorChallengePack(userId: string, ids: unknown, projectId: string, operatorMindId: unknown, lang = "en"): Promise<ArchitectResult> {
+  await operatorProject(userId, ids, projectId);
+  const [brain, target] = await Promise.all([resolveOperatorMind(userId, operatorMindId), resolveOperatorMind(userId, `project:${projectId}`)]);
+  const { challengeGenerateRules, parseChallenge } = await import("@/lib/mastery-challenge");
+  const { generateRoleText } = await import("@/lib/user-ai.server");
+  const generated = await generateRoleText({ userId, role: "assistant", system: `${brain.prompt}\nGenerate three challenges in ${lang}, using ONLY the target Mind's stored evidence. Return JSON {"challenges":[level1,level2,level3]} where each challenge uses this shape:\n${challengeGenerateRules(1, "knowledge")}\n${challengeGenerateRules(2, "knowledge")}\n${challengeGenerateRules(3, "knowledge")}\nTarget evidence:\n${target.prompt}`, prompt: "Build Levels 1, 2 and 3 now. No saved knowledge changes.", json: true, maxTokens: 3000, subjectKind: "project", subjectId: projectId, subjectLabel: "Operator Mastery pack" });
+  const raw = parseJson<{ challenges?: unknown[] }>(generated.text)?.challenges;
+  const challenges = [1, 2, 3].map((level) => parseChallenge(JSON.stringify(raw?.[level - 1] ?? {}), level as 1 | 2 | 3));
+  if (challenges.some((challenge) => !challenge || challenge.pass_criteria.length === 0)) throw new Error("The Operator returned an incomplete challenge pack. Nothing was saved.");
+  return { text: challenges.map((c) => c ? `Level ${c.level}: ${c.title}\n${c.scenario}\n${c.task_steps.join("\n")}\n${c.pass_criteria.join("\n")}\n${c.source_video_ref}` : "").join("\n\n"), actions_taken: ["challenge_pack"], interactive_cards: [], operatorMind: { id: brain.id, name: brain.name }, provider: generated.provider };
 }
 
 export async function undoOperatorPost(userId: string, postId: string): Promise<ArchitectResult> {

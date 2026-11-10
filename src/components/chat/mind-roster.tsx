@@ -13,7 +13,8 @@ const COPY = {
   mn: { roster: "Идэвхтэй Mind-ууд", add: "Mind нэмэх", remove: "Хасах", check: "Mind шалгах", execute: "Mind-ийн даалгаврыг гүйцэтгэх", all: "Бүх Mind-ийн даалгаврыг гүйцэтгэх", confirm: "Эдгээр засварыг зөвшөөрөх үү? Алдаатай ажлыг устгахгүй, дахин дараалалд оруулна. Гүнзгийрүүлэхэд эх мэдээлэл хэвээр үлдэнэ; хадмал засахад таны олборлолтын түлхүүрээр нэг хэсгийг дахин олборлож болно. Нэг хүсэлт нэг тархи/бичлэг засна. Үлдсэн ажил харагдана.", cancel: "Болих", source: "Хадгалсан мэдээллээс илрүүлсэн; багшийн шууд мессеж биш", none: "Засварын даалгавар алга", undo: "Буцаах", critical: "Ноцтой", warning: "Анхааруулга", enhance: "Сайжруулах" },
   ko: { roster: "활성 마인드", add: "마인드 추가", remove: "제거", check: "마인드 점검", execute: "마인드 지시 실행", all: "모든 마인드 지시 실행", confirm: "복구를 승인할까요? 실패 작업은 삭제하지 않고 다시 대기시킵니다. 원본은 유지되며 자막 복구는 내 마이닝 키로 한 구간을 다시 분석할 수 있습니다. 요청당 브레인/영상 하나를 처리합니다. 남은 작업은 표시됩니다.", cancel: "취소", source: "저장된 기록에서 감지됨; 교사의 실시간 메시지가 아님", none: "복구 지시 없음", undo: "실행 취소", critical: "심각", warning: "경고", enhance: "개선" },
 };
-export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOnly = false, choices: provided }: {
+export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOnly = false, choices: provided, operatorMindId = "builtin:architect" }: {
+  operatorMindId?: string;
   ids: string[]; onChange: (ids: string[]) => void; refreshToken?: number;
   onResult?: (result: ArchitectResult) => void; rosterOnly?: boolean; choices?: AttachedMind[];
 }) {
@@ -27,7 +28,7 @@ export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOn
   const generation = useRef(0);
   const rosterKey = JSON.stringify(ids);
   async function request(action: string, args: Record<string, unknown> = {}) {
-    const res = await apiFetch("/api/diagnose-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, args, lang, attachedMindIds: ids }) });
+    const res = await apiFetch("/api/diagnose-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, args, lang, attachedMindIds: ids, operatorMindId }) });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
     return data as ArchitectResult & { minds?: AttachedMind[] };
@@ -42,7 +43,7 @@ export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOn
     };
     void check(); const timer = window.setInterval(() => void check(), 60_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [userId, rosterKey, lang, refreshToken, rosterOnly]);
+  }, [userId, rosterKey, lang, refreshToken, rosterOnly, operatorMindId]);
   async function execute(list: MindDirective[]) {
     setConfirming(null); setBusy(true); setError("");
     const token = generation.current; const seen = new Set<string>();
