@@ -1,11 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { guardsFromBackground } from "./user-ai.server";
 
 describe("mining never borrows live keys", () => {
-  test("mining cannot use chat, assistant or translation keys", () => {
-    for (const live of ["chat", "assistant", "translate"]) expect(guardsFromBackground("mine", live)).toBe(true);
+  it("mining cannot use chat, assistant or translation keys", () => {
+    for (const live of ["chat", "assistant", "translate"]) assert.equal(guardsFromBackground("mine", live), true);
   });
-  test("chat may still use spare mining keys", () => {
-    expect(guardsFromBackground("chat", "mine")).toBe(false);
+  it("chat may still use spare mining keys", () => {
+    assert.equal(guardsFromBackground("chat", "mine"), false);
   });
 });
