@@ -1,5 +1,10 @@
 # Roadmap
 
+## Attached Mind repair directives — November 10
+- [ ] Add account-scoped Architect roster and room moderator roster controls
+- [ ] Inspect attached owned Minds without AI; execute revalidated project-specific directives only after confirmation
+- [ ] Add regression tests and verify authenticated roster, directives, and repair flow
+
 ## Finished Minds during active mining — November 10
 - [x] Confirm finalization is starved while mining candidates exist
 - [x] Alternate independent saving and mining invocations; restore partial checkpoint saves
