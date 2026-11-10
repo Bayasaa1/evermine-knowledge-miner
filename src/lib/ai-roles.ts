@@ -8,7 +8,7 @@
  * do that job.
  */
 
-export type AiRole = "translate" | "mine" | "mine_write" | "voice_clone" | "face_clone" | "core_brain" | "chat";
+export type AiRole = "translate" | "mine" | "mine_write" | "voice_clone" | "face_clone" | "core_brain" | "chat" | "assistant";
 
 export const AI_ROLES: AiRole[] = [
   "translate",
@@ -16,6 +16,7 @@ export const AI_ROLES: AiRole[] = [
   "mine_write",
   "core_brain",
   "chat",
+  "assistant",
   "voice_clone",
   "face_clone",
 ];
@@ -27,6 +28,7 @@ export const ROLE_PROVIDERS: Record<AiRole, string[]> = {
   mine_write: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
   core_brain: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
   chat: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
+  assistant: ["gemini", "groq", "mistral", "cerebras", "together", "github", "openrouter", "openai", "anthropic", "moonshot", "deepseek", "xai", "perplexity", "cohere", "custom"],
   voice_clone: ["elevenlabs"],
   face_clone: ["gemini"],
 };
@@ -35,29 +37,32 @@ export type RoleCopy = { name: string; hint: string };
 
 export const ROLE_COPY: Record<"en" | "mn" | "ko", Record<AiRole, RoleCopy>> = {
   en: {
-    translate: { name: "Translating", hint: "Turns the app and subtitles into your language." },
+    translate: { name: "Translation & subtitles", hint: "Translates the app, chats and subtitles into your language. Original subtitles are written by Mining." },
     mine: { name: "Mining videos", hint: "Watches your videos and writes what it learns." },
     mine_write: { name: "Mining — writing up", hint: "Turns the watched video notes into organized knowledge." },
     core_brain: { name: "Core brain", hint: "Builds the memory behind each mind." },
-    chat: { name: "Chatting", hint: "Answers when someone talks to a mind." },
+    chat: { name: "Mind chatbot", hint: "Answers when someone talks to a mind or persona." },
+    assistant: { name: "Assistant chat", hint: "The AI Architect helper and system check chat." },
     voice_clone: { name: "Voice clone", hint: "Speaks in your own cloned voice. Without a key, the free device voice is used." },
     face_clone: { name: "Seeing on video calls", hint: "Reads camera frames. Gemini does not clone a face." },
   },
   mn: {
-    translate: { name: "Орчуулга", hint: "Аппыг болон хадмалыг таны хэл рүү хөрвүүлнэ." },
+    translate: { name: "Орчуулга ба хадмал", hint: "Апп, чат, хадмалыг таны хэл рүү орчуулна. Эх хадмалыг Олборлолт бичдэг." },
     mine: { name: "Видео олборлолт", hint: "Таны видеог үзэж, сурсанаа бичнэ." },
     mine_write: { name: "Олборлолт — бичиж цэгцлэх", hint: "Үзсэн видеоны тэмдэглэлийг эмхэлсэн мэдлэг болгоно." },
     core_brain: { name: "Үндсэн тархи", hint: "Оюун бүрийн ой санамжийг бүтээнэ." },
-    chat: { name: "Чат", hint: "Хүн оюунтай ярихад хариулна." },
+    chat: { name: "Оюуны чатбот", hint: "Хүн оюун, дүртэй ярихад хариулна." },
+    assistant: { name: "Туслах чат", hint: "AI Architect туслах ба системийн шалгалтын чат." },
     voice_clone: { name: "Дуу хуулбар", hint: "Таны өөрийн дуугаар ярина. Түлхүүргүй бол үнэгүй төхөөрөмжийн дуу." },
     face_clone: { name: "Видео дуудлагаар харах", hint: "Камерын зургийг харна. Gemini царай хуулбарлахгүй." },
   },
   ko: {
-    translate: { name: "번역", hint: "앱과 자막을 내 언어로 바꿉니다." },
+    translate: { name: "번역 및 자막", hint: "앱, 채팅, 자막을 내 언어로 번역합니다. 원본 자막은 마이닝이 작성합니다." },
     mine: { name: "영상 마이닝", hint: "영상을 보고 배운 것을 적습니다." },
     mine_write: { name: "마이닝 — 정리 작성", hint: "영상에서 본 내용을 정리된 지식으로 바꿉니다." },
     core_brain: { name: "코어 브레인", hint: "각 마인드의 기억을 만듭니다." },
-    chat: { name: "채팅", hint: "마인드와 대화할 때 답합니다." },
+    chat: { name: "마인드 챗봇", hint: "마인드·인물과 대화할 때 답합니다." },
+    assistant: { name: "도우미 채팅", hint: "AI 아키텍트 도우미와 시스템 점검 채팅." },
     voice_clone: { name: "음성 클론", hint: "내 목소리로 말합니다. 키가 없으면 무료 기기 음성을 씁니다." },
     face_clone: { name: "영상통화 보기", hint: "카메라 화면을 읽습니다. Gemini는 얼굴을 복제하지 않습니다." },
   },
