@@ -89,5 +89,5 @@ test("a concurrently changed candidate is not hydrated or finalized from stale d
   const result = await savePendingMiningMind(admin, {}, async () => { finalized = true; return "unexpected"; });
   assert.equal(finalized, false);
   assert.equal(result.saved, 0);
-  assert.deepEqual(calls.find(([, args]) => args[0] === "updated_at")?.[1], ["updated_at", "old-lease"]);
+  assert.deepEqual(calls.find(([method, args]) => method === "eq" && args[0] === "updated_at")?.[1], ["updated_at", "old-lease"]);
 });
