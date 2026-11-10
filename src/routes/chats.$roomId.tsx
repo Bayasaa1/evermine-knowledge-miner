@@ -118,6 +118,17 @@ function RoomPage() {
   const me = members.find((m) => m.user_id === userId);
   const isAdmin = me?.role === "owner" || me?.role === "admin";
   const isOwner = room?.owner_id === userId;
+  useEffect(() => { if (isOwner) void listInvitableMinds().then(setInvitable).catch((e) => toast.error(e.message)); }, [isOwner, userId]);
+  const changeRoster = async (ids: string[]) => {
+    if (!room || !isOwner || busyRef.current) return;
+    const removed = minds.filter((m) => !ids.includes(m.mind_id));
+    const added = invitable.filter((m) => ids.includes(m.mindId) && !minds.some((x) => x.mind_id === m.mindId));
+    try {
+      for (const mind of removed) await removeMind(mind.id);
+      for (const mind of added) await addMind(room.id, mind.mindId, mind.name, "debater", minds.length);
+      await reload();
+    } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); }
+  };
   const pending = pendingQuestions(messages);
   const [turnClock, setTurnClock] = useState(Date.now());
   useEffect(() => {
@@ -259,7 +270,7 @@ function RoomPage() {
       </header>
 
       {isOwner && <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2"><label htmlFor="moderator-toggle" className="text-sm">{x.moderator}</label><Switch id="moderator-toggle" checked={room.moderator_mode} disabled={!!speaking} onCheckedChange={(checked) => { pausedRef.current = true; setQueue([]); void changeRoom({ moderator_mode: checked }); }} /></div>}
-      {room.moderator_mode && isOwner && <ModeratorBar pending={pending} minds={minds} busy={!!speaking || (!!room.active_mind_id && turnIsActive(room.turn_started_at, turnClock))} paused={paused} onSpeak={(list) => void manualTurn(list)} onComplete={() => { const q = pending[0]; if (q) void completeRoomQuestion(roomId, q.id).then(reload).catch((e) => toast.error(e.message)); }} onPause={() => { pausedRef.current = true; setPaused(true); }} labels={{ ...x, pause: t.pause }} />}
+      {room.moderator_mode && isOwner && <ModeratorBar pending={pending} minds={minds} roster={{ choices: invitable.map((m) => ({ ...m, avatar: null })), onChange: (ids) => void changeRoster(ids) }} busy={!!speaking || (!!room.active_mind_id && turnIsActive(room.turn_started_at, turnClock))} paused={paused} onSpeak={(list) => void manualTurn(list)} onComplete={() => { const q = pending[0]; if (q) void completeRoomQuestion(roomId, q.id).then(reload).catch((e) => toast.error(e.message)); }} onPause={() => { pausedRef.current = true; setPaused(true); }} labels={{ ...x, pause: t.pause }} />}
       {room.moderator_mode && !isOwner && <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">{x.moderator} · {x.queued}: {pending.length}</p>}
       {!room.moderator_mode && minds.length > 1 && (
         <div className="flex items-center gap-2 border-b border-border px-3 py-2 text-xs">
