@@ -1,5 +1,10 @@
 # Roadmap
 
+## Finished Minds during active mining — November 10
+- [x] Confirm finalization is starved while mining candidates exist
+- [ ] Alternate independent saving and mining invocations; restore partial checkpoint saves
+- [ ] Test completed and partial saving with an active queue; verify worker response
+
 ## Project monitoring — November 8
 - [x] Confirm production mining CPU-limit failures and phone-only chat dismissal issue
 - [x] Make minimized chats dismissible on touch screens and verify persistent removal; 104 tests pass
