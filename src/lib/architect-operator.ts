@@ -10,6 +10,7 @@ export function operatorIntent(text: string): OperatorSkill | undefined {
   if (/\b(deepen|fuse|brain)\b|тархи|브레인/i.test(text)) return "deepen_brains";
   if (/\b(post|highlight)\b|нийтлэл|게시물/i.test(text)) return "draft_post";
   if (/\b(challenge|assignment)\b|сорилт|даалгавар|챌린지/i.test(text)) return "challenge_pack";
+  return undefined;
 }
 export function strongestModel(models: unknown): Record<string, unknown> | undefined {
   if (!Array.isArray(models)) return;

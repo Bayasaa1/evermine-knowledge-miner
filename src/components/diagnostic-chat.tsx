@@ -26,6 +26,8 @@ import {
 } from "@/lib/error-capture";
 import { apiFetch } from "@/lib/api-fetch";
 import { MindRoster, useArchitectRoster } from "@/components/chat/mind-roster";
+import { ArchitectOperator } from "@/components/chat/architect-operator";
+import { operatorIntent, type OperatorSkill } from "@/lib/architect-operator";
 
 type ChatMsg = { role: "user" | "model"; text: string; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
 
@@ -110,6 +112,7 @@ export function DiagnosticChat() {
   const [errorCount, setErrorCount] = useState(() => getCapturedErrors().length);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [presetProject, setPresetProject] = useState<string | null>(null);
+  const [operatorProposal, setOperatorProposal] = useState<{ skill: OperatorSkill; serial: number } | null>(null);
 
   useEffect(() => {
     const onOpen = (e: Event) => {
@@ -144,6 +147,9 @@ export function DiagnosticChat() {
 
     const next: ChatMsg[] = [...messages, { role: "user", text: question }];
     setMessages(next);
+
+    const skill = operatorIntent(question);
+    if (skill && roster.ids.length) { setOperatorProposal({ skill, serial: Date.now() }); return; }
 
     setThinking(true);
     try {
@@ -314,6 +320,7 @@ export function DiagnosticChat() {
           </div>
 
           <MindRoster ids={roster.ids} onChange={roster.change} refreshToken={errorCount + messages.length} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken }])} />
+          <ArchitectOperator ids={roster.ids} proposal={operatorProposal} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken, cards: r.interactive_cards }])} />
           {errorCount > 0 && (
             <div className="border-b border-border bg-primary/5 px-4 py-2 text-[11px] text-muted-foreground">
               {t("botErrorContext")}: <span className="font-medium text-foreground">{errorCount}</span> —{" "}
@@ -351,9 +358,6 @@ export function DiagnosticChat() {
           </div>
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
-            {messages.length === 0 && (
-              <p className="pt-6 text-center text-xs text-muted-foreground">{t("botEmpty")}</p>
-            )}
             {messages.map((m, i) =>
               m.role === "user" ? (
                 <div key={i} className="flex justify-end">

@@ -173,9 +173,13 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
     const h = await inspectProject(userId, projectId);
     const first = h.shallow[0];
     if (first) await deepenLegacyVault(userId, first.id);
-    const { synthesizeProjectMind } = await import("@/lib/project-mind.server");
-    await synthesizeProjectMind(userId, projectId);
-    return { text: "Core Brain rebuilt from saved evidence; originals preserved.", actions_taken: ["deepen_brains"], interactive_cards: [] };
+    const { synthesizeCoreBrain } = await import("@/lib/project-mind.server");
+    const vaults = await projectVaults(userId, projectId);
+    const parts = vaults.flatMap((v) => [{ deep: v.payload.result?.["deepBrain"] }, ...(Array.isArray(v.payload["deepBrainRebuild"]) ? v.payload["deepBrainRebuild"].map((deep: unknown) => ({ deep })) : [])]);
+    const core = synthesizeCoreBrain(parts);
+    // Preview only: live Mind chats already synthesize from these evidence layers.
+    const summary = JSON.stringify(core, null, 2);
+    return { text: summary, actions_taken: ["deepen_brains"], interactive_cards: [] };
   }
   if (skill !== "draft_post") throw new Error("Unknown operator skill.");
   const vaults = await projectVaults(userId, projectId);
@@ -193,7 +197,7 @@ export async function runOperatorSkill(userId: string, ids: unknown, projectId: 
     const start = typeof stamp === "number" ? stamp : stampToSeconds(String(stamp ?? ""));
     if (start == null || !Number.isFinite(start) || start < 0) continue;
     const clipUrl = `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(start)}s`;
-    const draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
+    const draft = `${project.title}\n${String(model["name"] ?? model["title"] ?? model["model"] ?? "")}\n${String(model["principle"] ?? model["explanation"] ?? model["description"] ?? model["reasoning"] ?? "")}\n${clipUrl}`;
     return { text: draft, actions_taken: [], interactive_cards: [], operator: { projectId, draft, clipUrl } };
   }
   throw new Error("No stored mental model with a verified video timestamp. No clip was invented.");
