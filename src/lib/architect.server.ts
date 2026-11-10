@@ -10,7 +10,7 @@ import type { MindPayload } from "@/lib/mind-json";
 
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
-import { analyzeTiming, findMineProblems, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
+import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
 type Db = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
@@ -71,7 +71,11 @@ async function inspectProject(userId: string, projectId: string) {
     const problems = findMineProblems(lines, parts, job.next_index);
     const gaps = problems.filter((p) => p.kind === "empty_part" && problems.every((q) => q.kind !== "unfinished"));
     // Only surrounded silence is a gap, not a genuinely quiet video.
-    const surrounded = gaps.filter((p) => p.part > 0 && p.part < parts.length - 1);
+    const hasSpeech = (index: number) => {
+      const part = parts[index];
+      return !!part && lines.some((line) => { const at = stampToSeconds(line.timestamp); return at != null && at >= part.start && at < part.end; });
+    };
+    const surrounded = gaps.filter((p) => hasSpeech(p.part - 1) && hasSpeech(p.part + 1));
     missing += surrounded.length;
     if ((lines.length && analyzeTiming(lines).status !== "synced") || problems.some((p) => p.kind === "time_jump") || surrounded.length) timingJobs.push(job.id);
   }

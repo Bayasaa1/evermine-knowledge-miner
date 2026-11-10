@@ -284,7 +284,7 @@ export function DiagnosticChat() {
           role="dialog"
           aria-label={t("botTitle")}
           style={{ bottom: "calc(env(safe-area-inset-bottom) + 9rem)" }}
-          className="fixed left-4 z-50 flex h-[26rem] max-h-[60vh] w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+          className="fixed left-4 z-50 flex h-[38rem] max-h-[calc(100dvh-11rem)] w-[26rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         >
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-3">
             <Bot className="h-4 w-4 text-primary" />
