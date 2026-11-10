@@ -28,7 +28,7 @@ const parseJson = <T>(text: string): T | null => {
 
 async function ask(userId: string, system: string, prompt: string, label: string) {
   const { generateRoleText } = await import("@/lib/user-ai.server");
-  const out = await generateRoleText({ userId, role: "chat", system, prompt, json: true, maxTokens: 2048, subjectKind: "project", subjectLabel: label });
+  const out = await generateRoleText({ userId, role: "assistant", system, prompt, json: true, maxTokens: 2048, subjectKind: "project", subjectLabel: label });
   if (!out.text.trim()) throw new Error("The selected Chat AI returned an empty answer.");
   return out;
 }

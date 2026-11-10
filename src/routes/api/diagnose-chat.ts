@@ -81,7 +81,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
         try {
           const generated = await generateRoleText({
             userId: auth.userId,
-            role: "chat",
+            role: "assistant",
             system,
             prompt: history.map((message) => `${message.role}: ${message.text}`).join("\n"),
             messages: history.map((message) => ({

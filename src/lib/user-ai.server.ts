@@ -111,6 +111,17 @@ export type ResolvedUserKey = {
   skippedAssigned?: SkippedAssigned;
 };
 
+/**
+ * Background jobs (mining, write-up, Core Brain) never borrow keys the user put
+ * on a live job (chat, assistant, translation), because long mining runs used to
+ * drain every key and leave chat with "too many requests".
+ */
+const LIVE_ROLES = new Set(["chat", "assistant", "translate"]);
+const BACKGROUND_ROLES = new Set(["mine", "mine_write", "core_brain"]);
+export function guardsFromBackground(role: string, otherRole: string): boolean {
+  return BACKGROUND_ROLES.has(role) && LIVE_ROLES.has(otherRole);
+}
+
 /** One authoritative resolver used by every AI job. It can only return this user's enabled account keys. */
 export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: string[] = []): Promise<ResolvedUserKey> {
   const { ROLE_PROVIDERS } = await import("@/lib/ai-roles");
@@ -155,7 +166,7 @@ export async function resolveUserAiKey(userId: string, role: AiRole, skipIds: st
   const roleRow = (roleRows ?? []).find((r) => r.role === role);
   const team = (roleRow?.team_key_ids ?? []) as string[];
   const reserved = new Set(
-    (roleRows ?? []).filter((r) => r.role !== role && r.exclusive).flatMap((r) => (r.team_key_ids ?? []) as string[]),
+    (roleRows ?? []).filter((r) => r.role !== role && (r.exclusive || guardsFromBackground(role, r.role))).flatMap((r) => (r.team_key_ids ?? []) as string[]),
   );
   const teamKeys = team.map((id) => rows.find((row) => row.id === id)).filter((row): row is (typeof rows)[number] => !!row);
   const spareKeys = rows.filter((row) => !reserved.has(row.id) && !team.includes(row.id));
@@ -249,7 +260,7 @@ export async function geminiLaneKeyIds(userId: string, role: AiRole = "mine"): P
   const roleRow = (roleRows ?? []).find((r) => r.role === role);
   const team = (roleRow?.team_key_ids ?? []) as string[];
   const reserved = new Set(
-    (roleRows ?? []).filter((r) => r.role !== role && r.exclusive).flatMap((r) => (r.team_key_ids ?? []) as string[]),
+    (roleRows ?? []).filter((r) => r.role !== role && (r.exclusive || guardsFromBackground(role, r.role))).flatMap((r) => (r.team_key_ids ?? []) as string[]),
   );
   const spares = healthy.filter((k) => !reserved.has(k.id) && !team.includes(k.id)).map((k) => k.id);
   if (team.length) {
@@ -532,7 +543,7 @@ const OPENAI_COMPATIBLE: Record<string, { base: string; model: string }> = {
 /** Text generation using the provider actually assigned to the role. */
 export async function generateRoleText(opts: {
   userId: string;
-  role: "translate" | "mine_write" | "core_brain" | "chat";
+  role: "translate" | "mine_write" | "core_brain" | "chat" | "assistant";
   system: string;
   prompt: string;
   /** Real chat turns. When present, providers receive these as separate messages. */
@@ -741,7 +752,7 @@ export async function testRoleKey(
         ? { ok: true, message: "Working.", tail: report.effectiveTail }
         : { ok: false, message: `Rejected (${res.status}).`, tail: report.effectiveTail };
     }
-    if (role === "translate" || role === "mine_write" || role === "core_brain" || role === "chat") {
+    if (role === "translate" || role === "mine_write" || role === "core_brain" || role === "chat" || role === "assistant") {
       // A role test must prove the selected key itself. It must never report
       // green because automatic fallback quietly reached a different provider.
       const translation = role === "translate";

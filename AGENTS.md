@@ -47,3 +47,4 @@
 - Architect Co-Pilot tools live in src/lib/architect.server.ts (types in architect-types.ts) and are dispatched by `action` in /api/diagnose-chat; read tools never write, and writes (FAQ patches beside mined data, persona binding) run only from user-pressed chat buttons, because mined data must never change without the user's say.
 - Paid Mind access is granted only when the creator approves a mind_payment_orders row (decideOrder upserts mind_purchases); buyers never write purchases, because bank/Stripe-link payments are confirmed manually.
 - Mastery challenges run through /api/mind-chat modes challenge_generate/challenge_evaluate (pure logic in src/lib/mastery-challenge.ts); passed levels live only in the viewer's browser, because judging must never write to mined data.
+- Background AI jobs (mine, mine_write, core_brain) never borrow keys on live-job teams (chat, assistant, translate), because long mining runs drained every key and blocked chat.

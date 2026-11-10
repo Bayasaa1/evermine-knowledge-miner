@@ -61,6 +61,14 @@ export function AiRolesCard() {
     usedBy: pickCopy({ en: "kept for", mn: "зориулсан:", ko: "전용:" }, lang),
     free: pickCopy({ en: "free", mn: "үнэгүй", ko: "무료" }, lang),
     paid: pickCopy({ en: "paid", mn: "төлбөртэй", ko: "유료" }, lang),
+    split: pickCopy({ en: "Smart split my keys", mn: "Түлхүүрээ ухаалаг хуваарилах", ko: "키 스마트 분배" }, lang),
+    splitAsk: pickCopy({
+      en: "Give chat, assistant and translation their own Gemini keys, and the rest to mining? Mining will never use the chat keys. You can change it any time.",
+      mn: "Чат, туслах, орчуулгад тус бүр Gemini түлхүүр өгч, үлдсэнийг олборлолтод өгөх үү? Олборлолт чатын түлхүүрийг хэзээ ч ашиглахгүй. Дараа нь хүссэнээрээ сольж болно.",
+      ko: "채팅·도우미·번역에 각각 Gemini 키를 주고 나머지는 마이닝에 줄까요? 마이닝은 채팅 키를 쓰지 않습니다. 언제든 바꿀 수 있습니다.",
+    }, lang),
+    splitFew: pickCopy({ en: "Add at least 2 Gemini keys first.", mn: "Эхлээд 2-оос доошгүй Gemini түлхүүр нэмнэ үү.", ko: "먼저 Gemini 키를 2개 이상 추가하세요." }, lang),
+    shield: pickCopy({ en: "Mining never uses these keys", mn: "Олборлолт эдгээр түлхүүрийг ашиглахгүй", ko: "마이닝은 이 키를 쓰지 않습니다" }, lang),
     checkAll: pickCopy({ en: "Check everything", mn: "Бүгдийг шалгах", ko: "모두 확인" }, lang),
     geminiChat: pickCopy({
       en: "Recommended for multilingual character chat: Gemini handles Mongolian and persona consistency better than the default free OpenRouter model.",
@@ -172,6 +180,23 @@ export function AiRolesCard() {
     setFallback((current) => ({ ...current, [role]: enabled }));
     const selected = keys.find((key) => key.id === choice[role]);
     if (selected) await saveRole({ data: { role, provider: selected.provider, keyTail: selected.tail, keyId: selected.id, autoFallback: enabled, teamKeyIds: teams[role] ?? [selected.id], exclusive: exclusive[role] ?? false } });
+  };
+
+  const smartSplit = async () => {
+    const gem = keys.filter((k) => k.provider === "gemini" && k.status !== "invalid");
+    if (gem.length < 2) { setNote(t.splitFew); return; }
+    if (!window.confirm(t.splitAsk)) return;
+    const live = Math.min(3, gem.length - 1);
+    const id = (i: number) => gem[i % live]!.id;
+    const plan: [AiRole, string[]][] = [
+      ["chat", [id(0)]],
+      ["assistant", [id(1)]],
+      ["translate", [id(2)]],
+      ["mine", gem.slice(live).map((k) => k.id)],
+      ["mine_write", gem.slice(live).map((k) => k.id)],
+      ["core_brain", gem.slice(live).map((k) => k.id)],
+    ];
+    for (const [role, team] of plan) await saveTeam(role, team, false);
   };
 
   const testAll = async () => {
@@ -298,6 +323,9 @@ export function AiRolesCard() {
               const hint = selected ? strengths[selected.provider] : null;
               return hint ? <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p> : null;
             })()}
+            {(role === "chat" || role === "assistant" || role === "translate") && (teams[role]?.length ?? 0) > 0 && (
+              <p className="mt-1 text-[11px] text-primary">🛡 {t.shield}</p>
+            )}
             {role === "chat" && report?.effectiveProvider !== "gemini" && keys.some((key) => key.provider === "gemini") && (
               <p className="mt-1 text-[11px] text-amber-500">{t.geminiChat}</p>
             )}
@@ -322,6 +350,9 @@ export function AiRolesCard() {
           </div>
         );
       })}
+      <Button type="button" size="sm" onClick={() => void smartSplit()} disabled={busy != null}>
+        {t.split}
+      </Button>{" "}
       <Button type="button" variant="outline" size="sm" onClick={() => void testAll()} disabled={busy != null}>
         {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />} {t.checkAll}
       </Button>
