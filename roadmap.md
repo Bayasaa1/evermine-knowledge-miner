@@ -1,5 +1,10 @@
 # Roadmap
 
+## Selectable Operator Mind
+- [ ] Add account-scoped Operator selector with three archetypes and all owned Minds; preserve separate Sub-Mind roster
+- [ ] Ground chat, post drafting and challenges in the chosen lens; retain confirmation and evidence safeguards
+- [ ] Verify prompt/ownership tests, selection persistence, and signed-in chat on desktop/mobile
+
 ## Active Architect operator
 - [x] Add consent-scoped Auto-Pilot and timestamped activity stream; stopping/closing cancels further work
 - [x] Add attached-project mining, evidence fusion/Core Brain preview, post draft/publish with Undo, and three-level challenge tools
