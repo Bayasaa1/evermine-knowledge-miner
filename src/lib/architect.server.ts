@@ -8,7 +8,9 @@
  */
 import type { MindPayload } from "@/lib/mind-json";
 
-import type { ArchitectCard, ArchitectResult, SystemAuditIssue } from "@/lib/architect-types";
+import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
+import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
+import { analyzeTiming, findMineProblems, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
 export type { ArchitectCard, ArchitectResult };
 
 type Db = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
@@ -36,6 +38,90 @@ async function ask(userId: string, system: string, prompt: string, label: string
 async function ownedProject(userId: string, projectId: string) {
   const { data } = await (await db()).from("projects").select("id,title,creator_name,persona_id").eq("id", projectId).eq("user_id", userId).maybeSingle();
   return data as { id: string; title: string; creator_name: string | null; persona_id: string | null } | null;
+}
+
+/** Roster and health are owner-scoped, read-only and never call an AI. */
+export async function attachedMindChoices(userId: string): Promise<AttachedMind[]> {
+  const sb = await db();
+  const [projects, personas] = await Promise.all([
+    sb.from("projects").select("id,title,creator_avatar_url").eq("user_id", userId).order("title"),
+    sb.from("creator_personas").select("id,name,avatar_url").eq("user_id", userId).order("name"),
+  ]);
+  if (projects.error || personas.error) throw new Error(projects.error?.message || personas.error?.message);
+  return [...(personas.data ?? []).map((p) => ({ mindId: `persona:${p.id}`, name: p.name, avatar: p.avatar_url, kind: "persona" as const })), ...(projects.data ?? []).map((p) => ({ mindId: `project:${p.id}`, name: p.title, avatar: p.creator_avatar_url, kind: "project" as const }))];
+}
+
+async function inspectProject(userId: string, projectId: string) {
+  const sb = await db();
+  const [jobs, vaults, videos] = await Promise.all([
+    sb.from("mining_jobs").select("id,status,updated_at,source_url,next_index,chunks").eq("user_id", userId).eq("project_id", projectId),
+    sb.from("mind_vaults").select("id,deep:payload->result->deepBrain,rebuilt:payload->deepBrainRebuild").eq("user_id", userId).eq("project_id", projectId).eq("kind", "mine"),
+    sb.from("project_content").select("youtube_id,transcript").eq("user_id", userId).eq("project_id", projectId),
+  ]);
+  if (jobs.error || vaults.error || videos.error) throw new Error(jobs.error?.message || vaults.error?.message || videos.error?.message);
+  const stalled = (jobs.data ?? []).filter((j) => stalledJob(j.status, j.updated_at));
+  const failed = (jobs.data ?? []).filter((j) => j.status === "error");
+  const shallow = (vaults.data ?? []).filter((v) => !v.deep && !(Array.isArray(v.rebuilt) && v.rebuilt.length));
+  const timingJobs: string[] = []; let missing = 0;
+  for (const video of videos.data ?? []) {
+    const lines = (Array.isArray(video.transcript) ? video.transcript : []) as TranscriptLine[];
+    const job = (jobs.data ?? []).find((j) => j.status === "done" && video.youtube_id && j.source_url.includes(video.youtube_id));
+    if (!job) continue;
+    const parts = (Array.isArray(job.chunks) ? job.chunks : []) as PartPlan[];
+    const problems = findMineProblems(lines, parts, job.next_index);
+    const gaps = problems.filter((p) => p.kind === "empty_part" && problems.every((q) => q.kind !== "unfinished"));
+    // Only surrounded silence is a gap, not a genuinely quiet video.
+    const surrounded = gaps.filter((p) => p.part > 0 && p.part < parts.length - 1);
+    missing += surrounded.length;
+    if ((lines.length && analyzeTiming(lines).status !== "synced") || problems.some((p) => p.kind === "time_jump") || surrounded.length) timingJobs.push(job.id);
+  }
+  return { stalled, failed, shallow, timingJobs, missing };
+}
+
+export async function inspectAttachedMinds(userId: string, ids: unknown, lang = "en"): Promise<MindDirective[]> {
+  const roster = normalizeMindRoster(ids);
+  const choices = await attachedMindChoices(userId);
+  const sb = await db();
+  const { data, error } = await sb.from("projects").select("id,persona_id").eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  const directives: MindDirective[] = [];
+  const health = new Map<string, Awaited<ReturnType<typeof inspectProject>>>();
+  for (const id of roster) {
+    const mind = choices.find((m) => m.mindId === id);
+    if (!mind) continue;
+    const projects = (data ?? []).filter((p) => id === `project:${p.id}` || id === `persona:${p.persona_id}`);
+    for (const project of projects) {
+      let h = health.get(project.id);
+      if (!h) { h = await inspectProject(userId, project.id); health.set(project.id, h); }
+      directives.push(...generateMindDirectives({ mindId: id, mindName: mind.name, mindAvatar: mind.avatar, projectId: project.id, stalled: h.stalled.length, failed: h.failed.length, shallow: h.shallow.length, timing: h.timingJobs.length, missing: h.missing }, lang));
+    }
+  }
+  return directives;
+}
+
+/** Never trust a client-supplied tool/target: re-read ownership and the condition. */
+export async function executeMindDirective(userId: string, ids: unknown, directiveId: string, lang = "en"): Promise<ArchitectResult> {
+  const directives = await inspectAttachedMinds(userId, ids, lang);
+  const directive = directives.find((d) => d.id === directiveId);
+  if (!directive) throw new Error("Directive is no longer active or this Mind is not yours.");
+  const h = await inspectProject(userId, directive.targetProjectId);
+  const sb = await db(); let count = 0;
+  if (directive.suggestedTool === "resume_mining" || directive.suggestedTool === "clear_failed_jobs") {
+    const rows = directive.suggestedTool === "resume_mining" ? h.stalled : h.failed;
+    for (const job of rows) {
+      const { data, error } = await sb.from("mining_jobs").update({ status: "queued", last_error: null, retry_after: null }).eq("id", job.id).eq("user_id", userId).eq("status", job.status).eq("updated_at", job.updated_at).select("id");
+      if (error) throw new Error(error.message);
+      count += data?.length ?? 0;
+    }
+  } else if (directive.suggestedTool === "deepen_legacy_vaults" || directive.suggestedTool === "rebuild_core_brain") {
+    const row = h.shallow[0];
+    if (row) { await deepenLegacyVault(userId, row.id); count = 1; }
+  } else {
+    const jobId = h.timingJobs[0];
+    if (jobId) { const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server"); count = await autoRepairFinishedVideos(sb, Date.now() + 45_000, jobId); }
+  }
+  const text = lang === "mn" ? `${directive.mindName}: ${count} засвар хийгдлээ. Үлдсэн асуудлыг дахин шалгалаа.` : lang === "ko" ? `${directive.mindName}: ${count}건 복구. 남은 문제를 다시 확인했습니다.` : `${directive.mindName}: ${count} repair(s) completed. Remaining issues rechecked.`;
+  return { text, actions_taken: [directive.suggestedTool], interactive_cards: [], directives: await inspectAttachedMinds(userId, ids, lang) };
 }
 
 async function projectVaults(userId: string, projectId: string) {
