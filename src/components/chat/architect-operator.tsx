@@ -98,7 +98,7 @@ export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; 
         }
         result = { text: t.complete, actions_taken: ["challenge_pack"], interactive_cards: [] };
       } else {
-        result = await request(skill === "publish" ? "publish_operator_post" : "operator_skill", skill === "publish" ? { projectId, draft: draft?.draft, confirmed: true } : { projectId, skill });
+        result = await request(skill === "publish" ? "publish_operator_post" : "operator_skill", skill === "publish" ? { projectId, draft: draft?.draft, confirmed: true } : { projectId, skill, confirmed: true });
         if (generation.current !== token) return;
         if (result.operator?.jobId) {
           const step = await nextChunk({ data: { jobId: result.operator.jobId, respectLease: true } });

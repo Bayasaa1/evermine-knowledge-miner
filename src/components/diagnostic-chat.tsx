@@ -333,7 +333,9 @@ export function DiagnosticChat() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-1 border-b border-border px-3 py-2">
+          <details className="shrink-0 border-b border-border px-3 py-2">
+          <summary className="cursor-pointer text-xs text-muted-foreground">{lang === "mn" ? "Бусад хэрэгслүүд" : lang === "ko" ? "기타 도구" : "More tools"}</summary>
+          <div className="mt-2 flex flex-wrap gap-1">
             <button
               type="button"
               disabled={thinking}
@@ -358,6 +360,7 @@ export function DiagnosticChat() {
               </button>
             ))}
           </div>
+          </details>
 
           <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
             {messages.map((m, i) =>

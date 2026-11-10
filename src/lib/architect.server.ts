@@ -155,8 +155,9 @@ export async function operatorTick(userId: string, ids: unknown, lang: string, a
   if (!approved || !next) return { text: lang === "mn" ? "Mind-уудыг шалгалаа. Автомат засвар шаардлагагүй." : lang === "ko" ? "마인드 점검 완료. 자동 복구 없음." : "Minds checked. No automatic repair needed.", actions_taken: [], interactive_cards: [], directives };
   const result = await executeMindDirective(userId, ids, next.id, lang);
   if (next.suggestedTool === "resume_mining") {
-    const advance = await runOperatorSkill(userId, ids, next.targetProjectId, "advance_mining");
-    return { ...result, ...(advance.operator ? { operator: advance.operator } : {}) };
+    const { data, error } = await (await db()).from("mining_jobs").select("id").eq("user_id", userId).eq("project_id", next.targetProjectId).eq("source_kind", "youtube").eq("status", "queued").order("queue_position").limit(1).maybeSingle();
+    if (error) throw new Error(error.message);
+    return { ...result, ...(data ? { operator: { jobId: data.id, projectId: next.targetProjectId } } : {}) };
   }
   return result;
 }
