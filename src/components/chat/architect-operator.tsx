@@ -34,22 +34,23 @@ export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; 
   const rosterKey = JSON.stringify(ids);
   const append = (text: string) => setLog((list) => [...list.slice(-49), { at: new Date().toLocaleTimeString(), text }]);
   async function request(action: string, args: Record<string, unknown> = {}, signal?: AbortSignal) {
-    const response = await apiFetch("/api/diagnose-chat", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, args, attachedMindIds: ids, lang }) });
+    const response = await apiFetch("/api/diagnose-chat", { method: "POST", ...(signal ? { signal } : {}), headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, args, attachedMindIds: ids, lang }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `${t.failed} (${response.status})`);
     return data as ArchitectResult & { minds?: AttachedMind[]; project?: { id: string; title: string } };
   }
   useEffect(() => {
     const token = ++generation.current; const controller = new AbortController();
-    setPilot(false); setConfirm(null); setDraft(undefined); setProjectId(""); setProjects([]); setLog([]);
+    setPilot(false); setBusy(false); setConfirm(null); setDraft(undefined); setProjectId(""); setProjects([]); setLog([]);
     if (!userId || !ids.length) return;
     void request("mind_roster", {}, controller.signal).then(async (data) => {
       const owned = (data.minds ?? []).filter((m) => m.kind === "project");
       const allowed: AttachedMind[] = [];
       // Validate persona-linked project membership on the server; never infer ownership in the UI.
-      for (const p of owned) {
+      const linked = (data as ArchitectResult & { operatorProjects?: AttachedMind[] }).operatorProjects ?? [];
+      for (const p of [...owned, ...linked.filter((p) => !owned.some((x) => x.mindId === p.mindId))]) {
         if (controller.signal.aborted) return;
-        if (ids.includes(p.mindId)) allowed.push(p);
+        if (ids.includes(p.mindId) || linked.some((x) => x.mindId === p.mindId)) allowed.push(p);
       }
       if (generation.current === token) { setProjects(allowed); setProjectId(allowed[0]?.mindId.replace("project:", "") ?? ""); append(t.ready); }
     }).catch((error) => { if (!controller.signal.aborted) append(error.message); });
@@ -62,7 +63,15 @@ export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; 
     const tick = async () => {
       if (flight.current || document.visibilityState !== "visible") return;
       flight.current = true; setBusy(true); append(t.checking);
-      try { const result = await request("operator_tick", { approved: true }, controller.signal); if (generation.current === token && !controller.signal.aborted) { append(result.text); onResult(result); } }
+      try {
+        let result = await request("operator_tick", { approved: true }, controller.signal);
+        if (generation.current !== token || controller.signal.aborted) return;
+        if (result.operator?.jobId) {
+          const step = await nextChunk({ data: { jobId: result.operator.jobId, respectLease: true } });
+          result = { ...result, text: `${step.chunk ? t.mining : step.busy ? t.checking : t.failed}: ${step.job.nextIndex}/${step.job.totalChunks}${step.job.lastError ? ` · ${step.job.lastError}` : ""}` };
+        }
+        if (generation.current === token && !controller.signal.aborted) { append(result.text); onResult(result); }
+      }
       catch (error) { if (!controller.signal.aborted && generation.current === token) append(`${t.failed}: ${error instanceof Error ? error.message : String(error)}`); }
       finally { flight.current = false; if (generation.current === token) setBusy(false); }
     };
@@ -93,7 +102,7 @@ export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; 
         if (generation.current !== token) return;
         if (result.operator?.jobId) {
           const step = await nextChunk({ data: { jobId: result.operator.jobId, respectLease: true } });
-          result = { ...result, text: `${t.mining}: ${step.job.nextIndex}/${step.job.totalChunks}${step.job.lastError ? ` · ${step.job.lastError}` : ""}` };
+          result = { ...result, text: `${step.chunk ? t.mining : step.busy ? t.checking : t.failed}: ${step.job.nextIndex}/${step.job.totalChunks}${step.job.lastError ? ` · ${step.job.lastError}` : ""}` };
         }
       }
       if (generation.current !== token) return;

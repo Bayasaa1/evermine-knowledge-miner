@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/diagnose-chat")({
               : body.action === "publish_operator_post" && args["confirmed"] === true ? await a.publishOperatorPost(auth.userId, body.attachedMindIds, pid, s("draft"))
               : body.action === "undo_operator_post" ? await a.undoOperatorPost(auth.userId, s("postId"))
               : body.action === "validate_operator_project" ? { project: await a.operatorProject(auth.userId, body.attachedMindIds, pid) }
-              : body.action === "mind_roster" ? { minds: await a.attachedMindChoices(auth.userId), directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang) }
+              : body.action === "mind_roster" ? { minds: await a.attachedMindChoices(auth.userId), directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang), operatorProjects: await a.operatorProjects(auth.userId, body.attachedMindIds) }
               : body.action === "mind_directives" ? { directives: await a.inspectAttachedMinds(auth.userId, body.attachedMindIds, body.lang) }
               : body.action === "execute_mind_directive" ? await a.executeMindDirective(auth.userId, body.attachedMindIds, s("directiveId"), body.lang)
               : needsProject && !pid ? await a.projectChoices(auth.userId, body.action)

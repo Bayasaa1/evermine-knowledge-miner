@@ -153,7 +153,19 @@ export async function operatorTick(userId: string, ids: unknown, lang: string, a
   const directives = await inspectAttachedMinds(userId, ids, lang);
   const next = automaticDirective(directives);
   if (!approved || !next) return { text: lang === "mn" ? "Mind-уудыг шалгалаа. Автомат засвар шаардлагагүй." : lang === "ko" ? "마인드 점검 완료. 자동 복구 없음." : "Minds checked. No automatic repair needed.", actions_taken: [], interactive_cards: [], directives };
-  return executeMindDirective(userId, ids, next.id, lang);
+  const result = await executeMindDirective(userId, ids, next.id, lang);
+  if (next.suggestedTool === "resume_mining") {
+    const advance = await runOperatorSkill(userId, ids, next.targetProjectId, "advance_mining");
+    return { ...result, ...(advance.operator ? { operator: advance.operator } : {}) };
+  }
+  return result;
+}
+
+export async function operatorProjects(userId: string, ids: unknown): Promise<AttachedMind[]> {
+  const roster = normalizeMindRoster(ids);
+  const { data, error } = await (await db()).from("projects").select("id,title,persona_id,creator_avatar_url").eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).filter((p) => roster.includes(`project:${p.id}`) || roster.includes(`persona:${p.persona_id}`)).map((p) => ({ mindId: `project:${p.id}`, name: p.title, avatar: p.creator_avatar_url, kind: "project" }));
 }
 
 export async function runOperatorSkill(userId: string, ids: unknown, projectId: string, skill: string): Promise<ArchitectResult> {
