@@ -7,7 +7,7 @@ export function autopilotAllowance(record: { day?: string; count?: number } | nu
   const count = record?.day === today ? Math.max(0, Number(record.count) || 0) : 0;
   return { day: today, count, allowed: count < cap };
 }
-const BLOCKED_WORDS = /\b(fuck\w*|shit\w*|bitch\w*|bastard\w*|cunt\w*|asshole\w*|dickhead\w*|motherfuck\w*|retard\w*|idiot\w*|moron\w*)\b|(пизд|хуй|бля|сука|пичдээ|шаа?а?лан|новш|муу\s?юм|гичий|хөгийн\s?амьтан|씨발|시발|병신|개새끼|좆)/giu;
+const BLOCKED_WORDS = /\b(fuck\w*|shit\w*|bitch\w*|bastard\w*|cunt\w*|asshole\w*|dickhead\w*|motherfuck\w*|retard\w*|idiot\w*|moron\w*)\b|(пизд|хуй|сука|новш|гичий|씨발|시발|병신|개새끼|좆)/giu;
 /** Public-post tone guard: masks profanity/insults so a sharp persona cannot publish abuse. */
 export function toneGuard(text: string): { clean: string; flagged: number } {
   let flagged = 0;

@@ -8,7 +8,7 @@ test("autopilot excludes brain mutations and failed-job retries", () => {
   assert.equal(automaticDirective([directive("deepen_legacy_vaults"), directive("repair_timings")])?.suggestedTool, "repair_timings");
 });
 test("four operator skills and chat intent produce proposals", () => {
-  assert.equal(OPERATOR_SKILLS.length, 4);
+  assert.equal(OPERATOR_SKILLS.length, 5);
   assert.equal(operatorIntent("advance the mining queue"), "advance_mining");
   assert.equal(operatorIntent("нийтлэл бэлд"), "draft_post");
   assert.equal(operatorIntent("hello"), undefined);
@@ -30,4 +30,19 @@ test("missing post evidence produces an informational result without an executab
   assert.deepEqual(result.actions_taken, []);
   assert.equal(result.operator, undefined);
   assert.deepEqual(result.interactive_cards, []);
+});import { autopilotAllowance, toneGuard, teamBriefing, AUTOPILOT_DAILY_CAP } from "./architect-operator";
+test("auto-pilot stops after 20 repairs a day and resets next day", () => {
+  assert.equal(AUTOPILOT_DAILY_CAP, 20);
+  assert.equal(autopilotAllowance({ day: "2026-11-10", count: 19 }, "2026-11-10").allowed, true);
+  assert.equal(autopilotAllowance({ day: "2026-11-10", count: 20 }, "2026-11-10").allowed, false);
+  assert.equal(autopilotAllowance({ day: "2026-11-09", count: 20 }, "2026-11-10").count, 0);
+});
+test("tone guard masks profanity before public posts", () => {
+  assert.equal(toneGuard("This steak is fucking raw").flagged, 1);
+  assert.equal(toneGuard("This steak is perfectly seared").flagged, 0);
+  assert.equal(toneGuard("Ямар новш вэ").flagged, 1);
+});
+test("team briefing groups issues by Mind", () => {
+  const text = teamBriefing([{ mindName: "Ramsay", severity: "warning", issueSummary: "stalled" }, { mindName: "Ramsay", severity: "enhance", issueSummary: "shallow" }], "en");
+  assert.ok(text.includes("• Ramsay") && text.includes("stalled") && text.includes("shallow"));
 });
