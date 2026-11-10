@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { runNextChunk } from "@/lib/mining-jobs.functions";
 import { OPERATOR_SKILLS, type OperatorSkill } from "@/lib/architect-operator";
 import type { ArchitectResult, AttachedMind } from "@/lib/architect-types";
-import type { Challenge } from "@/lib/mastery-challenge";
+
 
 const COPY = {
   en: { activity: "Autonomous Activity Log", pilot: "Auto-Pilot", ready: "Ready", choose: "Select attached project", enable: "Allow automatic stalled-job recovery and timing repair while this chat is open? One repair per minute; your mining keys may be used. Brain changes and posting still require confirmation.", confirm: "Confirm", cancel: "Cancel", skills: ["Fix & advance mining", "Deepen & fuse brains", "Draft feed post", "Mastery pack · Levels 1–3"], consent: "Run this action for the selected project? Mining and challenges use your own assigned keys. Original evidence is preserved.", publish: "Publish", publishConfirm: "Publish this reviewed draft publicly?", undo: "Undo post", checking: "Checking attached Minds", empty: "Attach a Mind to begin", failed: "Failed", complete: "Completed", mining: "Saved mining checkpoint", preview: "Video moment" },
@@ -19,7 +19,7 @@ const COPY = {
 };
 const ICONS = [Play, Brain, Film, Target];
 
-export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; onResult: (result: ArchitectResult) => void; proposal?: { skill: OperatorSkill; serial: number } | null }) {
+export function ArchitectOperator({ ids, onResult, proposal, operatorMindId }: { operatorMindId: string; ids: string[]; onResult: (result: ArchitectResult) => void; proposal?: { skill: OperatorSkill; serial: number } | null }) {
   const { userId } = useAuth(); const { lang } = useLang();
   const t = COPY[lang === "mn" || lang === "ko" ? lang : "en"];
   const [pilot, setPilot] = useState(false);
@@ -34,7 +34,7 @@ export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; 
   const rosterKey = JSON.stringify(ids);
   const append = (text: string) => setLog((list) => [...list.slice(-49), { at: new Date().toLocaleTimeString(), text }]);
   async function request(action: string, args: Record<string, unknown> = {}, signal?: AbortSignal) {
-    const response = await apiFetch("/api/diagnose-chat", { method: "POST", ...(signal ? { signal } : {}), headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, args, attachedMindIds: ids, lang }) });
+    const response = await apiFetch("/api/diagnose-chat", { method: "POST", ...(signal ? { signal } : {}), headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, args, attachedMindIds: ids, lang, operatorMindId }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `${t.failed} (${response.status})`);
     return data as ArchitectResult & { minds?: AttachedMind[]; project?: { id: string; title: string } };
@@ -86,17 +86,7 @@ export function ArchitectOperator({ ids, onResult, proposal }: { ids: string[]; 
     try {
       let result: ArchitectResult;
       if (skill === "challenge_pack") {
-        await request("validate_operator_project", { projectId });
-        const challenges: Challenge[] = [];
-        for (const level of [1, 2, 3]) {
-          if (generation.current !== token) return;
-          const response = await apiFetch("/api/mind-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mindId: `project:${projectId}`, lang, mode: "challenge_generate", level, domain: "knowledge", messages: [] }) });
-          const data = await response.json();
-          if (!response.ok || !data.challenge) throw new Error(data.error || t.failed);
-          challenges.push(data.challenge);
-          if (generation.current === token) onResult({ text: `Level ${level}: ${data.challenge.title}\n${data.challenge.scenario}\n${data.challenge.task_steps.join("\n")}\n${data.challenge.pass_criteria.join("\n")}\n${data.challenge.source_video_ref}`, actions_taken: [], interactive_cards: [] });
-        }
-        result = { text: t.complete, actions_taken: ["challenge_pack"], interactive_cards: [] };
+        result = await request("operator_challenge_pack", { projectId, confirmed: true });
       } else {
         result = await request(skill === "publish" ? "publish_operator_post" : "operator_skill", skill === "publish" ? { projectId, draft: draft?.draft, confirmed: true } : { projectId, skill, confirmed: true });
         if (generation.current !== token) return;

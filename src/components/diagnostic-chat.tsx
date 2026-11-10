@@ -26,19 +26,21 @@ import {
 } from "@/lib/error-capture";
 import { apiFetch } from "@/lib/api-fetch";
 import { MindRoster, useArchitectRoster } from "@/components/chat/mind-roster";
+import { OperatorMindSelector, useOperatorMind } from "@/components/chat/operator-mind-selector";
 import { ArchitectOperator } from "@/components/chat/architect-operator";
 import { operatorIntent, type OperatorSkill } from "@/lib/architect-operator";
 
 type ChatMsg = { role: "user" | "model"; text: string; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
 
 /** The account's Chatting role is the only path used for diagnostics. */
-async function askBackend(lang: Lang, history: ChatMsg[], attachedMindIds: string[]): Promise<ChatMsg> {
+async function askBackend(lang: Lang, history: ChatMsg[], attachedMindIds: string[], operatorMindId: string): Promise<ChatMsg> {
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
     body: JSON.stringify({
       lang,
       attachedMindIds,
+      operatorMindId,
       errors: getCapturedErrors().slice(-10),
       messages: history.map((m) => ({ role: m.role, text: m.text })),
     }),
@@ -51,19 +53,19 @@ async function askBackend(lang: Lang, history: ChatMsg[], attachedMindIds: strin
 }
 
 /** Runs one Architect tool. Writing tools only fire from buttons the user presses. */
-async function runAction(action: string, args: Record<string, unknown>, attachedMindIds: string[]): Promise<ChatMsg> {
+async function runAction(action: string, args: Record<string, unknown>, attachedMindIds: string[], operatorMindId: string): Promise<ChatMsg> {
   const res = await apiFetch("/api/diagnose-chat", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...skipCaptureHeader() },
-    body: JSON.stringify({ action, args, attachedMindIds }),
+    body: JSON.stringify({ action, args, attachedMindIds, operatorMindId }),
   });
   const data = (await res.json().catch(() => ({}))) as Partial<ArchitectResult> & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `Co-Pilot error (${res.status}).`);
   return { role: "model", text: data.text ?? "", provider: data.provider, actions: data.actions_taken, cards: data.interactive_cards };
 }
 
-async function answer(lang: Lang, history: ChatMsg[], attachedMindIds: string[]): Promise<ChatMsg> {
-  return askBackend(lang, history, attachedMindIds);
+async function answer(lang: Lang, history: ChatMsg[], attachedMindIds: string[], operatorMindId: string): Promise<ChatMsg> {
+  return askBackend(lang, history, attachedMindIds, operatorMindId);
 }
 
 const COPY = {
@@ -100,6 +102,7 @@ export function ArchitectLauncher({ projectId, lang }: { projectId?: string | nu
 export function DiagnosticChat() {
   const { lang, t } = useLang();
   const roster = useArchitectRoster();
+  const operatorMind = useOperatorMind();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // The watching screen stays clean: the helper bubble covered the video and
   // the Home button there. It lives on the other screens instead.
@@ -153,14 +156,14 @@ export function DiagnosticChat() {
 
     setThinking(true);
     try {
-      const reply = await answer(lang, next, roster.ids);
+      const reply = await answer(lang, next, roster.ids, operatorMind.id);
       setMessages([...next, reply]);
     } catch (err) {
       setMessages([...next, { role: "model", text: describeThrowable(err) }]);
     } finally {
       setThinking(false);
     }
-  }, [input, thinking, messages, lang, roster.ids]);
+  }, [input, thinking, messages, lang, roster.ids, operatorMind.id]);
 
   const copy = COPY[(lang in COPY ? lang : "en") as keyof typeof COPY];
   const [done, setDone] = useState<Record<string, boolean>>({});
@@ -171,7 +174,7 @@ export function DiagnosticChat() {
       if (label) setMessages((m) => [...m, { role: "user", text: label }]);
       setThinking(true);
       try {
-        const reply = await runAction(action, args, roster.ids);
+        const reply = await runAction(action, args, roster.ids, operatorMind.id);
         setMessages((m) => [...m, reply]);
       } catch (err) {
         setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]);
@@ -179,7 +182,7 @@ export function DiagnosticChat() {
         setThinking(false);
       }
     },
-    [thinking, roster.ids],
+    [thinking, roster.ids, operatorMind.id],
   );
 
   const mine = useCallback(async (key: string, c: Extract<ArchitectCard, { type: "video" }>) => {
@@ -319,9 +322,10 @@ export function DiagnosticChat() {
             </button>
           </div>
 
+          <OperatorMindSelector value={operatorMind.id} onChange={operatorMind.change} disabled={thinking} />
           <div className="max-h-[55%] shrink-0 overflow-y-auto">
-          <MindRoster ids={roster.ids} onChange={roster.change} refreshToken={errorCount + messages.length} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken }])} />
-          <ArchitectOperator ids={roster.ids} proposal={operatorProposal} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken, cards: r.interactive_cards }])} />
+          <MindRoster operatorMindId={operatorMind.id} ids={roster.ids} onChange={roster.change} refreshToken={errorCount + messages.length} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken }])} />
+          <ArchitectOperator key={operatorMind.id} operatorMindId={operatorMind.id} ids={roster.ids} proposal={operatorProposal} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken, cards: r.interactive_cards }])} />
           </div>
           {errorCount > 0 && (
             <div className="border-b border-border bg-primary/5 px-4 py-2 text-[11px] text-muted-foreground">
