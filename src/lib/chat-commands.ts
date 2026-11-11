@@ -9,7 +9,8 @@ export type ChatCommand =
   | { kind: "role_split" }
   | { kind: "mining_rules"; rules: string };
 
-const KEY_SHAPES: [ChatCommand & { kind: "api_key" } extends infer K ? K extends { provider: infer P } ? P : never : never, RegExp][] = [
+type KeyProvider = Extract<ChatCommand, { kind: "api_key" }>["provider"];
+const KEY_SHAPES: [KeyProvider, RegExp][] = [
   ["anthropic", /\bsk-ant-[A-Za-z0-9_-]{20,}\b/],
   ["openrouter", /\bsk-or-v1-[A-Za-z0-9]{20,}\b/],
   ["openai", /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/],

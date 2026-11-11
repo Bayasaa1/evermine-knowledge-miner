@@ -15,7 +15,10 @@ export type ArchitectCard =
   | { type: "projects"; projects: { id: string; title: string }[]; next: string }
   | { type: "persona"; projectId: string; name: string }
   | { type: "system_audit"; score: number; issues: SystemAuditIssue[]; fixable: boolean }
-  | { type: "heal_result"; fixed: string[]; notes: string[]; remaining: number };
+  | { type: "heal_result"; fixed: string[]; notes: string[]; remaining: number }
+  | { type: "mine_link"; url: string; title: string; author: string; durationSec: number; thumbnail: string; projects: { id: string; title: string; personaId: string }[] }
+  | { type: "remine"; projectId: string; personaId: string; title: string; urls: string[] }
+  | { type: "role_split"; keyCount: number; liveKeys: number; backgroundKeys: number };
 
 export type SystemAuditIssue = { id: string; label: string; count: number; detail: string; fixable: boolean };
 
