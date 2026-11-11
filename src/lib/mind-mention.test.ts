@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeMention, rankMentions, insertMention } from "./mind-mention";
+import { activeMention, rankMentions, insertMention, mentionMode } from "./mind-mention";
 
 const many = Array.from({ length: 1000 }, (_, i) => ({ mindId: `project:${i}`, name: `Project ${i}`, kind: "project" as const }));
 const all = [...many, { mindId: "persona:d", name: "Aswath Damodaran", kind: "persona" as const }];
@@ -22,10 +22,9 @@ test("insert replaces the typed query", () => {
   assert.equal(insertMention("hi @da x", 3, 6, "Aswath Damodaran").text, "hi @Aswath Damodaran  x");
 });
 
-import { mentionMode } from "./mind-mention";
 test("@p: targets projects, plain @ targets people", () => {
-  expect(mentionMode("p:dam")).toEqual({ mode: "project", q: "dam" });
-  expect(mentionMode("p dam")).toEqual({ mode: "project", q: "dam" });
-  expect(mentionMode("bat")).toEqual({ mode: "person", q: "bat" });
-  expect(mentionMode("paul")).toEqual({ mode: "person", q: "paul" });
+  assert.deepEqual(mentionMode("p:dam"), { mode: "project", q: "dam" });
+  assert.deepEqual(mentionMode("p dam"), { mode: "project", q: "dam" });
+  assert.deepEqual(mentionMode("bat"), { mode: "person", q: "bat" });
+  assert.deepEqual(mentionMode("paul"), { mode: "person", q: "paul" });
 });
