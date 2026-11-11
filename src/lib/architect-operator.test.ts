@@ -5,7 +5,8 @@ import type { MindDirective } from "./architect-types";
 const directive = (tool: MindDirective["suggestedTool"]): MindDirective => ({ id: tool, mindId: "project:x", mindName: "Mind", mindAvatar: null, severity: "warning", issueSummary: "issue", directiveForChatbot: "repair", suggestedTool: tool, targetProjectId: "x" });
 test("autopilot excludes brain mutations and failed-job retries", () => {
   assert.equal(automaticDirective([directive("deepen_legacy_vaults"), directive("clear_failed_jobs")]), undefined);
-  assert.equal(automaticDirective([directive("deepen_legacy_vaults"), directive("repair_timings")])?.suggestedTool, "repair_timings");
+  assert.equal(automaticDirective([directive("deepen_legacy_vaults"), directive("repair_timings")]), undefined);
+  assert.equal(automaticDirective([directive("repair_timings"), directive("resume_mining")])?.suggestedTool, "resume_mining");
 });
 test("four operator skills and chat intent produce proposals", () => {
   assert.equal(OPERATOR_SKILLS.length, 5);
