@@ -1,3 +1,4 @@
+import { isValidUuid } from "./mind-id";
 /**
  * A Persona invited into a chat speaks from ALL of its published projects:
  * their mined knowledge and creator-written stances are merged into one mind.
@@ -14,7 +15,7 @@ const uniq = <T,>(xs: T[], key: (x: T) => string, limit: number) => {
 export async function getPersonaMind(mindId: string): Promise<{ mind: PublicProjectMind; extras: CreatorExtras | null } | null> {
   if (!mindId.startsWith("persona:")) return null;
   const personaId = mindId.slice(8);
-  if (!/^[0-9a-f-]{36}$/i.test(personaId)) return null;
+  if (!isValidUuid(personaId)) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: projects } = await supabaseAdmin
     .from("projects")

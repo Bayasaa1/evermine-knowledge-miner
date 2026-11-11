@@ -1,3 +1,4 @@
+import { isValidUuid } from "./mind-id";
 /**
  * Creator-written extras for a project mind: official stances (Q&A), bio,
  * tags and greeting. Read with the service client, but only for PUBLISHED
@@ -45,7 +46,7 @@ export function branchesFor(topics: string[], mapTopics: MapTopic[]): Record<str
 export async function loadCreatorExtras(mindId: string): Promise<CreatorExtras | null> {
   if (!mindId.startsWith("project:")) return null;
   const projectId = mindId.slice(8);
-  if (!/^[0-9a-f-]{36}$/i.test(projectId)) return null;
+  if (!isValidUuid(projectId)) return null;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: project } = await supabaseAdmin
     .from("projects")

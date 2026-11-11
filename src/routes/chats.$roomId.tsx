@@ -10,6 +10,8 @@ import { ChatDisplayText } from "@/components/chat-display-text";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { RoomAvatar, RoomMedia, SharedLink } from "@/components/chat/room-media";
+import { OperatorMindSelector, useOperatorMind } from "@/components/chat/operator-mind-selector";
+import { useArchitectRoster } from "@/components/chat/mind-roster";
 import { ModeratorBar } from "@/components/chat/moderator-bar";
 import { TalkToMindModal } from "@/components/talk-to-mind-modal";
 import { ShareModal } from "@/components/share-modal";
@@ -56,6 +58,8 @@ const EXTRA = {
 
 function RoomPage() {
   const { roomId } = Route.useParams();
+  const operatorMind = useOperatorMind();
+  const architectRoster = useArchitectRoster();
   const { lang } = useLang();
   const t = pickCopy(COPY, lang);
   const x = pickCopy(EXTRA, lang);
@@ -300,6 +304,7 @@ function RoomPage() {
         <Button variant="ghost" size="icon" aria-label={t.settings} onClick={() => { setShowSettings(true); setName(room.title); void listInvitableMinds().then(setInvitable); void loadGraph().then((g) => setFriends(g.friends)).catch((e) => toast.error(e.message)); }}><Settings className="h-5 w-5" /></Button>
       </header>
 
+      <details className="shrink-0 border-b border-border"><summary className="px-3 py-1 text-xs cursor-pointer">{lang === "mn" ? "Оператор" : lang === "ko" ? "운영자" : "Operator"} · {architectRoster.ids.length}</summary><OperatorMindSelector value={operatorMind.id} onChange={operatorMind.change} /></details>
       {isOwner && <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2"><label htmlFor="moderator-toggle" className="text-sm">{x.moderator}</label><Switch id="moderator-toggle" checked={room.moderator_mode} disabled={!!speaking} onCheckedChange={(checked) => { pausedRef.current = true; setQueue([]); void changeRoom({ moderator_mode: checked }); }} /></div>}
       {room.moderator_mode && isOwner && <ModeratorBar pending={pending} minds={minds} roster={{ choices: invitable.map((m) => ({ ...m, avatar: null })), onChange: (ids) => void changeRoster(ids) }} busy={!!speaking || (!!room.active_mind_id && turnIsActive(room.turn_started_at, turnClock))} paused={paused} onSpeak={(list) => void manualTurn(list)} onComplete={() => { const q = pending[0]; if (q) void completeRoomQuestion(roomId, q.id).then(reload).catch((e) => toast.error(e.message)); }} onPause={() => { pausedRef.current = true; setPaused(true); }} labels={{ ...x, pause: t.pause }} />}
       {room.moderator_mode && !isOwner && <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">{x.moderator} · {x.queued}: {pending.length}</p>}

@@ -83,16 +83,19 @@ export async function autoRepairFinishedVideos(admin: any, deadline: number, sel
             )).value;
         results[index] = { ...mined, window: { start: part.start, end: part.end }, autoRepaired: true };
         fixedParts += 1;
-      } catch {
+      } catch (error) {
+        if (selectedJobId) throw error;
         // Quota or network: mark tried so the next run moves on; the old part stays.
         results[index] = { ...(results[index] ?? {}), autoRepaired: true };
       }
       changed = true;
     }
     if (!changed) continue;
-    await admin.from("mining_jobs").update({ results: results as never }).eq("id", job.id);
+    const { error: saveError } = await admin.from("mining_jobs").update({ results: results as never }).eq("id", job.id);
+    if (saveError) { if (selectedJobId) throw new Error(saveError.message); continue; }
     const { finalizeMiningJob } = await import("@/lib/finalize-job.server");
-    await finalizeMiningJob(admin, { ...job, results, vault_id: null } as never, { deferTopics: !!selectedJobId }).catch(() => null);
+    try { await finalizeMiningJob(admin, { ...job, results, vault_id: null } as never, { deferTopics: !!selectedJobId }); }
+    catch (error) { if (selectedJobId) throw error; }
   }
   return fixedParts;
 }
