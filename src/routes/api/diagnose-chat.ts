@@ -7,6 +7,7 @@
  * free key instead of answering on someone else's budget.
  */
 import { createFileRoute } from "@tanstack/react-router";
+import { isValidUuid } from "@/lib/mind-id";
 import { guardApi } from "@/lib/api-guard.server";
 
 type ChatMsg = { role: "user" | "model"; text: string };
@@ -30,10 +31,15 @@ export const Route = createFileRoute("/api/diagnose-chat")({
           const args = body.args ?? {};
           const s = (k: string) => (typeof args[k] === "string" ? (args[k] as string).slice(0, 2000) : "");
           const pid = s("projectId");
+          for (const field of ["projectId", "vaultId", "postId"]) {
+            if (s(field) && !isValidUuid(s(field))) return Response.json({ error: `Invalid ${field}` }, { status: 400 });
+          }
+          if (body.action === "execute_mind_directive" && args["confirmed"] !== true) return Response.json({ error: "Confirm this directive before executing." }, { status: 400 });
           const needsProject = ["health", "fix", "stress"].includes(body.action) || (body.action === "scout" && !s("topic"));
           try {
             const result =
-              body.action === "operator_choices" ? { minds: await a.attachedMindChoices(auth.userId) }
+              body.action === "web_fetch" ? { page: await (await import("@/lib/safe-web.server")).fetchWebPage(s("url")) }
+              : body.action === "operator_choices" ? { minds: await a.attachedMindChoices(auth.userId) }
               : body.action === "operator_context" ? await a.resolveOperatorMind(auth.userId, body.operatorMindId)
               : body.action === "operator_tick" ? await a.operatorTick(auth.userId, body.attachedMindIds, body.lang || "en", args["approved"] === true)
               : body.action === "operator_challenge_pack" && args["confirmed"] === true ? await a.operatorChallengePack(auth.userId, body.attachedMindIds, pid, body.operatorMindId, body.lang)

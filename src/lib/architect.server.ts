@@ -11,8 +11,9 @@ import type { MindPayload } from "@/lib/mind-json";
 import type { ArchitectCard, ArchitectResult, SystemAuditIssue, AttachedMind, MindDirective } from "@/lib/architect-types";
 import { generateMindDirectives, normalizeMindRoster, stalledJob } from "@/lib/mind-directives";
 import { automaticDirective, strongestModel, sourceVideoUrl, missingPostResult } from "@/lib/architect-operator";
-import { allowedOperator, operatorLens } from "@/lib/operator-mind";
+import { allowedOperator, operatorLens, builtinOperator } from "@/lib/operator-mind";
 import { analyzeTiming, findMineProblems, stampToSeconds, type TranscriptLine, type PartPlan } from "@/lib/subtitle-health";
+import { isValidUuid } from "./mind-id";
 export type { ArchitectCard, ArchitectResult };
 
 type Db = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
@@ -38,6 +39,7 @@ async function ask(userId: string, system: string, prompt: string, label: string
 }
 
 async function ownedProject(userId: string, projectId: string) {
+  if (!isValidUuid(projectId)) return null;
   const { data } = await (await db()).from("projects").select("id,title,creator_name,persona_id").eq("id", projectId).eq("user_id", userId).maybeSingle();
   return data as { id: string; title: string; creator_name: string | null; persona_id: string | null } | null;
 }
@@ -55,6 +57,8 @@ export async function attachedMindChoices(userId: string): Promise<AttachedMind[
 
 /** Operator knowledge is always resolved from this account; never accepts client prompt prose. */
 export async function resolveOperatorMind(userId: string, requested: unknown) {
+  const preset = builtinOperator(requested);
+  if (preset) return { id: preset.id, name: preset.name, prompt: operatorLens(preset.id) };
   const choices = await attachedMindChoices(userId);
   const id = allowedOperator(requested, choices);
   const name = choices.find((m) => m.mindId === id)?.name ?? (id === "builtin:musk" ? "Elon Musk-inspired Operator" : id === "builtin:ramsay" ? "Gordon Ramsay-inspired Operator" : "System Architect");
@@ -70,6 +74,7 @@ export async function resolveOperatorMind(userId: string, requested: unknown) {
 }
 
 async function inspectProject(userId: string, projectId: string) {
+  if (!isValidUuid(projectId)) throw new Error("Invalid project ID.");
   const sb = await db();
   const [jobs, vaults, videos, project] = await Promise.all([
     sb.from("mining_jobs").select("id,status,updated_at,source_url,next_index,chunks").eq("user_id", userId).eq("project_id", projectId),
@@ -139,16 +144,17 @@ export async function executeMindDirective(userId: string, ids: unknown, directi
     }
   } else if (directive.suggestedTool === "deepen_legacy_vaults" || directive.suggestedTool === "rebuild_core_brain") {
     const row = h.shallow[0];
-    if (row) { await deepenLegacyVault(userId, row.id); count = 1; }
+    if (row) { const saved = await deepenLegacyVault(userId, row.id); count = saved.actions_taken.length ? 1 : 0; }
   } else {
     const jobId = h.timingJobs[0];
     if (jobId) { const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server"); count = await autoRepairFinishedVideos(sb, Date.now() + 45_000, jobId); }
   }
-  const text = lang === "mn" ? `${directive.mindName}: ${count} засвар хийгдлээ. Үлдсэн асуудлыг дахин шалгалаа.` : lang === "ko" ? `${directive.mindName}: ${count}건 복구. 남은 문제를 다시 확인했습니다.` : `${directive.mindName}: ${count} repair(s) completed. Remaining issues rechecked.`;
-  return { text, actions_taken: [directive.suggestedTool], interactive_cards: [], directives: await inspectAttachedMinds(userId, ids, lang) };
+  const text = lang === "mn" ? `${directive.mindName}: ${count} мөр боловсруулагдлаа. Үлдсэн асуудлыг дахин шалгалаа.` : lang === "ko" ? `${directive.mindName}: ${count}건 복구. 남은 문제를 다시 확인했습니다.` : `${directive.mindName}: ${count} record(s) updated. Remaining issues rechecked.`;
+  return { text, actions_taken: count > 0 ? [directive.suggestedTool] : [], counts: { affected: count }, interactive_cards: [], directives: await inspectAttachedMinds(userId, ids, lang) };
 }
 
 async function projectVaults(userId: string, projectId: string) {
+  if (!isValidUuid(projectId)) return [];
   const { data } = await (await db())
     .from("mind_vaults")
     .select("id,title,payload,updated_at")
@@ -172,12 +178,9 @@ export async function operatorTick(userId: string, ids: unknown, lang: string, a
   const directives = await inspectAttachedMinds(userId, ids, lang);
   const next = automaticDirective(directives);
   if (!approved || !next) return { text: lang === "mn" ? "Mind-уудыг шалгалаа. Автомат засвар шаардлагагүй." : lang === "ko" ? "마인드 점검 완료. 자동 복구 없음." : "Minds checked. No automatic repair needed.", actions_taken: [], interactive_cards: [], directives };
+  // Polling only requeues stale jobs. AI timing re-mining needs an explicit action.
+  if (next.suggestedTool !== "resume_mining") return { text: next.issueSummary, actions_taken: [], interactive_cards: [], directives };
   const result = await executeMindDirective(userId, ids, next.id, lang);
-  if (next.suggestedTool === "resume_mining") {
-    const { data, error } = await (await db()).from("mining_jobs").select("id").eq("user_id", userId).eq("project_id", next.targetProjectId).eq("source_kind", "youtube").eq("status", "queued").order("queue_position").limit(1).maybeSingle();
-    if (error) throw new Error(error.message);
-    return { ...result, ...(data ? { operator: { jobId: data.id, projectId: next.targetProjectId } } : {}) };
-  }
   return result;
 }
 
@@ -274,6 +277,7 @@ export async function operatorChallengePack(userId: string, ids: unknown, projec
 }
 
 export async function undoOperatorPost(userId: string, postId: string): Promise<ArchitectResult> {
+  if (!isValidUuid(postId)) throw new Error("Invalid post ID.");
   const { error } = await (await db()).from("user_posts").delete().eq("id", postId).eq("user_id", userId);
   if (error) throw new Error(error.message);
   return { text: "Post removed.", actions_taken: ["undo_post"], interactive_cards: [] };
@@ -404,6 +408,7 @@ export async function stressTestMind(userId: string, projectId: string): Promise
 
 /** User-approved: add patches beside mined data (never edits the mined result). */
 export async function applyBrainFix(userId: string, vaultId: string, patches: { question: string; answer: string }[]): Promise<ArchitectResult> {
+  if (!isValidUuid(vaultId)) throw new Error("Invalid vault ID.");
   const sb = await db();
   const { data } = await sb.from("mind_vaults").select("id,payload").eq("id", vaultId).eq("user_id", userId).maybeSingle();
   if (!data) return { text: "Mind not found.", actions_taken: [], interactive_cards: [] };
@@ -440,6 +445,7 @@ type MineRow = { id: string; project_id: string | null; title: string; payload: 
 
 /** Explicit owner action; no AI credits, re-mining or source-data changes. */
 export async function deepenLegacyVault(userId: string, vaultId: string): Promise<ArchitectResult> {
+  if (!isValidUuid(vaultId)) throw new Error("Invalid vault ID.");
   const sb = await db();
   const { data } = await sb.from("mind_vaults").select("id,project_id,payload,updated_at").eq("id", vaultId).eq("user_id", userId).eq("kind", "mine").maybeSingle();
   if (!data || !data.project_id || !await ownedProject(userId, data.project_id)) throw new Error("Owned mined Mind not found.");

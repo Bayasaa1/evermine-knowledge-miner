@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { guardApi } from "@/lib/api-guard.server";
+import { mindDatabaseId } from "@/lib/mind-id";
+import { builtinOperator, operatorLens } from "@/lib/operator-mind";
+import { fetchWebPage } from "@/lib/safe-web.server";
 import { findMind } from "@/lib/minds";
 import { LANGUAGES, isLangCode, type LangCode } from "@/lib/languages";
 import { getPublicProjectMind } from "@/lib/project-mind.server";
@@ -155,7 +158,7 @@ function pickRelevant(items: string[], query: string[], relevant: number, always
 
 /** The knowledge-root branch this question belongs to, read-only. */
 async function rootBranchBlock(mindId: string, queryText: string, topicId?: string, topicTitle?: string): Promise<string> {
-  if (!mindId.startsWith("project:")) return "";
+  if (!mindId.startsWith("project:") || !mindDatabaseId(mindId)) return "";
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -181,8 +184,11 @@ async function rootBranchBlock(mindId: string, queryText: string, topicId?: stri
 }
 
 async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "", topicId?: string, topicTitle?: string) {
+  const preset = builtinOperator(mindId);
+  if (preset) return operatorLens(preset.id);
   const builtIn = buildSystemPrompt(mindId, lang);
   if (builtIn) return builtIn;
+  if (!mindDatabaseId(mindId)) return null;
   let project: Awaited<ReturnType<typeof getPublicProjectMind>> = null;
   let extras: Awaited<ReturnType<typeof import("@/lib/mind-qa.server").loadCreatorExtras>> = null;
   if (mindId.startsWith("persona:")) {
@@ -287,7 +293,7 @@ async function loadBrainContext(
   if (!supabase) return { context: "", latestUpdateTitle: undefined, ok: true };
 
   // Resolve project and access rules.
-  const projectId = mindId.startsWith("project:") ? mindId.slice(8) : null;
+  const projectId = mindId.startsWith("project:") ? mindDatabaseId(mindId) : null;
   const { data: project } = projectId
     ? await supabase.from("projects").select("id, user_id, chat_access, published").eq("id", projectId).single()
     : { data: null };
@@ -407,7 +413,7 @@ function aiLevelRules(level: number): string {
 
 /** The owner's limit for one mind: where the slider starts and how far it goes. */
 async function mindLevelCap(mindId: string): Promise<{ def: number; max: number }> {
-  if (!mindId.startsWith("project:")) return { def: 100, max: 100 };
+  if (!mindId.startsWith("project:") || !mindDatabaseId(mindId)) return { def: 100, max: 100 };
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -430,61 +436,6 @@ async function mindLevelCap(mindId: string): Promise<{ def: number; max: number 
 
 const LINK_FETCH_MS = 4000;
 const LINK_MAX_CHARS = 3500;
-
-/** A viewer-pasted link must never make the server fetch itself or a private address. */
-function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase();
-  return (
-    h === "localhost" ||
-    h === "[::1]" ||
-    h.endsWith(".local") ||
-    h.endsWith(".internal") ||
-    /^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(h)
-  );
-}
-
-function decodePageEntities(s: string): string {
-  return s
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}
-
-/** Title + readable text of a web page, with a hard 4-second budget and a size cap. */
-async function fetchWebPage(url: string): Promise<{ title: string; body: string } | null> {
-  try {
-    const u = new URL(url);
-    if (!/^https?:$/.test(u.protocol) || isPrivateHost(u.hostname)) return null;
-    const res = await fetch(u.toString(), {
-      signal: AbortSignal.timeout(LINK_FETCH_MS),
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Accept: "text/html,application/xhtml+xml,*/*",
-      },
-      redirect: "follow",
-    });
-    if (!res.ok) return null;
-    const raw = (await res.text()).slice(0, 600_000);
-    const title = decodePageEntities(raw.match(/<title[^>]*>([\s\S]{1,300}?)<\/title>/i)?.[1] ?? "").trim();
-    const meta = raw.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']{1,500})["']/i)?.[1] ?? "";
-    const body = decodePageEntities(
-      raw
-        .replace(/<script[\s\S]*?<\/script>/gi, " ")
-        .replace(/<style[\s\S]*?<\/style>/gi, " ")
-        .replace(/<[^>]+>/g, " "),
-    )
-      .replace(/[ \t]+/g, " ")
-      .replace(/\n\s*\n+/g, "\n")
-      .trim();
-    const text = `${meta}\n${body}`.trim();
-    return text ? { title, body: text.slice(0, LINK_MAX_CHARS) } : null;
-  } catch {
-    return null;
-  }
-}
 
 /** YouTube link: metadata plus the opening transcript slice, on a hard time budget. */
 async function youtubeLinkBlock(url: string, videoId: string): Promise<string> {
@@ -575,7 +526,7 @@ export const Route = createFileRoute("/api/mind-chat")({
         const recentUser = history.filter((m) => m.role === "user" && !m.text.startsWith("[Group room note — not from a person]")).at(-1)?.text ?? "";
         const topicId = typeof body.topicId === "string" ? body.topicId.slice(0, 80) : undefined;
         const topicTitle = typeof body.topicTitle === "string" ? body.topicTitle.slice(0, 300) : undefined;
-        const system = body.mindId ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId, topicTitle) : null;
+        const system = typeof body.mindId === "string" ? await resolveSystemPrompt(body.mindId, lang, recentUser, topicId, topicTitle) : null;
         if (!system) {
           return new Response(JSON.stringify({ error: "Unknown mind" }), { status: 400 });
         }
@@ -684,7 +635,7 @@ export const Route = createFileRoute("/api/mind-chat")({
           const lastText = String(history.at(-1)?.text ?? "");
           const steps = activitySteps({
             files: splitAttachments(lastText).files,
-            links: linkContext ? extractUrls(lastText) : [],
+            links: [...linkContext.matchAll(/\[\[link:([^|]+)\|/g)].map((m) => m[1] ?? ""),
             deliverable,
             provider: generated.provider,
           }, lang === "mn" || lang === "ko" ? lang : "en");
