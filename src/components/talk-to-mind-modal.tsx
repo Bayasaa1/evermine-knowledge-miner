@@ -617,7 +617,7 @@ export function TalkToMindModal({
                         <ChatDisplayText text={body} lang={lang} pending={busy && i === messages.length - 1}>{(shown) => <MessageResponse>{shown}</MessageResponse>}</ChatDisplayText>
                       </div>
                       {(() => {
-                        const task = i > 0 && messages[i - 1]?.role === "user" ? detectWebTask(messages[i - 1].text) : null;
+                        const task = i > 0 && messages[i - 1]?.role === "user" ? detectWebTask(messages[i - 1]?.text ?? "") : null;
                         return task && !(busy && i === messages.length - 1) ? <WebTaskCard task={task} reply={body} lang={lang === "mn" || lang === "ko" ? lang : "en"} /> : null;
                       })()}
                       {clip && (
