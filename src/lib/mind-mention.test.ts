@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeMention, rankMentions, insertMention } from "./mind-mention";
+import { activeMention, rankMentions, insertMention, mentionMode } from "./mind-mention";
 
 const many = Array.from({ length: 1000 }, (_, i) => ({ mindId: `project:${i}`, name: `Project ${i}`, kind: "project" as const }));
 const all = [...many, { mindId: "persona:d", name: "Aswath Damodaran", kind: "persona" as const }];
@@ -20,4 +20,11 @@ test("@ inside an email is not a mention", () => {
 });
 test("insert replaces the typed query", () => {
   assert.equal(insertMention("hi @da x", 3, 6, "Aswath Damodaran").text, "hi @Aswath Damodaran  x");
+});
+
+test("@p: targets projects, plain @ targets people", () => {
+  assert.deepEqual(mentionMode("p:dam"), { mode: "project", q: "dam" });
+  assert.deepEqual(mentionMode("p dam"), { mode: "project", q: "dam" });
+  assert.deepEqual(mentionMode("bat"), { mode: "person", q: "bat" });
+  assert.deepEqual(mentionMode("paul"), { mode: "person", q: "paul" });
 });

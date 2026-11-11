@@ -18,7 +18,7 @@ import { loadGraph, type Person } from "@/lib/friends";
 import { AddPersonSearch } from "@/components/add-person-search";
 import { rememberChatHead } from "@/components/chat-heads";
 import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnIsActive, withTurnDeadline, ROOM_TURN_TIMEOUT_MS } from "@/lib/room-turns";
-import { activeMention, insertMention, rankMentions, recentMentions, rememberMention, type MentionChoice } from "@/lib/mind-mention";
+import { activeMention, insertMention, mentionMode, rankMentions, recentMentions, rememberMention, type MentionChoice } from "@/lib/mind-mention";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
@@ -249,7 +249,8 @@ function RoomPage() {
   };
 
   const mention = caret >= 0 ? activeMention(input, caret) : null;
-  const mentionQuery = mention?.query.trim() ?? "";
+  const mm = mention ? mentionMode(mention.query) : null;
+  const mentionQuery = mm?.mode === "project" ? mm.q.trim() : "";
   const [remoteHits, setRemoteHits] = useState<MentionChoice[]>([]);
   useEffect(() => {
     if (!isOwner || !mentionQuery) { setRemoteHits([]); return; }
@@ -262,11 +263,14 @@ function RoomPage() {
     ...minds.map((m) => ({ mindId: m.mind_id, name: m.mind_name, kind: "project" as const, inRoom: true })),
     ...(isOwner ? [...remoteHits, ...invitable.filter((v) => !remoteHits.some((r) => r.mindId === v.mindId))].filter((v) => notInRoom(v.mindId)) : []),
   ];
-  const mentionList = mention ? rankMentions(mentionPool, mention.query, recentMentions()) : [];
+  const peoplePool: MentionChoice[] = members.filter((m) => m.user_id !== userId && m.display_name).map((m) => ({ mindId: `user:${m.user_id}`, name: m.display_name as string, kind: "persona" as const, inRoom: true }));
+  const mentionList = mm ? (mm.mode === "project" ? rankMentions(mentionPool, mm.q, recentMentions()) : rankMentions(peoplePool, mm.q, [])) : [];
   const pickMention = async (m: MentionChoice) => {
     if (!mention) return;
     const next = insertMention(input, mention.start, caret, m.name);
-    setInput(next.text); setCaret(-1); rememberMention(m.mindId);
+    setInput(next.text); setCaret(-1);
+    if (m.mindId.startsWith("user:")) { requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(next.caret, next.caret); }); return; }
+    rememberMention(m.mindId);
     requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(next.caret, next.caret); });
     if (!m.inRoom && room) {
       try { await addMind(room.id, m.mindId, m.name, "debater", minds.length); await reload(); } catch (e) { toast.error((e as Error).message); }
@@ -348,12 +352,13 @@ function RoomPage() {
         <Button type="button" variant="ghost" size="icon" title={x.attach} aria-label={x.attach} disabled={uploading} onClick={() => attachmentInput.current?.click()}>{uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}</Button>
         <Button type="button" variant="ghost" size="icon" title={x.shareMind} aria-label={x.shareMind} onClick={() => { setSharingMind(!sharingMind); void listInvitableMinds().then(setInvitable); }}><Bot /></Button>
         <div className="relative min-w-0 flex-1">
-        {mention && mentionList.length > 0 && (
+        {mention && (mentionList.length > 0 || mm?.mode === "person") && (
           <ul role="listbox" className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg">
+            <li className="px-3 py-1 text-xs text-muted-foreground">{mm?.mode === "project" ? (lang === "mn" ? "📁 Төсөл · @ = хүн" : lang === "ko" ? "📁 프로젝트 · @ = 사람" : "📁 Projects · @ = people") : (lang === "mn" ? "👤 Хүн · @p: = төсөл" : lang === "ko" ? "👤 사람 · @p: = 프로젝트" : "👤 People · @p: = projects")}</li>
             {mentionList.map((m, i) => (
               <li key={m.mindId} role="option" aria-selected={i === mentionIdx}>
                 <button type="button" onMouseDown={(e) => { e.preventDefault(); void pickMention(m); }} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${i === mentionIdx ? "bg-accent text-accent-foreground" : ""}`}>
-                  <Bot className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  {m.mindId.startsWith("user:") ? <span className="shrink-0">👤</span> : <Bot className="h-4 w-4 shrink-0 text-muted-foreground" />}
                   <span className="min-w-0 flex-1 truncate">{m.name}</span>
                   {!m.inRoom && <span className="shrink-0 text-xs text-muted-foreground">{lang === "mn" ? "+ нэмэх" : lang === "ko" ? "+ 추가" : "+ add"}</span>}
                 </button>
