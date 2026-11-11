@@ -1,13 +1,16 @@
 export type MentionChoice = { mindId: string; name: string; kind: "persona" | "project"; inRoom?: boolean };
+export type MentionTrigger = "@" | "#";
 
-/** Returns the active "@query" being typed at the caret, or null. */
-export function activeMention(text: string, caret: number): { start: number; query: string } | null {
+/** Returns the active mention being typed at the caret: "@" = people, "#" = projects. Null when none. */
+export function activeMention(text: string, caret: number): { start: number; query: string; trigger: MentionTrigger } | null {
   const before = text.slice(0, caret);
   const at = before.lastIndexOf("@");
-  if (at < 0 || (at > 0 && !/\s/.test(before[at - 1] ?? ""))) return null;
-  const query = before.slice(at + 1);
+  const hash = before.lastIndexOf("#");
+  const pos = Math.max(at, hash);
+  if (pos < 0 || (pos > 0 && !/\s/.test(before[pos - 1] ?? ""))) return null;
+  const query = before.slice(pos + 1);
   if (query.length > 40 || /\n/.test(query)) return null;
-  return { start: at, query };
+  return { start: pos, query, trigger: before[pos] as MentionTrigger };
 }
 
 /** Deterministic ranking: room Minds, then recent, then prefix > word-prefix > contains. Max `limit`. */
@@ -30,15 +33,8 @@ export function rankMentions(choices: MentionChoice[], query: string, recent: st
   return scored.sort((a, b) => b.s - a.s || a.i - b.i).slice(0, limit).map((x) => x.c);
 }
 
-/** "@p:dam" / "@p dam" targets projects; plain "@dam" targets people. */
-export function mentionMode(query: string): { mode: "person" | "project"; q: string } {
-  const m = /^p(?::|\s)(.*)$/i.exec(query);
-  if (m || query.toLowerCase() === "p:") return { mode: "project", q: (m?.[1] ?? "").trimStart() };
-  return { mode: "person", q: query };
-}
-
-export function insertMention(text: string, start: number, caret: number, name: string): { text: string; caret: number } {
-  const ins = `@${name} `;
+export function insertMention(text: string, start: number, caret: number, name: string, trigger: MentionTrigger = "@"): { text: string; caret: number } {
+  const ins = `${trigger}${name} `;
   return { text: text.slice(0, start) + ins + text.slice(caret), caret: start + ins.length };
 }
 
