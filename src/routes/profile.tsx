@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { InterestOnboardingModal } from "@/components/interest-onboarding-modal";
 import { loadFeedInterests, saveFeedInterests } from "@/lib/viewer-brain.functions";
 import { readLocalInterests, writeLocalInterests } from "@/lib/feed-interests";
@@ -235,7 +235,7 @@ function ProfilePage() {
   );
 }
 
-function ApiSection({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: React.ReactNode }) {
+function ApiSection({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="rounded-xl border border-border bg-card">
