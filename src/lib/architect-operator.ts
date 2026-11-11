@@ -2,7 +2,8 @@ import type { ArchitectResult, MindDirective } from "./architect-types";
 
 export const OPERATOR_SKILLS = ["advance_mining", "deepen_brains", "draft_post", "challenge_pack", "team_briefing"] as const;
 /** Auto-Pilot may run at most this many automatic repairs per user per day, so it cannot drain keys. */
-export const AUTOPILOT_DAILY_CAP = 20;
+/** No daily cap: everyone runs on their own keys, so the app does not ration them. */
+export const AUTOPILOT_DAILY_CAP = Number.POSITIVE_INFINITY;
 export function autopilotAllowance(record: { day?: string; count?: number } | null, today: string, cap = AUTOPILOT_DAILY_CAP): { day: string; count: number; allowed: boolean } {
   const count = record?.day === today ? Math.max(0, Number(record.count) || 0) : 0;
   return { day: today, count, allowed: count < cap };
