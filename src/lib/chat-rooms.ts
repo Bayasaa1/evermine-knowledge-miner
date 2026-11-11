@@ -254,7 +254,7 @@ export async function listInvitableMinds(): Promise<{ mindId: string; name: stri
       .select("id,title,creator_name,persona_id")
       .eq("published", true)
       .order("updated_at", { ascending: false })
-      .limit(200);
+      .limit(1000);
     for (const p of data ?? []) {
       if (p.persona_id && !out.has(`persona:${p.persona_id}`)) out.set(`persona:${p.persona_id}`, { name: p.creator_name || "Creator", kind: "persona" });
       out.set(`project:${p.id}`, { name: p.title || p.creator_name || "Project", kind: "project" });
