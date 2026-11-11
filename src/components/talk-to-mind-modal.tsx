@@ -15,6 +15,7 @@ import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
 import { ATTACH_ACCEPT, extractUrls, readAttachment, splitAttachments } from "@/lib/chat-attach";
 import { plannedSteps } from "@/lib/chat-activity";
+import { CHAT_AUTOPILOT_KEY, effectiveMode, type ChatMode } from "@/lib/chat-mode";
 import { detectDeliverable } from "@/lib/chat-deliverable";
 import { ChatSuggestions, DiagnosticChips, type DiagnosticChip } from "@/components/chat-suggestions";
 import { getChatSuggestions } from "@/lib/chat-suggestions.functions";
@@ -82,6 +83,15 @@ export function TalkToMindModal({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [ticker, setTicker] = useState<string[]>([]);
+  const [chatMode, setChatMode] = useState<ChatMode>("manual");
+  useEffect(() => {
+    try { if (localStorage.getItem(`${CHAT_AUTOPILOT_KEY}:mode`) === "auto") setChatMode("auto"); } catch { /* private mode */ }
+  }, []);
+  const toggleMode = () => {
+    const nextMode: ChatMode = chatMode === "auto" ? "manual" : "auto";
+    setChatMode(nextMode);
+    try { localStorage.setItem(`${CHAT_AUTOPILOT_KEY}:mode`, nextMode); } catch { /* private mode */ }
+  };
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!busy || ticker.length < 2) return;
@@ -325,6 +335,15 @@ export function TalkToMindModal({
     setInput("");
     setTicker(plannedSteps({ files: splitAttachments(text).files, links: extractUrls(text), deliverable: detectDeliverable(text) || (extractUrls(text).length ? detectDeliverable(`${text}\n[[link:x|page]]`) : null) }, lang === "mn" || lang === "ko" ? lang : "en"));
     setTick(0);
+    const today = new Date().toISOString().slice(0, 10);
+    let record: { day?: string; count?: number } | null = null;
+    try { record = JSON.parse(localStorage.getItem(CHAT_AUTOPILOT_KEY) ?? "null"); } catch { record = null; }
+    const usedMode = effectiveMode(chatMode, record, today);
+    if (usedMode.mode === "auto") {
+      try { localStorage.setItem(CHAT_AUTOPILOT_KEY, JSON.stringify({ day: today, count: usedMode.count + 1 })); } catch { /* private mode */ }
+    } else if (usedMode.capped) {
+      toast.info(lang === "mn" ? "Өнөөдрийн Auto-Pilot хязгаар (20) дууслаа — гар горимоор ажиллана." : lang === "ko" ? "오늘 Auto-Pilot 한도(20) 소진 — 수동 모드로 진행합니다." : "Today's Auto-Pilot limit (20) is used — running in Manual mode.");
+    }
     setBusy(true);
     try {
       if (!mindId) throw new Error("This mind is still private to its creator.");
@@ -339,6 +358,7 @@ export function TalkToMindModal({
           stream: live,
           seen: call.sees || undefined,
           aiLevel,
+          mode: usedMode.mode,
           topicId: (!selectedTopic && !topicFocus) || (selectedTopic ?? topicFocus?.title) === topicTitle ? topicId : undefined,
           topicTitle: selectedTopic ?? topicFocus?.title,
         }),
@@ -466,6 +486,9 @@ export function TalkToMindModal({
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
             {heading} — {mindName}
           </h2>
+          <button type="button" onClick={toggleMode} aria-pressed={chatMode === "auto"} title={lang === "mn" ? "Гар: алхам бүрд зөвшөөрөл асууна. Auto: бүгдийг нэг дор." : lang === "ko" ? "수동: 단계마다 확인. Auto: 한 번에 완료." : "Manual: asks before each step. Auto: finishes everything at once."} className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${chatMode === "auto" ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}>
+            {chatMode === "auto" ? "Auto" : lang === "mn" ? "Гар" : lang === "ko" ? "수동" : "Manual"}
+          </button>
           <AiLevelButton level={aiLevel} open={showLevel} onToggle={() => setShowLevel((v) => !v)} />
           <button type="button" onClick={() => { void mergeCurrentSession(); setCallMode((mode) => mode === "voice" ? "chat" : "voice"); }} aria-label="Voice call" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
             <Mic className="h-4 w-4" />
