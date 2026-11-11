@@ -18,6 +18,7 @@ import { loadGraph, type Person } from "@/lib/friends";
 import { AddPersonSearch } from "@/components/add-person-search";
 import { rememberChatHead } from "@/components/chat-heads";
 import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnIsActive, withTurnDeadline, ROOM_TURN_TIMEOUT_MS } from "@/lib/room-turns";
+import { activeMention, insertMention, rankMentions, recentMentions, rememberMention, type MentionChoice } from "@/lib/mind-mention";
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
@@ -78,6 +79,9 @@ function RoomPage() {
   const [sending, setSending] = useState(false);
   const [openMind, setOpenMind] = useState<string | null>(null);
   const [sharingMind, setSharingMind] = useState(false);
+  const [caret, setCaret] = useState(0);
+  const [mentionIdx, setMentionIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const attachmentInput = useRef<HTMLInputElement>(null);
   const avatarInput = useRef<HTMLInputElement>(null);
   const busyRef = useRef(false);
@@ -319,7 +323,22 @@ function RoomPage() {
       <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="flex shrink-0 gap-1 border-t border-border p-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <Button type="button" variant="ghost" size="icon" title={x.attach} aria-label={x.attach} disabled={uploading} onClick={() => attachmentInput.current?.click()}>{uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}</Button>
         <Button type="button" variant="ghost" size="icon" title={x.shareMind} aria-label={x.shareMind} onClick={() => { setSharingMind(!sharingMind); void listInvitableMinds().then(setInvitable); }}><Bot /></Button>
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t.say} aria-label={t.say} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+        <div className="relative min-w-0 flex-1">
+        {mention && mentionList.length > 0 && (
+          <ul role="listbox" className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg">
+            {mentionList.map((m, i) => (
+              <li key={m.mindId} role="option" aria-selected={i === mentionIdx}>
+                <button type="button" onMouseDown={(e) => { e.preventDefault(); void pickMention(m); }} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${i === mentionIdx ? "bg-accent text-accent-foreground" : ""}`}>
+                  <Bot className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                  {!m.inRoom && <span className="shrink-0 text-xs text-muted-foreground">{lang === "mn" ? "+ нэмэх" : lang === "ko" ? "+ 추가" : "+ add"}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <input ref={inputRef} value={input} onKeyDown={(e) => { if (!mention || !mentionList.length) return; if (e.key === "ArrowDown") { e.preventDefault(); setMentionIdx((i) => (i + 1) % mentionList.length); } else if (e.key === "ArrowUp") { e.preventDefault(); setMentionIdx((i) => (i - 1 + mentionList.length) % mentionList.length); } else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); void pickMention(mentionList[mentionIdx] ?? mentionList[0]); } else if (e.key === "Escape") { setCaret(-1); } }} onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)} onChange={(e) => { setInput(e.target.value); setCaret(e.target.selectionStart ?? e.target.value.length); setMentionIdx(0); }} placeholder={t.say} aria-label={t.say} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+        </div>
         <Button type="submit" size="icon" disabled={(!input.trim() && !attachment) || sending || uploading || (!!speaking && !room.moderator_mode)} aria-label="Send"><Send /></Button>
       </form>
       {inviteContent && <ShareModal open onClose={() => { setInviteContent(null); void reload(); }} content={inviteContent} targetRoomId={roomId} />}
