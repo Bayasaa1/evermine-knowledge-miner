@@ -430,28 +430,14 @@ function PersonaCard({
         )}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-foreground">{name}</span>
-          <span className="block truncate text-xs text-muted-foreground">{handle}</span>
+          <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">{handle}{isActive ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-primary"><Check className="h-3 w-3" />{t("active")}</span> : null}</span>
         </span>
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </button>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void onActivate()}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
-            isActive ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground"
-          }`}
-        >
-          {isActive ? <Check className="h-3 w-3" /> : null}
-          {isActive ? t("active") : t("activate")}
-        </button>
-        <button
-          type="button"
-          onClick={onOpen}
-          className="rounded-full border border-border px-2.5 py-1 text-[10px] font-semibold text-muted-foreground"
-        >
-          {t("open")}
-        </button>
+      {bio?.trim() ? (
+        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{bio}</p>
+      ) : null}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
         {onSave ? (
           <button
             type="button"
