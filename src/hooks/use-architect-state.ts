@@ -10,7 +10,9 @@ function read(owner: string): ArchitectState {
       operatorId: localStorage.getItem(`evermind:operator-mind:${owner}`),
       rosterIds: JSON.parse(localStorage.getItem(`evermind:architect-roster:${owner}`) || '[]'),
     });
-    cache.set(owner, state); return state;
+    cache.set(owner, state);
+    if (!raw) { localStorage.setItem(architectStateKey(owner), JSON.stringify(state)); localStorage.removeItem(`evermind:operator-mind:${owner}`); localStorage.removeItem(`evermind:architect-roster:${owner}`); }
+    return state;
   } catch { return cache.get(owner) ?? EMPTY_ARCHITECT_STATE; }
 }
 export function useArchitectState() {

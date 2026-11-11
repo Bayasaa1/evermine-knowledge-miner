@@ -40,7 +40,7 @@ const CMD = {
   ko: { keyFound: "API 키를 찾았습니다", save: "이 키 저장", saved: "키가 목록에 저장됨", rules: "마이닝 규칙 저장됨. 이 채팅에서 마이닝하는 모든 영상에 적용됩니다:", rulesCleared: "마이닝 규칙 삭제됨.", mine: "마이닝", pick: "프로젝트 선택", remine: "모든 영상 다시 마이닝", remineAsk: "현재 마이닝 키로 이 프로젝트의 모든 영상을 다시 마이닝할까요?", remined: "개 영상 재마이닝 시작", split: "이 분배 적용", splitText: (n: number, l: number, b: number) => `Gemini 키 ${n}개: ${l}개 채팅/어시스턴트/번역, ${b}개 마이닝/자막/브레인.` },
 };
 
-type ChatMsg = { role: "user" | "model"; text: string; keyOffer?: { id: string; provider: string; masked: string } | undefined; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
+type ChatMsg = { role: "user" | "model"; text: string; keyOffer?: { id: string; provider: string; masked: string } | undefined; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined; operator?: ArchitectResult["operator"] };
 
 /** The account's Chatting role is the only path used for diagnostics. */
 async function askBackend(lang: Lang, history: ChatMsg[], attachedMindIds: string[], operatorMindId: string): Promise<ChatMsg> {
@@ -71,7 +71,7 @@ async function runAction(action: string, args: Record<string, unknown>, attached
   });
   const data = (await res.json().catch(() => ({}))) as Partial<ArchitectResult> & { error?: string };
   if (!res.ok) throw new Error(data.error ?? `Co-Pilot error (${res.status}).`);
-  return { role: "model", text: data.text ?? "", provider: data.provider, actions: data.actions_taken, cards: data.interactive_cards };
+  return { role: "model", text: data.text ?? "", provider: data.provider, actions: data.actions_taken, cards: data.interactive_cards, operator: data.operator };
 }
 
 async function answer(lang: Lang, history: ChatMsg[], attachedMindIds: string[], operatorMindId: string): Promise<ChatMsg> {
@@ -203,6 +203,10 @@ export function DiagnosticChat() {
 
   const copy = COPY[(lang in COPY ? lang : "en") as keyof typeof COPY];
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const publishDirectiveDraft = async (message: ChatMsg) => {
+    if (!message.operator?.projectId || !message.operator.draft || !window.confirm(lang === "mn" ? "Энэ нийтлэлийг нийтлэх үү?" : lang === "ko" ? "이 초안을 게시할까요?" : "Publish this reviewed draft?")) return;
+    await act(null, "publish_operator_post", { projectId: message.operator.projectId, draft: message.operator.draft, confirmed: true });
+  };
 
   const act = useCallback(
     async (label: string | null, action: string, args: Record<string, unknown>) => {
@@ -424,8 +428,8 @@ export function DiagnosticChat() {
 
           <OperatorMindSelector value={operatorMind.id} onChange={operatorMind.change} disabled={thinking} />
           <div className="max-h-[55%] shrink-0 overflow-y-auto">
-          <MindRoster operatorMindId={operatorMind.id} ids={roster.ids} onChange={roster.change} refreshToken={errorCount + messages.length} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken }])} />
-          <ArchitectOperator key={operatorMind.id} operatorMindId={operatorMind.id} ids={roster.ids} proposal={operatorProposal} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken, cards: r.interactive_cards }])} />
+          <MindRoster operatorMindId={operatorMind.id} ids={roster.ids} onChange={roster.change} refreshToken={errorCount + messages.length} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken, operator: r.operator }])} />
+          <ArchitectOperator key={operatorMind.id} operatorMindId={operatorMind.id} ids={roster.ids} proposal={operatorProposal} onResult={(r) => setMessages((m) => [...m, { role: "model", text: r.text, actions: r.actions_taken, cards: r.interactive_cards, operator: r.operator }])} />
           </div>
           {errorCount > 0 && (
             <div className="border-b border-border bg-primary/5 px-4 py-2 text-[11px] text-muted-foreground">
@@ -481,6 +485,8 @@ export function DiagnosticChat() {
                     {m.actions && m.actions.length > 0 && (
                       <p className="mt-1 text-[10px] text-muted-foreground">✓ {m.actions.join(" · ")}</p>
                     )}
+                    {m.operator?.draft && <button type="button" className={btn} disabled={thinking} onClick={() => void publishDirectiveDraft(m)}>{lang === "mn" ? "Нийтлэх" : lang === "ko" ? "게시" : "Publish"}</button>}
+                    {m.operator?.postId && <button type="button" className={btn} disabled={thinking} onClick={() => void act(null, "undo_operator_post", { postId: m.operator?.postId })}>{lang === "mn" ? "Буцаах" : lang === "ko" ? "실행 취소" : "Undo"}</button>}
                     {m.cards?.map((c, j) => renderCard(c, `${i}-${j}`))}
                     {m.keyOffer && (
                       <button type="button" disabled={done[`key-${m.keyOffer.id}`]} onClick={() => m.keyOffer && void saveKey(m.keyOffer)} className={btn}>

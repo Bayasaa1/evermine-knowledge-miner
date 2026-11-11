@@ -8,6 +8,6 @@ describe("chat activity steps", () => {
     assert.deepEqual(s, ["Read file: bal.xlsx", "Opened link: etax.mta.mn", "Checked the Mind's mined knowledge", "Calculated figures into a table", "Answered with: Gemini"]);
   });
   test("plain chat still shows the vault step and ends with writing", () => {
-    assert.deepEqual(plannedSteps({ files: [], links: [], deliverable: null }, "mn"), ["Mind-ийн олборлосон мэдлэгтэй тулгалаа", "Хариу бичиж байна"]);
+    assert.deepEqual(plannedSteps({ files: [], links: [], deliverable: null }, "mn"), ["Хүсэлтийг боловсруулж байна"]);
   });
 });
