@@ -15,3 +15,4 @@
 - Uploaded videos (private bucket creator-videos, mining_jobs source_kind "upload") are cut in-browser (video-extract.ts) and mined part-by-part in order via /api/native-mine, then filed by finalizeMiningJob; background workers skip them because only the browser holds the file.
 
 - Architect chat commands (pasted keys, YouTube links, re-mine all, key split, creator mining rules) are detected deterministically in src/lib/chat-commands.ts and only write after a user-pressed button; pasted keys are masked in chat history, because keys must never reach AI prompts.
+- Mind-chat web tasks (web-task.ts) only prepare values/files; the person logs in and submits, because Workers cannot drive a browser and critical sends must never be automatic.
