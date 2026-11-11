@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { InterestOnboardingModal } from "@/components/interest-onboarding-modal";
 import { loadFeedInterests, saveFeedInterests } from "@/lib/viewer-brain.functions";
 import { readLocalInterests, writeLocalInterests } from "@/lib/feed-interests";
@@ -19,6 +19,9 @@ import { CreatorProfileEditor } from "@/components/creator-profile-editor";
 import { AiKeysCard } from "@/components/ai-keys-card";
 import { CreatorEarnings, PayoutSetup } from "@/components/payout-setup";
 import { TokenUsagePanel } from "@/components/token-usage-panel";
+import { TokenHistory } from "@/components/token-history";
+import { AiRolesCard } from "@/components/ai-roles-card";
+import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import { setProfilePicture } from "@/lib/community";
 import { pickCopy, useLang } from "@/lib/i18n";
 import { initials, useAuth } from "@/hooks/use-auth";
@@ -26,13 +29,16 @@ import { initials, useAuth } from "@/hooks/use-auth";
 const copy = {
   en: { people: "People", subscribers: "Subscribers", following: "Following", vault: "Vault", api: "API", more: "More",
     openApi: "Roles, history and full API Manager", apiHint: "Your own keys — never shared, never Evermind credits.",
-    posts: "Posts & stories", earnings: "Earnings & unclaimed balance" },
+    posts: "Posts & stories", earnings: "Earnings & unclaimed balance",
+    roles: "Who runs what", usage: "Tokens & spend", history: "History", priceTitle: "What $10 gets you", priceRows: [["Gemini (free)", "Light daily use, no card"], ["Gemini (paid)", "60–70 hours of video mining"], ["DeepSeek", "Chat + translation for months"], ["OpenAI", "Most reliable, slightly pricier"], ["Claude", "Best writing, runs out fastest"], ["ElevenLabs", "About 60–70 minutes of cloned voice"]] },
   mn: { people: "Хүмүүс", subscribers: "Дагагчид", following: "Дагасан", vault: "Vault", api: "API", more: "Бусад",
     openApi: "Үүрэг, түүх, бүтэн API удирдлага", apiHint: "Таны өөрийн түлхүүр — хэзээ ч хуваалцахгүй.",
-    posts: "Пост & стори", earnings: "Орлого & үлдэгдэл" },
+    posts: "Пост & стори", earnings: "Орлого & үлдэгдэл",
+    roles: "Хэн юу ажиллуулах", usage: "Токен ба зардал", history: "Түүх", priceTitle: "$10-аар юу амжуулах вэ", priceRows: [["Gemini (үнэгүй)", "Өдөр тутмын хөнгөн хэрэглээ, карт хэрэггүй"], ["Gemini (төлбөртэй)", "60–70 цагийн видео олборлолт"], ["DeepSeek", "Чат + орчуулга хэдэн сар"], ["OpenAI", "Хамгийн найдвартай, бага зэрэг үнэтэй"], ["Claude", "Хамгийн сайн бичвэр, хурдан дуусна"], ["ElevenLabs", "Ойролцоогоор 60–70 минут дуу"]] },
   ko: { people: "사람들", subscribers: "구독자", following: "구독 중", vault: "볼트", api: "API", more: "더보기",
     openApi: "역할, 기록, 전체 API 관리", apiHint: "내 키만 사용 — 공유되지 않습니다.",
-    posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액" },
+    posts: "게시물 & 스토리", earnings: "수익 & 미청구 잔액",
+    roles: "누가 무엇을 실행", usage: "토큰과 비용", history: "기록", priceTitle: "$10로 할 수 있는 것", priceRows: [["Gemini (무료)", "가벼운 일상 사용, 카드 불필요"], ["Gemini (유료)", "60–70시간 영상 마이닝"], ["DeepSeek", "채팅 + 번역 몇 달"], ["OpenAI", "가장 안정적, 약간 비쌈"], ["Claude", "최고의 글, 가장 빨리 소진"], ["ElevenLabs", "약 60–70분 음성"]] },
 } as const;
 
 export const Route = createFileRoute("/profile")({
@@ -64,6 +70,7 @@ function ProfilePage() {
   const avatar = picture ?? profile?.avatarUrl ?? null;
   const [editInterests, setEditInterests] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  const [priceInfo, setPriceInfo] = useState(false);
   const [myInterests, setMyInterests] = useState<string[]>([]);
   useEffect(() => {
     setMyInterests(readLocalInterests()?.tags ?? []);
@@ -163,14 +170,28 @@ function ProfilePage() {
             </div>
           )}
           {tab === "api" && (
-            <div className="space-y-4">
-              <p className="text-xs text-muted-foreground">{t.apiHint}</p>
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <p className="flex-1 text-xs text-muted-foreground">{t.apiHint}</p>
+                <button type="button" onClick={() => setPriceInfo((v) => !v)} aria-label={t.priceTitle} title={t.priceTitle}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground">
+                  <Info className="h-4 w-4" />
+                </button>
+              </div>
+              {priceInfo && (
+                <div className="rounded-xl border border-border bg-card p-3 text-xs">
+                  <p className="mb-2 font-semibold">{t.priceTitle}</p>
+                  <ul className="space-y-1.5">
+                    {t.priceRows.map(([name, what]) => (
+                      <li key={name}><span className="font-medium">{name}</span><span className="text-muted-foreground"> — {what}</span></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <AiKeysCard />
-              <TokenUsagePanel lang={lang} />
-              <Link to="/keys" className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
-                <span className="flex items-center gap-3 text-sm font-medium"><KeyRound className="h-5 w-5" />{t.openApi}</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              <ApiSection title={t.roles} defaultOpen={false}><AiRolesCard /></ApiSection>
+              <ApiSection title={t.usage} defaultOpen={false}><TokenUsagePanel lang={lang} /></ApiSection>
+              <ApiSection title={t.history} defaultOpen={false}><TokenHistory lang={lang} /></ApiSection>
             </div>
           )}
           {tab === "more" && (
@@ -210,6 +231,20 @@ function ProfilePage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ApiSection({ title, defaultOpen, children }: { title: string; defaultOpen: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-xl border border-border bg-card">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="flex w-full items-center justify-between p-4 text-left text-sm font-medium">
+        {title}
+        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+      {open && <div className="border-t border-border p-3">{children}</div>}
     </div>
   );
 }
