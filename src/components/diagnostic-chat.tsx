@@ -482,6 +482,11 @@ export function DiagnosticChat() {
                       <p className="mt-1 text-[10px] text-muted-foreground">✓ {m.actions.join(" · ")}</p>
                     )}
                     {m.cards?.map((c, j) => renderCard(c, `${i}-${j}`))}
+                    {m.keyOffer && (
+                      <button type="button" disabled={done[`key-${m.keyOffer.id}`]} onClick={() => m.keyOffer && void saveKey(m.keyOffer)} className={btn}>
+                        {done[`key-${m.keyOffer.id}`] ? CMD[(lang in CMD ? lang : "en") as keyof typeof CMD].saved : CMD[(lang in CMD ? lang : "en") as keyof typeof CMD].save}
+                      </button>
+                    )}
                     {m.provider && <p className="mt-1 text-[10px] text-muted-foreground">{copy.by}: {m.provider}</p>}
                   </div>
                 </div>
