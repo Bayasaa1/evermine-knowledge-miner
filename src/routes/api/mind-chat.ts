@@ -7,6 +7,8 @@ import { getPublicProjectMind } from "@/lib/project-mind.server";
 import { buildPromptContext, ensurePayload } from "@/lib/viewer-brain";
 import { budgetSections } from "@/lib/chat-context-budget";
 import { extractUrls, youtubeVideoId, formatLinkBlock } from "@/lib/chat-attach";
+import { activitySteps } from "@/lib/chat-activity";
+import { splitAttachments } from "@/lib/chat-attach";
 import { deliverableRule, detectDeliverable, replyBudget } from "@/lib/chat-deliverable";
 
 type ChatMsg = { role: "user" | "agent"; text: string };
@@ -353,8 +355,8 @@ function isProvider(v: unknown): v is ProviderId {
   return v === "gemini" || v === "openai" || v === "anthropic" || v === "deepseek";
 }
 
-function jsonReply(text: string): Response {
-  return new Response(JSON.stringify({ text }), {
+function jsonReply(text: string, steps?: string[]): Response {
+  return new Response(JSON.stringify(steps ? { text, steps } : { text }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -677,7 +679,14 @@ export const Route = createFileRoute("/api/mind-chat")({
               headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
             });
           }
-          return jsonReply(generated.text);
+          const lastText = String(history.at(-1)?.text ?? "");
+          const steps = activitySteps({
+            files: splitAttachments(lastText).files,
+            links: linkContext ? extractUrls(lastText) : [],
+            deliverable,
+            provider: generated.provider,
+          }, lang === "mn" || lang === "ko" ? lang : "en");
+          return jsonReply(generated.text, steps);
         } catch (err) {
           return aiErrorResponse(err);
         }

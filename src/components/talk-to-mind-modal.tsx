@@ -13,14 +13,16 @@ import { listChatHistory, appendChatMessages, deleteChatMessages, clearChatHisto
 import { useAuth } from "@/hooks/use-auth";
 import { AiLevelButton, AiLevelSlider } from "@/components/ai-level-control";
 import { useMindAiLevel } from "@/hooks/use-ai-level";
-import { ATTACH_ACCEPT, readAttachment, splitAttachments } from "@/lib/chat-attach";
+import { ATTACH_ACCEPT, extractUrls, readAttachment, splitAttachments } from "@/lib/chat-attach";
+import { plannedSteps } from "@/lib/chat-activity";
+import { detectDeliverable } from "@/lib/chat-deliverable";
 import { ChatSuggestions, DiagnosticChips, type DiagnosticChip } from "@/components/chat-suggestions";
 import { getChatSuggestions } from "@/lib/chat-suggestions.functions";
 import { ChatDisplayText } from "@/components/chat-display-text";
 import { conversationProgress, type TopicFocus } from "@/lib/topic-conversation";
 
 
-type Msg = { role: "user" | "agent"; text: string; id?: string };
+type Msg = { role: "user" | "agent"; text: string; id?: string; steps?: string[] };
 
 type Clip = { id: string; start: number; label: string };
 
@@ -79,6 +81,13 @@ export function TalkToMindModal({
   const [topicFocus, setTopicFocus] = useState<TopicFocus | undefined>();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ticker, setTicker] = useState<string[]>([]);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!busy || ticker.length < 2) return;
+    const t = setInterval(() => setTick((n) => Math.min(n + 1, ticker.length - 1)), 1400);
+    return () => clearInterval(t);
+  }, [busy, ticker]);
   const [playClip, setPlayClip] = useState<Clip | null>(null);
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
   // How much the AI may add on top of what this mind actually learned.
@@ -314,6 +323,8 @@ export function TalkToMindModal({
     setMessages(next);
     turnsRef.current = [...turnsRef.current, { role: "user", text }];
     setInput("");
+    setTicker(plannedSteps({ files: splitAttachments(text).files, links: extractUrls(text), deliverable: detectDeliverable(text) || (extractUrls(text).length ? detectDeliverable(`${text}\n[[link:x|page]]`) : null) }, lang === "mn" || lang === "ko" ? lang : "en"));
+    setTick(0);
     setBusy(true);
     try {
       if (!mindId) throw new Error("This mind is still private to its creator.");
@@ -376,11 +387,11 @@ export function TalkToMindModal({
         return;
       }
 
-      const data = (await res.json()) as { text?: string; error?: string };
+      const data = (await res.json()) as { text?: string; error?: string; steps?: string[] };
       if (!res.ok || data.error) throw new Error(data.error ?? `Request failed (${res.status})`);
       const answer = (data.text ?? "").replace(/\[\[clip:[^\]]+\]\]/g, "").trim();
       if (!answer) throw new Error(lang === "mn" ? "Сонгосон AI хариу өгсөнгүй. Дахин оролдоно уу." : lang === "ko" ? "선택한 AI가 답하지 않았습니다. 다시 시도하세요." : "The selected AI did not answer. Try again.");
-      setMessages([...next, { role: "agent", text: answer }]);
+      setMessages([...next, { role: "agent", text: answer, ...(Array.isArray(data.steps) ? { steps: data.steps } : {}) }]);
       turnsRef.current = [...turnsRef.current, { role: "agent", text: answer }];
       // Saved right away so closing the window never loses the conversation.
       void persistTurns([
@@ -571,6 +582,12 @@ export function TalkToMindModal({
                   const { body, clip } = splitClip(m.text);
                   return (
                     <>
+                      {m.steps && m.steps.length > 0 && (
+                        <details className="mb-1 text-xs text-muted-foreground">
+                          <summary className="cursor-pointer select-none">{lang === "mn" ? "Mind юу хийсэн бэ" : lang === "ko" ? "Mind가 한 일" : "What the Mind did"}</summary>
+                          <ol className="mt-1 list-decimal space-y-0.5 pl-4">{m.steps.map((s, k) => <li key={k}>{s}</li>)}</ol>
+                        </details>
+                      )}
                       <div className="prose prose-sm prose-invert max-w-none">
                         <ChatDisplayText text={body} lang={lang} pending={busy && i === messages.length - 1}>{(shown) => <MessageResponse>{shown}</MessageResponse>}</ChatDisplayText>
                       </div>
@@ -632,7 +649,12 @@ export function TalkToMindModal({
             </div>
             </div>
           ))}
-          {busy && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Replying" />}
+          {busy && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+              <Loader2 className="h-4 w-4 animate-spin" aria-label="Replying" />
+              {ticker.length > 0 && <span>[{Math.min(tick, ticker.length - 1) + 1}/{ticker.length}] {ticker[Math.min(tick, ticker.length - 1)]}</span>}
+            </div>
+          )}
           {!busy && messages.length > 0 && messages[messages.length - 1]?.role === "agent" && (
             <ChatSuggestions
               compact
