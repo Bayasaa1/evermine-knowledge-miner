@@ -24,6 +24,7 @@ import {
   describeThrowable,
   type CapturedError,
 } from "@/lib/error-capture";
+import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
 import { MindRoster, useArchitectRoster } from "@/components/chat/mind-roster";
 import { OperatorMindSelector, useOperatorMind } from "@/components/chat/operator-mind-selector";
@@ -485,8 +486,8 @@ export function DiagnosticChat() {
                     {m.actions && m.actions.length > 0 && (
                       <p className="mt-1 text-[10px] text-muted-foreground">✓ {m.actions.join(" · ")}</p>
                     )}
-                    {m.operator?.draft && <button type="button" className={btn} disabled={thinking} onClick={() => void publishDirectiveDraft(m)}>{lang === "mn" ? "Нийтлэх" : lang === "ko" ? "게시" : "Publish"}</button>}
-                    {m.operator?.postId && <button type="button" className={btn} disabled={thinking} onClick={() => void act(null, "undo_operator_post", { postId: m.operator?.postId })}>{lang === "mn" ? "Буцаах" : lang === "ko" ? "실행 취소" : "Undo"}</button>}
+                    {m.operator?.draft && <Button size="sm" variant="outline" disabled={thinking} onClick={() => void publishDirectiveDraft(m)}>{lang === "mn" ? "Нийтлэх" : lang === "ko" ? "게시" : "Publish"}</Button>}
+                    {m.operator?.postId && <Button size="sm" variant="outline" disabled={thinking} onClick={() => void act(null, "undo_operator_post", { postId: m.operator?.postId })}>{lang === "mn" ? "Буцаах" : lang === "ko" ? "실행 취소" : "Undo"}</Button>}
                     {m.cards?.map((c, j) => renderCard(c, `${i}-${j}`))}
                     {m.keyOffer && (
                       <button type="button" disabled={done[`key-${m.keyOffer.id}`]} onClick={() => m.keyOffer && void saveKey(m.keyOffer)} className={btn}>

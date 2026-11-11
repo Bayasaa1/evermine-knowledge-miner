@@ -27,3 +27,7 @@ test("# targets projects, @ targets people", () => {
   assert.deepEqual(activeMention("hi @bat", 7), { start: 3, query: "bat", trigger: "@" });
   assert.equal(insertMention("hi #da", 3, 6, "Finance", "#").text, "hi #Finance ");
 });
+
+test("preset aliases in mention results normalize before server lookup", () => {
+  assert.equal(rankMentions([{ mindId: "elon-musk", name: "Elon Musk", kind: "persona" }], "elon-musk")[0]?.mindId, "builtin:musk");
+});

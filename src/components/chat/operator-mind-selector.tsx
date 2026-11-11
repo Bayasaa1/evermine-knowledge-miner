@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Crown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,13 +16,15 @@ export function OperatorMindSelector({ value, onChange, disabled = false }: { va
   const { userId } = useAuth(); const { lang } = useLang();
   const [owned, setOwned] = useState<{ owner: string; minds: AttachedMind[] } | null>(null);
   const [error, setError] = useState("");
+  const selection = useRef({ value, onChange });
+  selection.current = { value, onChange };
   const copy = lang === "mn" ? { label: "Чатботын тархи · Оператор Mind", presets: ["Системийн архитектор", "Elon Musk · Суурь зарчим", "Gordon Ramsay · Чанарын хяналт", "Andrew Huberman · Нотолгоо"] } : lang === "ko" ? { label: "챗봇 브레인 · 운영 마인드", presets: ["기본 시스템 설계자", "Elon Musk · 제1원리", "Gordon Ramsay · 품질 관리", "Andrew Huberman · 근거"] } : { label: "Chatbot Brain · Operator Mind", presets: ["Default System Architect", "Elon Musk · First principles", "Gordon Ramsay · Quality control", "Andrew Huberman · Evidence"] };
   useEffect(() => {
     setOwned(null); setError(""); if (!userId) return;
     const controller = new AbortController();
     void apiFetch("/api/diagnose-chat", { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "operator_choices" }) }).then(async (res) => {
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Could not load Minds");
-      if (!controller.signal.aborted) { setOwned({ owner: userId, minds: data.minds ?? [] }); const clean = allowedOperator(value, data.minds ?? []); if (clean !== value) onChange(clean); }
+      if (!controller.signal.aborted) { setOwned({ owner: userId, minds: data.minds ?? [] }); const current = selection.current; const clean = allowedOperator(current.value, data.minds ?? []); if (clean !== current.value) current.onChange(clean); }
     }).catch((e) => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();
   }, [userId]);

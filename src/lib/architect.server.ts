@@ -144,7 +144,7 @@ export async function executeMindDirective(userId: string, ids: unknown, directi
     }
   } else if (directive.suggestedTool === "deepen_legacy_vaults" || directive.suggestedTool === "rebuild_core_brain") {
     const row = h.shallow[0];
-    if (row) { const saved = await deepenLegacyVault(userId, row.id); count = saved.actions_taken.length ? 1 : 0; }
+    if (row) { const saved = await deepenLegacyVault(userId, row.id); count = saved.counts?.affected ?? 0; }
   } else {
     const jobId = h.timingJobs[0];
     if (jobId) { const { autoRepairFinishedVideos } = await import("@/lib/auto-repair.server"); count = await autoRepairFinishedVideos(sb, Date.now() + 45_000, jobId); }
@@ -459,7 +459,7 @@ export async function deepenLegacyVault(userId: string, vaultId: string): Promis
   if (prev.some((x) => x && typeof x === "object" && (x as Record<string, unknown>)["source"] === "visual-transcript-fusion")) return { text: "This Mind is already deepened.", actions_taken: [], interactive_cards: [] };
   const { data: saved, error } = await sb.from("mind_vaults").update({ payload: { ...payload, deepBrainRebuild: [...prev, layer] } as never }).eq("id", vaultId).eq("user_id", userId).eq("updated_at", data.updated_at).select("id");
   if (error || !saved?.length) throw new Error(error?.message || "Mind changed while deepening. Try again.");
-  return { text: "Saved speech and visual playbooks added; original data preserved.", actions_taken: ["Added a separate evidence layer without AI"], interactive_cards: [] };
+  return { text: "Saved speech and visual playbooks added; original data preserved.", counts: { affected: saved.length }, actions_taken: ["Added a separate evidence layer without AI"], interactive_cards: [] };
 }
 
 const isShallow = (p: Record<string, unknown>) => {

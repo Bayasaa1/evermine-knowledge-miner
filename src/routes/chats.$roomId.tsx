@@ -169,7 +169,7 @@ function RoomPage() {
       if (!mind) break;
       setSpeaking(mind.mind_name);
       try {
-        const text = await withTurnDeadline((signal) => askMind(mind, msgsRef.current, lang, signal));
+        const text = await withTurnDeadline((signal) => askMind(mind, msgsRef.current, lang, signal, { operatorMindId: operatorMind.id, attachedMindIds: architectRoster.ids }));
         await postMessage(roomId, { body: text, authorName: mind.mind_name, kind: "mind", mindId: mind.mind_id });
         const r = await loadRoom(roomId);
         setMessages(r.messages);
@@ -197,7 +197,7 @@ function RoomPage() {
         const token = await claimRoomTurn(roomId, question.id, mind.mind_id);
         try {
           const fresh = await loadRoom(roomId);
-          const text = await withTurnDeadline((signal) => askMind(mind, transcriptForQuestion(fresh.messages, question.id), lang, signal));
+          const text = await withTurnDeadline((signal) => askMind(mind, transcriptForQuestion(fresh.messages, question.id), lang, signal, { operatorMindId: operatorMind.id, attachedMindIds: architectRoster.ids }));
           await finishRoomTurn(roomId, token, question.id, text);
         } catch (error) {
           await finishRoomTurn(roomId, token, question.id).catch(() => {});
