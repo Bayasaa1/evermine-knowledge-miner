@@ -43,7 +43,8 @@ export async function readAttachment(file: File): Promise<string> {
   } else if (kind === "excel") {
     const XLSX = await import("xlsx");
     const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
-    text = wb.SheetNames.map((s) => `# ${s}\n${XLSX.utils.sheet_to_csv(wb.Sheets[s]!)}`).join("\n\n");
+    const { addressedSheet } = await import("./chat-deliverable");
+    text = wb.SheetNames.map((s) => `# ${s} (cell addresses: column letter + row)\n${addressedSheet(XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[s]!, { header: 1, blankrows: true }))}`).join("\n\n");
   } else {
     const mime = kind === "pdf" ? "application/pdf" : file.type;
     const { apiFetch } = await import("@/lib/api-fetch");
