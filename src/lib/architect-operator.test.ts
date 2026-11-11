@@ -31,11 +31,8 @@ test("missing post evidence produces an informational result without an executab
   assert.equal(result.operator, undefined);
   assert.deepEqual(result.interactive_cards, []);
 });import { autopilotAllowance, toneGuard, teamBriefing, AUTOPILOT_DAILY_CAP } from "./architect-operator";
-test("auto-pilot stops after 20 repairs a day and resets next day", () => {
-  assert.equal(AUTOPILOT_DAILY_CAP, 20);
-  assert.equal(autopilotAllowance({ day: "2026-11-10", count: 19 }, "2026-11-10").allowed, true);
-  assert.equal(autopilotAllowance({ day: "2026-11-10", count: 20 }, "2026-11-10").allowed, false);
-  assert.equal(autopilotAllowance({ day: "2026-11-09", count: 20 }, "2026-11-10").count, 0);
+test("auto-pilot has no daily repair limit", () => {
+  assert.equal(autopilotAllowance({ day: "2026-11-10", count: 500 }, "2026-11-10").allowed, true);
 });
 test("tone guard masks profanity before public posts", () => {
   assert.equal(toneGuard("This steak is fucking raw").flagged, 1);

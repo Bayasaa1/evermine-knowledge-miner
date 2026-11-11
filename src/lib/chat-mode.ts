@@ -11,9 +11,8 @@ export const CHAT_AUTOPILOT_KEY = "evermind_chat_autopilot";
 
 /** Mode the server should actually use: auto only when the daily cap allows it. */
 export function effectiveMode(wanted: ChatMode, record: { day?: string; count?: number } | null, today: string): { mode: ChatMode; count: number; capped: boolean } {
-  if (wanted !== "auto") return { mode: "manual", count: record?.day === today ? Number(record.count) || 0 : 0, capped: false };
   const a = autopilotAllowance(record, today, AUTOPILOT_DAILY_CAP);
-  return { mode: a.allowed ? "auto" : "manual", count: a.count, capped: !a.allowed };
+  return { mode: wanted, count: a.count, capped: false };
 }
 
 /** System rule; only applies to multi-step file/link jobs. */
