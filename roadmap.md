@@ -1,5 +1,13 @@
 # Roadmap
 
+## Uploaded chat integration audit — November 11
+- [ ] Guard preset IDs and resolve built-in profiles without UUID queries
+- [ ] Share reactive account-scoped Operator selection and Architect roster across chats, preserving room ownership
+- [ ] Verify real directive/draft execution and safe four-second website fetching
+- [ ] Keep automatic health/activity checks read-only and token-free
+- [ ] Inspect missing migration snapshot within platform metadata restrictions
+- [ ] Run unit tests and authenticated integration checks
+
 ## Selectable Operator Mind
 - [x] Add account-scoped Operator selector with three labeled archetypes and all 72 owned Minds; preserve separate Sub-Mind roster and room-owner controls
 - [x] Ground chat, post drafting and challenge packs in the chosen lens; retain confirmation, ownership and evidence safeguards
