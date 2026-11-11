@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/use-auth";
 import { useLang } from "@/lib/i18n";
 import { apiFetch } from "@/lib/api-fetch";
-import { normalizeMindRoster, updateMindRoster } from "@/lib/mind-directives";
+import { updateMindRoster } from "@/lib/mind-directives";
+import { useArchitectState } from "@/hooks/use-architect-state";
 import type { AttachedMind, ArchitectResult, MindDirective } from "@/lib/architect-types";
 
 const COPY = {
@@ -52,9 +53,9 @@ export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOn
         if (token !== generation.current) break;
         const key = `${d.targetProjectId}:${d.suggestedTool}`;
         if (seen.has(key)) continue; seen.add(key);
-        const result = await request("execute_mind_directive", { directiveId: d.id });
+        const result = await request("execute_mind_directive", { directiveId: d.id, confirmed: true });
         if (token !== generation.current) break;
-        setDirectives(result.directives ?? []); onResult?.(result);
+        if (result.directives) setDirectives(result.directives); onResult?.(result);
       }
     } catch (e) { if (token === generation.current) setError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
@@ -64,7 +65,7 @@ export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOn
     <div className="mb-1 flex items-center gap-2 font-medium"><Brain className="h-3.5 w-3.5" />{t.roster}{!rosterOnly && <Button variant="ghost" size="icon-sm" aria-label={t.check} title={t.check} disabled={busy} onClick={() => void request("mind_directives").then((d) => setDirectives(d.directives ?? [])).catch((e) => setError(e.message))}><RefreshCw /></Button>}</div>
     <div className="flex flex-wrap items-center gap-1">
       {ids.map((id) => <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-full border border-border pl-2"><Brain className="h-3 w-3 shrink-0" /><span className="truncate">{available.find((m) => m.mindId === id)?.name || id}</span><Button variant="ghost" size="icon-sm" disabled={busy} aria-label={`${t.remove} ${available.find((m) => m.mindId === id)?.name || id}`} onClick={() => { setUndo(ids); onChange(updateMindRoster(ids, id, false)); }}><X /></Button></span>)}
-      <Select value="" onValueChange={(id) => { setUndo(ids); onChange(updateMindRoster(ids, id, true)); }} disabled={busy || ids.length >= 10 || !userId}><SelectTrigger className="h-8 w-auto max-w-full text-xs" aria-label={t.add}><Plus className="h-3 w-3" /><SelectValue placeholder={t.add} /></SelectTrigger><SelectContent>{available.filter((m) => !ids.includes(m.mindId)).map((m) => <SelectItem key={m.mindId} value={m.mindId}>{m.name}</SelectItem>)}</SelectContent></Select>
+      <Select value="" onValueChange={(id) => { setUndo(ids); onChange(updateMindRoster(ids, id, true)); }} disabled={busy || !userId}><SelectTrigger className="h-8 w-auto max-w-full text-xs" aria-label={t.add}><Plus className="h-3 w-3" /><SelectValue placeholder={t.add} /></SelectTrigger><SelectContent>{available.filter((m) => !ids.includes(m.mindId)).map((m) => <SelectItem key={m.mindId} value={m.mindId}>{m.name}</SelectItem>)}</SelectContent></Select>
       {undo && <Button variant="ghost" size="sm" disabled={busy} onClick={() => { onChange(undo); setUndo(null); }}>{t.undo}</Button>}
     </div>
     {!rosterOnly && ids.length > 0 && <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
@@ -79,13 +80,6 @@ export function MindRoster({ ids, onChange, refreshToken = 0, onResult, rosterOn
 }
 
 export function useArchitectRoster() {
-  const { userId } = useAuth(); const [state, setState] = useState<{ owner: string | null; ids: string[] }>({ owner: null, ids: [] });
-  useEffect(() => {
-    if (!userId) { setState({ owner: null, ids: [] }); return; }
-    try { setState({ owner: userId, ids: normalizeMindRoster(JSON.parse(localStorage.getItem(`evermind:architect-roster:${userId}`) || "[]")) }); }
-    catch { setState({ owner: userId, ids: [] }); }
-  }, [userId]);
-  const ids = state.owner === userId ? state.ids : [];
-  const change = (next: string[]) => { if (!userId) return; const clean = normalizeMindRoster(next); setState({ owner: userId, ids: clean }); try { localStorage.setItem(`evermind:architect-roster:${userId}`, JSON.stringify(clean)); } catch { /* memory state still works */ } };
-  return { ids, change };
+  const state = useArchitectState();
+  return { ids: state.rosterIds, change: (rosterIds: string[]) => state.change({ rosterIds }) };
 }
