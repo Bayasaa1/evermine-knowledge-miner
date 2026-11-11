@@ -4,7 +4,7 @@ export type MentionChoice = { mindId: string; name: string; kind: "persona" | "p
 export function activeMention(text: string, caret: number): { start: number; query: string } | null {
   const before = text.slice(0, caret);
   const at = before.lastIndexOf("@");
-  if (at < 0 || (at > 0 && !/\s/.test(before[at - 1]))) return null;
+  if (at < 0 || (at > 0 && !/\s/.test(before[at - 1] ?? ""))) return null;
   const query = before.slice(at + 1);
   if (query.length > 40 || /\n/.test(query)) return null;
   return { start: at, query };

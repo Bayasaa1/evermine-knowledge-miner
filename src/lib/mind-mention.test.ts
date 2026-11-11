@@ -6,13 +6,13 @@ const many = Array.from({ length: 1000 }, (_, i) => ({ mindId: `project:${i}`, n
 const all = [...many, { mindId: "persona:d", name: "Aswath Damodaran", kind: "persona" as const }];
 
 test("@dam finds Damodaran among 1000 projects", () => {
-  assert.equal(rankMentions(all, "dam")[0].name, "Aswath Damodaran");
+  assert.equal(rankMentions(all, "dam")[0]?.name, "Aswath Damodaran");
 });
 test("results are capped at 8", () => {
   assert.equal(rankMentions(all, "project").length, 8);
 });
 test("empty query puts recent Minds first", () => {
-  assert.equal(rankMentions(all, "", ["persona:d"])[0].mindId, "persona:d");
+  assert.equal(rankMentions(all, "", ["persona:d"])[0]?.mindId, "persona:d");
 });
 test("@ inside an email is not a mention", () => {
   assert.equal(activeMention("mail a@b", 8), null);
