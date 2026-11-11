@@ -248,6 +248,21 @@ function RoomPage() {
     } finally { setSending(false); }
   };
 
+  const mention = caret >= 0 ? activeMention(input, caret) : null;
+  const mentionPool: MentionChoice[] = [
+    ...minds.map((m) => ({ mindId: m.mind_id, name: m.mind_name, kind: "project" as const, inRoom: true })),
+    ...(isOwner ? invitable.filter((v) => !minds.some((m) => m.mind_id === v.mindId)) : []),
+  ];
+  const mentionList = mention ? rankMentions(mentionPool, mention.query, recentMentions()) : [];
+  const pickMention = async (m: MentionChoice) => {
+    if (!mention) return;
+    const next = insertMention(input, mention.start, caret, m.name);
+    setInput(next.text); setCaret(-1); rememberMention(m.mindId);
+    requestAnimationFrame(() => { inputRef.current?.focus(); inputRef.current?.setSelectionRange(next.caret, next.caret); });
+    if (!m.inRoom && room) {
+      try { await addMind(room.id, m.mindId, m.name, "debater", minds.length); await reload(); } catch (e) { toast.error((e as Error).message); }
+    }
+  };
   if (!loaded) return <main className="flex min-h-screen items-center justify-center bg-background"><Loader2 className="h-6 w-6 animate-spin" /></main>;
   if (!room || !me) {
     return (
