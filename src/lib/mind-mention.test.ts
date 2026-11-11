@@ -21,3 +21,11 @@ test("@ inside an email is not a mention", () => {
 test("insert replaces the typed query", () => {
   assert.equal(insertMention("hi @da x", 3, 6, "Aswath Damodaran").text, "hi @Aswath Damodaran  x");
 });
+
+import { mentionMode } from "./mind-mention";
+test("@p: targets projects, plain @ targets people", () => {
+  expect(mentionMode("p:dam")).toEqual({ mode: "project", q: "dam" });
+  expect(mentionMode("p dam")).toEqual({ mode: "project", q: "dam" });
+  expect(mentionMode("bat")).toEqual({ mode: "person", q: "bat" });
+  expect(mentionMode("paul")).toEqual({ mode: "person", q: "paul" });
+});

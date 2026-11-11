@@ -30,6 +30,13 @@ export function rankMentions(choices: MentionChoice[], query: string, recent: st
   return scored.sort((a, b) => b.s - a.s || a.i - b.i).slice(0, limit).map((x) => x.c);
 }
 
+/** "@p:dam" / "@p dam" targets projects; plain "@dam" targets people. */
+export function mentionMode(query: string): { mode: "person" | "project"; q: string } {
+  const m = /^p(?::|\s)(.*)$/i.exec(query);
+  if (m || query.toLowerCase() === "p:") return { mode: "project", q: (m?.[1] ?? "").trimStart() };
+  return { mode: "person", q: query };
+}
+
 export function insertMention(text: string, start: number, caret: number, name: string): { text: string; caret: number } {
   const ins = `@${name} `;
   return { text: text.slice(0, start) + ins + text.slice(caret), caret: start + ins.length };
