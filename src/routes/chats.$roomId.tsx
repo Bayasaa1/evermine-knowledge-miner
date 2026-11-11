@@ -22,7 +22,7 @@ import { activeMention, insertMention, rankMentions, recentMentions, rememberMen
 import { MessageResponse } from "@/components/ai-elements/message";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
-  addMind, askMind, deleteMessage, deleteRoom, exportRoom, leaveRoom, listInvitableMinds, loadRoom, markRead,
+  addMind, askMind, deleteMessage, deleteRoom, exportRoom, leaveRoom, listInvitableMinds, searchInvitableMinds, loadRoom, markRead,
   pickSpeakers, postMessage, removeMember, removeMind, setMemberRole, setMindRole, updateRoom,
   type RoomAttachment, type MindRole, type Room, type RoomMember, type RoomMind, type RoomMessage,
 } from "@/lib/chat-rooms";
@@ -249,9 +249,18 @@ function RoomPage() {
   };
 
   const mention = caret >= 0 ? activeMention(input, caret) : null;
+  const mentionQuery = mention?.query.trim() ?? "";
+  const [remoteHits, setRemoteHits] = useState<MentionChoice[]>([]);
+  useEffect(() => {
+    if (!isOwner || !mentionQuery) { setRemoteHits([]); return; }
+    let live = true;
+    const t = setTimeout(() => { void searchInvitableMinds(mentionQuery).then((r) => { if (live) setRemoteHits(r); }).catch(() => {}); }, 200);
+    return () => { live = false; clearTimeout(t); };
+  }, [mentionQuery, isOwner]);
+  const notInRoom = (id: string) => !minds.some((m) => m.mind_id === id);
   const mentionPool: MentionChoice[] = [
     ...minds.map((m) => ({ mindId: m.mind_id, name: m.mind_name, kind: "project" as const, inRoom: true })),
-    ...(isOwner ? invitable.filter((v) => !minds.some((m) => m.mind_id === v.mindId)) : []),
+    ...(isOwner ? [...remoteHits, ...invitable.filter((v) => !remoteHits.some((r) => r.mindId === v.mindId))].filter((v) => notInRoom(v.mindId)) : []),
   ];
   const mentionList = mention ? rankMentions(mentionPool, mention.query, recentMentions()) : [];
   const pickMention = async (m: MentionChoice) => {
