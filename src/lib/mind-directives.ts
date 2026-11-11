@@ -1,11 +1,12 @@
 import type { MindDirective } from "./architect-types";
 import { miningLeaseState } from "./mining-jobs";
+import { mindDatabaseId } from "./mind-id";
 
 export function updateMindRoster(ids: string[], id: string, attach: boolean): string[] {
-  return attach ? [...new Set([...ids, id])].slice(0, 10) : ids.filter((x) => x !== id);
+  return attach ? [...new Set([...ids, id])] : ids.filter((x) => x !== id);
 }
 export function normalizeMindRoster(value: unknown): string[] {
-  return Array.isArray(value) ? [...new Set(value.filter((x): x is string => typeof x === "string" && /^(project|persona):[0-9a-f-]{36}$/i.test(x)))].slice(0, 10) : [];
+  return Array.isArray(value) ? [...new Set(value.filter((x): x is string => typeof x === "string" && /^(project|persona):/.test(x) && !!mindDatabaseId(x)))] : [];
 }
 export type DirectiveHealth = {
   mindId: string; mindName: string; mindAvatar: string | null; projectId: string;
