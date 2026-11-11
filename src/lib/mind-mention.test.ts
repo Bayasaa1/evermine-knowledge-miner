@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { activeMention, rankMentions, insertMention, mentionMode } from "./mind-mention";
+import { activeMention, rankMentions, insertMention } from "./mind-mention";
 
 const many = Array.from({ length: 1000 }, (_, i) => ({ mindId: `project:${i}`, name: `Project ${i}`, kind: "project" as const }));
 const all = [...many, { mindId: "persona:d", name: "Aswath Damodaran", kind: "persona" as const }];
@@ -16,15 +16,14 @@ test("empty query puts recent Minds first", () => {
 });
 test("@ inside an email is not a mention", () => {
   assert.equal(activeMention("mail a@b", 8), null);
-  assert.deepEqual(activeMention("hi @da", 6), { start: 3, query: "da" });
+  assert.deepEqual(activeMention("hi @da", 6), { start: 3, query: "da", trigger: "@" });
 });
 test("insert replaces the typed query", () => {
   assert.equal(insertMention("hi @da x", 3, 6, "Aswath Damodaran").text, "hi @Aswath Damodaran  x");
 });
 
-test("@p: targets projects, plain @ targets people", () => {
-  assert.deepEqual(mentionMode("p:dam"), { mode: "project", q: "dam" });
-  assert.deepEqual(mentionMode("p dam"), { mode: "project", q: "dam" });
-  assert.deepEqual(mentionMode("bat"), { mode: "person", q: "bat" });
-  assert.deepEqual(mentionMode("paul"), { mode: "person", q: "paul" });
+test("# targets projects, @ targets people", () => {
+  assert.deepEqual(activeMention("hi #dam", 7), { start: 3, query: "dam", trigger: "#" });
+  assert.deepEqual(activeMention("hi @bat", 7), { start: 3, query: "bat", trigger: "@" });
+  assert.equal(insertMention("hi #da", 3, 6, "Finance", "#").text, "hi #Finance ");
 });
