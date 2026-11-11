@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it } from "vitest";
 import { detectChatCommand, redactKeys, smartSplitPlan } from "./chat-commands";
 
 const gem = "AIza" + "B".repeat(35);
