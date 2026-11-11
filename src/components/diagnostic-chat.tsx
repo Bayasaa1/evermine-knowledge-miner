@@ -29,8 +29,18 @@ import { MindRoster, useArchitectRoster } from "@/components/chat/mind-roster";
 import { OperatorMindSelector, useOperatorMind } from "@/components/chat/operator-mind-selector";
 import { ArchitectOperator } from "@/components/chat/architect-operator";
 import { operatorIntent, type OperatorSkill } from "@/lib/architect-operator";
+import { detectChatCommand, redactKeys } from "@/lib/chat-commands";
+import { saveUserAiKey } from "@/lib/user-ai-keys.functions";
 
-type ChatMsg = { role: "user" | "model"; text: string; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
+const RULES_KEY = "evermind:mining-rules";
+const miningRules = () => { try { return localStorage.getItem(RULES_KEY) ?? ""; } catch { return ""; } };
+const CMD = {
+  en: { keyFound: "I found an API key", save: "Save this key", saved: "Key saved to your list", rules: "Mining rules saved. Every video you mine from this chat will follow them:", rulesCleared: "Mining rules cleared.", mine: "Mine", pick: "Choose project", remine: "Re-mine all videos", remineAsk: "Re-mine every video in this project with your current Mining keys?", remined: "videos sent to mining again", split: "Apply this split", splitText: (n: number, l: number, b: number) => `${n} Gemini keys: ${l} for chat/assistant/translation, ${b} for mining/subtitles/brain.` },
+  mn: { keyFound: "API түлхүүр олдлоо", save: "Энэ түлхүүрийг хадгалах", saved: "Түлхүүр жагсаалтад хадгалагдлаа", rules: "Олборлох заавар хадгалагдлаа. Энэ чатаас олборлох бүх бичлэгт мөрдөнө:", rulesCleared: "Олборлох заавар цэвэрлэгдлээ.", mine: "Олборлох", pick: "Төсөл сонгох", remine: "Бүх бичлэгийг дахин олборлох", remineAsk: "Энэ төслийн бүх бичлэгийг одоогийн Mining түлхүүрээр дахин олборлох уу?", remined: "бичлэг дахин олборлолтод орлоо", split: "Энэ хуваарилалтыг хэрэгжүүлэх", splitText: (n: number, l: number, b: number) => `${n} Gemini түлхүүр: ${l} нь чат/туслах/орчуулга, ${b} нь олборлолт/хадмал/тархи.` },
+  ko: { keyFound: "API 키를 찾았습니다", save: "이 키 저장", saved: "키가 목록에 저장됨", rules: "마이닝 규칙 저장됨. 이 채팅에서 마이닝하는 모든 영상에 적용됩니다:", rulesCleared: "마이닝 규칙 삭제됨.", mine: "마이닝", pick: "프로젝트 선택", remine: "모든 영상 다시 마이닝", remineAsk: "현재 마이닝 키로 이 프로젝트의 모든 영상을 다시 마이닝할까요?", remined: "개 영상 재마이닝 시작", split: "이 분배 적용", splitText: (n: number, l: number, b: number) => `Gemini 키 ${n}개: ${l}개 채팅/어시스턴트/번역, ${b}개 마이닝/자막/브레인.` },
+};
+
+type ChatMsg = { role: "user" | "model"; text: string; keyOffer?: { id: string; provider: string; masked: string } | undefined; provider?: string | undefined; actions?: string[] | undefined; cards?: ArchitectCard[] | undefined };
 
 /** The account's Chatting role is the only path used for diagnostics. */
 async function askBackend(lang: Lang, history: ChatMsg[], attachedMindIds: string[], operatorMindId: string): Promise<ChatMsg> {
@@ -148,8 +158,34 @@ export function DiagnosticChat() {
     if (!question || thinking) return;
     setInput("");
 
-    const next: ChatMsg[] = [...messages, { role: "user", text: question }];
+    const next: ChatMsg[] = [...messages, { role: "user", text: redactKeys(question) }];
     setMessages(next);
+    const cmdCopy = CMD[(lang in CMD ? lang : "en") as keyof typeof CMD];
+    const cmd = detectChatCommand(question);
+    if (cmd?.kind === "api_key") {
+      const id = String(Date.now());
+      keyRef.current[id] = cmd.key;
+      setMessages([...next, { role: "model", text: `${cmdCopy.keyFound}: ${cmd.provider} ${cmd.masked}`, keyOffer: { id, provider: cmd.provider, masked: cmd.masked } }]);
+      return;
+    }
+    if (cmd?.kind === "mining_rules") {
+      const clear = /^(clear|none|устга|삭제)$/i.test(cmd.rules);
+      try { if (clear) localStorage.removeItem(RULES_KEY); else localStorage.setItem(RULES_KEY, cmd.rules); } catch { /* storage blocked */ }
+      setMessages([...next, { role: "model", text: clear ? cmdCopy.rulesCleared : `${cmdCopy.rules}\n${cmd.rules}` }]);
+      return;
+    }
+    if (cmd?.kind === "youtube" || cmd?.kind === "remine_all" || cmd?.kind === "role_split") {
+      setThinking(true);
+      try {
+        const reply = cmd.kind === "youtube" ? await runAction("chat_youtube", { urls: cmd.urls }, roster.ids, operatorMind.id)
+          : cmd.kind === "remine_all" ? await runAction("remine_preview", { projectId: presetProject ?? "" }, roster.ids, operatorMind.id)
+          : await runAction("role_split", {}, roster.ids, operatorMind.id);
+        setMessages([...next, reply]);
+      } catch (err) {
+        setMessages([...next, { role: "model", text: describeThrowable(err) }]);
+      } finally { setThinking(false); }
+      return;
+    }
 
     const skill = operatorIntent(question);
     if (skill && roster.ids.length) { setOperatorProposal({ skill, serial: Date.now() }); return; }
@@ -163,7 +199,7 @@ export function DiagnosticChat() {
     } finally {
       setThinking(false);
     }
-  }, [input, thinking, messages, lang, roster.ids, operatorMind.id]);
+  }, [input, thinking, messages, lang, roster.ids, operatorMind.id, presetProject]);
 
   const copy = COPY[(lang in COPY ? lang : "en") as keyof typeof COPY];
   const [done, setDone] = useState<Record<string, boolean>>({});
@@ -192,6 +228,33 @@ export function DiagnosticChat() {
     } catch (err) {
       setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]);
     }
+  }, []);
+
+  const keyRef = useRef<Record<string, string>>({});
+  const [pickedProject, setPickedProject] = useState<Record<string, string>>({});
+  const saveKey = useCallback(async (offer: NonNullable<ChatMsg["keyOffer"]>) => {
+    const key = keyRef.current[offer.id];
+    if (!key) return;
+    try {
+      await saveUserAiKey({ data: { provider: offer.provider as never, apiKey: key } });
+      delete keyRef.current[offer.id];
+      setDone((d) => ({ ...d, [`key-${offer.id}`]: true }));
+    } catch (err) {
+      setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]);
+    }
+  }, []);
+  const mineUrl = useCallback(async (key: string, url: string, title: string, author: string, projectId: string, personaId: string, force: boolean) => {
+    await startMiningJobs({ data: { url, assessment: { sourceTitle: title, speakerIdentity: author, customInstructions: miningRules().slice(0, 2000) }, personaId, projectId, force } as never });
+    setDone((d) => ({ ...d, [key]: true }));
+  }, []);
+  const remineAll = useCallback(async (key: string, c: Extract<ArchitectCard, { type: "remine" }>, ask: string, doneText: string) => {
+    if (!window.confirm(ask)) return;
+    setDone((d) => ({ ...d, [key]: true }));
+    let ok = 0;
+    for (const url of c.urls) {
+      try { await startMiningJobs({ data: { url, assessment: { customInstructions: miningRules().slice(0, 2000) }, personaId: c.personaId, projectId: c.projectId, force: true } as never }); ok++; } catch { /* reported in monitor */ }
+    }
+    setMessages((m) => [...m, { role: "model", text: `${ok}/${c.urls.length} ${doneText}` }]);
   }, []);
 
   const btn = "mt-1.5 inline-flex items-center rounded-lg bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40";
@@ -223,6 +286,43 @@ export function DiagnosticChat() {
           </div>
         </div>
       );
+    if (c.type === "mine_link") {
+      const cc = CMD[(lang in CMD ? lang : "en") as keyof typeof CMD];
+      const pid = pickedProject[key] ?? c.projects[0]?.id ?? "";
+      const proj = c.projects.find((p) => p.id === pid);
+      return (
+        <div key={key} className={`${wrap} flex gap-2`}>
+          {c.thumbnail && <img src={c.thumbnail} alt="" className="h-12 w-20 shrink-0 rounded object-cover" />}
+          <div className="min-w-0 flex-1">
+            <a href={c.url} target="_blank" rel="noreferrer" className="line-clamp-2 font-medium text-foreground hover:underline">{c.title}</a>
+            {c.author && <p className="text-muted-foreground">{c.author}{c.durationSec ? ` · ${Math.round(c.durationSec / 60)} min` : ""}</p>}
+            <select aria-label={cc.pick} value={pid} disabled={done[key]} onChange={(e) => setPickedProject((p) => ({ ...p, [key]: e.target.value }))} className="mt-1 w-full rounded-md border border-border bg-background px-1.5 py-1 text-[11px]">
+              {c.projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <button type="button" disabled={done[key] || !proj} onClick={() => proj && void mineUrl(key, c.url, c.title, c.author, proj.id, proj.personaId, false).catch((err) => setMessages((m) => [...m, { role: "model", text: describeThrowable(err) }]))} className={btn}>{done[key] ? copy.queued : cc.mine}</button>
+          </div>
+        </div>
+      );
+    }
+    if (c.type === "remine") {
+      const cc = CMD[(lang in CMD ? lang : "en") as keyof typeof CMD];
+      return (
+        <div key={key} className={wrap}>
+          <p className="font-medium text-foreground">{c.title} · {c.urls.length}</p>
+          {miningRules() && <p className="text-muted-foreground">{miningRules().slice(0, 160)}</p>}
+          <button type="button" disabled={done[key]} onClick={() => void remineAll(key, c, cc.remineAsk, cc.remined)} className={btn}>{cc.remine}</button>
+        </div>
+      );
+    }
+    if (c.type === "role_split") {
+      const cc = CMD[(lang in CMD ? lang : "en") as keyof typeof CMD];
+      return (
+        <div key={key} className={wrap}>
+          <p className="text-foreground">{cc.splitText(c.keyCount, c.liveKeys, c.backgroundKeys)}</p>
+          <button type="button" disabled={done[key]} onClick={() => { setDone((d) => ({ ...d, [key]: true })); void act(null, "role_split", { confirmed: true }); }} className={btn}>{cc.split}</button>
+        </div>
+      );
+    }
     if (c.type === "health")
       return (
         <div key={key} className={wrap}>
@@ -382,6 +482,11 @@ export function DiagnosticChat() {
                       <p className="mt-1 text-[10px] text-muted-foreground">✓ {m.actions.join(" · ")}</p>
                     )}
                     {m.cards?.map((c, j) => renderCard(c, `${i}-${j}`))}
+                    {m.keyOffer && (
+                      <button type="button" disabled={done[`key-${m.keyOffer.id}`]} onClick={() => m.keyOffer && void saveKey(m.keyOffer)} className={btn}>
+                        {done[`key-${m.keyOffer.id}`] ? CMD[(lang in CMD ? lang : "en") as keyof typeof CMD].saved : CMD[(lang in CMD ? lang : "en") as keyof typeof CMD].save}
+                      </button>
+                    )}
                     {m.provider && <p className="mt-1 text-[10px] text-muted-foreground">{copy.by}: {m.provider}</p>}
                   </div>
                 </div>

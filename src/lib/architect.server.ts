@@ -604,3 +604,56 @@ export async function autoHealSystem(userId: string): Promise<ArchitectResult> {
     interactive_cards: [{ type: "heal_result", fixed: done, notes, remaining: brainsLeft }],
   };
 }
+
+async function minableProjects(userId: string) {
+  const { data } = await (await db()).from("projects").select("id,title,persona_id").eq("user_id", userId).not("persona_id", "is", null).order("created_at", { ascending: false }).limit(50);
+  return ((data ?? []) as { id: string; title: string; persona_id: string }[]).map((p) => ({ id: p.id, title: p.title, personaId: p.persona_id }));
+}
+
+/** Pasted YouTube links: verify each on YouTube, offer a mine button. Read-only. */
+export async function chatYoutubeLinks(userId: string, urls: string[]): Promise<ArchitectResult> {
+  const { youtubeId } = await import("@/lib/import-sources");
+  const { fetchVideoDetails } = await import("@/lib/youtube-meta.server");
+  const projects = await minableProjects(userId);
+  const cards: ArchitectCard[] = [];
+  for (const url of urls.slice(0, 10)) {
+    const id = youtubeId(url);
+    if (!id) { if (/list=/.test(url)) cards.push({ type: "mine_link", url, title: "YouTube playlist", author: "", durationSec: 0, thumbnail: "", projects }); continue; }
+    try {
+      const d = await fetchVideoDetails(id);
+      if (d.title) cards.push({ type: "mine_link", url: d.url, title: d.title, author: d.authorName || d.channel, durationSec: d.durationSec, thumbnail: d.thumbnail, projects });
+    } catch { /* removed or fake video */ }
+  }
+  return { text: cards.length ? "Choose a project, then press Mine." : "These links could not be found on YouTube.", actions_taken: [`Checked ${urls.length} link(s) on YouTube`], interactive_cards: cards };
+}
+
+/** Lists every video of a project so the creator can confirm a full re-mine. */
+export async function remineChoices(userId: string, projectId: string): Promise<ArchitectResult> {
+  if (!projectId) {
+    const projects = await minableProjects(userId);
+    return { text: "Which project should be re-mined?", actions_taken: [], interactive_cards: [{ type: "projects", projects, next: "remine_preview" }] };
+  }
+  const project = await ownedProject(userId, projectId);
+  if (!project?.persona_id) return { text: "This project needs a persona before it can be mined.", actions_taken: [], interactive_cards: [] };
+  const { data } = await (await db()).from("mining_jobs").select("source_url,source_kind").eq("user_id", userId).eq("project_id", projectId).limit(1000);
+  const urls = [...new Set(((data ?? []) as { source_url: string; source_kind: string | null }[]).filter((j) => (j.source_kind ?? "youtube") !== "upload").map((j) => j.source_url))];
+  return { text: urls.length ? `${project.title}: ${urls.length} video(s) can be re-mined with your current Mining keys.` : "No YouTube videos found in this project.", actions_taken: ["Counted project videos"], interactive_cards: urls.length ? [{ type: "remine", projectId, personaId: project.persona_id, title: project.title, urls }] : [] };
+}
+
+/** Preview of the Smart split; nothing is written until the user confirms. */
+export async function roleSplitPreview(userId: string, confirmed: boolean): Promise<ArchitectResult> {
+  const { smartSplitPlan } = await import("@/lib/chat-commands");
+  const sb = await db();
+  const { data } = await sb.from("user_ai_keys").select("id,provider,enabled").eq("user_id", userId).eq("provider", "gemini").order("rank");
+  const ids = ((data ?? []) as { id: string; enabled: boolean | null }[]).filter((k) => k.enabled !== false).map((k) => k.id);
+  const plan = smartSplitPlan(ids);
+  if (!plan) return { text: "Add at least 2 Gemini keys first.", actions_taken: [], interactive_cards: [] };
+  const live = Math.min(3, ids.length - 1);
+  if (!confirmed) return { text: "Proposed split of your keys:", actions_taken: [], interactive_cards: [{ type: "role_split", keyCount: ids.length, liveKeys: live, backgroundKeys: ids.length - live }] };
+  const now = new Date().toISOString();
+  for (const [role, team] of plan) {
+    const { error } = await sb.from("user_ai_roles").upsert({ user_id: userId, role, provider: "gemini", key_id: team[0] ?? null, key_tail: null, auto_fallback: true, team_key_ids: team, exclusive: false, updated_at: now }, { onConflict: "user_id,role" });
+    if (error) throw new Error(error.message);
+  }
+  return { text: `Done: chat, assistant and translation use ${live} key(s); mining, subtitles and brain share ${ids.length - live}.`, actions_taken: ["Saved 6 job assignments"], interactive_cards: [] };
+}

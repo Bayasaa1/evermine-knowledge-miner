@@ -13,3 +13,5 @@
 - Generic owner labels (Host/Creator/Mind Owner) and small invented "Caller/Guest N" labels are folded into the persona name after mining, because a streamer's shouting was being split into fake people.
 - Mongolian parts whose speech comes back mostly in Latin letters are re-watched once with the Cyrillic rule first; the first result is kept if the retry fails.
 - Uploaded videos (private bucket creator-videos, mining_jobs source_kind "upload") are cut in-browser (video-extract.ts) and mined part-by-part in order via /api/native-mine, then filed by finalizeMiningJob; background workers skip them because only the browser holds the file.
+
+- Architect chat commands (pasted keys, YouTube links, re-mine all, key split, creator mining rules) are detected deterministically in src/lib/chat-commands.ts and only write after a user-pressed button; pasted keys are masked in chat history, because keys must never reach AI prompts.
