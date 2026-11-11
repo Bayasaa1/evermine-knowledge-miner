@@ -266,6 +266,26 @@ export async function listInvitableMinds(): Promise<{ mindId: string; name: stri
   return [...out].map(([mindId, v]) => ({ mindId, ...v }));
 }
 
+/** Server-side search across every published project/persona — no list cap, returns at most `limit` hits. */
+export async function searchInvitableMinds(query: string, limit = 20): Promise<{ mindId: string; name: string; kind: "persona" | "project" }[]> {
+  const q = query.trim().replace(/[%_,().*\\]/g, " ").trim().slice(0, 40);
+  if (!q) return [];
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id,title,creator_name,persona_id")
+    .eq("published", true)
+    .or(`title.ilike.%${q}%,creator_name.ilike.%${q}%`)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const out = new Map<string, { name: string; kind: "persona" | "project" }>();
+  for (const p of data ?? []) {
+    if (p.persona_id && p.creator_name?.toLowerCase().includes(q.toLowerCase()) && !out.has(`persona:${p.persona_id}`)) out.set(`persona:${p.persona_id}`, { name: p.creator_name, kind: "persona" });
+    out.set(`project:${p.id}`, { name: p.title || p.creator_name || "Project", kind: "project" });
+  }
+  return [...out].map(([mindId, v]) => ({ mindId, ...v }));
+}
+
 export function mindLabel(mindId: string, fallback?: string) {
   return fallback || findMind(mindId)?.name || mindId;
 }
