@@ -1,3 +1,4 @@
+import { builtinOperator } from "./operator-mind";
 export type MentionChoice = { mindId: string; name: string; kind: "persona" | "project"; inRoom?: boolean };
 export type MentionTrigger = "@" | "#";
 
@@ -19,16 +20,17 @@ export function rankMentions(choices: MentionChoice[], query: string, recent: st
   const scored: { c: MentionChoice; s: number; i: number }[] = [];
   choices.forEach((c, i) => {
     const n = c.name.toLowerCase();
+    const preset = builtinOperator(c.mindId);
     let s: number;
     if (!q) s = 0;
     else if (n.startsWith(q)) s = 300;
     else if (n.split(/[\s&\-·,]+/).some((w) => w.startsWith(q))) s = 200;
-    else if (n.includes(q)) s = 100;
+    else if (n.includes(q) || preset?.aliases.some((alias) => alias.includes(q))) s = 100;
     else return;
     if (c.inRoom) s += 50;
     const r = recent.indexOf(c.mindId);
     if (r >= 0) s += 40 - Math.min(r, 39);
-    scored.push({ c, s, i });
+    scored.push({ c: preset ? { ...c, mindId: preset.id } : c, s, i });
   });
   return scored.sort((a, b) => b.s - a.s || a.i - b.i).slice(0, limit).map((x) => x.c);
 }

@@ -43,7 +43,7 @@ export function activitySteps(f: ActivityFacts, lang: L): string[] {
   return out;
 }
 
-/** Live ticker lines while waiting: same steps, ending in "writing". */
-export function plannedSteps(f: ActivityFacts, lang: L): string[] {
-  return [...activitySteps({ ...f, provider: undefined }, lang), T.write[lang]];
+/** Pending work is not reported as completed work. No polling or AI calls. */
+export function plannedSteps(_f: ActivityFacts, lang: L): string[] {
+  return [lang === "mn" ? "Хүсэлтийг боловсруулж байна" : lang === "ko" ? "요청 처리 중" : "Processing request"];
 }

@@ -1,7 +1,6 @@
 import type { ArchitectResult, MindDirective } from "./architect-types";
 
 export const OPERATOR_SKILLS = ["advance_mining", "deepen_brains", "draft_post", "challenge_pack", "team_briefing"] as const;
-/** Auto-Pilot may run at most this many automatic repairs per user per day, so it cannot drain keys. */
 /** No daily cap: everyone runs on their own keys, so the app does not ration them. */
 export const AUTOPILOT_DAILY_CAP = Number.POSITIVE_INFINITY;
 export function autopilotAllowance(record: { day?: string; count?: number } | null, today: string, cap = AUTOPILOT_DAILY_CAP): { day: string; count: number; allowed: boolean } {
@@ -24,7 +23,7 @@ export function teamBriefing(directives: { mindName: string; severity: string; i
 }
 export type OperatorSkill = typeof OPERATOR_SKILLS[number];
 export function automaticDirective(directives: MindDirective[]): MindDirective | undefined {
-  return directives.find((d) => d.suggestedTool === "resume_mining" || d.suggestedTool === "repair_timings");
+  return directives.find((d) => d.suggestedTool === "resume_mining");
 }
 export function operatorIntent(text: string): OperatorSkill | undefined {
   if (/\b(mining|queue)\b|олборлолт|마이닝/i.test(text)) return "advance_mining";

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Check, Copy, Download, ExternalLink, Lock, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api-fetch";
+import { Button } from "@/components/ui/button";
 import { fieldsCsv, missingValues, parseFieldMap, type WebTask } from "@/lib/web-task";
 
 type L = "en" | "mn" | "ko";
@@ -9,6 +11,18 @@ const tr = (lang: L, en: string, mn: string, ko: string) => (lang === "mn" ? mn 
 /** Human-in-the-loop card: the app prepares, the person logs in and submits. */
 export function WebTaskCard({ task, reply, lang }: { task: WebTask; reply: string; lang: L }) {
   const rows = parseFieldMap(reply);
+  const [page, setPage] = useState<string>("");
+  const [checking, setChecking] = useState(false);
+  const inspect = async () => {
+    setChecking(true);
+    try {
+      const response = await apiFetch("/api/diagnose-chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "web_fetch", args: { url: task.url } }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Website check failed");
+      setPage(result.page ? result.page.title || task.host : tr(lang, "Page unavailable; login may be required.", "Хуудас унших боломжгүй; нэвтрэх шаардлагатай байж болно.", "페이지를 읽을 수 없습니다. 로그인이 필요할 수 있습니다."));
+    } catch (error) { setPage(error instanceof Error ? error.message : String(error)); }
+    finally { setChecking(false); }
+  };
   const [done, setDone] = useState<Set<number>>(new Set());
   const mark = (i: number) => setDone((s) => new Set(s).add(i));
   const copy = async (i: number, v: string) => {
@@ -31,6 +45,8 @@ export function WebTaskCard({ task, reply, lang }: { task: WebTask; reply: strin
           {tr(lang, "Open the site", "Сайтыг нээх", "사이트 열기")} <ExternalLink className="h-3 w-3" />
         </a>
       </div>
+      <Button variant="ghost" size="sm" disabled={checking} onClick={() => void inspect()}><ExternalLink />{tr(lang, "Check website", "Вэбсайт шалгах", "웹사이트 확인")}</Button>
+      {page && <p role="status" className="break-words text-muted-foreground">{page}</p>}
       <div className={step}>
         <span className="font-medium">2.</span>
         <Lock className="mt-0.5 h-3 w-3 shrink-0" />

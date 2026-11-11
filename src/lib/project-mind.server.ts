@@ -1,3 +1,4 @@
+import { isValidUuid } from "./mind-id";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -284,7 +285,7 @@ async function loadMinedPersona(projectId: string) {
 export async function getPublicProjectMind(mindId: string): Promise<PublicProjectMind | null> {
   if (!mindId.startsWith("project:")) return null;
   const projectId = mindId.slice("project:".length);
-  if (!projectId) return null;
+  if (!isValidUuid(projectId)) return null;
   const url = process.env["SUPABASE_URL"];
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key) return null;

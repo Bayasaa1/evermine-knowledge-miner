@@ -306,6 +306,7 @@ export async function askMind(
   transcript: RoomMessage[],
   lang: string,
   signal?: AbortSignal,
+  architect?: { operatorMindId: string; attachedMindIds: string[] },
 ): Promise<string> {
   const lines = transcript.map(cleanRoomMessage).map((m) => ({
     role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
@@ -319,7 +320,7 @@ export async function askMind(
     method: "POST",
     ...(signal ? { signal } : {}),
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mindId: mind.mind_id, lang, messages: lines }),
+    body: JSON.stringify({ mindId: mind.mind_id, lang, messages: lines, ...architect }),
   });
   const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
   if (!res.ok) throw new Error(data.error || "The Mind could not answer.");

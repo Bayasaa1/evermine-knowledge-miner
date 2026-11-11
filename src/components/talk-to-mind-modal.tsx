@@ -17,6 +17,8 @@ import { ATTACH_ACCEPT, extractUrls, readAttachment, splitAttachments } from "@/
 import { plannedSteps } from "@/lib/chat-activity";
 import { detectWebTask } from "@/lib/web-task";
 import { WebTaskCard } from "@/components/chat/web-task-card";
+import { OperatorMindSelector, useOperatorMind } from "@/components/chat/operator-mind-selector";
+import { MindRoster, useArchitectRoster } from "@/components/chat/mind-roster";
 import { CHAT_AUTOPILOT_KEY, effectiveMode, type ChatMode } from "@/lib/chat-mode";
 import { detectDeliverable } from "@/lib/chat-deliverable";
 import { ChatSuggestions, DiagnosticChips, type DiagnosticChip } from "@/components/chat-suggestions";
@@ -68,6 +70,8 @@ export function TalkToMindModal({
   topicTitle?: string | undefined;
 }) {
   const { lang: activeLang } = useLang();
+  const operatorMind = useOperatorMind();
+  const roster = useArchitectRoster();
   const reportFn = useServerFn(reportMindReply);
   const lang: Lang = langProp ?? activeLang;
   const [heading, empty, placeholder, newChatLabel, resetConfirm, holdLabel, listeningLabel, speakingLabel] = useDisplayTexts([
@@ -95,11 +99,6 @@ export function TalkToMindModal({
     try { localStorage.setItem(`${CHAT_AUTOPILOT_KEY}:mode`, nextMode); } catch { /* private mode */ }
   };
   const [tick, setTick] = useState(0);
-  useEffect(() => {
-    if (!busy || ticker.length < 2) return;
-    const t = setInterval(() => setTick((n) => Math.min(n + 1, ticker.length - 1)), 1400);
-    return () => clearInterval(t);
-  }, [busy, ticker]);
   const [playClip, setPlayClip] = useState<Clip | null>(null);
   const [callMode, setCallMode] = useState<"chat" | "voice" | "video">("chat");
   // How much the AI may add on top of what this mind actually learned.
@@ -355,6 +354,8 @@ export function TalkToMindModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mindId,
+          operatorMindId: operatorMind.id,
+          attachedMindIds: roster.ids,
           lang,
           messages: next,
           stream: live,
@@ -483,6 +484,7 @@ export function TalkToMindModal({
         </div>
       )}
        <div className="flex h-[80vh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-card sm:h-[70vh] sm:rounded-2xl">
+        <details className="shrink-0 border-b border-border"><summary className="px-3 py-1 text-xs cursor-pointer">{lang === "mn" ? "Оператор ба Mind-ууд" : lang === "ko" ? "운영자 및 마인드" : "Operator & Minds"}</summary><OperatorMindSelector value={operatorMind.id} onChange={operatorMind.change} disabled={busy} /><MindRoster rosterOnly={false} ids={roster.ids} onChange={roster.change} operatorMindId={operatorMind.id} onResult={(result) => setMessages((list) => [...list, { role: "agent", text: result.text }])} /></details>
         <div className="flex items-center gap-3 border-b border-border p-4">
           <Sparkles className="h-4 w-4 text-primary" />
           <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">

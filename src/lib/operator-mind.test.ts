@@ -2,7 +2,22 @@ import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import { allowedOperator, normalizeOperatorMind, operatorLens } from "./operator-mind";
 import { updateMindRoster } from "./mind-directives";
+import { builtinOperator } from "./operator-mind";
+import { isValidUuid, mindDatabaseId } from "./mind-id";
 const id = "project:12345678-1234-1234-1234-123456789abc";
+test("preset aliases resolve without becoming database UUIDs", () => {
+  for (const [alias, preset] of [["elon-musk", "builtin:musk"], ["gordon-ramsay", "builtin:ramsay"], ["andrew-huberman", "builtin:huberman"], ["default-architect", "builtin:architect"]]) {
+    assert.equal(builtinOperator(alias)?.id, preset);
+    assert.equal(normalizeOperatorMind(alias), preset);
+    assert.equal(mindDatabaseId(alias), null);
+  }
+});
+test("UUID guards reject malformed grouping and non-string IDs", () => {
+  assert.equal(mindDatabaseId(id), "12345678-1234-1234-1234-123456789abc");
+  assert.equal(isValidUuid("-".repeat(36)), false);
+  assert.equal(mindDatabaseId("project:" + "-".repeat(36)), null);
+  assert.equal(isValidUuid({ id }), false);
+});
 test("operator presets select independently from Sub-Mind roster", () => {
   assert.equal(normalizeOperatorMind("builtin:musk"), "builtin:musk");
   assert.equal(normalizeOperatorMind("builtin:ramsay"), "builtin:ramsay");

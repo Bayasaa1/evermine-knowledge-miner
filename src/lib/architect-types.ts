@@ -24,6 +24,7 @@ export type SystemAuditIssue = { id: string; label: string; count: number; detai
 
 export type ArchitectResult = {
   text: string;
+  counts?: { affected: number };
   provider?: string | undefined;
   model?: string | undefined;
   actions_taken: string[];
