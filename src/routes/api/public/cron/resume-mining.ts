@@ -118,7 +118,7 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
       const pending = await savePendingMiningMind(supabaseAdmin, cursors);
       const next = pending.handled
         ? { phase: state.phase, cursors: pending.cursors }
-        : await runMiningMaintenance(supabaseAdmin, { ...state, cursors });
+        : await runMiningMaintenance(supabaseAdmin, { ...state, cursors: pending.cursors });
       const { error: stateError } = await supabaseAdmin.from("mining_worker_state")
         .update({ ...next, cursors: { ...next.cursors, lastWork: "maintenance" } })
         .eq("name", "resume-mining").eq("token", state.token ?? "");

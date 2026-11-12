@@ -91,3 +91,17 @@ test("a concurrently changed candidate is not hydrated or finalized from stale d
   assert.equal(result.saved, 0);
   assert.deepEqual(calls.find(([method, args]) => method === "eq" && args[0] === "updated_at")?.[1], ["updated_at", "old-lease"]);
 });
+test("an unsaveable finished job does not block maintenance forever", async () => {
+  const stuck = { id: "stuck", status: "done", next_index: 1, chunks: [{}] };
+  const a = pendingAdmin([{ id: "stuck", updated_at: "t" }, stuck]);
+  const first = await savePendingMiningMind(a.admin, {}, async () => null);
+  assert.equal((first.cursors as Record<string,string>).doneJob, "stuck");
+  const b = pendingAdmin([null]);
+  const second = await savePendingMiningMind(b.admin, first.cursors, async () => null);
+  assert.equal(second.handled, false);
+  assert.deepEqual(b.calls.find(([m]) => m === "gt")?.[1], ["id", "stuck"]);
+  const c = pendingAdmin([null]);
+  const third = await savePendingMiningMind(c.admin, second.cursors, async () => null);
+  assert.equal(c.calls.some(([m]) => m === "in"), true);
+  assert.equal((third.cursors as Record<string,string>).skipDone, undefined);
+});

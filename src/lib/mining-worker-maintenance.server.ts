@@ -12,11 +12,21 @@ export async function savePendingMiningMind(
     return finalizeMiningJob(admin, job, opts);
   },
 ) {
+  // Id cursor walks past finished jobs that cannot be saved, so one bad row never blocks maintenance.
+  // After a wrapped done pass, maintenance runs once, then partial saves get one turn.
+  const skipDone = cursors["skipDone"] === "1";
+  if (skipDone) { const { skipDone: _s, ...rest } = cursors; cursors = rest; }
   let query = admin.from("mining_jobs").select("id,updated_at")
-    .eq("status", "done").is("vault_id", null).order("updated_at").limit(1);
-  let { data: row, error } = await query.maybeSingle();
+    .eq("status", "done").is("vault_id", null);
+  if (cursors["doneJob"]) query = query.gt("id", cursors["doneJob"]);
+  let row: any = null; let error: any = null;
+  if (!skipDone) ({ data: row, error } = await query.order("id").limit(1).maybeSingle());
   if (error) throw error;
   let partial = false;
+  if (!row && cursors["doneJob"]) {
+    const { doneJob: _wrapped, ...rest } = cursors;
+    return { handled: false, saved: 0, cursors: { ...rest, skipDone: "1" } };
+  }
   if (!row) {
     query = admin.from("mining_jobs").select("id,updated_at")
       .in("status", ["queued", "paused_quota", "error"])
@@ -32,7 +42,8 @@ export async function savePendingMiningMind(
   const { data: job, error: jobError } = await admin.from("mining_jobs").select("*")
     .eq("id", row.id).eq("updated_at", row.updated_at).maybeSingle();
   if (jobError) throw jobError;
-  if (!job) return { handled: true, saved: 0, cursors };
+  const nextCursors = partial ? cursors : { ...cursors, doneJob: row.id };
+  if (!job) return { handled: true, saved: 0, cursors: nextCursors };
   const vaultId = await finalize(job, {
     deferTopics: true,
     ...(partial ? { partial: { done: job.next_index, total: Array.isArray(job.chunks) ? job.chunks.length : 0 } } : {}),
@@ -40,7 +51,7 @@ export async function savePendingMiningMind(
   return {
     handled: true,
     saved: vaultId ? 1 : 0,
-    cursors: partial && vaultId ? { ...cursors, partialJob: job.id, partialIndex: String(job.next_index) } : cursors,
+    cursors: partial && vaultId ? { ...cursors, partialJob: job.id, partialIndex: String(job.next_index) } : nextCursors,
   };
 }
 
