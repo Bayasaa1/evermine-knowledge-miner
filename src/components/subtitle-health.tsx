@@ -193,7 +193,8 @@ export function SubtitleHealth({ personaId }: { personaId?: string | null }) {
 
           <ul className="mt-3 space-y-2">
             {rows.map((row) => {
-              const badge = STATUS[row.status];
+              // A video with no speech at all (stretching, robot demos) is not broken.
+              const badge = row.total === 0 ? { label: "No speech · visual", tone: "border-border bg-muted text-muted-foreground" } : STATUS[row.status];
               const busy = fixTimings.isPending && fixTimings.variables?.contentId === row.contentId;
               const paidVisible = row.status !== "synced" || showPaid.includes(row.contentId);
               return (

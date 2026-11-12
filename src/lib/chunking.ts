@@ -1,7 +1,8 @@
 /** 5-minute parts: short enough that Gemini records both speech and the screen without dropping either. */
 export const CHUNK_SECONDS = 300;
 export const EPSILON = 1e-6;
-export const MIN_TAIL_SECONDS = 10;
+/** Gemini rejects very short clips ("invalid argument"), so tails under 30s join the previous part. */
+export const MIN_TAIL_SECONDS = 30;
 
 export type Chunk = {
   index: number;
@@ -16,7 +17,7 @@ export type Chunk = {
  * - 9180s -> 31 pieces (30x300, 180)
  * - 600s  -> 2 pieces (exact boundary, epsilon guarded)
  * - 600.02s -> 2 pieces (0.02s tail merged into previous chunk)
- * A final chunk shorter than 10s is merged into the previous chunk.
+ * A final chunk shorter than 30s is merged into the previous chunk.
  */
 export function splitIntoChunks(durationSeconds: number): Chunk[] {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return [];
