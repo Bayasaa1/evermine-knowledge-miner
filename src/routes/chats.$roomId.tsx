@@ -253,7 +253,7 @@ function RoomPage() {
   };
 
   const mention = caret >= 0 ? activeMention(input, caret) : null;
-  const mentionQuery = mention?.trigger === "#" ? mention.query.trim() : "";
+  const mentionQuery = mention ? mention.query.trim() : "";
   const [remoteHits, setRemoteHits] = useState<MentionChoice[]>([]);
   useEffect(() => {
     if (!isOwner || !mentionQuery) { setRemoteHits([]); return; }
@@ -267,7 +267,7 @@ function RoomPage() {
     ...(isOwner ? [...remoteHits, ...invitable.filter((v) => !remoteHits.some((r) => r.mindId === v.mindId))].filter((v) => notInRoom(v.mindId)) : []),
   ];
   const peoplePool: MentionChoice[] = members.filter((m) => m.user_id !== userId && m.display_name).map((m) => ({ mindId: `user:${m.user_id}`, name: m.display_name as string, kind: "persona" as const, inRoom: true }));
-  const mentionList = mention ? (mention.trigger === "#" ? rankMentions(mentionPool, mention.query, recentMentions()) : rankMentions(peoplePool, mention.query, [])) : [];
+  const mentionList = mention ? (mention.trigger === "#" ? rankMentions(mentionPool.filter((m) => m.kind === "project"), mention.query, recentMentions()) : rankMentions([...peoplePool, ...mentionPool.filter((m) => m.kind === "persona")], mention.query, recentMentions())) : [];
   const pickMention = async (m: MentionChoice) => {
     if (!mention) return;
     const next = insertMention(input, mention.start, caret, m.name, mention.trigger);
@@ -358,7 +358,7 @@ function RoomPage() {
         <div className="relative min-w-0 flex-1">
         {mention && (mentionList.length > 0 || mention.trigger === "@") && (
           <ul role="listbox" className="absolute bottom-full left-0 right-0 z-30 mb-2 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-lg">
-            <li className="px-3 py-1 text-xs text-muted-foreground">{mention.trigger === "#" ? (lang === "mn" ? "📁 Төсөл · @ = хүн" : lang === "ko" ? "📁 프로젝트 · @ = 사람" : "📁 Projects · @ = people") : (lang === "mn" ? "👤 Хүн · # = төсөл" : lang === "ko" ? "👤 사람 · # = 프로젝트" : "👤 People · # = projects")}</li>
+            <li className="px-3 py-1 text-xs text-muted-foreground">{mention.trigger === "#" ? (lang === "mn" ? "📁 Төсөл · @ = хүн" : lang === "ko" ? "📁 프로젝트 · @ = 사람" : "📁 Projects · @ = people") : (lang === "mn" ? "👤 Хүн, Persona · # = төсөл" : lang === "ko" ? "👤 사람 · # = 프로젝트" : "👤 People & personas · # = projects")}</li>
             {mentionList.map((m, i) => (
               <li key={m.mindId} role="option" aria-selected={i === mentionIdx}>
                 <button type="button" onMouseDown={(e) => { e.preventDefault(); void pickMention(m); }} className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${i === mentionIdx ? "bg-accent text-accent-foreground" : ""}`}>

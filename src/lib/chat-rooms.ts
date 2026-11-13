@@ -279,6 +279,20 @@ export async function searchInvitableMinds(query: string, limit = 20): Promise<{
     .limit(limit);
   if (error) throw error;
   const out = new Map<string, { name: string; kind: "persona" | "project" }>();
+  // The caller's own personas (name or @handle) and own projects, published or not.
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth.user?.id;
+    if (uid) {
+      const h = q.replace(/^@/, "");
+      const [own, mine] = await Promise.all([
+        supabase.from("creator_personas").select("id,name,handle").eq("user_id", uid).or(`name.ilike.%${h}%,handle.ilike.%${h}%`).limit(limit),
+        supabase.from("projects").select("id,title").eq("user_id", uid).ilike("title", `%${q}%`).limit(limit),
+      ]);
+      for (const p of own.data ?? []) out.set(`persona:${p.id}`, { name: p.name || p.handle || "Persona", kind: "persona" });
+      for (const p of mine.data ?? []) out.set(`project:${p.id}`, { name: p.title || "Project", kind: "project" });
+    }
+  } catch { /* fall back to published results */ }
   for (const p of data ?? []) {
     if (p.persona_id && p.creator_name?.toLowerCase().includes(q.toLowerCase()) && !out.has(`persona:${p.persona_id}`)) out.set(`persona:${p.persona_id}`, { name: p.creator_name, kind: "persona" });
     out.set(`project:${p.id}`, { name: p.title || p.creator_name || "Project", kind: "project" });
