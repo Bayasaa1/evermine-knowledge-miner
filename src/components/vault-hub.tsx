@@ -55,6 +55,7 @@ import {
   assignProjectToPersona,
   createProject,
   deleteProject,
+  listMyProjects,
   listProjectContent,
   listProjectsByPersona,
   listUnfiledProjects,
@@ -189,7 +190,7 @@ const C = {
 
 type Tab = "VISUAL_CONTENT" | "TRAINING_ONLY" | "map" | "brain" | "analytics";
 
-export type VaultPersonaSelection = { id: string | null; name: string } | null;
+export type VaultPersonaSelection = { id: string | null; name: string; projectId?: string | null } | null;
 
 export function VaultHub({
   lang = "en",
@@ -220,6 +221,14 @@ export function VaultHub({
     enabled: !!userId,
   });
 
+  // Every project of mine, so each persona card lists its projects by name.
+  const { data: allProjects = [] } = useQuery<Project[]>({
+    queryKey: ["projects", userId, "all"],
+    queryFn: () => listMyProjects(userId as string),
+    enabled: !!userId,
+  });
+  const projectsOf = (pid: string | null) => allProjects.filter((x) => (x.persona_id ?? null) === pid);
+
   const loadPersonas = async () => {
     await queryClient.invalidateQueries({ queryKey: ["personas", userId] });
     await queryClient.invalidateQueries({ queryKey: ["home-feed"] });
@@ -237,6 +246,7 @@ export function VaultHub({
         userId={user.id}
         personaId={selected.id}
         personaName={selected.name}
+        initialProjectId={selected.projectId ?? null}
         onBack={() => setSelected(null)}
       />
     );
@@ -276,6 +286,8 @@ export function VaultHub({
           name={t("master")}
           handle="@master"
           isActive={personas.every((p) => !p.is_active)}
+          projects={projectsOf(null)}
+          onOpenProject={(id) => setSelected({ id: null, name: t("master"), projectId: id })}
           onOpen={() => setSelected({ id: null, name: t("master") })}
           onActivate={async () => { await switchPersona(user.id, null); await loadPersonas(); }}
         />
@@ -288,6 +300,8 @@ export function VaultHub({
             bio={p.bio}
             avatarUrl={p.avatar_url}
             isActive={p.is_active}
+            projects={projectsOf(p.id)}
+            onOpenProject={(id) => setSelected({ id: p.id, name: p.name, projectId: id })}
             onOpen={() => setSelected({ id: p.id, name: p.name })}
             onActivate={async () => { await switchPersona(user.id, p.id); await loadPersonas(); }}
             onSave={async (patch) => {
@@ -355,7 +369,11 @@ function PersonaCard({
   onActivate,
   onSave,
   onDelete,
+  projects = [],
+  onOpenProject,
 }: {
+  projects?: Project[];
+  onOpenProject?: (id: string) => void;
   lang: Lang;
   name: string;
   handle: string;
@@ -437,6 +455,19 @@ function PersonaCard({
       {bio?.trim() ? (
         <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{bio}</p>
       ) : null}
+      {projects.length ? (
+        <ul className="mt-3 space-y-1.5">
+          {projects.map((pr) => (
+            <li key={pr.id}>
+              <button type="button" onClick={() => onOpenProject?.(pr.id)} className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-left text-xs text-foreground hover:border-primary">
+                <span className="font-semibold text-primary">#</span>
+                <span className="min-w-0 flex-1 truncate">{pr.title}</span>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {onSave ? (
           <button
@@ -474,7 +505,9 @@ function PersonaWorkspace({
   personaId,
   personaName,
   onBack,
+  initialProjectId = null,
 }: {
+  initialProjectId?: string | null;
   lang: Lang;
   userId: string;
   personaId: string | null;
@@ -485,7 +518,7 @@ function PersonaWorkspace({
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialProjectId);
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["projects", userId, personaId],
