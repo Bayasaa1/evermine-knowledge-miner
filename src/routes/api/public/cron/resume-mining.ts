@@ -42,7 +42,9 @@ export const Route = createFileRoute("/api/public/cron/resume-mining")({
             await supabaseAdmin.from("mining_worker_state").update({ token: null, lease_until: new Date().toISOString() }).eq("name", "resume-mining").eq("token", token);
           }
         } catch (err) {
-          return json({ error: err instanceof Error ? err.message : String(err) }, 500);
+          // PostgREST errors are plain objects; String(err) would log "[object Object]".
+          const message = err instanceof Error ? err.message : (() => { try { return JSON.stringify(err); } catch { return String(err); } })();
+          return json({ error: message }, 500);
         }
       },
     },

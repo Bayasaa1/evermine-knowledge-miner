@@ -63,7 +63,9 @@ export async function runMiningMaintenance(admin: any, state: { phase: number; c
   let query = admin.from(table).select(phase === 4 ? "id,user_id" : "id");
   if (phase === 0) query = query.eq("status", "done").is("vault_id", null);
   if (phase === 2) query = query.eq("status", "done").not("vault_id", "is", null).neq("source_kind", "upload");
-  if (phase === 1) query = query.contains("transcript", [{ timestamp: "" }]);
+  // Pass a JSON string: a raw array reaches Postgres unserialized and dies
+  // with 22P02 (invalid input syntax for type json), stalling the worker.
+  if (phase === 1) query = query.contains("transcript", JSON.stringify([{ timestamp: "" }]));
   const cursor = cursors[String(phase)];
   if (cursor) query = query.gt("id", cursor);
   const { data: row, error } = await query.order("id").limit(1).maybeSingle();
