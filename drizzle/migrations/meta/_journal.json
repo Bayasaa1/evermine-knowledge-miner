@@ -295,6 +295,13 @@
       "when": 1794144804989,
       "tag": "0041_mining_worker_work_lease",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1794800000000,
+      "tag": "0042_seed_web_minds",
+      "breakpoints": true
     }
   ]
 }
