@@ -7,6 +7,11 @@ describe("squad web build", () => {
     const names = ["Web Quality Engineer", "Frontend Architect", "UX Strategist", "Backend Architect", "UI Designer"].map((mind_name) => ({ mind_name }));
     assert.deepEqual(squadOrder(names).map((m) => m.mind_name), ["UX Strategist", "UI Designer", "Backend Architect", "Frontend Architect", "Web Quality Engineer"]);
   });
+  test("Product Lead goes first in a 6-Mind squad", () => {
+    const names = ["Web Quality Engineer", "UX Strategist", "Product Lead", "Frontend Architect"].map((mind_name) => ({ mind_name }));
+    assert.deepEqual(squadOrder(names).map((m) => m.mind_name), ["Product Lead", "UX Strategist", "Frontend Architect", "Web Quality Engineer"]);
+    assert.match(relayNote("Product Lead", 1, 6), /user stories/);
+  });
   test("last step must ship final code", () => {
     assert.match(relayNote("Web Quality Engineer", 5, 5), /LAST step/);
     assert.doesNotMatch(relayNote("UX Strategist", 1, 5), /LAST step/);

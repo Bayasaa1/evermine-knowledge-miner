@@ -64,6 +64,7 @@ try {
 }
 
 const SQUAD: { role: string; match: RegExp; task: string }[] = [
+  { role: "PM", match: /product|manager|\bpm\b|lead|scrum|agile/i, task: "scope the MVP from the user's goal: write a short product brief, 3-5 user stories with acceptance criteria, what is out of scope, and one concrete assignment for each teammate below (UX, UI, Backend, Frontend, QA)" },
   { role: "UX", match: /\bux\b|research|usab|strateg/i, task: "define users, key user flows and the page/screen map (information architecture)" },
   { role: "UI", match: /\bui\b|design|figma|visual/i, task: "define design tokens (colors, type scale, spacing) and the component list with layout" },
   { role: "Backend", match: /back.?end|server|system|database|sql|api/i, task: "write the PostgreSQL schema (with RLS where needed) and the API endpoints the UI needs" },
@@ -71,7 +72,7 @@ const SQUAD: { role: string; match: RegExp; task: string }[] = [
   { role: "QA", match: /quality|qa|a11y|access|perform|test/i, task: "audit the Frontend code for accessibility (WCAG 2.1) and performance, then output the corrected FINAL complete ```html file" },
 ];
 
-/** Squad order UX -> UI -> Backend -> Frontend -> QA; unknown Minds go last. */
+/** Squad order PM -> UX -> UI -> Backend -> Frontend -> QA; unknown Minds go last. */
 export function squadOrder<T extends { mind_name: string; role?: string }>(minds: T[]): T[] {
   const rank = (m: T) => { const i = SQUAD.findIndex((s) => s.match.test(m.mind_name)); return i < 0 ? SQUAD.length : i; };
   return minds.filter((m) => m.role !== "judge").map((m, i) => ({ m, i })).sort((a, b) => rank(a.m) - rank(b.m) || a.i - b.i).map(({ m }) => m);
