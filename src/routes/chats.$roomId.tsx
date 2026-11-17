@@ -23,12 +23,12 @@ import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnI
 import { activeMention, insertMention, rankMentions, recentMentions, rememberMention, type MentionChoice } from "@/lib/mind-mention";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { WebBuildPreview } from "@/components/chat/web-task-card";
-import { squadOrder } from "@/lib/web-build";
+import { selectRoomSpeakers } from "@/lib/room-speakers";
 import { wantsCode } from "@/lib/chat-deliverable";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
   addMind, askMind, deleteMessage, deleteRoom, exportRoom, leaveRoom, listInvitableMinds, searchInvitableMinds, loadRoom, markRead,
-  pickSpeakers, postMessage, removeMember, removeMind, setMemberRole, setMindRole, updateRoom,
+  postMessage, removeMember, removeMind, setMemberRole, setMindRole, updateRoom,
   type RoomAttachment, type MindRole, type Room, type RoomMember, type RoomMind, type RoomMessage,
 } from "@/lib/chat-rooms";
 
@@ -247,8 +247,7 @@ function RoomPage() {
       const r = await loadRoom(roomId);
       setMessages(r.messages);
       msgsRef.current = r.messages;
-      const build = minds.length > 1 && (forceBuild || wantsCode(body));
-      const speakers = build ? squadOrder(minds) : pickSpeakers(body, minds, room.debate_mode, room.turn_limit);
+      const { build, speakers } = selectRoomSpeakers(body, minds, room.debate_mode, room.turn_limit, forceBuild);
       if (automaticRepliesAllowed(room.debate_mode === "moderator" || room.moderator_mode) && speakers.length) {
         pausedRef.current = false;
         setPaused(false);
