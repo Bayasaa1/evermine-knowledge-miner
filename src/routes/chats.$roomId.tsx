@@ -28,7 +28,7 @@ import { wantsCode } from "@/lib/chat-deliverable";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
   addMind, askMind, deleteMessage, deleteRoom, exportRoom, leaveRoom, listInvitableMinds, searchInvitableMinds, loadRoom, markRead,
-  postMessage, removeMember, removeMind, setMemberRole, setMindRole, updateRoom,
+  pickSpeakers, postMessage, removeMember, removeMind, setMemberRole, setMindRole, updateRoom,
   type RoomAttachment, type MindRole, type Room, type RoomMember, type RoomMind, type RoomMessage,
 } from "@/lib/chat-rooms";
 
@@ -295,8 +295,6 @@ function RoomPage() {
     );
   }
 
-  const panelMinds = minds.filter((m) => m.role !== "judge");
-
   return (
     <main className="flex h-[100dvh] flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center gap-2 border-b border-border pl-3 pr-16 pb-2 pt-[calc(env(safe-area-inset-top)+8px)]">
@@ -322,7 +320,7 @@ function RoomPage() {
             <Button onClick={() => { pausedRef.current = false; setPaused(false); void runQueue(queue); }} className="flex items-center gap-1 rounded-full border border-border px-3 py-1"><Play className="h-3 w-3" /> {t.resume} ({queue.length})</Button>
           ) : (
             <Button
-              onClick={() => { pausedRef.current = false; setPaused(false); const j = minds.find((m) => m.role === "judge"); void runQueue([...panelMinds.slice(0, room.turn_limit), ...(j ? [j] : [])]); }}
+              onClick={() => { pausedRef.current = false; setPaused(false); void runQueue(pickSpeakers("", minds, "round", room.turn_limit)); }}
               className="flex items-center gap-1 rounded-full border border-border px-3 py-1"
             >
               <Play className="h-3 w-3" /> {t.next}

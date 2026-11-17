@@ -1,13 +1,19 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import type { RoomMind } from "./chat-rooms";
-import { selectRoomSpeakers } from "./room-speakers";
+import { pickSpeakers, selectRoomSpeakers } from "./room-speakers";
 
 const minds: RoomMind[] = ["Alice", "Frontend Architect", "UX Strategist"].map((mind_name, i) => ({
   id: String(i), mind_id: `mind-${i}`, mind_name, role: "debater", sort: i,
 }));
 
 describe("room coding requests", () => {
+  test("rounds including a judge never exceed the selected turn limit", () => {
+    const withJudge = [...minds, { id: "judge", mind_id: "judge", mind_name: "Judge", role: "judge", sort: 3 }];
+    assert.deepEqual(pickSpeakers("", withJudge, "round", 1).map((m) => m.mind_name), ["Alice"]);
+    assert.deepEqual(pickSpeakers("", withJudge, "round", 2).map((m) => m.mind_name), ["Alice", "Judge"]);
+    assert.deepEqual(selectRoomSpeakers("Build a website", withJudge, "round", 1).speakers.map((m) => m.mind_name), ["Alice"]);
+  });
   test("an addressed coding request calls only the mentioned Mind, without relay", () => {
     const reply = selectRoomSpeakers("@Alice write the API code", minds, "round", 3);
     assert.deepEqual(reply.speakers.map((m) => m.mind_name), ["Alice"]);

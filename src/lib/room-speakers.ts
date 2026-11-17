@@ -14,7 +14,7 @@ export function pickSpeakers(body: string, minds: RoomMind[], mode: string, limi
   if (mentioned.length) return mentioned.slice(0, limit);
   const panel = minds.filter((m) => m.role !== "judge");
   const judge = minds.find((m) => m.role === "judge");
-  if (mode === "round") return [...panel.slice(0, Math.max(1, limit - (judge ? 1 : 0))), ...(judge ? [judge] : [])];
+  if (mode === "round") return [...panel.slice(0, Math.max(1, limit - (judge ? 1 : 0))), ...(judge ? [judge] : [])].slice(0, limit);
   if (mode === "relevance") {
     const words = new Set(lower.split(/\W+/).filter((w) => w.length > 3));
     const score = (m: RoomMind) => m.mind_name.toLowerCase().split(/\W+/).filter((w) => words.has(w)).length;

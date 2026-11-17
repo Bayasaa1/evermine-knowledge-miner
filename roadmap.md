@@ -4,6 +4,7 @@
 - [x] Confirm typed coding requests bypass room speaker rules
 - [x] Reserve full squad relay for the explicit Auto-Build action; preserve ordinary room selection
 - [x] 181 tests pass; signed-in room verified zero calls for unaddressed code and one saved non-relay reply for @Frontend Architect; test room removed
+- [x] Sweep related selection paths; Next round now counts the judge within the chosen turn limit
 
 ## Uploaded chat integration audit — November 11
 - [x] Guard preset IDs and resolve built-in profiles without UUID queries
