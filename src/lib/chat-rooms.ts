@@ -304,6 +304,9 @@ export function mindLabel(mindId: string, fallback?: string) {
   return fallback || findMind(mindId)?.name || mindId;
 }
 
+import { relayNote } from "./web-build";
+export { squadOrder } from "./web-build";
+
 const ROLE_NOTE: Record<string, string> = {
   debater: "You are a panelist in a calm round-table. Give your own view in 1-3 sentences; you may agree or politely disagree with the others by name. Never insult or attack anyone.",
   judge: "You are the moderator/judge of this round-table. In 2-4 sentences, fairly summarise where the panelists agree and differ, and name the strongest point. Stay neutral and kind.",
@@ -321,6 +324,7 @@ export async function askMind(
   lang: string,
   signal?: AbortSignal,
   architect?: { operatorMindId: string; attachedMindIds: string[] },
+  relay?: { step: number; total: number },
 ): Promise<string> {
   const lines = transcript.map(cleanRoomMessage).map((m) => ({
     role: m.sender_kind === "mind" && m.mind_id === mind.mind_id ? ("agent" as const) : ("user" as const),
@@ -328,13 +332,13 @@ export async function askMind(
   }));
   lines.push({
     role: "user",
-    text: `[Group room note — not from a person] ${ROLE_NOTE[mind.role] ?? ROLE_NOTE["debater"]} Reply now as yourself to the conversation above.`,
+    text: relay ? relayNote(mind.mind_name, relay.step, relay.total) : `[Group room note — not from a person] ${ROLE_NOTE[mind.role] ?? ROLE_NOTE["debater"]} Reply now as yourself to the conversation above.`,
   });
   const res = await apiFetch("/api/mind-chat", {
     method: "POST",
     ...(signal ? { signal } : {}),
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mindId: mind.mind_id, lang, messages: lines, ...architect }),
+    body: JSON.stringify({ mindId: mind.mind_id, lang, messages: lines, ...architect, ...(relay ? { mode: "auto" } : {}) }),
   });
   const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
   if (!res.ok) throw new Error(data.error || "The Mind could not answer.");

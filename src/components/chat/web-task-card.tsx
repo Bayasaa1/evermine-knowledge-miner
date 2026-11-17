@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Check, Copy, Download, ExternalLink, Lock, UserCheck } from "lucide-react";
+import { Check, Code2, Copy, Download, ExternalLink, Eye, Lock, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
+import { extractCodeBlocks, previewHtml, previewable } from "@/lib/web-build";
 import { fieldsCsv, missingValues, parseFieldMap, type WebTask } from "@/lib/web-task";
 
 type L = "en" | "mn" | "ko";
@@ -78,6 +79,35 @@ export function WebTaskCard({ task, reply, lang }: { task: WebTask; reply: strin
         <UserCheck className="mt-0.5 h-3 w-3 shrink-0" />
         <span>{tr(lang, "Check everything and press Submit yourself. Nothing is sent automatically.", "Бүгдийг шалгаад Илгээх товчийг өөрөө дарна. Юу ч автоматаар илгээгдэхгүй.", "모두 확인 후 제출은 직접 누르세요. 자동 전송은 없습니다.")}</span>
       </div>
+    </div>
+  );
+}
+
+/** Live sandboxed preview + file downloads for code a Mind wrote. */
+export function WebBuildPreview({ reply, lang }: { reply: string; lang: L }) {
+  const blocks = extractCodeBlocks(reply);
+  const canPreview = previewable(blocks);
+  const [tab, setTab] = useState<"preview" | "code" | null>(null);
+  if (!blocks.length) return null;
+  const download = () => {
+    blocks.forEach((b, i) => setTimeout(() => {
+      const url = URL.createObjectURL(new Blob([b.code], { type: "text/plain" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = b.file; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, i * 250));
+  };
+  return (
+    <div className="mt-2 space-y-2 text-xs">
+      <div className="flex flex-wrap gap-1.5">
+        {canPreview && <Button size="sm" variant={tab === "preview" ? "default" : "outline"} onClick={() => setTab(tab === "preview" ? null : "preview")}><Eye />{tr(lang, "Live Preview", "Шууд харах", "라이브 미리보기")}</Button>}
+        <Button size="sm" variant={tab === "code" ? "default" : "outline"} onClick={() => setTab(tab === "code" ? null : "code")}><Code2 />{tr(lang, "Files", "Файлууд", "파일")} ({blocks.length})</Button>
+        <Button size="sm" variant="outline" onClick={download}><Download />{tr(lang, "Download Full Build", "Бүтэн хувилбар татах", "전체 빌드 다운로드")}</Button>
+      </div>
+      {tab === "preview" && canPreview && (
+        <iframe title="Live preview" sandbox="allow-scripts" srcDoc={previewHtml(blocks)} className="h-[480px] w-full rounded-lg border border-border bg-background" />
+      )}
+      {tab === "code" && <ul className="space-y-0.5 text-muted-foreground">{blocks.map((b) => <li key={b.file}>{b.file} · {b.code.split("\n").length} {tr(lang, "lines", "мөр", "줄")}</li>)}</ul>}
     </div>
   );
 }

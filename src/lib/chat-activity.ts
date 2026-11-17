@@ -22,6 +22,7 @@ const T = {
     fieldmap: { en: "Mapped values to form fields", mn: "Утгуудыг маягтын талбарт тохирууллаа", ko: "양식 칸에 값 매핑" },
     checklist: { en: "Built a step checklist", mn: "Алхамт жагсаалт гаргалаа", ko: "단계 체크리스트 작성" },
     table: { en: "Calculated figures into a table", mn: "Тоог тооцоолж хүснэгт гаргалаа", ko: "수치 계산 후 표 작성" },
+    code: { en: "Architected the software and wrote the code", mn: "Программ хангамжийн бүтэц ба кодыг боловсрууллаа", ko: "소프트웨어 설계 및 코드 작성" },
     report: { en: "Wrote findings, risks and next steps", mn: "Олдвор, эрсдэл, дараагийн алхам бичлээ", ko: "발견·위험·다음 단계 작성" },
   },
   answer: { en: "Answered with", mn: "Хариулсан AI", ko: "답변 AI" },

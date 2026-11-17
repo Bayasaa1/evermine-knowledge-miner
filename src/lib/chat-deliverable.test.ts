@@ -25,3 +25,14 @@ describe("chat deliverables", () => {
     assert.equal(addressedSheet([["Cash", 100], [], ["Debt", "1,5"]]), 'row,A,B\n1,Cash,100\n3,Debt,"1,5"');
   });
 });
+
+describe("code deliverables", () => {
+  test("build requests need no attachment, in EN/MN/KO", () => {
+    assert.equal(detectDeliverable("Build a landing page website for my coffee shop"), "code");
+    assert.equal(detectDeliverable("Онлайн дэлгүүрийн веб сайт хийж өгөөч"), "code");
+    assert.equal(detectDeliverable("카페 웹사이트를 만들어 줘"), "code");
+    assert.equal(detectDeliverable("hi, how are you?"), null);
+    assert.equal(replyBudget("code"), 3800);
+    assert.match(deliverableRule("code"), /overrides the 1-3 sentence/);
+  });
+});

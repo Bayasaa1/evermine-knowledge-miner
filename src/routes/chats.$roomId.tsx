@@ -22,6 +22,9 @@ import { rememberChatHead } from "@/components/chat-heads";
 import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnIsActive, withTurnDeadline, ROOM_TURN_TIMEOUT_MS } from "@/lib/room-turns";
 import { activeMention, insertMention, rankMentions, recentMentions, rememberMention, type MentionChoice } from "@/lib/mind-mention";
 import { MessageResponse } from "@/components/ai-elements/message";
+import { WebBuildPreview } from "@/components/chat/web-task-card";
+import { squadOrder } from "@/lib/web-build";
+import { wantsCode } from "@/lib/chat-deliverable";
 import {
   addRoomFriend, claimRoomTurn, finishRoomTurn, completeRoomQuestion, uploadRoomMedia,
   addMind, askMind, deleteMessage, deleteRoom, exportRoom, leaveRoom, listInvitableMinds, searchInvitableMinds, loadRoom, markRead,
@@ -159,17 +162,18 @@ function RoomPage() {
 
   /** Let Minds speak one after another; pausing stops before the next one. */
   const [inviteContent, setInviteContent] = useState<ShareContent | null>(null);
-  const runQueue = async (list: RoomMind[]) => {
+  const runQueue = async (list: RoomMind[], relay = false) => {
     if (busyRef.current) return;
     busyRef.current = true;
     let rest = [...list];
+    const total = list.length;
     while (rest.length) {
       if (pausedRef.current) break;
       const mind = rest[0];
       if (!mind) break;
       setSpeaking(mind.mind_name);
       try {
-        const text = await withTurnDeadline((signal) => askMind(mind, msgsRef.current, lang, signal, { operatorMindId: operatorMind.id, attachedMindIds: architectRoster.ids }));
+        const text = await withTurnDeadline((signal) => askMind(mind, msgsRef.current, lang, signal, { operatorMindId: operatorMind.id, attachedMindIds: architectRoster.ids }, relay ? { step: total - rest.length + 1, total } : undefined), relay ? 180_000 : undefined);
         await postMessage(roomId, { body: text, authorName: mind.mind_name, kind: "mind", mindId: mind.mind_id });
         const r = await loadRoom(roomId);
         setMessages(r.messages);
@@ -230,8 +234,10 @@ function RoomPage() {
     finally { setUploading(false); }
   };
 
-  const send = async () => {
-    const body = input.trim();
+  const send = async (forceBuild = false) => {
+    const typed = input.trim();
+    const body = forceBuild && !wantsCode(typed) ? `${pickCopy({ en: "Build this website", mn: "Энэ вебсайтыг бүтээж хий", ko: "이 웹사이트를 만들어 줘" }, lang)}: ${typed}` : typed;
+    if (forceBuild && !typed) { toast.error(pickCopy({ en: "Describe the website first.", mn: "Эхлээд ямар вебсайт хэрэгтэйг бичнэ үү.", ko: "먼저 원하는 웹사이트를 적어 주세요." }, lang)); return; }
     if ((!body && !attachment) || !room || sending) return;
     setSending(true);
     try {
@@ -241,11 +247,12 @@ function RoomPage() {
       const r = await loadRoom(roomId);
       setMessages(r.messages);
       msgsRef.current = r.messages;
-      const speakers = pickSpeakers(body, minds, room.debate_mode, room.turn_limit);
+      const build = minds.length > 1 && (forceBuild || wantsCode(body));
+      const speakers = build ? squadOrder(minds) : pickSpeakers(body, minds, room.debate_mode, room.turn_limit);
       if (automaticRepliesAllowed(room.debate_mode === "moderator" || room.moderator_mode) && speakers.length) {
         pausedRef.current = false;
         setPaused(false);
-        await runQueue(speakers);
+        await runQueue(speakers, build);
       }
     } catch (e) {
       toast.error((e as Error).message);
@@ -334,6 +341,7 @@ function RoomPage() {
               <div className={`min-w-0 max-w-[85%] rounded-lg px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : m.sender_kind === "mind" ? "border border-border bg-card" : "bg-muted"}`}>
                 {!mine && <div className="mb-0.5 flex items-center gap-1 text-xs font-semibold opacity-80">{m.sender_kind === "mind" && <Bot className="h-3 w-3" />}{m.author_name}</div>}
                 {m.body.trim() && <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang}>{(shown) => m.sender_kind === "mind" ? <MessageResponse>{shown}</MessageResponse> : shown}</ChatDisplayText></div>}
+                {m.sender_kind === "mind" && m.body.includes("```") && <WebBuildPreview reply={m.body} lang={lang === "mn" || lang === "ko" ? lang : "en"} />}
                 {m.attachment && <RoomMedia attachment={m.attachment} onMind={setOpenMind} openLabel={x.open} {...(isOwner && room.kind !== "dm" ? { onAdd: setInviteContent } : {})} />}
                 {m.shared_url && <SharedLink url={m.shared_url} openLabel={x.open} />}
                 {m.moderator_pending && <div className="mt-1 text-xs opacity-60">{x.queued}</div>}
@@ -352,6 +360,11 @@ function RoomPage() {
       <input ref={avatarInput} type="file" accept="image/*" className="hidden" onChange={(e) => { void upload(e.target.files?.[0], true); e.target.value = ""; }} />
       {attachment && <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-xs"><span className="min-w-0 flex-1 truncate">{attachment.name}</span><Button size="icon-sm" variant="ghost" aria-label={x.cancel} onClick={() => setAttachment(null)}><X /></Button></div>}
       {sharingMind && <div className="flex items-center gap-2 border-t border-border p-3"><select aria-label={x.shareMind} value="" className="min-w-0 flex-1 rounded-md border border-border bg-background p-2 text-sm" onChange={(e) => { const mind = invitable.find((m) => m.mindId === e.target.value); if (mind) { setAttachment({ kind: "mind", mindId: mind.mindId, name: mind.name }); setSharingMind(false); } }}><option value="">{x.shareMind}</option>{invitable.map((m) => <option key={m.mindId} value={m.mindId}>{m.name}</option>)}</select><Button variant="ghost" size="icon" aria-label={x.cancel} onClick={() => setSharingMind(false)}><X /></Button></div>}
+      {isOwner && minds.length > 1 && (
+        <div className="flex shrink-0 justify-end border-t border-border px-3 pt-2">
+          <Button size="sm" variant="outline" disabled={sending || !!speaking} onClick={() => void send(true)}>🚀 {pickCopy({ en: "Auto-Build Website with Squad", mn: "Багаараа вебсайт автоматаар бүтээх", ko: "스쿼드로 웹사이트 자동 제작" }, lang)}</Button>
+        </div>
+      )}
       <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="flex shrink-0 gap-1 border-t border-border p-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <Button type="button" variant="ghost" size="icon" title={x.attach} aria-label={x.attach} disabled={uploading} onClick={() => attachmentInput.current?.click()}>{uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}</Button>
         <Button type="button" variant="ghost" size="icon" title={x.shareMind} aria-label={x.shareMind} onClick={() => { setSharingMind(!sharingMind); void listInvitableMinds().then(setInvitable); }}><Bot /></Button>
