@@ -178,6 +178,7 @@ export type CheckoutOrder = {
   status: string;
   bank: { bankName: string; accountNumber: string; holder: string; qrUrl: string } | null;
   stripeLink: string | null;
+  wallet?: string | null;
 };
 
 function projectIdOf(mindId: string): string | null {
@@ -191,7 +192,7 @@ export const startCheckout = createServerFn({ method: "POST" })
   .inputValidator((input: { mindId: string; category?: string; plan?: string; method?: string }) => {
     if (!input?.mindId || typeof input.mindId !== "string" || input.mindId.length > 200) throw new Error("A mind id is required");
     const plan = PLAN_LENGTHS.includes(input.plan as PlanLength) ? (input.plan as PlanLength) : "lifetime";
-    const method = input.method === "stripe" ? "stripe" : "bank";
+    const method = input.method === "stripe" ? "stripe" : input.method === "usdt_trc20" || input.method === "usdt_polygon" ? input.method : "bank";
     return { mindId: input.mindId, category: String(input.category || "knowledge").slice(0, 40), plan, method };
   })
   .handler(async ({ data, context }): Promise<{ ok: boolean; error: string | null; order?: CheckoutOrder }> => {
@@ -213,8 +214,15 @@ export const startCheckout = createServerFn({ method: "POST" })
     const bank = acct && acct.account_number
       ? { bankName: acct.bank_name, accountNumber: acct.account_number, holder: acct.account_holder, qrUrl: acct.qr_url }
       : null;
+    const crypto = data.method === "usdt_trc20" || data.method === "usdt_polygon";
+    let wallet: string | null = null;
+    if (crypto) {
+      const { walletFor } = await import("@/lib/crypto-pay.server");
+      wallet = walletFor(data.method as "usdt_trc20" | "usdt_polygon");
+      if (!wallet) return { ok: false, error: "Crypto payments are not set up yet." };
+    }
     if (data.method === "stripe" && !stripeLink) return { ok: false, error: "The creator has not added a card payment link for this plan yet." };
-    if (data.method === "bank" && !bank) return { ok: false, error: "The creator has not added bank details yet." };
+    if (!crypto && data.method === "bank" && !bank) return { ok: false, error: "The creator has not added bank details yet." };
 
     // Reuse an open order for the same Mind/plan/method so the reference stays stable.
     const { data: open } = await supabaseAdmin
@@ -236,7 +244,7 @@ export const startCheckout = createServerFn({ method: "POST" })
     }
     return {
       ok: true, error: null,
-      order: { orderId: row.id, reference: row.reference, amount: Number(row.amount), currency: row.currency, plan: data.plan, status: row.status, bank, stripeLink },
+      order: { orderId: row.id, reference: row.reference, amount: Number(row.amount), currency: row.currency, plan: data.plan, status: row.status, bank, stripeLink, wallet },
     };
   });
 
@@ -315,5 +323,53 @@ export const decideOrder = createServerFn({ method: "POST" })
     }
     await supabaseAdmin.from("mind_payment_orders")
       .update({ status: data.decision === "reject" ? "rejected" : "revoked" }).eq("id", order.id);
+    return { ok: true, error: null };
+  });
+
+/** Buyer pastes a USDT tx hash; the server verifies it on-chain and unlocks instantly. */
+export const verifyCryptoPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { orderId: string; txHash: string }) => {
+    if (!/^[0-9a-f-]{36}$/i.test(String(input?.orderId))) throw new Error("Invalid order");
+    return { orderId: input.orderId, txHash: String(input?.txHash ?? "").slice(0, 100) };
+  })
+  .handler(async ({ data, context }): Promise<PurchaseResult> => {
+    const { isCryptoNetwork, normalizeTxHash, checkTransfer, splitPayment } = await import("@/lib/crypto-pay");
+    const { walletFor, fetchTransfer } = await import("@/lib/crypto-pay.server");
+    const { PLATFORM_COMMISSION } = await import("@/lib/subscription");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: order } = await supabaseAdmin.from("mind_payment_orders").select("*")
+      .eq("id", data.orderId).eq("buyer_id", context.userId).maybeSingle();
+    if (!order) return { ok: false, error: "Order not found." };
+    if (order.status === "approved") return { ok: true, error: null };
+    if (!isCryptoNetwork(order.method)) return { ok: false, error: "This order is not a crypto order." };
+    const hash = normalizeTxHash(order.method, data.txHash);
+    if (!hash) return { ok: false, error: "Enter a valid transaction hash (64 hex characters)." };
+    const wallet = walletFor(order.method);
+    if (!wallet) return { ok: false, error: "Crypto payments are not set up yet." };
+    const { data: used } = await supabaseAdmin.from("mind_payment_orders").select("id")
+      .eq("method", order.method).ilike("transaction_ref", hash).neq("id", order.id).limit(1);
+    if (used?.length) return { ok: false, error: "This transaction was already used." };
+    let transfer;
+    try { transfer = await fetchTransfer(order.method, hash, wallet); }
+    catch (e) { console.error("crypto verify", e); return { ok: false, error: "Could not reach the blockchain. Try again shortly." }; }
+    if (!transfer) return { ok: false, error: "No USDT transfer to the Evermind wallet found for this hash yet. Wait a minute and retry." };
+    const why = checkTransfer(transfer, {
+      network: order.method, wallet, orderAmountUsd: Number(order.amount),
+      orderCreatedMs: new Date(order.created_at).getTime(), nowMs: Date.now(),
+    });
+    if (why) return { ok: false, error: why };
+    const { fee, net } = splitPayment(Number(order.amount), PLATFORM_COMMISSION);
+    const { data: claimed, error: claimErr } = await supabaseAdmin.from("mind_payment_orders")
+      .update({ transaction_ref: hash, status: "approved", platform_fee: fee, creator_net: net, paid_at: new Date().toISOString() })
+      .eq("id", order.id).neq("status", "approved").select("id").maybeSingle();
+    if (claimErr) return { ok: false, error: "This transaction was already used." };
+    if (!claimed) return { ok: true, error: null };
+    const plan = (PLAN_LENGTHS.includes(order.plan as PlanLength) ? order.plan : "lifetime") as PlanLength;
+    const { error } = await supabaseAdmin.from("mind_purchases").upsert({
+      user_id: order.buyer_id, mind_id: order.mind_id, category: order.category,
+      price: order.amount, currency: order.currency, plan, expires_at: expiryFor(plan),
+    }, { onConflict: "user_id,mind_id" });
+    if (error) return { ok: false, error: error.message };
     return { ok: true, error: null };
   });

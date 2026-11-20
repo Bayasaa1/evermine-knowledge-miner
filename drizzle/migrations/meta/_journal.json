@@ -302,6 +302,13 @@
       "when": 1794800000000,
       "tag": "0042_seed_web_minds",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1795189213878,
+      "tag": "0043_crypto_payments",
+      "breakpoints": true
     }
   ]
 }

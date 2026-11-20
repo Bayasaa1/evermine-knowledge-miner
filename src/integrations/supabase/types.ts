@@ -598,12 +598,15 @@ export type Database = {
           buyer_id: string
           category: string
           created_at: string
+          creator_net: number
           creator_user_id: string | null
           currency: string
           id: string
           method: string
           mind_id: string
+          paid_at: string | null
           plan: string
+          platform_fee: number
           reference: string
           status: string
           transaction_ref: string
@@ -614,12 +617,15 @@ export type Database = {
           buyer_id: string
           category?: string
           created_at?: string
+          creator_net?: number
           creator_user_id?: string | null
           currency?: string
           id?: string
           method?: string
           mind_id: string
+          paid_at?: string | null
           plan?: string
+          platform_fee?: number
           reference: string
           status?: string
           transaction_ref?: string
@@ -630,12 +636,15 @@ export type Database = {
           buyer_id?: string
           category?: string
           created_at?: string
+          creator_net?: number
           creator_user_id?: string | null
           currency?: string
           id?: string
           method?: string
           mind_id?: string
+          paid_at?: string | null
           plan?: string
+          platform_fee?: number
           reference?: string
           status?: string
           transaction_ref?: string

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { CreditCard, Check, Percent, Wallet, Landmark, Loader2, Copy, ExternalLink } from "lucide-react";
+import { Coins, CreditCard, Check, Percent, Wallet, Landmark, Loader2, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { startCheckout, submitPaymentProof, type CheckoutOrder } from "@/lib/purchases.functions";
+import { startCheckout, submitPaymentProof, verifyCryptoPayment, type CheckoutOrder } from "@/lib/purchases.functions";
 import type { CheckoutRequest } from "@/lib/purchases";
 import { CreatorEarnings } from "@/components/payout-setup";
 import {
@@ -273,6 +273,7 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
 
 const checkoutCopy = {
   en: {
+    cryptoHint: "Send exactly this amount of USDT on the selected network to the address below, then paste the transaction hash. Access unlocks automatically.", txHash: "Transaction hash (TxID)", verify: "Verify & unlock", unlocked: "Payment confirmed — unlocked!", address: "Wallet address",
     title: "Checkout", plan: "Plan", total: "Total", card: "Card (Stripe)", bank: "Bank transfer / QR",
     cardHint: "Pay securely on the creator's Stripe page, then paste the receipt or payment ID below.",
     openStripe: "Open card payment", bankHint: "Transfer the exact amount and put this reference in the transfer description:",
@@ -285,6 +286,7 @@ const checkoutCopy = {
     names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime Complete Edition" },
   },
   mn: {
+    cryptoHint: "Сонгосон сүлжээгээр яг энэ дүнгийн USDT-г доорх хаяг руу илгээгээд гүйлгээний hash-аа оруулна уу. Шууд автоматаар нээгдэнэ.", txHash: "Гүйлгээний hash (TxID)", verify: "Шалгаад нээх", unlocked: "Төлбөр баталгаажлаа — нээгдлээ!", address: "Хэтэвчний хаяг",
     title: "Төлбөр төлөх", plan: "Багц", total: "Нийт", card: "Карт (Stripe)", bank: "Дансаар / QR",
     cardHint: "Бүтээгчийн Stripe хуудсаар төлөөд, баримтын эсвэл гүйлгээний дугаараа доор оруулна уу.",
     openStripe: "Картаар төлөх", bankHint: "Яг энэ дүнг шилжүүлж, гүйлгээний утга дээр энэ кодыг бичнэ үү:",
@@ -297,6 +299,7 @@ const checkoutCopy = {
     names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан туршийн бүрэн хувилбар" },
   },
   ko: {
+    cryptoHint: "선택한 네트워크로 정확한 금액의 USDT를 아래 주소로 보낸 뒤 거래 해시를 붙여 넣으세요. 자동으로 열립니다.", txHash: "거래 해시 (TxID)", verify: "확인하고 열기", unlocked: "결제 확인 — 열렸습니다!", address: "지갑 주소",
     title: "결제", plan: "플랜", total: "합계", card: "카드 (Stripe)", bank: "계좌이체 / QR",
     cardHint: "크리에이터의 Stripe 페이지에서 결제한 뒤 영수증 또는 결제 ID를 아래에 붙여 넣으세요.",
     openStripe: "카드 결제 열기", bankHint: "정확한 금액을 이체하고 이체 메모에 이 코드를 적어 주세요:",
@@ -314,8 +317,10 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
   const t = pickCopy(checkoutCopy, lang);
   const start = useServerFn(startCheckout);
   const submitProof = useServerFn(submitPaymentProof);
-  const [method, setMethod] = useState<"bank" | "stripe">("bank");
+  const verifyCrypto = useServerFn(verifyCryptoPayment);
+  const [method, setMethod] = useState<"bank" | "stripe" | "usdt_trc20" | "usdt_polygon">("usdt_trc20");
   const [order, setOrder] = useState<CheckoutOrder | null>(null);
+  const isCrypto = method === "usdt_trc20" || method === "usdt_polygon";
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [tx, setTx] = useState("");
@@ -336,6 +341,12 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
     if (!order) return;
     setSending(true);
     try {
+      if (isCrypto) {
+        const r = await verifyCrypto({ data: { orderId: order.orderId, txHash: tx } });
+        if (!r.ok) return void toast.error(r.error ?? "Failed");
+        toast.success(t.unlocked);
+        return void onDone({ error: null });
+      }
       const r = await submitProof({ data: { orderId: order.orderId, transactionRef: tx } });
       if (!r.ok) return void toast.error(r.error ?? "Failed");
       onDone({ error: t.pending });
@@ -357,6 +368,12 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
           {order && <span className="font-mono font-semibold text-foreground">{formatMoney(order.amount, order.currency)}</span>}
         </div>
         <div className="grid grid-cols-2 gap-2">
+          {(["usdt_trc20", "usdt_polygon"] as const).map((m) => (
+            <button key={m} type="button" onClick={() => setMethod(m)}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${method === m ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
+              <Coins className="h-4 w-4" />{m === "usdt_trc20" ? "USDT · TRC-20" : "USDT · Polygon"}
+            </button>
+          ))}
           {(["bank", "stripe"] as const).map((m) => (
             <button key={m} type="button" onClick={() => setMethod(m)}
               className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${method === m ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"}`}>
@@ -387,6 +404,19 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
                 )}
               </>
             )}
+            {isCrypto && order.wallet && (
+              <>
+                <p className="text-muted-foreground">{t.cryptoHint}</p>
+                <p className="text-center font-mono text-xl font-bold text-foreground">{order.amount} USDT</p>
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=176x176&data=${encodeURIComponent(order.wallet)}`} alt="QR"
+                  className="mx-auto h-44 w-44 rounded-lg border border-border bg-card" />
+                <p className="text-xs text-muted-foreground">{t.address}</p>
+                <button type="button" onClick={() => copy(order.wallet!)}
+                  className="flex w-full items-center justify-between gap-2 break-all rounded-lg border border-primary/50 bg-primary/10 px-3 py-2 text-left font-mono text-xs text-primary">
+                  {order.wallet}<Copy className="h-4 w-4 shrink-0" />
+                </button>
+              </>
+            )}
             {method === "stripe" && order.stripeLink && (
               <>
                 <p className="text-muted-foreground">{t.cardHint}</p>
@@ -397,12 +427,12 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
                 <p className="text-xs text-muted-foreground">{t.reference}: <span className="font-mono">{order.reference}</span></p>
               </>
             )}
-            <label htmlFor="ckTx" className="block text-xs text-muted-foreground">{t.txLabel}</label>
+            <label htmlFor="ckTx" className="block text-xs text-muted-foreground">{isCrypto ? t.txHash : t.txLabel}</label>
             <input id="ckTx" value={tx} onChange={(e) => setTx(e.target.value)} placeholder={t.txPlaceholder}
               className="w-full rounded-lg border border-border bg-muted px-3 py-2.5 text-foreground outline-none focus:border-primary" />
             <button type="button" disabled={sending || tx.trim().length < 4} onClick={() => void send()}
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground disabled:opacity-50">
-              {sending && <Loader2 className="h-4 w-4 animate-spin" />}{sending ? t.sending : t.submit}
+              {sending && <Loader2 className="h-4 w-4 animate-spin" />}{sending ? t.sending : isCrypto ? t.verify : t.submit}
             </button>
           </div>
         )}
