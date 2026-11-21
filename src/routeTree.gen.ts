@@ -39,6 +39,7 @@ import { Route as ChatsIndexRouteImport } from './routes/chats.index'
 import { Route as ChatsRoomIdRouteImport } from './routes/chats.$roomId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as ApiPublicPingRouteImport } from './routes/api/public/ping'
+import { Route as ApiPublicCronCryptoPayoutsRouteImport } from './routes/api/public/cron/crypto-payouts'
 import { Route as ApiPublicCronResumeMiningRouteImport } from './routes/api/public/cron/resume-mining'
 import { Route as ApiPublicV1MindTokenPackageDotjsonRouteImport } from './routes/api/public/v1/mind/$token/package[.]json'
 
@@ -193,6 +194,12 @@ const ApiPublicPingRoute = ApiPublicPingRouteImport.update({
   path: '/api/public/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronCryptoPayoutsRoute =
+  ApiPublicCronCryptoPayoutsRouteImport.update({
+    id: '/api/public/cron/crypto-payouts',
+    path: '/api/public/cron/crypto-payouts',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronResumeMiningRoute =
   ApiPublicCronResumeMiningRouteImport.update({
     id: '/api/public/cron/resume-mining',
@@ -237,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/chats/': typeof ChatsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/crypto-payouts': typeof ApiPublicCronCryptoPayoutsRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
@@ -271,6 +279,7 @@ export interface FileRoutesByTo {
   '/chats': typeof ChatsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/crypto-payouts': typeof ApiPublicCronCryptoPayoutsRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
@@ -306,6 +315,7 @@ export interface FileRoutesById {
   '/chats/': typeof ChatsIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/api/public/ping': typeof ApiPublicPingRoute
+  '/api/public/cron/crypto-payouts': typeof ApiPublicCronCryptoPayoutsRoute
   '/api/public/cron/resume-mining': typeof ApiPublicCronResumeMiningRoute
   '/api/public/v1/mind/$token/package.json': typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/chats/'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
+    | '/api/public/cron/crypto-payouts'
     | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   fileRoutesByTo: FileRoutesByTo
@@ -376,6 +387,7 @@ export interface FileRouteTypes {
     | '/chats'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
+    | '/api/public/cron/crypto-payouts'
     | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   id:
@@ -410,6 +422,7 @@ export interface FileRouteTypes {
     | '/chats/'
     | '/.lovable/oauth/consent'
     | '/api/public/ping'
+    | '/api/public/cron/crypto-payouts'
     | '/api/public/cron/resume-mining'
     | '/api/public/v1/mind/$token/package.json'
   fileRoutesById: FileRoutesById
@@ -445,6 +458,7 @@ export interface RootRouteChildren {
   ChatsIndexRoute: typeof ChatsIndexRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   ApiPublicPingRoute: typeof ApiPublicPingRoute
+  ApiPublicCronCryptoPayoutsRoute: typeof ApiPublicCronCryptoPayoutsRoute
   ApiPublicCronResumeMiningRoute: typeof ApiPublicCronResumeMiningRoute
   ApiPublicV1MindTokenPackageDotjsonRoute: typeof ApiPublicV1MindTokenPackageDotjsonRoute
 }
@@ -661,6 +675,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/crypto-payouts': {
+      id: '/api/public/cron/crypto-payouts'
+      path: '/api/public/cron/crypto-payouts'
+      fullPath: '/api/public/cron/crypto-payouts'
+      preLoaderRoute: typeof ApiPublicCronCryptoPayoutsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/resume-mining': {
       id: '/api/public/cron/resume-mining'
       path: '/api/public/cron/resume-mining'
@@ -710,6 +731,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatsIndexRoute: ChatsIndexRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   ApiPublicPingRoute: ApiPublicPingRoute,
+  ApiPublicCronCryptoPayoutsRoute: ApiPublicCronCryptoPayoutsRoute,
   ApiPublicCronResumeMiningRoute: ApiPublicCronResumeMiningRoute,
   ApiPublicV1MindTokenPackageDotjsonRoute:
     ApiPublicV1MindTokenPackageDotjsonRoute,

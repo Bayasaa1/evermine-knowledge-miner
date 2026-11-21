@@ -1,8 +1,10 @@
+import { sha256 as viemSha256 } from "viem";
+const sha256 = (b: Uint8Array) => viemSha256(b, "bytes");
 /** Pure rules for automatic USDT payments (TRC-20 & Polygon). No network calls here. */
 export type CryptoNetwork = "usdt_trc20" | "usdt_polygon";
 export const CRYPTO_NETWORKS: CryptoNetwork[] = ["usdt_trc20", "usdt_polygon"];
 export const USDT_CONTRACT: Record<CryptoNetwork, string> = {
-  usdt_trc20: "TR7NHqjeKQxGTCi8q8ZY4pPg7VQEHnTMDt",
+  usdt_trc20: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
   usdt_polygon: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
 };
 export const USDT_DECIMALS = 6;
@@ -61,4 +63,42 @@ export function parsePolygonTransfer(
     return { token: l.address, to, amountUnits: BigInt(l.data) };
   }
   return null;
+}
+
+/* ───────────── Agreement + payout addresses ───────────── */
+/** Bump when the purchase agreement text changes; orders store the version the buyer accepted. */
+export const TERMS_VERSION = "2026-11-21";
+
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58Decode(s: string): Uint8Array | null {
+  let n = 0n;
+  for (const c of s) { const i = B58.indexOf(c); if (i < 0) return null; n = n * 58n + BigInt(i); }
+  const bytes: number[] = [];
+  while (n > 0n) { bytes.unshift(Number(n % 256n)); n /= 256n; }
+  for (const c of s) { if (c === "1") bytes.unshift(0); else break; }
+  return new Uint8Array(bytes);
+}
+
+/** 20-byte hex (no 0x) of a TRON base58 address, or null when it is not a TRON address. */
+export function tronAddressHex(addr: string): string | null {
+  if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(addr)) return null;
+  const b = base58Decode(addr);
+  if (!b || b.length !== 25 || b[0] !== 0x41) return null;
+  const check = sha256(sha256(b.slice(0, 21)));
+  for (let i = 0; i < 4; i++) if (check[i] !== b[21 + i]) return null;
+  return Array.from(b.slice(1, 21), (x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+export function isPayoutAddress(network: CryptoNetwork, addr: string): boolean {
+  const v = addr.trim();
+  return network === "usdt_polygon" ? /^0x[0-9a-fA-F]{40}$/.test(v) : tronAddressHex(v) !== null;
+}
+
+/** ABI-encoded transfer(address,uint256) arguments for TRC-20 (hex, no selector). */
+export function trc20TransferParams(toHex20: string, units: bigint): string {
+  return toHex20.padStart(64, "0") + units.toString(16).padStart(64, "0");
+}
+
+export function toUnits(amount: number): bigint {
+  return BigInt(Math.round(amount * 10 ** USDT_DECIMALS));
 }

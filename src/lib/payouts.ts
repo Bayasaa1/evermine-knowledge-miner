@@ -109,10 +109,12 @@ export type ReceivingAccount = {
   account_holder: string;
   qr_url: string;
   stripe_links: Partial<Record<PlanLength, string>>;
+  usdt_trc20_address: string;
+  usdt_polygon_address: string;
 };
 
 export function emptyReceivingAccount(): ReceivingAccount {
-  return { bank_name: LOCAL_BANKS[0], account_number: "", account_holder: "", qr_url: "", stripe_links: {} };
+  return { bank_name: LOCAL_BANKS[0], account_number: "", account_holder: "", qr_url: "", stripe_links: {}, usdt_trc20_address: "", usdt_polygon_address: "" };
 }
 
 /** Only https links are accepted for QR images and Stripe Payment Links. */
@@ -127,6 +129,7 @@ export async function loadReceivingAccount(userId: string): Promise<ReceivingAcc
   return {
     bank_name: data.bank_name, account_number: data.account_number, account_holder: data.account_holder,
     qr_url: data.qr_url, stripe_links: (data.stripe_links ?? {}) as ReceivingAccount["stripe_links"],
+    usdt_trc20_address: data.usdt_trc20_address ?? "", usdt_polygon_address: data.usdt_polygon_address ?? "",
   };
 }
 

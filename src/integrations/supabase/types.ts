@@ -387,6 +387,8 @@ export type Database = {
           qr_url: string
           stripe_links: Json
           updated_at: string
+          usdt_polygon_address: string
+          usdt_trc20_address: string
           user_id: string
         }
         Insert: {
@@ -397,6 +399,8 @@ export type Database = {
           qr_url?: string
           stripe_links?: Json
           updated_at?: string
+          usdt_polygon_address?: string
+          usdt_trc20_address?: string
           user_id: string
         }
         Update: {
@@ -407,6 +411,8 @@ export type Database = {
           qr_url?: string
           stripe_links?: Json
           updated_at?: string
+          usdt_polygon_address?: string
+          usdt_trc20_address?: string
           user_id?: string
         }
         Relationships: []
@@ -496,6 +502,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      crypto_payouts: {
+        Row: {
+          amount: number
+          attempts: number
+          created_at: string
+          error: string
+          id: string
+          kind: string
+          locked_until: string | null
+          network: string
+          order_id: string
+          recipient_user_id: string | null
+          status: string
+          to_address: string
+          tx_hash: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          attempts?: number
+          created_at?: string
+          error?: string
+          id?: string
+          kind: string
+          locked_until?: string | null
+          network: string
+          order_id: string
+          recipient_user_id?: string | null
+          status?: string
+          to_address?: string
+          tx_hash?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          attempts?: number
+          created_at?: string
+          error?: string
+          id?: string
+          kind?: string
+          locked_until?: string | null
+          network?: string
+          order_id?: string
+          recipient_user_id?: string | null
+          status?: string
+          to_address?: string
+          tx_hash?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       featured_minds: {
         Row: {
@@ -594,6 +651,7 @@ export type Database = {
       }
       mind_payment_orders: {
         Row: {
+          agreement_accepted_at: string | null
           amount: number
           buyer_id: string
           category: string
@@ -609,10 +667,12 @@ export type Database = {
           platform_fee: number
           reference: string
           status: string
+          terms_version: string
           transaction_ref: string
           updated_at: string
         }
         Insert: {
+          agreement_accepted_at?: string | null
           amount?: number
           buyer_id: string
           category?: string
@@ -628,10 +688,12 @@ export type Database = {
           platform_fee?: number
           reference: string
           status?: string
+          terms_version?: string
           transaction_ref?: string
           updated_at?: string
         }
         Update: {
+          agreement_accepted_at?: string | null
           amount?: number
           buyer_id?: string
           category?: string
@@ -647,6 +709,7 @@ export type Database = {
           platform_fee?: number
           reference?: string
           status?: string
+          terms_version?: string
           transaction_ref?: string
           updated_at?: string
         }

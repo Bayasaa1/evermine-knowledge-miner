@@ -29,3 +29,19 @@ describe("crypto payment rules", () => {
     expect(t?.amountUnits).toBe(10_000_000n);
   });
 });
+
+import { isPayoutAddress, tronAddressHex, trc20TransferParams, toUnits } from "./crypto-pay";
+describe("payout addresses", () => {
+  test("decodes the USDT TRC-20 contract to its known hex", () => {
+    expect(tronAddressHex("TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t")).toBe("a614f803b6fd780986a42c78ec9c7f77e6ded13c");
+  });
+  test("rejects a TRON address with a bad checksum length or charset", () => {
+    expect(isPayoutAddress("usdt_trc20", "T0000")).toBe(false);
+    expect(isPayoutAddress("usdt_polygon", "0x123")).toBe(false);
+    expect(isPayoutAddress("usdt_polygon", "0xc2132d05d31c914a87c6611c10748aeb04b58e8f")).toBe(true);
+  });
+  test("encodes 12.5 USDT transfer params", () => {
+    expect(toUnits(12.5)).toBe(12_500_000n);
+    expect(trc20TransferParams("ab".repeat(20), 12_500_000n).length).toBe(128);
+  });
+});

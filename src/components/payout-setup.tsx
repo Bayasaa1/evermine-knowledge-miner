@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isPayoutAddress } from "@/lib/crypto-pay";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -256,7 +257,7 @@ const earnCopy = {
     acctTitle: "Where buyers pay you", acctHint: "Shown to buyers at checkout. Bank transfers are confirmed by you below.",
     bank: "Bank", account: "Account number / IBAN", holder: "Account holder name", qr: "QR image link (https, optional)",
     stripe: "Stripe Payment Link per plan (optional)", save: "Save receiving details", saved: "Receiving details saved.",
-    badUrl: "Links must start with https://", needAcct: "Enter an account number and holder name.",
+    badUrl: "Links must start with https://", usdtTitle: "USDT payout addresses (automatic payouts)", usdtHint: "Your share of every crypto sale is sent here automatically.", badAddr: "That USDT address is not valid for this network.", needAcct: "Enter an account number and holder name.",
     sales: "Sales", revenue: "Earned (approved)", net: "Your share after commission", pendingSum: "Waiting for your confirmation",
     none: "No sales yet.", buyer: "Buyer", plan: "Plan", amount: "Amount", method: "Method", ref: "Reference / Tx ID", status: "Status",
     approve: "Approve", reject: "Reject", revoke: "Revoke access", signIn: "Sign in to manage payments.",
@@ -267,7 +268,7 @@ const earnCopy = {
     acctTitle: "Худалдан авагч хаана төлөх вэ", acctHint: "Төлбөр төлөх үед харагдана. Дансны шилжүүлгийг та доор баталгаажуулна.",
     bank: "Банк", account: "Дансны дугаар / IBAN", holder: "Данс эзэмшигчийн нэр", qr: "QR зургийн холбоос (https, заавал биш)",
     stripe: "Багц тус бүрийн Stripe Payment Link (заавал биш)", save: "Хүлээн авах мэдээлэл хадгалах", saved: "Хадгаллаа.",
-    badUrl: "Холбоос https:// -ээр эхлэх ёстой", needAcct: "Дансны дугаар болон эзэмшигчийн нэрээ оруулна уу.",
+    badUrl: "Холбоос https:// -ээр эхлэх ёстой", usdtTitle: "USDT хүлээн авах хаяг (автомат шилжүүлэг)", usdtHint: "Крипто борлуулалт бүрийн таны хувь энэ хаяг руу автоматаар очно.", badAddr: "Энэ USDT хаяг тухайн сүлжээнд буруу байна.", needAcct: "Дансны дугаар болон эзэмшигчийн нэрээ оруулна уу.",
     sales: "Борлуулалт", revenue: "Орлого (батлагдсан)", net: "Шимтгэлийн дараа танд", pendingSum: "Таны баталгаажуулалтыг хүлээж буй",
     none: "Одоогоор борлуулалт алга.", buyer: "Худалдан авагч", plan: "Багц", amount: "Дүн", method: "Арга", ref: "Код / Гүйлгээ", status: "Төлөв",
     approve: "Батлах", reject: "Татгалзах", revoke: "Эрх цуцлах", signIn: "Төлбөр удирдахын тулд нэвтэрнэ үү.",
@@ -278,7 +279,7 @@ const earnCopy = {
     acctTitle: "구매자 결제 받을 곳", acctHint: "결제 화면에 표시됩니다. 계좌이체는 아래에서 직접 확인합니다.",
     bank: "은행", account: "계좌번호 / IBAN", holder: "예금주명", qr: "QR 이미지 링크 (https, 선택)",
     stripe: "플랜별 Stripe 결제 링크 (선택)", save: "수령 정보 저장", saved: "저장되었습니다.",
-    badUrl: "링크는 https:// 로 시작해야 합니다", needAcct: "계좌번호와 예금주명을 입력하세요.",
+    badUrl: "링크는 https:// 로 시작해야 합니다", usdtTitle: "USDT 정산 주소 (자동 지급)", usdtHint: "모든 암호화폐 판매의 내 몫이 이 주소로 자동 전송됩니다.", badAddr: "이 네트워크에 맞지 않는 USDT 주소입니다.", needAcct: "계좌번호와 예금주명을 입력하세요.",
     sales: "판매", revenue: "수익 (승인됨)", net: "수수료 후 실수령", pendingSum: "확인 대기 중",
     none: "아직 판매가 없습니다.", buyer: "구매자", plan: "플랜", amount: "금액", method: "방식", ref: "코드 / 거래 ID", status: "상태",
     approve: "승인", reject: "거절", revoke: "접근 취소", signIn: "결제를 관리하려면 로그인하세요.",
@@ -317,7 +318,10 @@ export function CreatorEarnings({ lang }: { lang: Lang }) {
   if (!userId) return <p className="text-sm text-muted-foreground">{t.signIn}</p>;
 
   const save = async () => {
-    if (!acct.account_number.trim() || !acct.account_holder.trim()) return void toast.error(t.needAcct);
+    const hasUsdt = !!(acct.usdt_trc20_address.trim() || acct.usdt_polygon_address.trim());
+    if (acct.usdt_trc20_address.trim() && !isPayoutAddress("usdt_trc20", acct.usdt_trc20_address.trim())) return void toast.error(t.badAddr);
+    if (acct.usdt_polygon_address.trim() && !isPayoutAddress("usdt_polygon", acct.usdt_polygon_address.trim())) return void toast.error(t.badAddr);
+    if (!hasUsdt && (!acct.account_number.trim() || !acct.account_holder.trim())) return void toast.error(t.needAcct);
     if (![acct.qr_url, ...Object.values(acct.stripe_links)].every((u) => isSafeHttpsUrl(u ?? ""))) return void toast.error(t.badUrl);
     setSaving(true);
     const err = await saveReceivingAccount(userId, acct);
@@ -357,6 +361,14 @@ export function CreatorEarnings({ lang }: { lang: Lang }) {
           <label className="text-xs text-muted-foreground">{t.qr}
             <input value={acct.qr_url} onChange={(e) => setAcct({ ...acct, qr_url: e.target.value.trim() })} className={`mt-1 ${inputCls}`} />
           </label>
+        </div>
+        <p className="mt-3 text-xs font-semibold text-muted-foreground">{t.usdtTitle}</p>
+        <p className="text-xs text-muted-foreground">{t.usdtHint}</p>
+        <div className="mt-1 grid gap-2 sm:grid-cols-2">
+          <input placeholder="USDT TRC-20 — T…" value={acct.usdt_trc20_address}
+            onChange={(e) => setAcct({ ...acct, usdt_trc20_address: e.target.value.trim().slice(0, 64) })} className={inputCls} />
+          <input placeholder="USDT Polygon — 0x…" value={acct.usdt_polygon_address}
+            onChange={(e) => setAcct({ ...acct, usdt_polygon_address: e.target.value.trim().slice(0, 64) })} className={inputCls} />
         </div>
         <p className="mt-3 text-xs font-semibold text-muted-foreground">{t.stripe}</p>
         <div className="mt-1 grid gap-2 sm:grid-cols-2">

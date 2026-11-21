@@ -189,13 +189,15 @@ function projectIdOf(mindId: string): string | null {
 /** Opens (or re-opens) a payment order with a unique reference. Price comes from the server. */
 export const startCheckout = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { mindId: string; category?: string; plan?: string; method?: string }) => {
+  .inputValidator((input: { mindId: string; category?: string; plan?: string; method?: string; acceptTerms?: boolean }) => {
     if (!input?.mindId || typeof input.mindId !== "string" || input.mindId.length > 200) throw new Error("A mind id is required");
     const plan = PLAN_LENGTHS.includes(input.plan as PlanLength) ? (input.plan as PlanLength) : "lifetime";
     const method = input.method === "stripe" ? "stripe" : input.method === "usdt_trc20" || input.method === "usdt_polygon" ? input.method : "bank";
+    if (input.acceptTerms !== true) throw new Error("You must accept the purchase agreement first.");
     return { mindId: input.mindId, category: String(input.category || "knowledge").slice(0, 40), plan, method };
   })
   .handler(async ({ data, context }): Promise<{ ok: boolean; error: string | null; order?: CheckoutOrder }> => {
+    const { TERMS_VERSION } = await import("@/lib/crypto-pay");
     const { assertNotBanned } = await import("@/lib/api-guard.server");
     await assertNotBanned(context.supabase, context.userId);
     const projectId = projectIdOf(data.mindId);
@@ -237,6 +239,7 @@ export const startCheckout = createServerFn({ method: "POST" })
           buyer_id: context.userId, creator_user_id: creatorId, mind_id: data.mindId, category: data.category,
           plan: data.plan, amount: listed.price, currency: listed.currency, method: data.method,
           reference: makePaymentReference(),
+          agreement_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION,
         }).select("id,reference,status,amount,currency").maybeSingle();
         row = ins;
       }
@@ -371,5 +374,11 @@ export const verifyCryptoPayment = createServerFn({ method: "POST" })
       price: order.amount, currency: order.currency, plan, expires_at: expiryFor(plan),
     }, { onConflict: "user_id,mind_id" });
     if (error) return { ok: false, error: error.message };
+    // Queue the creator share + cold-wallet sweep and try sending right away (awaited, never detached).
+    try {
+      const { enqueuePayouts, processPayouts } = await import("@/lib/crypto-send.server");
+      if (order.creator_user_id) await enqueuePayouts({ id: order.id, creator_user_id: order.creator_user_id, method: order.method, creator_net: net, platform_fee: fee });
+      await processPayouts(2);
+    } catch (e) { console.error("payout enqueue", e); }
     return { ok: true, error: null };
   });

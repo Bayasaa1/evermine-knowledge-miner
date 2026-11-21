@@ -273,6 +273,7 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
 
 const checkoutCopy = {
   en: {
+    agreeTitle: "Purchase agreement", agreeBody: ["Access to this Mind is a digital product delivered instantly after payment is confirmed.", "All sales are final. No refunds, cancellations or chargebacks — crypto transfers cannot be reversed.", "Send USDT only on the network you pick, to the exact address shown. Funds sent on the wrong network or to another address are lost.", "Payment is split automatically between the creator and Evermind."], agreeCheck: "I have read and agree to the purchase agreement and the no-refund policy.", agreeGo: "Agree and continue",
     cryptoHint: "Send exactly this amount of USDT on the selected network to the address below, then paste the transaction hash. Access unlocks automatically.", txHash: "Transaction hash (TxID)", verify: "Verify & unlock", unlocked: "Payment confirmed — unlocked!", address: "Wallet address",
     title: "Checkout", plan: "Plan", total: "Total", card: "Card (Stripe)", bank: "Bank transfer / QR",
     cardHint: "Pay securely on the creator's Stripe page, then paste the receipt or payment ID below.",
@@ -286,6 +287,7 @@ const checkoutCopy = {
     names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime Complete Edition" },
   },
   mn: {
+    agreeTitle: "Худалдан авалтын гэрээ", agreeBody: ["Энэ Mind-д хандах эрх нь төлбөр баталгаажмагц шууд олгогддог дижитал бүтээгдэхүүн.", "Бүх худалдан авалт эцсийнх. Буцаалт, цуцлалт байхгүй — крипто гүйлгээг буцаах боломжгүй.", "USDT-г зөвхөн сонгосон сүлжээгээр, яг харуулсан хаяг руу илгээнэ. Буруу сүлжээ эсвэл өөр хаяг руу илгээсэн мөнгө алдагдана.", "Төлбөр бүтээгч болон Evermind-ийн хооронд автоматаар хуваагдана."], agreeCheck: "Би худалдан авалтын гэрээ болон буцаалтгүй бодлоготой танилцаж, зөвшөөрч байна.", agreeGo: "Зөвшөөрөөд үргэлжлүүлэх",
     cryptoHint: "Сонгосон сүлжээгээр яг энэ дүнгийн USDT-г доорх хаяг руу илгээгээд гүйлгээний hash-аа оруулна уу. Шууд автоматаар нээгдэнэ.", txHash: "Гүйлгээний hash (TxID)", verify: "Шалгаад нээх", unlocked: "Төлбөр баталгаажлаа — нээгдлээ!", address: "Хэтэвчний хаяг",
     title: "Төлбөр төлөх", plan: "Багц", total: "Нийт", card: "Карт (Stripe)", bank: "Дансаар / QR",
     cardHint: "Бүтээгчийн Stripe хуудсаар төлөөд, баримтын эсвэл гүйлгээний дугаараа доор оруулна уу.",
@@ -299,6 +301,7 @@ const checkoutCopy = {
     names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан туршийн бүрэн хувилбар" },
   },
   ko: {
+    agreeTitle: "구매 약관", agreeBody: ["이 Mind 이용권은 결제 확인 즉시 제공되는 디지털 상품입니다.", "모든 판매는 최종입니다. 환불, 취소, 지불 거절이 불가하며 암호화폐 전송은 되돌릴 수 없습니다.", "선택한 네트워크로, 표시된 정확한 주소로만 USDT를 보내세요. 잘못된 네트워크나 다른 주소로 보낸 금액은 잃게 됩니다.", "결제 금액은 크리에이터와 Evermind 간에 자동으로 나뉩니다."], agreeCheck: "구매 약관과 환불 불가 정책을 읽었으며 동의합니다.", agreeGo: "동의하고 계속",
     cryptoHint: "선택한 네트워크로 정확한 금액의 USDT를 아래 주소로 보낸 뒤 거래 해시를 붙여 넣으세요. 자동으로 열립니다.", txHash: "거래 해시 (TxID)", verify: "확인하고 열기", unlocked: "결제 확인 — 열렸습니다!", address: "지갑 주소",
     title: "결제", plan: "플랜", total: "합계", card: "카드 (Stripe)", bank: "계좌이체 / QR",
     cardHint: "크리에이터의 Stripe 페이지에서 결제한 뒤 영수증 또는 결제 ID를 아래에 붙여 넣으세요.",
@@ -326,16 +329,19 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
   const [tx, setTx] = useState("");
   const [sending, setSending] = useState(false);
   const plan = (req.plan ?? "lifetime") as PlanLength;
+  const [agreed, setAgreed] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    if (!agreed) { setLoading(false); return; }
     let alive = true;
     setLoading(true); setErr(null); setOrder(null);
-    void start({ data: { mindId: req.mindId, category: req.category, plan, method } })
+    void start({ data: { mindId: req.mindId, category: req.category, plan, method, acceptTerms: true } })
       .then((r) => { if (!alive) return; if (r.ok && r.order) setOrder(r.order); else setErr(r.error); })
       .catch((e: unknown) => alive && setErr(e instanceof Error ? e.message : "Checkout failed"))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [method, plan, req.mindId, req.category, start]);
+  }, [agreed, method, plan, req.mindId, req.category, start]);
 
   const send = async () => {
     if (!order) return;
@@ -362,7 +368,20 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
   return (
     <Dialog open onOpenChange={(o) => !o && onDone({ error: t.cancelled })}>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>{t.title}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{agreed ? t.title : t.agreeTitle}</DialogTitle></DialogHeader>
+        {!agreed ? (
+          <div className="space-y-3">
+            <ul className="list-disc space-y-1.5 rounded-lg border border-border bg-muted/40 py-3 pl-8 pr-3 text-sm text-foreground">
+              {t.agreeBody.map((line) => <li key={line}>{line}</li>)}
+            </ul>
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="mt-1" />
+              <span>{t.agreeCheck}</span>
+            </label>
+            <button type="button" disabled={!checked} onClick={() => setAgreed(true)}
+              className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">{t.agreeGo}</button>
+          </div>
+        ) : (<>
         <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
           <span className="text-muted-foreground">{t.plan}: <b className="text-foreground">{t.names[plan]}</b></span>
           {order && <span className="font-mono font-semibold text-foreground">{formatMoney(order.amount, order.currency)}</span>}
@@ -436,6 +455,7 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
             </button>
           </div>
         )}
+      </>)}
       </DialogContent>
     </Dialog>
   );
