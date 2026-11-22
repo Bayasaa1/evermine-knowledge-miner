@@ -197,7 +197,7 @@ export const startCheckout = createServerFn({ method: "POST" })
     return { mindId: input.mindId, category: String(input.category || "knowledge").slice(0, 40), plan, method };
   })
   .handler(async ({ data, context }): Promise<{ ok: boolean; error: string | null; order?: CheckoutOrder }> => {
-    const { TERMS_VERSION } = await import("@/lib/crypto-pay");
+    const { TERMS_VERSION, isCryptoNetwork, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR } = await import("@/lib/crypto-pay");
     const { assertNotBanned } = await import("@/lib/api-guard.server");
     await assertNotBanned(context.supabase, context.userId);
     const projectId = projectIdOf(data.mindId);
@@ -205,6 +205,8 @@ export const startCheckout = createServerFn({ method: "POST" })
     const listed = await projectPrice(data.mindId, data.plan);
     if (!listed) return { ok: false, error: "This Mind is not available." };
     if (!(listed.price > 0)) return { ok: false, error: "This plan is free — no payment needed." };
+    const crypto = isCryptoNetwork(data.method);
+    if (crypto && !isUsdtPriceCurrency(listed.currency)) return { ok: false, error: CRYPTO_CURRENCY_ERROR };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: proj } = await supabaseAdmin.from("projects").select("user_id").eq("id", projectId).maybeSingle();
     const creatorId = proj?.user_id ?? null;
@@ -216,7 +218,6 @@ export const startCheckout = createServerFn({ method: "POST" })
     const bank = acct && acct.account_number
       ? { bankName: acct.bank_name, accountNumber: acct.account_number, holder: acct.account_holder, qrUrl: acct.qr_url }
       : null;
-    const crypto = data.method === "usdt_trc20" || data.method === "usdt_polygon";
     let wallet: string | null = null;
     if (crypto) {
       const { walletFor } = await import("@/lib/crypto-pay.server");
@@ -233,6 +234,8 @@ export const startCheckout = createServerFn({ method: "POST" })
       .eq("buyer_id", context.userId).eq("mind_id", data.mindId).eq("plan", data.plan).eq("method", data.method)
       .in("status", ["awaiting", "submitted"]).maybeSingle();
     let row = open;
+    // Legacy orders must also pass the currency guard before exposing a payment address.
+    if (crypto && row && !isUsdtPriceCurrency(row.currency)) return { ok: false, error: CRYPTO_CURRENCY_ERROR };
     if (!row) {
       for (let i = 0; i < 5 && !row; i++) {
         const { data: ins } = await supabaseAdmin.from("mind_payment_orders").insert({
@@ -337,7 +340,7 @@ export const verifyCryptoPayment = createServerFn({ method: "POST" })
     return { orderId: input.orderId, txHash: String(input?.txHash ?? "").slice(0, 100) };
   })
   .handler(async ({ data, context }): Promise<PurchaseResult> => {
-    const { isCryptoNetwork, normalizeTxHash, checkTransfer, splitPayment } = await import("@/lib/crypto-pay");
+    const { isCryptoNetwork, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR, normalizeTxHash, checkTransfer, splitPayment } = await import("@/lib/crypto-pay");
     const { walletFor, fetchTransfer } = await import("@/lib/crypto-pay.server");
     const { PLATFORM_COMMISSION } = await import("@/lib/subscription");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -346,6 +349,7 @@ export const verifyCryptoPayment = createServerFn({ method: "POST" })
     if (!order) return { ok: false, error: "Order not found." };
     if (order.status === "approved") return { ok: true, error: null };
     if (!isCryptoNetwork(order.method)) return { ok: false, error: "This order is not a crypto order." };
+    if (!isUsdtPriceCurrency(order.currency)) return { ok: false, error: CRYPTO_CURRENCY_ERROR };
     const hash = normalizeTxHash(order.method, data.txHash);
     if (!hash) return { ok: false, error: "Enter a valid transaction hash (64 hex characters)." };
     const wallet = walletFor(order.method);
@@ -358,7 +362,7 @@ export const verifyCryptoPayment = createServerFn({ method: "POST" })
     catch (e) { console.error("crypto verify", e); return { ok: false, error: "Could not reach the blockchain. Try again shortly." }; }
     if (!transfer) return { ok: false, error: "No USDT transfer to the Evermind wallet found for this hash yet. Wait a minute and retry." };
     const why = checkTransfer(transfer, {
-      network: order.method, wallet, orderAmountUsd: Number(order.amount),
+      network: order.method, wallet, orderAmountUsd: Number(order.amount), orderCurrency: order.currency,
       orderCreatedMs: new Date(order.created_at).getTime(), nowMs: Date.now(),
     });
     if (why) return { ok: false, error: why };

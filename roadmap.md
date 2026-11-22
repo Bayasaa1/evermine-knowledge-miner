@@ -1,5 +1,11 @@
 # Roadmap
 
+## Crypto checkout currency regression — November 22
+- [x] Confirm non-dollar prices are treated as USDT without conversion
+- [x] Guard new orders, reused orders, verification and displayed payment details; preserve creator prices
+- [x] 197 tests pass; signed-in checkout and browser currency rules verified; simulated currency-error display checked on desktop/mobile without QR or verification controls
+- [ ] Verify a real non-dollar paid checkout — no published non-dollar fixture exists; creator prices left unchanged and no funds transferred
+
 ## Group-room build speaker regression — November 17
 - [x] Confirm typed coding requests bypass room speaker rules
 - [x] Reserve full squad relay for the explicit Auto-Build action; preserve ordinary room selection

@@ -15,6 +15,14 @@ export function isCryptoNetwork(v: unknown): v is CryptoNetwork {
   return v === "usdt_trc20" || v === "usdt_polygon";
 }
 
+export const CRYPTO_CURRENCY_ERROR = "USDT checkout is only available for prices in USD or USDT. Currency conversion is not available; choose another payment method.";
+
+/** Only dollar-denominated prices can be settled at the same numeric USDT amount. */
+export function isUsdtPriceCurrency(currency: string): boolean {
+  const code = currency.trim().toUpperCase();
+  return code === "USD" || code === "USDT";
+}
+
 export function normalizeTxHash(network: CryptoNetwork, raw: string): string | null {
   const s = raw.trim().toLowerCase().replace(/^0x/, "");
   if (!/^[0-9a-f]{64}$/.test(s)) return null;
@@ -26,11 +34,12 @@ export type OnchainTransfer = {
 };
 
 export type CheckInput = {
-  network: CryptoNetwork; wallet: string; orderAmountUsd: number; orderCreatedMs: number; nowMs: number;
+  network: CryptoNetwork; wallet: string; orderAmountUsd: number; orderCurrency: string; orderCreatedMs: number; nowMs: number;
 };
 
 /** Returns null when the transfer pays the order, else the reason it does not. */
 export function checkTransfer(t: OnchainTransfer, c: CheckInput): string | null {
+  if (!isUsdtPriceCurrency(c.orderCurrency)) return CRYPTO_CURRENCY_ERROR;
   const same = (a: string, b: string) =>
     c.network === "usdt_polygon" ? a.toLowerCase() === b.toLowerCase() : a === b;
   if (!same(t.token, USDT_CONTRACT[c.network])) return "Not a USDT transfer.";

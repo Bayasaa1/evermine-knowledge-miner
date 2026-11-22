@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { startCheckout, submitPaymentProof, verifyCryptoPayment, type CheckoutOrder } from "@/lib/purchases.functions";
 import type { CheckoutRequest } from "@/lib/purchases";
+import { CRYPTO_CURRENCY_ERROR, isUsdtPriceCurrency } from "@/lib/crypto-pay";
 import { CreatorEarnings } from "@/components/payout-setup";
 import {
   PLATFORM_COMMISSION,
@@ -273,6 +274,7 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
 
 const checkoutCopy = {
   en: {
+    cryptoCurrency: CRYPTO_CURRENCY_ERROR,
     agreeTitle: "Purchase agreement", agreeBody: ["Access to this Mind is a digital product delivered instantly after payment is confirmed.", "All sales are final. No refunds, cancellations or chargebacks — crypto transfers cannot be reversed.", "Send USDT only on the network you pick, to the exact address shown. Funds sent on the wrong network or to another address are lost.", "Payment is split automatically between the creator and Evermind."], agreeCheck: "I have read and agree to the purchase agreement and the no-refund policy.", agreeGo: "Agree and continue",
     cryptoHint: "Send exactly this amount of USDT on the selected network to the address below, then paste the transaction hash. Access unlocks automatically.", txHash: "Transaction hash (TxID)", verify: "Verify & unlock", unlocked: "Payment confirmed — unlocked!", address: "Wallet address",
     title: "Checkout", plan: "Plan", total: "Total", card: "Card (Stripe)", bank: "Bank transfer / QR",
@@ -287,6 +289,7 @@ const checkoutCopy = {
     names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime Complete Edition" },
   },
   mn: {
+    cryptoCurrency: "USDT төлбөр зөвхөн USD эсвэл USDT үнэтэй багцад боломжтой. Валют хөрвүүлэх боломжгүй тул өөр төлбөрийн арга сонгоно уу.",
     agreeTitle: "Худалдан авалтын гэрээ", agreeBody: ["Энэ Mind-д хандах эрх нь төлбөр баталгаажмагц шууд олгогддог дижитал бүтээгдэхүүн.", "Бүх худалдан авалт эцсийнх. Буцаалт, цуцлалт байхгүй — крипто гүйлгээг буцаах боломжгүй.", "USDT-г зөвхөн сонгосон сүлжээгээр, яг харуулсан хаяг руу илгээнэ. Буруу сүлжээ эсвэл өөр хаяг руу илгээсэн мөнгө алдагдана.", "Төлбөр бүтээгч болон Evermind-ийн хооронд автоматаар хуваагдана."], agreeCheck: "Би худалдан авалтын гэрээ болон буцаалтгүй бодлоготой танилцаж, зөвшөөрч байна.", agreeGo: "Зөвшөөрөөд үргэлжлүүлэх",
     cryptoHint: "Сонгосон сүлжээгээр яг энэ дүнгийн USDT-г доорх хаяг руу илгээгээд гүйлгээний hash-аа оруулна уу. Шууд автоматаар нээгдэнэ.", txHash: "Гүйлгээний hash (TxID)", verify: "Шалгаад нээх", unlocked: "Төлбөр баталгаажлаа — нээгдлээ!", address: "Хэтэвчний хаяг",
     title: "Төлбөр төлөх", plan: "Багц", total: "Нийт", card: "Карт (Stripe)", bank: "Дансаар / QR",
@@ -301,6 +304,7 @@ const checkoutCopy = {
     names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан туршийн бүрэн хувилбар" },
   },
   ko: {
+    cryptoCurrency: "USDT 결제는 USD 또는 USDT로 가격이 설정된 플랜만 가능합니다. 통화 환산은 지원되지 않으므로 다른 결제 수단을 선택해 주세요.",
     agreeTitle: "구매 약관", agreeBody: ["이 Mind 이용권은 결제 확인 즉시 제공되는 디지털 상품입니다.", "모든 판매는 최종입니다. 환불, 취소, 지불 거절이 불가하며 암호화폐 전송은 되돌릴 수 없습니다.", "선택한 네트워크로, 표시된 정확한 주소로만 USDT를 보내세요. 잘못된 네트워크나 다른 주소로 보낸 금액은 잃게 됩니다.", "결제 금액은 크리에이터와 Evermind 간에 자동으로 나뉩니다."], agreeCheck: "구매 약관과 환불 불가 정책을 읽었으며 동의합니다.", agreeGo: "동의하고 계속",
     cryptoHint: "선택한 네트워크로 정확한 금액의 USDT를 아래 주소로 보낸 뒤 거래 해시를 붙여 넣으세요. 자동으로 열립니다.", txHash: "거래 해시 (TxID)", verify: "확인하고 열기", unlocked: "결제 확인 — 열렸습니다!", address: "지갑 주소",
     title: "결제", plan: "플랜", total: "합계", card: "카드 (Stripe)", bank: "계좌이체 / QR",
@@ -337,11 +341,17 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
     let alive = true;
     setLoading(true); setErr(null); setOrder(null);
     void start({ data: { mindId: req.mindId, category: req.category, plan, method, acceptTerms: true } })
-      .then((r) => { if (!alive) return; if (r.ok && r.order) setOrder(r.order); else setErr(r.error); })
+      .then((r) => {
+        if (!alive) return;
+        if (r.error === CRYPTO_CURRENCY_ERROR || (isCrypto && r.order && !isUsdtPriceCurrency(r.order.currency))) {
+          setErr(t.cryptoCurrency);
+        } else if (r.ok && r.order) setOrder(r.order);
+        else setErr(r.error);
+      })
       .catch((e: unknown) => alive && setErr(e instanceof Error ? e.message : "Checkout failed"))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [agreed, method, plan, req.mindId, req.category, start]);
+  }, [agreed, method, isCrypto, plan, req.mindId, req.category, start, t.cryptoCurrency]);
 
   const send = async () => {
     if (!order) return;
@@ -349,7 +359,7 @@ function CheckoutModal({ req, lang, onDone }: { req: CheckoutRequest; lang: Lang
     try {
       if (isCrypto) {
         const r = await verifyCrypto({ data: { orderId: order.orderId, txHash: tx } });
-        if (!r.ok) return void toast.error(r.error ?? "Failed");
+        if (!r.ok) return void toast.error(r.error === CRYPTO_CURRENCY_ERROR ? t.cryptoCurrency : r.error ?? "Failed");
         toast.success(t.unlocked);
         return void onDone({ error: null });
       }

@@ -1,13 +1,35 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 const expect = (v: unknown) => ({ toBeNull: () => assert.equal(v, null), toBe: (x: unknown) => assert.equal(v, x), toEqual: (x: unknown) => assert.deepEqual(v, x), not: { toBeNull: () => assert.notEqual(v, null) } });
-import { checkTransfer, normalizeTxHash, parsePolygonTransfer, splitPayment, TRANSFER_TOPIC, USDT_CONTRACT } from "./crypto-pay";
+import { checkTransfer, normalizeTxHash, parsePolygonTransfer, splitPayment, TRANSFER_TOPIC, USDT_CONTRACT, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR } from "./crypto-pay";
 
 const W = "TWalletXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 const base = { token: USDT_CONTRACT.usdt_trc20, to: W, amountUnits: 10_000_000n, success: true, confirmed: true, timestampMs: 1_000_000_000 };
-const c = { network: "usdt_trc20" as const, wallet: W, orderAmountUsd: 10, orderCreatedMs: 1_000_000_000, nowMs: 1_000_100_000 };
+const c = { network: "usdt_trc20" as const, wallet: W, orderAmountUsd: 10, orderCurrency: "USD", orderCreatedMs: 1_000_000_000, nowMs: 1_000_100_000 };
 
 describe("crypto payment rules", () => {
+  test("30,000 MNT is never interpreted as 30,000 USDT on either network", () => {
+    assert.equal(isUsdtPriceCurrency("MNT"), false);
+    for (const network of ["usdt_trc20", "usdt_polygon"] as const) {
+      assert.equal(checkTransfer({ ...base, token: USDT_CONTRACT[network], amountUnits: 30_000_000_000n }, {
+        ...c, network, orderAmountUsd: 30_000, orderCurrency: "MNT",
+      }), CRYPTO_CURRENCY_ERROR);
+    }
+  });
+  test("USD and USDT prices keep their amount on both networks", () => {
+    for (const currency of ["USD", "USDT", " usd ", "usdt"]) {
+      assert.equal(isUsdtPriceCurrency(currency), true);
+      for (const network of ["usdt_trc20", "usdt_polygon"] as const) {
+        assert.equal(checkTransfer({ ...base, token: USDT_CONTRACT[network] }, { ...c, network, orderCurrency: currency }), null);
+      }
+    }
+  });
+  test("other or missing currencies cannot become USDT payouts", () => {
+    for (const currency of ["KRW", "EUR", "", " ", "DOLL"]) {
+      assert.equal(isUsdtPriceCurrency(currency), false);
+      assert.equal(checkTransfer(base, { ...c, orderCurrency: currency }), CRYPTO_CURRENCY_ERROR);
+    }
+  });
   test("exact USDT to our wallet pays the order", () => expect(checkTransfer(base, c)).toBeNull());
   test("less than the price is rejected", () => expect(checkTransfer({ ...base, amountUnits: 9_990_000n }, c)).not.toBeNull());
   test("other wallet is rejected", () => expect(checkTransfer({ ...base, to: "TOther" }, c)).not.toBeNull());
