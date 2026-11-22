@@ -23,6 +23,15 @@ export function isUsdtPriceCurrency(currency: string): boolean {
   return code === "USD" || code === "USDT";
 }
 
+/** Pending payouts must match their source crypto order's network and denomination. */
+export function isUsdtPayoutOrder(
+  order: { currency: string; method: string; status: string } | null,
+  network: string,
+): boolean {
+  return !!order && isCryptoNetwork(network)
+    && order.method === network && isUsdtPriceCurrency(order.currency);
+}
+
 export function normalizeTxHash(network: CryptoNetwork, raw: string): string | null {
   const s = raw.trim().toLowerCase().replace(/^0x/, "");
   if (!/^[0-9a-f]{64}$/.test(s)) return null;

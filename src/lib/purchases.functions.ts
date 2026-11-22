@@ -264,6 +264,12 @@ export const submitPaymentProof = createServerFn({ method: "POST" })
     return { orderId: input.orderId, transactionRef: ref };
   })
   .handler(async ({ data, context }): Promise<PurchaseResult> => {
+    const { isCryptoNetwork, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR } = await import("@/lib/crypto-pay");
+    const { data: order } = await context.supabase.from("mind_payment_orders")
+      .select("method,currency").eq("id", data.orderId).eq("buyer_id", context.userId)
+      .in("status", ["awaiting", "submitted"]).maybeSingle();
+    if (!order) return { ok: false, error: "Order not found." };
+    if (isCryptoNetwork(order.method) && !isUsdtPriceCurrency(order.currency)) return { ok: false, error: CRYPTO_CURRENCY_ERROR };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: upd, error } = await supabaseAdmin.from("mind_payment_orders")
       .update({ transaction_ref: data.transactionRef, status: "submitted" })
@@ -315,6 +321,10 @@ export const decideOrder = createServerFn({ method: "POST" })
     if (!order) return { ok: false, error: "Order not found." };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.decision === "approve") {
+      const { isCryptoNetwork, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR } = await import("@/lib/crypto-pay");
+      if (order.status !== "approved" && isCryptoNetwork(order.method) && !isUsdtPriceCurrency(order.currency)) {
+        return { ok: false, error: CRYPTO_CURRENCY_ERROR };
+      }
       const plan = (PLAN_LENGTHS.includes(order.plan as PlanLength) ? order.plan : "lifetime") as PlanLength;
       const { error } = await supabaseAdmin.from("mind_purchases").upsert({
         user_id: order.buyer_id, mind_id: order.mind_id, category: order.category,

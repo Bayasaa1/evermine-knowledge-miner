@@ -1,10 +1,13 @@
 # Roadmap
 
 ## Crypto checkout currency regression — November 22
+- [x] Read creator pricing, feed/plan picker, export prices, checkout, proof/approval, sales, usage analytics, wallet sending, address-waiting/hourly queues and database definitions; no payment-processing database functions exist
+- [x] Fix currency-mixed sales totals and usage payout deductions, price hints, and source-currency checks before queueing or sending creator/cold-wallet transfers; block invalid crypto proof/manual approval without rewriting settled records
 - [x] Confirm non-dollar prices are treated as USDT without conversion
 - [x] Guard new orders, reused orders, verification and displayed payment details; preserve creator prices
-- [x] 197 tests pass; signed-in checkout and browser currency rules verified; simulated currency-error display checked on desktop/mobile without QR or verification controls
+- [x] 201 tests pass; signed-in checkout and browser currency/earnings rules verified; simulated checkout error checked on desktop/mobile without QR or verification controls; build OK
 - [ ] Verify a real non-dollar paid checkout — no published non-dollar fixture exists; creator prices left unchanged and no funds transferred
+- [ ] Verify live outgoing transfers and external card charges — no funded payment test performed; orders and payout tables are empty; no payment settings changed
 
 ## Group-room build speaker regression — November 17
 - [x] Confirm typed coding requests bypass room speaker rules

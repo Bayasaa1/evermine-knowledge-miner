@@ -144,3 +144,15 @@ export function summarizeSales(rows: Array<{ amount: number; status: string }>, 
   const pending = rows.filter((r) => r.status === "submitted").reduce((s, r) => s + r.amount, 0);
   return { gross, net: Math.round(gross * (1 - commission) * 100) / 100, pending };
 }
+
+/** No FX conversion: never add sales denominated in different currencies. */
+export function summarizeSalesByCurrency(rows: Array<{ amount: number; status: string; currency: string }>, commission = 0.2) {
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const currency = row.currency.trim().toUpperCase();
+    const group = groups.get(currency) ?? [];
+    group.push(row);
+    groups.set(currency, group);
+  }
+  return Array.from(groups, ([currency, group]) => ({ currency, ...summarizeSales(group, commission) }));
+}

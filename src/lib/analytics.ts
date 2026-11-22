@@ -175,7 +175,9 @@ export function summarize(a: Analytics, ownershipRaw: unknown, now = Date.now())
   const queryEarnings = totalQueries * perQuery;
   const callEarnings = callMinutes * perMinute;
   const gross = queryEarnings + callEarnings;
-  const paidOut = a.payouts.reduce((sum, p) => sum + p.amount, 0);
+  const currency = ownership.currency.trim().toUpperCase();
+  const paidOut = a.payouts.filter((p) => p.currency.trim().toUpperCase() === currency)
+    .reduce((sum, p) => sum + p.amount, 0);
 
   return {
     totalCalls: calls.length,

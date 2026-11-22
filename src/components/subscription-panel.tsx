@@ -210,7 +210,7 @@ export function SubscriptionPanel({ lang }: { lang: Lang; creatorEmail?: string 
                           onClick={() => setTier(length, { price: p })}
                           className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
                         >
-                          {p === 0 ? t.freeChip : `$${p}`}
+                          {p === 0 ? t.freeChip : formatMoney(p, plan.currency)}
                         </button>
                       ))}
                       <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">

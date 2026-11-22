@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { isPayoutAddress } from "@/lib/crypto-pay";
+import { CRYPTO_CURRENCY_ERROR, isPayoutAddress } from "@/lib/crypto-pay";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,7 +17,7 @@ import {
   isSafeHttpsUrl,
   loadReceivingAccount,
   saveReceivingAccount,
-  summarizeSales,
+  summarizeSalesByCurrency,
   type ReceivingAccount,
   type PayoutChannel,
   type PayoutSettings,
@@ -254,6 +254,7 @@ export function PayoutSetup({
 
 const earnCopy = {
   en: {
+    cryptoCurrency: CRYPTO_CURRENCY_ERROR,
     acctTitle: "Where buyers pay you", acctHint: "Shown to buyers at checkout. Bank transfers are confirmed by you below.",
     bank: "Bank", account: "Account number / IBAN", holder: "Account holder name", qr: "QR image link (https, optional)",
     stripe: "Stripe Payment Link per plan (optional)", save: "Save receiving details", saved: "Receiving details saved.",
@@ -265,6 +266,7 @@ const earnCopy = {
     names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime" } as Record<string, string>,
   },
   mn: {
+    cryptoCurrency: "USD эсвэл USDT үнэтэй крипто захиалга л баталгаажих боломжтой. Валют хөрвүүлэх боломжгүй.",
     acctTitle: "Худалдан авагч хаана төлөх вэ", acctHint: "Төлбөр төлөх үед харагдана. Дансны шилжүүлгийг та доор баталгаажуулна.",
     bank: "Банк", account: "Дансны дугаар / IBAN", holder: "Данс эзэмшигчийн нэр", qr: "QR зургийн холбоос (https, заавал биш)",
     stripe: "Багц тус бүрийн Stripe Payment Link (заавал биш)", save: "Хүлээн авах мэдээлэл хадгалах", saved: "Хадгаллаа.",
@@ -276,6 +278,7 @@ const earnCopy = {
     names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан турш" } as Record<string, string>,
   },
   ko: {
+    cryptoCurrency: "USD 또는 USDT 가격의 암호화폐 주문만 승인할 수 있습니다. 통화 환산은 지원되지 않습니다.",
     acctTitle: "구매자 결제 받을 곳", acctHint: "결제 화면에 표시됩니다. 계좌이체는 아래에서 직접 확인합니다.",
     bank: "은행", account: "계좌번호 / IBAN", holder: "예금주명", qr: "QR 이미지 링크 (https, 선택)",
     stripe: "플랜별 Stripe 결제 링크 (선택)", save: "수령 정보 저장", saved: "저장되었습니다.",
@@ -333,13 +336,12 @@ export function CreatorEarnings({ lang }: { lang: Lang }) {
     setBusy(orderId);
     try {
       const r = await decide({ data: { orderId, decision } });
-      if (!r.ok) toast.error(r.error ?? "Failed");
+      if (!r.ok) toast.error(r.error === CRYPTO_CURRENCY_ERROR ? t.cryptoCurrency : r.error ?? "Failed");
       await refresh();
     } finally { setBusy(null); }
   };
 
-  const sum = summarizeSales(sales);
-  const cur = sales[0]?.currency ?? "USD";
+  const sums = summarizeSalesByCurrency(sales);
 
   return (
     <div className="space-y-4">
@@ -386,10 +388,12 @@ export function CreatorEarnings({ lang }: { lang: Lang }) {
       <div className="rounded-xl border border-border bg-card p-4">
         <p className="text-sm font-semibold text-foreground">{t.sales}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          {[[t.revenue, sum.gross], [t.net, sum.net], [t.pendingSum, sum.pending]].map(([l, v]) => (
-            <div key={String(l)} className="rounded-lg border border-border bg-muted/40 p-3">
+          {[{ label: t.revenue, key: "gross" }, { label: t.net, key: "net" }, { label: t.pendingSum, key: "pending" }].map(({ label: l, key }) => (
+            <div key={l} className="rounded-lg border border-border bg-muted/40 p-3">
               <p className="text-xs text-muted-foreground">{l}</p>
-              <p className="font-mono text-lg font-semibold text-foreground">{formatMoney(Number(v), cur)}</p>
+              {sums.length === 0 ? <p className="font-mono text-lg font-semibold text-foreground">—</p> : sums.map((sum) => (
+                <p key={sum.currency} className="break-words font-mono text-lg font-semibold text-foreground">{formatMoney(sum[key as "gross" | "net" | "pending"], sum.currency)}</p>
+              ))}
             </div>
           ))}
         </div>
@@ -405,7 +409,7 @@ export function CreatorEarnings({ lang }: { lang: Lang }) {
                     <td className="px-2 py-2">{s.buyer_name}<div className="text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</div></td>
                     <td className="px-2 py-2">{t.names[s.plan] ?? s.plan}</td>
                     <td className="px-2 py-2 font-mono">{formatMoney(s.amount, s.currency)}</td>
-                    <td className="px-2 py-2">{s.method === "stripe" ? "Stripe" : "Bank / QR"}</td>
+                    <td className="px-2 py-2">{s.method === "usdt_trc20" ? "USDT · TRC-20" : s.method === "usdt_polygon" ? "USDT · Polygon" : s.method === "stripe" ? "Stripe" : "Bank / QR"}</td>
                     <td className="px-2 py-2 font-mono">{s.reference}<div className="text-muted-foreground">{s.transaction_ref || "—"}</div></td>
                     <td className="px-2 py-2">{t.statuses[s.status] ?? s.status}</td>
                     <td className="px-2 py-2">

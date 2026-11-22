@@ -1,13 +1,27 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 const expect = (v: unknown) => ({ toBeNull: () => assert.equal(v, null), toBe: (x: unknown) => assert.equal(v, x), toEqual: (x: unknown) => assert.deepEqual(v, x), not: { toBeNull: () => assert.notEqual(v, null) } });
-import { checkTransfer, normalizeTxHash, parsePolygonTransfer, splitPayment, TRANSFER_TOPIC, USDT_CONTRACT, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR } from "./crypto-pay";
+import { checkTransfer, normalizeTxHash, parsePolygonTransfer, splitPayment, TRANSFER_TOPIC, USDT_CONTRACT, isUsdtPriceCurrency, isUsdtPayoutOrder, CRYPTO_CURRENCY_ERROR } from "./crypto-pay";
 
 const W = "TWalletXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 const base = { token: USDT_CONTRACT.usdt_trc20, to: W, amountUnits: 10_000_000n, success: true, confirmed: true, timestampMs: 1_000_000_000 };
 const c = { network: "usdt_trc20" as const, wallet: W, orderAmountUsd: 10, orderCurrency: "USD", orderCreatedMs: 1_000_000_000, nowMs: 1_000_100_000 };
 
 describe("crypto payment rules", () => {
+  test("payout queues cannot send MNT orders as USDT on either network", () => {
+    for (const network of ["usdt_trc20", "usdt_polygon"] as const) {
+      assert.equal(isUsdtPayoutOrder({ currency: "MNT", method: network, status: "approved" }, network), false);
+      for (const currency of ["USD", "USDT"]) {
+        assert.equal(isUsdtPayoutOrder({ currency, method: network, status: "approved" }, network), true);
+      }
+    }
+  });
+  test("payouts require the matching crypto network without altering settled source states", () => {
+    assert.equal(isUsdtPayoutOrder(null, "usdt_trc20"), false);
+    assert.equal(isUsdtPayoutOrder({ currency: "USD", method: "usdt_polygon", status: "approved" }, "usdt_trc20"), false);
+    assert.equal(isUsdtPayoutOrder({ currency: "USD", method: "bank", status: "approved" }, "bank"), false);
+    assert.equal(isUsdtPayoutOrder({ currency: "USD", method: "usdt_trc20", status: "revoked" }, "usdt_trc20"), true);
+  });
   test("30,000 MNT is never interpreted as 30,000 USDT on either network", () => {
     assert.equal(isUsdtPriceCurrency("MNT"), false);
     for (const network of ["usdt_trc20", "usdt_polygon"] as const) {

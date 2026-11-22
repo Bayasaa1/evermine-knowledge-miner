@@ -4,7 +4,7 @@
  * A payout is claimed queued→sending atomically and is never auto-retried after a send
  * attempt fails, so a timeout can never pay someone twice.
  */
-import { USDT_CONTRACT, isPayoutAddress, toUnits, tronAddressHex, trc20TransferParams, type CryptoNetwork } from "./crypto-pay";
+import { USDT_CONTRACT, isCryptoNetwork, isUsdtPayoutOrder, isPayoutAddress, toUnits, tronAddressHex, trc20TransferParams, type CryptoNetwork } from "./crypto-pay";
 
 const POLYGON_RPC = "https://polygon-bor-rpc.publicnode.com";
 
@@ -69,10 +69,19 @@ export async function sendUsdt(network: CryptoNetwork, to: string, amount: numbe
   return network === "usdt_polygon" ? sendPolygon(key, to, amount) : sendTron(key, to, amount);
 }
 
+/** Revalidate the source denomination without rewriting paid orders or sent payouts. */
+async function hasUsdtSettlement(orderId: string, network: string): Promise<boolean> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: order } = await supabaseAdmin.from("mind_payment_orders")
+    .select("currency,method,status").eq("id", orderId).maybeSingle();
+  return isUsdtPayoutOrder(order, network);
+}
+
 /** Creates the creator payout + platform sweep rows for one paid order (idempotent). */
 export async function enqueuePayouts(order: { id: string; creator_user_id: string; method: string; creator_net: number; platform_fee: number }): Promise<void> {
+  if (!isCryptoNetwork(order.method) || !await hasUsdtSettlement(order.id, order.method)) return;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const network = order.method as CryptoNetwork;
+  const network = order.method;
   const { data: acct } = await supabaseAdmin.from("creator_payout_accounts")
     .select("usdt_trc20_address,usdt_polygon_address").eq("user_id", order.creator_user_id).maybeSingle();
   const creatorAddr = (network === "usdt_trc20" ? acct?.usdt_trc20_address : acct?.usdt_polygon_address) ?? "";
@@ -89,10 +98,11 @@ export async function enqueuePayouts(order: { id: string; creator_user_id: strin
 export async function processPayouts(limit = 5): Promise<{ sent: number; failed: number }> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   // Rows that were waiting for an address get it filled in once the creator / owner sets one.
-  const { data: waiting } = await supabaseAdmin.from("crypto_payouts").select("id,kind,network,recipient_user_id")
+  const { data: waiting } = await supabaseAdmin.from("crypto_payouts").select("id,order_id,kind,network,recipient_user_id")
     .eq("status", "waiting_address").limit(50);
   for (const w of waiting ?? []) {
-    const net = w.network as CryptoNetwork;
+    if (!isCryptoNetwork(w.network) || !await hasUsdtSettlement(w.order_id, w.network)) continue;
+    const net = w.network;
     let addr = "";
     if (w.kind === "platform") addr = coldWalletFor(net) ?? "";
     else if (w.recipient_user_id) {
@@ -109,7 +119,8 @@ export async function processPayouts(limit = 5): Promise<{ sent: number; failed:
     .order("created_at").limit(limit);
   let sent = 0, failed = 0;
   for (const row of rows ?? []) {
-    const net = row.network as CryptoNetwork;
+    if (!isCryptoNetwork(row.network) || !await hasUsdtSettlement(row.order_id, row.network)) continue;
+    const net = row.network;
     if (!senderReady(net) || !(Number(row.amount) > 0)) continue;
     const { data: claimed } = await supabaseAdmin.from("crypto_payouts")
       .update({ status: "sending", attempts: row.attempts + 1, updated_at: new Date().toISOString() })
