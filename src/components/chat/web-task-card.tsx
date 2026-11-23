@@ -3,7 +3,7 @@ import { Check, Code2, Copy, Download, ExternalLink, Eye, Lock, UserCheck } from
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
-import { extractCodeBlocks, previewHtml, previewable } from "@/lib/web-build";
+import { extractCodeBlocks, mergeProjectFiles, previewHtml, previewable } from "@/lib/web-build";
 import { fieldsCsv, missingValues, parseFieldMap, type WebTask } from "@/lib/web-task";
 
 type L = "en" | "mn" | "ko";
@@ -84,25 +84,36 @@ export function WebTaskCard({ task, reply, lang }: { task: WebTask; reply: strin
 }
 
 /** Live sandboxed preview + file downloads for code a Mind wrote. */
-export function WebBuildPreview({ reply, lang }: { reply: string; lang: L }) {
-  const blocks = extractCodeBlocks(reply);
+export function WebBuildPreview({ reply, lang, project }: { reply: string; lang: L; project?: string[] }) {
+  const blocks = project && project.length > 1 ? mergeProjectFiles(project) : extractCodeBlocks(reply);
+  const [zip, setZip] = useState<Blob | null>(null);
   const canPreview = previewable(blocks);
   const [tab, setTab] = useState<"preview" | "code" | null>(null);
   if (!blocks.length) return null;
-  const download = () => {
-    blocks.forEach((b, i) => setTimeout(() => {
-      const url = URL.createObjectURL(new Blob([b.code], { type: "text/plain" }));
-      const a = document.createElement("a");
-      a.href = url; a.download = b.file; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, i * 250));
+  // Build the ZIP first, then a click saves it synchronously (browsers drop the click after a long wait).
+  const prepare = async () => {
+    try {
+      const { default: JSZip } = await import("jszip");
+      const z = new JSZip();
+      for (const b of blocks) z.file(b.file, b.code);
+      setZip(await z.generateAsync({ type: "blob" }));
+    } catch { toast.error(tr(lang, "Could not pack the project", "Төслийг багцалж чадсангүй", "프로젝트를 묶지 못했습니다")); }
+  };
+  const save = () => {
+    if (!zip) return;
+    const url = URL.createObjectURL(zip);
+    const a = document.createElement("a");
+    a.href = url; a.download = "evermind-project.zip"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
   return (
     <div className="mt-2 space-y-2 text-xs">
       <div className="flex flex-wrap gap-1.5">
         {canPreview && <Button size="sm" variant={tab === "preview" ? "default" : "outline"} onClick={() => setTab(tab === "preview" ? null : "preview")}><Eye />{tr(lang, "Live Preview", "Шууд харах", "라이브 미리보기")}</Button>}
         <Button size="sm" variant={tab === "code" ? "default" : "outline"} onClick={() => setTab(tab === "code" ? null : "code")}><Code2 />{tr(lang, "Files", "Файлууд", "파일")} ({blocks.length})</Button>
-        <Button size="sm" variant="outline" onClick={download}><Download />{tr(lang, "Download Full Build", "Бүтэн хувилбар татах", "전체 빌드 다운로드")}</Button>
+        {zip
+          ? <Button size="sm" onClick={save}><Download />{tr(lang, "Save project ZIP", "Төслийн ZIP хадгалах", "프로젝트 ZIP 저장")}</Button>
+          : <Button size="sm" variant="outline" onClick={() => void prepare()}><Download />{tr(lang, "Download project (.zip)", "Төслийг татах (.zip)", "프로젝트 다운로드 (.zip)")}</Button>}
       </div>
       {tab === "preview" && canPreview && (
         <iframe title="Live preview" sandbox="allow-scripts" srcDoc={previewHtml(blocks)} className="h-[480px] w-full rounded-lg border border-border bg-background" />

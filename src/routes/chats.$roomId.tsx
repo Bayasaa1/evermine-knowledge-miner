@@ -23,6 +23,7 @@ import { automaticRepliesAllowed, pendingQuestions, transcriptForQuestion, turnI
 import { activeMention, insertMention, rankMentions, recentMentions, rememberMention, type MentionChoice } from "@/lib/mind-mention";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { WebBuildPreview } from "@/components/chat/web-task-card";
+import { squadReplies } from "@/lib/web-build";
 import { selectRoomSpeakers } from "@/lib/room-speakers";
 import { wantsCode } from "@/lib/chat-deliverable";
 import {
@@ -331,14 +332,14 @@ function RoomPage() {
       )}
 
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
-        {messages.map((m) => {
+        {messages.map((m, idx) => {
           const mine = m.sender_kind === "user" && m.sender_user_id === userId;
           return (
             <div key={m.id} className={`group flex ${mine ? "justify-end" : "justify-start"}`}>
               <div className={`min-w-0 max-w-[85%] rounded-lg px-3 py-2 text-sm ${mine ? "bg-primary text-primary-foreground" : m.sender_kind === "mind" ? "border border-border bg-card" : "bg-muted"}`}>
                 {!mine && <div className="mb-0.5 flex items-center gap-1 text-xs font-semibold opacity-80">{m.sender_kind === "mind" && <Bot className="h-3 w-3" />}{m.author_name}</div>}
                 {m.body.trim() && <div className="whitespace-pre-wrap break-words"><ChatDisplayText text={m.body} lang={lang}>{(shown) => m.sender_kind === "mind" ? <MessageResponse>{shown}</MessageResponse> : shown}</ChatDisplayText></div>}
-                {m.sender_kind === "mind" && m.body.includes("```") && <WebBuildPreview reply={m.body} lang={lang === "mn" || lang === "ko" ? lang : "en"} />}
+                {m.sender_kind === "mind" && m.body.includes("```") && <WebBuildPreview reply={m.body} lang={lang === "mn" || lang === "ko" ? lang : "en"} project={squadReplies(messages, idx)} />}
                 {m.attachment && <RoomMedia attachment={m.attachment} onMind={setOpenMind} openLabel={x.open} {...(isOwner && room.kind !== "dm" ? { onAdd: setInviteContent } : {})} />}
                 {m.shared_url && <SharedLink url={m.shared_url} openLabel={x.open} />}
                 {m.moderator_pending && <div className="mt-1 text-xs opacity-60">{x.queued}</div>}
