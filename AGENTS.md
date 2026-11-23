@@ -50,4 +50,3 @@
 - Paid Mind access is server-side only: USDT orders unlock instantly after verifyCryptoPayment checks the chain (recipient, token, amount, confirmations, age, unique tx); bank/Stripe orders need creator approval (decideOrder).
 - Mastery challenges run through /api/mind-chat modes challenge_generate/challenge_evaluate (pure logic in src/lib/mastery-challenge.ts); passed levels live only in the viewer's browser, because judging must never write to mined data.
 - Background AI jobs (mine, mine_write, core_brain) never borrow keys on live-job teams (chat, assistant, translate), because long mining runs drained every key and blocked chat.
-- Squad web builds write a multi-file project: each fenced block's info line names its project path, later squad steps replace the same path, and the room packs all Mind replies since the last person into one ZIP, because a single-file deliverable forced toy results.
