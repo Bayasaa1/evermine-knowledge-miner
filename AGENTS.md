@@ -9,7 +9,6 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Subdirectories have their own AGENTS.md; read it before changing files there (src/lib/AGENTS.md holds the mining rules).
 - AI receives complete structured history to address the right message.
 - Call media permissions use generation guards and cancelled work cannot restart playback; this prevents streams granted after closing from surviving.
 - Chat prompt knowledge is query-ranked to eight topic chunks with a bounded system context, while structured conversation history remains separate and intact.
@@ -50,3 +49,13 @@
 - Paid Mind access is server-side only: USDT orders unlock instantly after verifyCryptoPayment checks the chain (recipient, token, amount, confirmations, age, unique tx); bank/Stripe orders need creator approval (decideOrder).
 - Mastery challenges run through /api/mind-chat modes challenge_generate/challenge_evaluate (pure logic in src/lib/mastery-challenge.ts); passed levels live only in the viewer's browser, because judging must never write to mined data.
 - Background AI jobs (mine, mine_write, core_brain) never borrow keys on live-job teams (chat, assistant, translate), because long mining runs drained every key and blocked chat.
+
+## Mining, payments and lib rules
+
+- Mining: 5-min parts, one multimodal Gemini call (analyzeYoutubeVideo) with timed journal; no YouTube auto-captions; only creator-uploaded subtitles take tryTranscriptMine. Times stay confined to each part's window; backwards stamps are untimed.
+- Repairs re-mine flagged parts and rebuild via finalizeMiningJob; speaker fixes only rename labels; generic host labels fold into the persona; Mongolian Latin speech retries once in Cyrillic.
+- Uploads (creator-videos bucket, source_kind "upload") are cut in-browser and mined via /api/native-mine; background workers skip them.
+- Topic map is built after mining from saved facts on the user's key (mind_vaults kind 'topics'); it never alters mined data.
+- Chat commands (chat-commands.ts) and web tasks (web-task.ts) only write/submit after a user-pressed button; pasted keys are masked and never reach prompts.
+- Crypto: versioned no-refund agreement precedes orders; each USDT sale queues creator share + cold-wallet sweep in crypto_payouts. Pure guards (crypto-send.ts: address, amount ≤ order and ≤ HOT_WALLET_MAX_PAYOUT) plus a forward-only status trigger mean failed sends are never retried, because a payout must never go out twice.
+- Squad web builds (web-build.ts) are multi-file projects zipped from all Mind replies since the last person, because one-file output forced toy results.

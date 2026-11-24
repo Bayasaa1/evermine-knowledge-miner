@@ -8,9 +8,8 @@ export const Route = createFileRoute("/api/public/cron/crypto-payouts")({
       POST: async ({ request }) => {
         const denied = await authenticateCronRequest(request);
         if (denied) {
-          const projectKey = process.env["MINING_CRON_SECRET"];
-          const token = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
-          if (!projectKey || !token || token !== projectKey) return denied;
+          const { isAuthorizedCaller } = await import("@/lib/crypto-send");
+          if (!isAuthorizedCaller(request.headers.get("authorization"), process.env["MINING_CRON_SECRET"])) return denied;
         }
         const { processPayouts } = await import("@/lib/crypto-send.server");
         const r = await processPayouts(5);

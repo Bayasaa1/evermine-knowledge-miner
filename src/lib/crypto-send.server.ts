@@ -4,6 +4,7 @@
  * A payout is claimed queued→sending atomically and is never auto-retried after a send
  * attempt fails, so a timeout can never pay someone twice.
  */
+import { checkPayout, maxPayout } from "./crypto-send";
 import { USDT_CONTRACT, isCryptoNetwork, isUsdtPayoutOrder, isPayoutAddress, toUnits, tronAddressHex, trc20TransferParams, type CryptoNetwork } from "./crypto-pay";
 
 const POLYGON_RPC = "https://polygon-bor-rpc.publicnode.com";
@@ -71,10 +72,15 @@ export async function sendUsdt(network: CryptoNetwork, to: string, amount: numbe
 
 /** Revalidate the source denomination without rewriting paid orders or sent payouts. */
 async function hasUsdtSettlement(orderId: string, network: string): Promise<boolean> {
+  return (await settledAmount(orderId, network)) !== null;
+}
+
+/** Paid USDT amount of the source order, or null when it may not be paid out. */
+async function settledAmount(orderId: string, network: string): Promise<number | null> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: order } = await supabaseAdmin.from("mind_payment_orders")
-    .select("currency,method,status").eq("id", orderId).maybeSingle();
-  return isUsdtPayoutOrder(order, network);
+    .select("currency,method,status,amount").eq("id", orderId).maybeSingle();
+  return isUsdtPayoutOrder(order, network) ? Number(order?.amount ?? 0) : null;
 }
 
 /** Creates the creator payout + platform sweep rows for one paid order (idempotent). */
@@ -118,10 +124,19 @@ export async function processPayouts(limit = 5): Promise<{ sent: number; failed:
   const { data: rows } = await supabaseAdmin.from("crypto_payouts").select("*").eq("status", "queued")
     .order("created_at").limit(limit);
   let sent = 0, failed = 0;
+  const cap = maxPayout(process.env["HOT_WALLET_MAX_PAYOUT"]);
   for (const row of rows ?? []) {
-    if (!isCryptoNetwork(row.network) || !await hasUsdtSettlement(row.order_id, row.network)) continue;
+    if (!isCryptoNetwork(row.network)) continue;
+    const paid = await settledAmount(row.order_id, row.network);
+    if (paid === null) continue;
     const net = row.network;
-    if (!senderReady(net) || !(Number(row.amount) > 0)) continue;
+    const check = checkPayout(row, paid, cap);
+    if (!check.ok) {
+      // Over-cap or malformed rows wait for the owner; they are never sent automatically.
+      if (check.reason !== "status") console.warn("payout held", row.id, check.reason);
+      continue;
+    }
+    if (!senderReady(net)) continue;
     const { data: claimed } = await supabaseAdmin.from("crypto_payouts")
       .update({ status: "sending", attempts: row.attempts + 1, updated_at: new Date().toISOString() })
       .eq("id", row.id).eq("status", "queued").select("id").maybeSingle();
