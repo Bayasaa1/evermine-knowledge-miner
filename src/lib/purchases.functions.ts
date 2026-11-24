@@ -334,6 +334,8 @@ export const decideOrder = createServerFn({ method: "POST" })
       await supabaseAdmin.from("mind_payment_orders").update({ status: "approved" }).eq("id", order.id);
       return { ok: true, error: null };
     }
+    // Chain-verified USDT sales are final (no-refund agreement); revoking would also cancel queued payouts.
+    if (order.paid_at && order.status === "approved") return { ok: false, error: "Verified crypto payments are final and cannot be revoked." };
     if (order.status === "approved") {
       await supabaseAdmin.from("mind_purchases").delete().eq("user_id", order.buyer_id).eq("mind_id", order.mind_id);
     }
