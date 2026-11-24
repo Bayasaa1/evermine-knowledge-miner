@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
 import { canTransition, checkPayout, isAuthorizedCaller, maxPayout, DEFAULT_MAX_PAYOUT_USDT } from "./crypto-send";
 
 const POLY = "0x" + "a".repeat(40);
@@ -7,63 +8,63 @@ const row = (o: Partial<{ network: string; to_address: string; amount: number; s
 
 describe("duplicate-send prevention", () => {
   test("sent payouts can never be claimed again", () => {
-    expect(canTransition("sent", "sending")).toBe(false);
-    expect(canTransition("sent", "queued")).toBe(false);
+    assert.equal(canTransition("sent", "sending"), false);
+    assert.equal(canTransition("sent", "queued"), false);
   });
   test("failed payouts are never auto-retried", () => {
-    expect(canTransition("failed", "queued")).toBe(false);
-    expect(canTransition("failed", "sending")).toBe(false);
+    assert.equal(canTransition("failed", "queued"), false);
+    assert.equal(canTransition("failed", "sending"), false);
   });
   test("only queued rows move to sending", () => {
-    expect(canTransition("queued", "sending")).toBe(true);
-    expect(canTransition("sending", "sending")).toBe(false);
-    expect(checkPayout(row({ status: "sending" }), 100, 1000)).toEqual({ ok: false, reason: "status" });
+    assert.equal(canTransition("queued", "sending"), true);
+    assert.equal(canTransition("sending", "sending"), false);
+    assert.deepEqual(checkPayout(row({ status: "sending" }), 100, 1000), { ok: false, reason: "status" });
   });
 });
 
 describe("invalid addresses", () => {
   test("rejects malformed polygon address", () => {
-    expect(checkPayout(row({ to_address: "0x123" }), 100, 1000)).toEqual({ ok: false, reason: "address" });
+    assert.deepEqual(checkPayout(row({ to_address: "0x123" }), 100, 1000), { ok: false, reason: "address" });
   });
   test("rejects polygon address on tron network", () => {
-    expect(checkPayout(row({ network: "usdt_trc20" }), 100, 1000)).toEqual({ ok: false, reason: "address" });
+    assert.deepEqual(checkPayout(row({ network: "usdt_trc20" }), 100, 1000), { ok: false, reason: "address" });
   });
   test("rejects unknown network", () => {
-    expect(checkPayout(row({ network: "btc" }), 100, 1000)).toEqual({ ok: false, reason: "network" });
+    assert.deepEqual(checkPayout(row({ network: "btc" }), 100, 1000), { ok: false, reason: "network" });
   });
   test("accepts valid TRON address", () => {
-    expect(checkPayout(row({ network: "usdt_trc20", to_address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" }), 100, 1000)).toEqual({ ok: true });
+    assert.deepEqual(checkPayout(row({ network: "usdt_trc20", to_address: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t" }), 100, 1000), { ok: true });
   });
 });
 
 describe("amount caps", () => {
   test("blocks payouts above the cap", () => {
-    expect(checkPayout(row({ amount: 1500 }), 2000, 1000)).toEqual({ ok: false, reason: "cap" });
+    assert.deepEqual(checkPayout(row({ amount: 1500 }), 2000, 1000), { ok: false, reason: "cap" });
   });
   test("blocks payouts larger than the paid order", () => {
-    expect(checkPayout(row({ amount: 60 }), 50, 1000)).toEqual({ ok: false, reason: "exceeds_order" });
+    assert.deepEqual(checkPayout(row({ amount: 60 }), 50, 1000), { ok: false, reason: "exceeds_order" });
   });
   test("blocks zero amounts", () => {
-    expect(checkPayout(row({ amount: 0 }), 50, 1000)).toEqual({ ok: false, reason: "amount" });
+    assert.deepEqual(checkPayout(row({ amount: 0 }), 50, 1000), { ok: false, reason: "amount" });
   });
   test("default cap is 1000 USDT", () => {
-    expect(maxPayout(undefined)).toBe(DEFAULT_MAX_PAYOUT_USDT);
-    expect(maxPayout("250")).toBe(250);
-    expect(maxPayout("-5")).toBe(1000);
+    assert.equal(maxPayout(undefined), DEFAULT_MAX_PAYOUT_USDT);
+    assert.equal(maxPayout("250"), 250);
+    assert.equal(maxPayout("-5"), 1000);
   });
 });
 
 describe("unauthorized callers", () => {
   test("missing or wrong token is rejected", () => {
-    expect(isAuthorizedCaller(null, "secret123")).toBe(false);
-    expect(isAuthorizedCaller("Bearer nope", "secret123")).toBe(false);
-    expect(isAuthorizedCaller("secret123", "secret123")).toBe(false);
+    assert.equal(isAuthorizedCaller(null, "secret123"), false);
+    assert.equal(isAuthorizedCaller("Bearer nope", "secret123"), false);
+    assert.equal(isAuthorizedCaller("secret123", "secret123"), false);
   });
   test("unset secret never authorizes", () => {
-    expect(isAuthorizedCaller("Bearer ", undefined)).toBe(false);
-    expect(isAuthorizedCaller("Bearer x", "")).toBe(false);
+    assert.equal(isAuthorizedCaller("Bearer ", undefined), false);
+    assert.equal(isAuthorizedCaller("Bearer x", ""), false);
   });
   test("correct bearer is accepted", () => {
-    expect(isAuthorizedCaller("Bearer secret123", "secret123")).toBe(true);
+    assert.equal(isAuthorizedCaller("Bearer secret123", "secret123"), true);
   });
 });
