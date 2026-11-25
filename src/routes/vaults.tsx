@@ -2,8 +2,6 @@ import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { SavedMinds } from "@/components/saved-minds";
-import { VaultMiningQueue } from "@/components/vault-mining-queue";
-import { SubtitleHealth } from "@/components/subtitle-health";
 import { VaultHub, type VaultPersonaSelection } from "@/components/vault-hub";
 import { CreatorProfileEditor } from "@/components/creator-profile-editor";
 
@@ -49,9 +47,7 @@ function VaultsPage() {
         <VaultHub lang={lang} selected={persona} onSelect={setPersona} />
         <div className="mt-8 space-y-6 border-t border-border pt-6">
           <CreatorProfileEditor personaId={persona?.id ?? null} lang={lang} />
-          <VaultMiningQueue lang={lang} personaId={persona?.id ?? null} />
           <SavedMinds lang={lang} forcedPersona={persona ?? undefined} />
-          <SubtitleHealth personaId={persona?.id ?? null} />
         </div>
         <div className="mt-6 flex justify-end">
           <Link

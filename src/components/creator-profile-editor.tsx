@@ -45,7 +45,7 @@ export function CreatorProfileEditor({ personaId, lang }: { personaId: string | 
   };
   useEffect(() => { void loadQa(projectId); }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!personaId) return <p className="text-sm text-muted-foreground">{t.pick}</p>;
+  if (!personaId) return null;
 
   const saveProfile = async () => {
     const { error } = await supabase.from("creator_personas").update({ bio, greeting, tags, social_links: social }).eq("id", personaId);

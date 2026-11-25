@@ -80,7 +80,6 @@ import { ProjectGraphOverview } from "@/components/project-graph-overview";
 import { ProjectContentTable } from "@/components/project-content-table";
 import { MindReviews } from "@/components/mind-reviews";
 import { CloneStudio } from "@/components/clone-studio";
-import { FeedRepairPanel } from "@/components/feed-repair-panel";
 
 
 const C = {
@@ -211,6 +210,7 @@ export function VaultHub({
     onSelect?.(sel);
   };
   const [draft, setDraft] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const [avatar, setAvatar] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -271,13 +271,12 @@ export function VaultHub({
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <header>
         <h2 className="text-lg font-semibold text-foreground">{t("personas")}</h2>
         <p className="mt-1 text-xs text-muted-foreground">{t("personasDesc")}</p>
       </header>
 
-      <FeedRepairPanel lang={lang} userId={user.id} />
 
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -292,7 +291,7 @@ export function VaultHub({
           onActivate={async () => { await switchPersona(user.id, null); await loadPersonas(); }}
         />
         {personas.map((p) => (
-          <div key={p.id} className="min-w-0 space-y-2">
+          <div key={p.id} className="relative min-w-0">
           <PersonaCard
             lang={lang}
             name={p.name}
@@ -326,23 +325,28 @@ export function VaultHub({
               toast.success(t("removed"));
             }}
           />
-          <ShareTrigger content={{ kind: "mind", id: p.id, mindId: `persona:${p.id}`, title: p.name, creator: p.name, handle: p.handle, image: p.avatar_url, url: `https://ever-mind.dev/search?q=${encodeURIComponent(p.name)}` }} />
+          <div className="absolute bottom-2 right-2"><ShareTrigger content={{ kind: "mind", id: p.id, mindId: `persona:${p.id}`, title: p.name, creator: p.name, handle: p.handle, image: p.avatar_url, url: `https://ever-mind.dev/search?q=${encodeURIComponent(p.name)}` }} /></div>
           </div>
         ))}
       </div>
 
-      <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-        <input
+      {!showCreate ? (
+        <button type="button" onClick={() => setShowCreate(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
+          <Plus className="h-3.5 w-3.5" />{t("create")}
+        </button>
+      ) : (
+      <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-card p-2">
+        <input autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={t("newPersona")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <input
           value={avatar}
           onChange={(e) => setAvatar(e.target.value)}
           placeholder={t("avatarUrl")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <button
           type="button"
@@ -354,6 +358,7 @@ export function VaultHub({
           {t("create")}
         </button>
       </div>
+      )}
     </section>
   );
 }
@@ -398,19 +403,19 @@ function PersonaCard({
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           placeholder={t("personaName")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <input
           value={editHandle}
           onChange={(e) => setEditHandle(e.target.value)}
           placeholder={t("personaHandle")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <input
           value={editBio}
           onChange={(e) => setEditBio(e.target.value)}
           placeholder={t("personaBio")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <div className="flex justify-end gap-2">
           <button
@@ -713,19 +718,19 @@ function ProjectListItem({
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
           placeholder={t("titleField")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <input
           value={editDesc}
           onChange={(e) => setEditDesc(e.target.value)}
           placeholder={t("descField")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <input
           value={editCover}
           onChange={(e) => setEditCover(e.target.value)}
           placeholder={t("coverField")}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground outline-none focus:border-primary"
         />
         <div className="rounded-lg border border-border bg-background p-3">
           <p className="text-xs font-medium text-foreground">{t("aiLevelField")}</p>
