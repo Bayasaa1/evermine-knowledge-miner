@@ -322,9 +322,14 @@ export const decideOrder = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     if (data.decision === "approve") {
       const { isCryptoNetwork, isUsdtPriceCurrency, CRYPTO_CURRENCY_ERROR } = await import("@/lib/crypto-pay");
-      if (order.status !== "approved" && isCryptoNetwork(order.method) && !isUsdtPriceCurrency(order.currency)) {
-        return { ok: false, error: CRYPTO_CURRENCY_ERROR };
+      if (order.status === "approved") return { ok: true, error: null };
+      if (order.status !== "submitted") return { ok: false, error: "Only orders with a submitted payment can be approved." };
+      // Crypto orders unlock only through on-chain verification (verifyCryptoPayment), never by hand.
+      if (isCryptoNetwork(order.method)) {
+        return { ok: false, error: isUsdtPriceCurrency(order.currency) ? "Crypto orders unlock automatically after the payment is verified on-chain." : CRYPTO_CURRENCY_ERROR };
       }
+      // Manual (bank/Stripe) approval requires the buyer's submitted payment reference.
+      if (!String(order.transaction_ref ?? "").trim()) return { ok: false, error: "The buyer has not submitted a payment reference yet." };
       const plan = (PLAN_LENGTHS.includes(order.plan as PlanLength) ? order.plan : "lifetime") as PlanLength;
       const { error } = await supabaseAdmin.from("mind_purchases").upsert({
         user_id: order.buyer_id, mind_id: order.mind_id, category: order.category,

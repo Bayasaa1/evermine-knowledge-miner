@@ -303,11 +303,12 @@ async function loadBrainContext(
     if (project.chat_access === "subscribers") {
       const { data: purchase } = await supabase
         .from("mind_purchases")
-        .select("id")
+        .select("id, expires_at")
         .eq("user_id", userId)
         .eq("mind_id", mindId)
         .maybeSingle();
-      if (!purchase && project.user_id !== userId) {
+      const active = !!purchase && (!purchase.expires_at || new Date(purchase.expires_at).getTime() > Date.now());
+      if (!active && project.user_id !== userId) {
         return { context: "", latestUpdateTitle: undefined, ok: false, error: "Subscribe to chat with this Mind." };
       }
     }
