@@ -556,9 +556,9 @@ function StepUpload({
     viewVault: pickCopy({ en: "Open My Vaults", mn: "Миний сан нээх", ko: "내 보관함 열기" }, lang),
     saveHint: pickCopy(
       {
-        en: "Paste a video or a whole playlist — every video is stored with its title, description, thumbnail and playtime. Mining happens in step 3.",
-        mn: "Видео эсвэл бүтэн жагсаалт оруулна уу — гарчиг, тайлбар, зураг, хугацаа бүхэлдээ хадгалагдана. Олборлолт 3-р алхамд хийгдэнэ.",
-        ko: "영상 또는 재생목록 전체를 붙여넣으세요 — 제목, 설명, 썸네일, 재생 시간이 함께 저장됩니다. 마이닝은 3단계에서 진행됩니다.",
+        en: "Paste a video or a whole playlist — every video is stored with its title, description, thumbnail and playtime. Mining starts automatically.",
+        mn: "Видео эсвэл бүтэн жагсаалт оруулна уу — гарчиг, тайлбар, зураг, хугацаа бүхэлдээ хадгалагдана. Олборлолт автоматаар эхэлнэ.",
+        ko: "영상 또는 재생목록 전체를 붙여넣으세요 — 제목, 설명, 썸네일, 재생 시간이 함께 저장됩니다. 마이닝은 자동으로 시작됩니다.",
       },
       lang,
     ),
@@ -682,6 +682,27 @@ function StepUpload({
       );
       if (res.saved.length > 0) setUrl("");
       toast.success(lib.savedOk);
+      // Auto-mine: every saved link is queued at once; the background worker
+      // mines it and the server skips videos already queued or finished.
+      if (res.saved.length > 0) {
+        try {
+          await startMiningJobs({
+            data: {
+              url: url.trim(),
+              assessment: { ...defaultAssessmentFor(category), ...(answers ?? {}) },
+              personaId: target.personaId ?? null,
+              projectId,
+              contentKind: target.contentKind,
+              category: getCreationCategory(),
+              publishToFeed: Boolean(target.publishToFeed),
+            },
+          });
+          toast.success(pickCopy({ en: "Mining started automatically", mn: "Майнинг автоматаар эхэллээ", ko: "마이닝이 자동으로 시작되었습니다" }, lang));
+        } catch (mineErr) {
+          toast.error(mineErr instanceof Error ? mineErr.message : String(mineErr));
+        }
+        await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+      }
       await queryClient.invalidateQueries({ queryKey: ["cloud-vaults"] });
       await queryClient.invalidateQueries({ queryKey: ["pending-sources"] });
     } catch (err) {
@@ -689,7 +710,7 @@ function StepUpload({
     } finally {
       setSaving(false);
     }
-  }, [signedIn, url, target, queryClient, lib]);
+  }, [signedIn, url, target, queryClient, lib, category, lang]);
 
 
 
@@ -1300,14 +1321,20 @@ function StepUpload({
   const ready = isTargetReady(target);
   const gate = saveMode ? ready : true;
 
+  // Mine step has no manual start: saved-but-unmined videos are queued
+  // automatically and progress shows in the Live mining panel below.
+  if (mode === "mine") {
+    return <AutoQueueSaved sources={pendingSources} ready={sourcesFetched && signedIn && isTargetReady(target)} destination={jobDestination} assessment={assessment} />;
+  }
+
   return (
     <StepShell
       title={pickCopy({ en: "Add your videos", mn: "Видеогоо нэмэх", ko: "영상 추가하기" }, lang)}
       sub={pickCopy(
         {
-          en: "Paste a link to save it, then tick a saved video and start mining.",
-          mn: "Холбоос оруулж хадгалаад, дараа нь хадгалсан видеогоо сонгож олборлоно уу.",
-          ko: "링크를 붙여넣어 저장한 뒤, 저장된 영상을 선택해 마이닝하세요.",
+          en: "Paste a link — it is saved and mined automatically.",
+          mn: "Холбоос оруулахад автоматаар хадгалагдаж, олборлогдоно.",
+          ko: "링크를 붙여넣으면 자동으로 저장되고 마이닝됩니다.",
         },
         lang,
       )}
@@ -1982,4 +2009,35 @@ function StepUpload({
 
     </StepShell>
   );
+}
+
+/** Queues every saved-but-unmined video once; the server dedupes active/finished jobs. */
+function AutoQueueSaved({
+  sources,
+  ready,
+  destination,
+  assessment,
+}: {
+  sources: { id: string; payload: SourcePayload }[];
+  ready: boolean;
+  destination: () => Promise<Record<string, unknown>>;
+  assessment: Assessment;
+}) {
+  const queryClient = useQueryClient();
+  const tried = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ready) return;
+    const fresh = sources.filter((s) => s.payload?.source?.kind === "youtube" && !tried.current.has(s.id));
+    if (fresh.length === 0) return;
+    fresh.forEach((s) => tried.current.add(s.id));
+    void (async () => {
+      const dest = await destination();
+      for (const s of fresh) {
+        const stored = (s.payload.assessment ?? {}) as Partial<Assessment>;
+        await startMiningJobs({ data: { url: s.payload.source.url, assessment: { ...assessment, ...stored }, ...dest } as never }).catch(() => undefined);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["mining-jobs"] });
+    })();
+  }, [ready, sources, destination, assessment, queryClient]);
+  return null;
 }
