@@ -21,7 +21,6 @@ import {
   Loader2,
   Upload,
   Youtube,
-  HardDrive,
   Globe2,
   ChevronLeft,
   ChevronRight,
@@ -30,7 +29,6 @@ import {
   Square,
   Pause,
   Terminal as TerminalIcon,
-  BrainCircuit,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -70,10 +68,8 @@ import { publishToFeed } from "@/lib/feed";
 import { ensureActiveCreatorMind } from "@/lib/mind-registry";
 import { CHUNK_SECONDS } from "@/lib/chunking";
 import {
-  DEFAULT_MINER,
   findMiner,
   minersForCategory,
-  type MinerChoice,
   type MinerId,
 } from "@/lib/miner-pool";
 import { runUnderstandingPass } from "@/lib/miner-reason";
@@ -528,7 +524,6 @@ function StepUpload({
   const pickedSourceId = pickedIds[0] ?? null;
   const activeJobId = useRef<string | null>(null);
   const [pausing, setPausing] = useState(false);
-  const [miner, setMiner] = useState<MinerChoice>(DEFAULT_MINER);
   /** Optional per-video AI override: mine 3 videos with Groq, 5 with Gemini. */
   const [perVideo, setPerVideo] = useState<Record<string, MinerId>>({});
 
@@ -1954,58 +1949,6 @@ function StepUpload({
           </div>
         </div>
       )}
-
-      <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-        {(() => {
-          const m = findMiner(miner.id);
-          const limits = m?.limits;
-          const cat = getCreationCategory();
-          const catFit =
-            cat === "robot"
-              ? pickCopy(
-                  { en: "For a Robot Brain this AI contributes vision reasoning — trajectories, grasp and movement analysis.", mn: "Роботын тархинд энэ AI харааны сүүж өгнө — траектори, барих, хөдөлгөөний шинжилгээ.", ko: "로봇 브레인에는 이 AI가 시각 추론을 제공합니다 — 궤적, 파지, 움직임 분석." },
-                  lang,
-                )
-              : cat === "voice"
-                ? pickCopy(
-                    { en: "For a Voice Agent this AI contributes audio understanding — speech, tone and pacing.", mn: "Дуут агентэд энэ AI аудио ойлголт өгнө — яриа, өнгө, хэмнэл.", ko: "보이스 에이전트에는 이 AI가 오디오 이해를 제공합니다 — 음성, 톤, 속도." },
-                    lang,
-                  )
-                : pickCopy(
-                    { en: "For this Mind this AI thinks over the extracted transcript and emotion notes, adding topics, beliefs and knowledge.", mn: "Энэ Оюунд энэ AI гаргаж авсан транскрипт, сэтгэл хөдлөлийн тэмдэглэл дээр сэтгэн шинжилж, сэдэв, итгэл, мэдлэг нэмнэ.", ko: "이 마인드에는 이 AI가 추출된 대본과 감정 노트를 추론해 주제, 신념, 지식을 추가합니다." },
-                    lang,
-                  );
-          return (
-            <>
-              <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                {t("limitsTitle")}
-                {m ? ` · ${m.label}` : ""}
-              </p>
-              {m && <p className="mb-2 text-xs text-muted-foreground">{catFit}</p>}
-              <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li className="flex gap-2">
-                  <Youtube className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.youtube ?? t("limitYoutube")}
-                </li>
-                <li className="flex gap-2">
-                  <HardDrive className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.files ?? t("limitDrive")}
-                </li>
-                <li className="flex gap-2">
-                  <Info className="mt-0.5 h-4 w-4 shrink-0" /> {limits?.langs ?? t("limitLangs")}
-                </li>
-                {m && (
-                  <li className="flex gap-2">
-                    <BrainCircuit className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span>
-                      <span className="font-medium text-foreground">{m.label}:</span> {m.capability}{" "}
-                      <span className="text-muted-foreground/80">{m.downside}</span>
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </>
-          );
-        })()}
-      </div>
 
     </StepShell>
   );
