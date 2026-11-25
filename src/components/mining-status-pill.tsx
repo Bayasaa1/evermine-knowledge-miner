@@ -57,7 +57,7 @@ export function MiningStatusPill({ lang = "en" }: { lang?: Lang }) {
       className="fixed inset-x-0 z-[60] mx-auto flex w-fit items-center gap-2 rounded-full border border-primary/40 bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-xl"
     >
       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-      {live.length} {label}
+      {live.filter((j) => j.status === "running").length} {label} · {live.filter((j) => j.status !== "running").length} {pickCopy({ en: "waiting", mn: "дараалалд", ko: "대기" }, lang)}
       <span className="tabular-nums text-muted-foreground">
         {partsDone}/{partsTotal} {pickCopy({ en: "parts", mn: "хэсэг", ko: "파트" }, lang)} · {pct}%
       </span>

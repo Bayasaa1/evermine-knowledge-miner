@@ -53,11 +53,10 @@ export function MiningAutoResume() {
         const queue = playlistOrder(jobs);
         // Nothing queued or running: back off so the feed isn't disturbed.
         if (!queue.length) return;
-        let outOfTokens = false;
         // Lane 0 is the Studio screen's own key; auto lanes start at 1 so a
         // video the creator is watching mine is never on the same key.
         const lane = async (n: number) => {
-          while (!cancelled && !outOfTokens) {
+          while (!cancelled) {
             const job = queue.shift();
             if (!job) return;
             let current = job;
@@ -72,11 +71,12 @@ export function MiningAutoResume() {
               }
               if (res.busy || res.done || current.status !== "running") break;
             }
-            if (current.status === "paused_quota" && laneCount <= 1) outOfTokens = true;
+            // A busy or resting video never stops the playlist: it keeps its short
+            // retry timer and the next video is mined right away.
           }
         };
-        // One awaited checkpoint lane avoids amplifying the shared free-tier rate limit.
-        await lane(1);
+        // One awaited lane per healthy key (max 5); each lane starts on its own key.
+        await Promise.all(Array.from({ length: Math.max(1, laneCount) }, (_, i) => lane(i + 1)));
       } catch {
         /* the background worker keeps mining regardless */
       } finally {

@@ -1632,7 +1632,7 @@ function StepUpload({
           </div>
         )}
 
-        {mineMode && (
+        {mineMode && !busy && (
           <div className="mt-4 space-y-4">
             <button
               type="button"
@@ -1707,7 +1707,7 @@ function StepUpload({
         )}
 
         {queue.length > 0 && (
-          <div className="mt-4 rounded-xl border border-border bg-muted/30 p-3">
+          <div className="mt-4 mb-32 rounded-xl border border-border bg-muted/30 p-3">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               {t("queueTitle")} · {queue.length}
             </p>
@@ -1722,7 +1722,7 @@ function StepUpload({
                   <span className="truncate">
                     {i + 1}. {q.label}
                   </span>
-                  <span className="shrink-0">{q.total} × 15min</span>
+                  <span className="shrink-0">{q.total} × 5min</span>
                 </li>
               ))}
             </ol>

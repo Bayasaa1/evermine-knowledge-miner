@@ -97,14 +97,14 @@ async function runMiningWorker(state: { phase: number; cursors: unknown; token: 
     await supabaseAdmin.from("mining_jobs")
       .update({ status: "queued", attempts: 0, retry_after: null })
       .eq("status", "abandoned").neq("source_kind", "upload")
-      .or("last_error.ilike.%error code: 52%,last_error.ilike.%invalid argument%,last_error.ilike.%timed out%,last_error.ilike.%timeout%");
+      .or("last_error.ilike.%location is not supported%,last_error.ilike.%high demand%,last_error.ilike.%error code: 52%,last_error.ilike.%invalid argument%,last_error.ilike.%timed out%,last_error.ilike.%timeout%");
     // Empty-AI-answer failures are recoverable (that part gets skipped),
     // so they are never abandoned by the attempt cap.
     // Empty-AI-answer failures are recoverable (that part gets skipped),
     // so they are never abandoned by the attempt cap.
     const recoverable = (j: { attempts?: number | null; last_error?: string | null }) =>
       (j.attempts ?? 0) < MAX_ATTEMPTS ||
-      /empty video analysis|cannot read properties|quota|gemini key|error code: 52\d|50[234]|timed? ?out|invalid argument/i.test(j.last_error ?? "");
+      /empty video analysis|cannot read properties|quota|gemini key|error code: 52\d|50[234]|timed? ?out|invalid argument|high demand|location is not supported/i.test(j.last_error ?? "");
     // Permanently failed videos (bad link, unsupported video) are marked
     // abandoned so they stop matching this query — otherwise enough of
     // them would fill all 50 oldest slots and starve every newer job.

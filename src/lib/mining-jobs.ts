@@ -284,7 +284,7 @@ export function quotaRetryAfter(message: string, now = new Date()): string {
 }
 
 export function isQuotaMessage(message: string): boolean {
-  return /quota|rate.?limit|429|503|too many requests|resource_exhausted|one minute|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid/i.test(message);
+  return /quota|rate.?limit|429|503|too many requests|resource_exhausted|one minute|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid|location is not supported/i.test(message);
 }
 
 export type PartState = "done" | "mining" | "waiting" | "failed";
