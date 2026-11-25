@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2, Zap } from "lucide-react";
+import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2, Zap, ArrowUpToLine } from "lucide-react";
 
-import { clearMiningHistory, continueMiningNow, resumeStuckMiningJobs, listMiningJobs, runNextChunk, setMiningJobState } from "@/lib/mining-jobs.functions";
-import { formatDuration, jobParts, jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
+import { clearMiningHistory, continueMiningNow, prioritizeMiningJob, resumeStuckMiningJobs, listMiningJobs, runNextChunk, setMiningJobState } from "@/lib/mining-jobs.functions";
+import { formatDuration, jobParts, jobProgress, orderMiningQueue, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 import { nativePlaybackUrls } from "@/lib/native-mining.functions";
@@ -174,13 +174,19 @@ export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; 
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
+  const prioritizeFn = useServerFn(prioritizeMiningJob);
+  const promote = useMutation({
+    mutationFn: (jobId: string) => prioritizeFn({ data: { jobId } }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
+  });
+
   const control = useMutation({
     mutationFn: (input: { jobId: string; action: "pause" | "stop" | "resume" }) => setState({ data: input }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["mining-jobs"] }),
   });
 
   const { live, past } = useMemo(() => {
-    const l = jobs.filter((j) => LIVE.includes(j.status));
+    const l = orderMiningQueue(jobs.filter((j) => LIVE.includes(j.status)));
     const p = jobs.filter((j) => !LIVE.includes(j.status)).slice(0, 12);
     return { live: l, past: p };
   }, [jobs]);
@@ -209,6 +215,9 @@ export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; 
           <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{job.nextIndex}/{job.totalChunks} · {pct}%</span>
           {controls && job.status === "paused_quota" ? (
             <button type="button" disabled={kick.isPending} onClick={() => kick.mutate(job.id)} className={iconBtn} title={t.continueNow} aria-label={t.continueNow}><Zap className="h-3.5 w-3.5" /></button>
+          ) : null}
+          {controls && job.status !== "running" && job.status !== "paused_user" ? (
+            <button type="button" disabled={promote.isPending} onClick={() => promote.mutate(job.id)} className={iconBtn} title={pickCopy({ en: "Mine next", mn: "Дараагийнх нь болгох", ko: "다음에 마이닝" }, lang)} aria-label={pickCopy({ en: "Mine next", mn: "Дараагийнх нь болгох", ko: "다음에 마이닝" }, lang)}><ArrowUpToLine className="h-3.5 w-3.5" /></button>
           ) : null}
           {job.sourceKind === "upload" ? (
             <button type="button" className={iconBtn} aria-label="Play" onClick={() => void playback({ data: { jobId: job.id } }).then((r) => { setPlaybackError(""); setPlaybackUrl({ id: job.id, url: r.url }); }).catch((e: unknown) => setPlaybackError(e instanceof Error ? e.message : String(e)))}><Play className="h-3.5 w-3.5" /></button>

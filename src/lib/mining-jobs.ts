@@ -284,7 +284,28 @@ export function quotaRetryAfter(message: string, now = new Date()): string {
 }
 
 export function isQuotaMessage(message: string): boolean {
-  return /quota|rate.?limit|429|503|too many requests|resource_exhausted|one minute|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid|location is not supported/i.test(message);
+  return /quota|rate.?limit|429|503|too many requests|resource_exhausted|one minute|high demand|overloaded|unavailable|spikes? in demand|rejected this key|api_key_invalid|location is not supported|error code: 52\d|timed? ?out|gateway/i.test(message);
+}
+
+/** At most this many videos are mined at once; others wait their turn, so lanes never scatter across the whole queue. */
+export const MINING_ACTIVE_WINDOW = 6;
+
+/**
+ * Mining order: creator-promoted videos (negative queue_position) first, then
+ * videos already started, then oldest first. Callers take the first
+ * MINING_ACTIVE_WINDOW entries as the active working set.
+ */
+export function orderMiningQueue<T extends { queuePosition: number; nextIndex: number; createdAt?: string | null; updatedAt: string }>(jobs: T[]): T[] {
+  const time = (j: T) => new Date(j.createdAt ?? j.updatedAt).getTime();
+  return [...jobs].sort((a, b) => {
+    const pa = a.queuePosition < 0 ? a.queuePosition : 0;
+    const pb = b.queuePosition < 0 ? b.queuePosition : 0;
+    if (pa !== pb) return pa - pb;
+    const sa = a.nextIndex > 0 ? 0 : 1;
+    const sb = b.nextIndex > 0 ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    return time(a) - time(b) || a.queuePosition - b.queuePosition;
+  });
 }
 
 export type PartState = "done" | "mining" | "waiting" | "failed";

@@ -11,25 +11,24 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { listMiningJobs, miningLaneCount, runNextChunk } from "@/lib/mining-jobs.functions";
-import { MINING_POLL_MS, miningLeaseState, type MiningJob } from "@/lib/mining-jobs";
+import { MINING_ACTIVE_WINDOW, MINING_POLL_MS, miningLeaseState, orderMiningQueue, type MiningJob } from "@/lib/mining-jobs";
 import { useAuth } from "@/hooks/use-auth";
 
 const RUNNABLE = new Set(["queued", "running", "paused_quota", "error"]);
 
 
 function playlistOrder(jobs: MiningJob[]): MiningJob[] {
-  return jobs
+  const runnable = jobs
     .filter((j) => RUNNABLE.has(j.status) && j.nextIndex < j.totalChunks)
-    .filter((j) => j.sourceKind !== "upload")
+    .filter((j) => j.sourceKind !== "upload");
+  // Bounded working set: only the first few videos in order are mined; a resting
+  // one yields to another inside the window, never to video #40.
+  return orderMiningQueue(runnable)
+    .slice(0, MINING_ACTIVE_WINDOW)
     .filter((j) => !j.retryAfter || new Date(j.retryAfter).getTime() <= Date.now())
     // A job the background worker (or another tab) holds is left alone; the
     // server's atomic claim still has the final say.
-    .filter((j) => miningLeaseState(j.status, j.updatedAt) !== "held")
-    .sort((a, b) => {
-      const ca = new Date(a.createdAt ?? a.updatedAt).getTime();
-      const cb = new Date(b.createdAt ?? b.updatedAt).getTime();
-      return ca - cb || a.queuePosition - b.queuePosition;
-    });
+    .filter((j) => miningLeaseState(j.status, j.updatedAt) !== "held");
 }
 
 export function MiningAutoResume() {
@@ -69,7 +68,8 @@ export function MiningAutoResume() {
               if (window.location.pathname !== "/") {
                 void qc.invalidateQueries({ queryKey: ["mining-jobs", userId] });
               }
-              if (res.busy || res.done || current.status !== "running") break;
+              // Stay on this video while parts succeed (a saved part returns "queued").
+              if (res.busy || res.done || (current.status !== "running" && current.status !== "queued")) break;
             }
             // A busy or resting video never stops the playlist: it keeps its short
             // retry timer and the next video is mined right away.

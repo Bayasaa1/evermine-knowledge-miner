@@ -437,6 +437,22 @@ export const runNextChunk = createServerFn({ method: "POST" })
     }
   });
 
+/** "Mine next": move a video to the front of the creator's queue. Owner only. */
+export const prioritizeMiningJob = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ jobId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: top } = await context.supabase.from("mining_jobs")
+      .select("queue_position").eq("user_id", context.userId)
+      .order("queue_position", { ascending: true }).limit(1);
+    const min = Math.min(0, top?.[0]?.queue_position ?? 0);
+    const { error } = await context.supabase.from("mining_jobs")
+      .update({ queue_position: min - 1, retry_after: null })
+      .eq("id", data.jobId).eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 /** "Continue now" — e.g. after adding another key. Owner only. */
 export const continueMiningNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -487,6 +503,12 @@ export const listMiningJobs = createServerFn({ method: "GET" })
       .eq("user_id", context.userId).eq("status", "running")
       .lt("updated_at", new Date(Date.now() - MINING_LEASE_STALE_MS).toISOString());
     if (recoveryError) throw new Error(recoveryError.message);
+    // Self-heal: videos parked as "error" by a temporary provider/network
+    // problem go back in line automatically.
+    await context.supabase.from("mining_jobs")
+      .update({ status: "queued", retry_after: null, attempts: 0 })
+      .eq("user_id", context.userId).eq("status", "error")
+      .or("last_error.ilike.%location is not supported%,last_error.ilike.%error code: 52%,last_error.ilike.%high demand%,last_error.ilike.%timed out%,last_error.ilike.%timeout%,last_error.ilike.%unavailable%");
     const { data, error } = await context.supabase
       .from("mining_jobs")
       .select(SELECT_LIST)
