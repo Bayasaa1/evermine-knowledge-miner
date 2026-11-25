@@ -140,7 +140,7 @@ export const getMindEntitlement = createServerFn({ method: "POST" })
       price = listed?.price ?? 0;
       currency = listed?.currency ?? currency;
     } else {
-      const { data: v } = await supabaseAdmin.from("mind_vaults").select("user_id").eq("id", data.mindId).maybeSingle();
+      const { data: v } = await supabaseAdmin.from("mind_vaults").select("user_id").eq("id", data.mindId).eq("user_id", context.userId).maybeSingle();
       ownerId = (v as { user_id?: string } | null)?.user_id ?? null;
       const listed = catalogPrice(data.mindId);
       price = ownerId ? 0 : (listed?.price ?? 0);
@@ -295,8 +295,8 @@ export const listCreatorSales = createServerFn({ method: "POST" })
     const ids = [...new Set(rows.map((r) => r.buyer_id))];
     const names = new Map<string, string>();
     if (ids.length) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: ps } = await supabaseAdmin.from("profiles").select("id,display_name,username").in("id", ids);
+      // Read as the caller (RLS): only profiles the creator may already see resolve to names.
+      const { data: ps } = await context.supabase.from("profiles").select("id,display_name,username").in("id", ids);
       for (const p of ps ?? []) names.set(p.id, p.display_name || p.username || "");
     }
     return rows.map((r) => ({

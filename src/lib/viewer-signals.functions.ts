@@ -113,8 +113,8 @@ export const reportMindReply = createServerFn({ method: "POST" })
     let creator: string | null = null;
     const pid = data.mindId.startsWith("project:") ? data.mindId.slice(8) : null;
     if (pid) {
-      const { data: p } = await supabaseAdmin.from("projects").select("user_id").eq("id", pid).maybeSingle();
-      creator = p?.user_id ?? null;
+      const { data: p } = await supabaseAdmin.from("projects").select("user_id, published").eq("id", pid).maybeSingle();
+      creator = p && (p.published || p.user_id === context.userId) ? p.user_id : null;
     } else {
       const { data: c } = await supabaseAdmin.from("project_content").select("user_id").eq("mind_id", data.mindId).limit(1).maybeSingle();
       creator = c?.user_id ?? null;

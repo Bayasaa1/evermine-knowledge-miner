@@ -1910,7 +1910,6 @@ export type Database = {
         Args: { _friend: string; _room: string }
         Returns: undefined
       }
-      author_is_banned: { Args: { _user_id: string }; Returns: boolean }
       block_user: { Args: { _other: string }; Returns: boolean }
       claim_mining_worker: {
         Args: { p_token: string }
@@ -1962,7 +1961,6 @@ export type Database = {
         Returns: boolean
       }
       is_banned: { Args: { _user_id: string }; Returns: boolean }
-      is_blocked_between: { Args: { _a: string; _b: string }; Returns: boolean }
       is_mutual: { Args: { _a: string; _b: string }; Returns: boolean }
       is_room_admin: {
         Args: { _room: string; _user: string }

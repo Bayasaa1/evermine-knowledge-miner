@@ -45,8 +45,8 @@ export async function uploadUserMedia(file: File): Promise<string> {
   return path;
 }
 
-/** Story links last one hour, so expired or deleted stories stop being viewable. */
-const STORY_LINK_SECONDS = 60 * 60;
+/** Story links last two minutes, so expired or deleted stories stop being viewable almost immediately. */
+const STORY_LINK_SECONDS = 2 * 60;
 
 export async function mediaLink(path: string | null, seconds = LINK_SECONDS): Promise<string | null> {
   if (!path) return null;

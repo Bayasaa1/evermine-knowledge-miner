@@ -323,6 +323,13 @@
       "when": 1795526060828,
       "tag": "0045_crypto_payout_status_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1795619113858,
+      "tag": "0046_hide_moderation_helpers",
+      "breakpoints": true
     }
   ]
 }
