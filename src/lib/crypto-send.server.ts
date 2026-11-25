@@ -122,10 +122,12 @@ export async function processPayouts(limit = 5): Promise<{ sent: number; failed:
     }
   }
   const { data: rows } = await supabaseAdmin.from("crypto_payouts").select("*").eq("status", "queued")
-    .order("created_at").limit(limit);
-  let sent = 0, failed = 0;
+    .order("created_at").limit(500);
+  // Held rows stay queued for the owner, so scan past them and stop after `limit` claimed sends.
+  let sent = 0, failed = 0, attempted = 0;
   const cap = maxPayout(process.env["HOT_WALLET_MAX_PAYOUT"]);
   for (const row of rows ?? []) {
+    if (attempted >= limit) break;
     if (!isCryptoNetwork(row.network)) continue;
     const paid = await settledAmount(row.order_id, row.network);
     if (paid === null) continue;
@@ -141,6 +143,7 @@ export async function processPayouts(limit = 5): Promise<{ sent: number; failed:
       .update({ status: "sending", attempts: row.attempts + 1, updated_at: new Date().toISOString() })
       .eq("id", row.id).eq("status", "queued").select("id").maybeSingle();
     if (!claimed) continue;
+    attempted++;
     try {
       const hash = await sendUsdt(net, row.to_address, Number(row.amount));
       await supabaseAdmin.from("crypto_payouts").update({ status: "sent", tx_hash: hash, error: "", updated_at: new Date().toISOString() }).eq("id", row.id);
