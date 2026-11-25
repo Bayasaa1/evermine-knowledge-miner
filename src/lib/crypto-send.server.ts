@@ -105,7 +105,7 @@ export async function processPayouts(limit = 5): Promise<{ sent: number; failed:
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   // Rows that were waiting for an address get it filled in once the creator / owner sets one.
   const { data: waiting } = await supabaseAdmin.from("crypto_payouts").select("id,order_id,kind,network,recipient_user_id")
-    .eq("status", "waiting_address").limit(50);
+    .eq("status", "waiting_address").order("created_at").limit(500);
   for (const w of waiting ?? []) {
     if (!isCryptoNetwork(w.network) || !await hasUsdtSettlement(w.order_id, w.network)) continue;
     const net = w.network;
