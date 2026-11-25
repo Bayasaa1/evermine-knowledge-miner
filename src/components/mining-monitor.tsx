@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2 } from "lucide-react";
+import { Loader2, Pause, Play, Square, CheckCircle2, AlertTriangle, Clock, Trash2, Zap } from "lucide-react";
 
 import { clearMiningHistory, continueMiningNow, resumeStuckMiningJobs, listMiningJobs, runNextChunk, setMiningJobState } from "@/lib/mining-jobs.functions";
 import { formatDuration, jobParts, jobProgress, type MiningJob, type MiningJobStatus } from "@/lib/mining-jobs";
 import { pickCopy, type Lang } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 import { nativePlaybackUrls } from "@/lib/native-mining.functions";
-import { Button } from "@/components/ui/button";
 
 const COPY = {
   en: {
@@ -100,11 +99,11 @@ const PART_LABEL = {
 const LIVE: MiningJobStatus[] = ["queued", "running", "paused_quota", "paused_user"];
 
 function StatusIcon({ status }: { status: MiningJobStatus }) {
-  if (status === "running") return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-  if (status === "done") return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-  if (status === "error") return <AlertTriangle className="h-4 w-4 text-destructive" />;
-  if (status === "paused_user" || status === "stopped") return <Pause className="h-4 w-4 text-muted-foreground" />;
-  return <Clock className="h-4 w-4 text-amber-500" />;
+  if (status === "running") return <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />;
+  if (status === "done") return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />;
+  if (status === "error") return <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-destructive" />;
+  if (status === "paused_user" || status === "stopped") return <Pause className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+  return <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />;
 }
 
 /**
@@ -195,67 +194,52 @@ export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; 
 
   const row = (job: MiningJob, controls: boolean) => {
     const pct = jobProgress(job);
+    const iconBtn = "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50";
+    const when = job.status === "paused_quota" && job.retryAfter && mounted
+      ? new Date(job.retryAfter).toLocaleTimeString(lang === "mn" ? "mn-MN" : lang === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" })
+      : "";
     return (
-      <li key={job.id} className="rounded-xl border border-border bg-card/60 p-4">
-        <div className="flex items-start gap-3">
+      <li key={job.id} className="px-2 py-1.5">
+        <div className="flex items-center gap-2">
           <StatusIcon status={job.status} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{job.sourceLabel || job.sourceUrl}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {pickCopy(STATUS_LABEL[job.status], lang)} · {job.nextIndex} / {job.totalChunks} {t.parts}
-            </p>
-          </div>
-          <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{pct}%</span>
+          <p className="min-w-0 flex-1 truncate text-xs font-medium" title={job.lastError ?? undefined}>{job.sourceLabel || job.sourceUrl}</p>
+          {job.status === "paused_quota" ? (
+            <span className="shrink-0 text-[11px] text-amber-500">{when ? `⏳ ${when}` : pickCopy(STATUS_LABEL[job.status], lang)}</span>
+          ) : null}
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{job.nextIndex}/{job.totalChunks} · {pct}%</span>
+          {controls && job.status === "paused_quota" ? (
+            <button type="button" disabled={kick.isPending} onClick={() => kick.mutate(job.id)} className={iconBtn} title={t.continueNow} aria-label={t.continueNow}><Zap className="h-3.5 w-3.5" /></button>
+          ) : null}
+          {job.sourceKind === "upload" ? (
+            <button type="button" className={iconBtn} aria-label="Play" onClick={() => void playback({ data: { jobId: job.id } }).then((r) => { setPlaybackError(""); setPlaybackUrl({ id: job.id, url: r.url }); }).catch((e: unknown) => setPlaybackError(e instanceof Error ? e.message : String(e)))}><Play className="h-3.5 w-3.5" /></button>
+          ) : null}
+          {controls ? (
+            <>
+              {job.status === "paused_user" || job.status === "stopped" ? (
+                <button type="button" disabled={control.isPending} onClick={() => control.mutate({ jobId: job.id, action: "resume" })} className={iconBtn} title={t.resume} aria-label={t.resume}><Play className="h-3.5 w-3.5" /></button>
+              ) : (
+                <button type="button" disabled={control.isPending} onClick={() => control.mutate({ jobId: job.id, action: "pause" })} className={iconBtn} title={t.pause} aria-label={t.pause}><Pause className="h-3.5 w-3.5" /></button>
+              )}
+              <button type="button" disabled={control.isPending} onClick={() => control.mutate({ jobId: job.id, action: "stop" })} className={`${iconBtn} hover:text-destructive`} title={t.stop} aria-label={t.stop}><Square className="h-3.5 w-3.5" /></button>
+            </>
+          ) : null}
         </div>
-
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-muted">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              job.status === "error" ? "bg-destructive" : job.status === "done" ? "bg-emerald-500" : "bg-primary"
+              job.status === "error" ? "bg-destructive" : job.status === "done" ? "bg-primary/60" : "bg-primary"
             }`}
             style={{ width: `${Math.max(pct, job.status === "running" ? 3 : 0)}%` }}
           />
         </div>
-
-        {job.status === "paused_quota" ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <p className="text-xs text-amber-500">
-              {job.retryAfter && mounted
-                ? `${t.continuesAt} ${new Date(job.retryAfter).toLocaleString(lang === "mn" ? "mn-MN" : lang === "ko" ? "ko-KR" : "en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" })}`
-                : t.retry}
-            </p>
-            {controls ? (
-              <button
-                type="button"
-                disabled={kick.isPending}
-                onClick={() => kick.mutate(job.id)}
-                className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium hover:bg-muted"
-              >
-                {t.continueNow}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
         {job.chunks.length > 0 ? (
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground">{t.showParts} ({job.chunks.length})</summary>
-            <ul className="mt-2 grid max-h-56 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
+          <details className="mt-1">
+            <summary className="cursor-pointer text-[11px] text-muted-foreground">{t.showParts} ({job.chunks.length})</summary>
+            <ul className="mt-1 grid max-h-40 grid-cols-2 gap-0.5 overflow-y-auto sm:grid-cols-3">
               {jobParts(job).map((p) => (
-                <li key={p.index} className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1 text-xs">
-                  <span className="tabular-nums">
-                    {t.part} {p.index + 1} · {formatDuration(p.start)}–{formatDuration(p.end)}
-                  </span>
-                  <span
-                    className={
-                      p.state === "done"
-                        ? "text-emerald-500"
-                        : p.state === "failed"
-                          ? "text-destructive"
-                          : p.state === "mining"
-                            ? "text-primary"
-                            : "text-muted-foreground"
-                    }
-                  >
+                <li key={p.index} className="flex items-center justify-between rounded bg-muted/50 px-1.5 py-0.5 text-[10px]">
+                  <span className="tabular-nums">{p.index + 1} · {formatDuration(p.start)}</span>
+                  <span className={p.state === "done" ? "text-primary" : p.state === "failed" ? "text-destructive" : "text-muted-foreground"}>
                     {pickCopy(PART_LABEL[p.state], lang)}
                   </span>
                 </li>
@@ -263,54 +247,14 @@ export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; 
             </ul>
           </details>
         ) : null}
-        {job.lastError ? (
-          <p className="mt-2 line-clamp-2 text-xs text-destructive">{job.lastError}</p>
-        ) : null}
-        {job.sourceKind === "upload" ? (
-          <div className="mt-3">
-            <Button variant="outline" size="sm" onClick={() => void playback({ data: { jobId: job.id } }).then((r) => { setPlaybackError(""); setPlaybackUrl({ id: job.id, url: r.url }); }).catch((e: unknown) => setPlaybackError(e instanceof Error ? e.message : String(e)))}><Play className="h-3.5 w-3.5" />{lang === "mn" ? "Видео үзэх" : lang === "ko" ? "영상 재생" : "Play video"}</Button>
-            {playbackUrl?.id === job.id ? <video src={playbackUrl.url} controls playsInline className="mt-2 aspect-video w-full bg-muted" /> : null}
-            {playbackError ? <p className="text-xs text-destructive">{playbackError}</p> : null}
-          </div>
-        ) : null}
-
-        {controls ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {job.status === "paused_user" || job.status === "stopped" ? (
-              <button
-                type="button"
-                disabled={control.isPending}
-                onClick={() => control.mutate({ jobId: job.id, action: "resume" })}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-              >
-                <Play className="h-3.5 w-3.5" /> {t.resume}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={control.isPending}
-                onClick={() => control.mutate({ jobId: job.id, action: "pause" })}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-              >
-                <Pause className="h-3.5 w-3.5" /> {t.pause}
-              </button>
-            )}
-            <button
-              type="button"
-              disabled={control.isPending}
-              onClick={() => control.mutate({ jobId: job.id, action: "stop" })}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
-            >
-              <Square className="h-3.5 w-3.5" /> {t.stop}
-            </button>
-          </div>
-        ) : null}
+        {playbackUrl?.id === job.id ? <video src={playbackUrl.url} controls playsInline className="mt-1 aspect-video w-full bg-muted" /> : null}
+        {playbackError && playbackUrl?.id === job.id ? <p className="text-[11px] text-destructive">{playbackError}</p> : null}
       </li>
     );
   };
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-3">
       <header>
         {!embedded && <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold tracking-tight">{t.title}</h2>
@@ -367,7 +311,7 @@ export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; 
         </p>
       ) : null}
 
-      {live.length > 0 ? <ul className="space-y-3">{live.map((j) => row(j, true))}</ul> : null}
+      {live.length > 0 ? <ul className="divide-y divide-border rounded-lg border border-border">{live.map((j) => row(j, true))}</ul> : null}
 
       {past.length > 0 ? (
         <div className="space-y-3">
@@ -383,7 +327,7 @@ export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; 
             </button>
           </div>
           <p className="text-xs text-muted-foreground">{t.kept}</p>
-          <ul className="space-y-3">{past.map((j) => row(j, false))}</ul>
+          <ul className="divide-y divide-border rounded-lg border border-border">{past.map((j) => row(j, false))}</ul>
         </div>
       ) : null}
     </section>

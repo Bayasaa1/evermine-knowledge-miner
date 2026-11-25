@@ -510,7 +510,7 @@ function StepUpload({
   const [statusNote, setStatusNote] = useState<string | null>(null);
   const [paused, setPaused] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
-  const [queue, setQueue] = useState<{ id: string; label: string; total: number }[]>([]);
+  const [, setQueue] = useState<{ id: string; label: string; total: number }[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const stopRef = useRef(false);
   const termRef = useRef<HTMLPreElement>(null);
@@ -1703,29 +1703,6 @@ function StepUpload({
                 <Square className="h-4 w-4" /> {t("stopMining")}
               </button>
             </div>
-          </div>
-        )}
-
-        {queue.length > 0 && (
-          <div className="mt-4 mb-32 rounded-xl border border-border bg-muted/30 p-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              {t("queueTitle")} · {queue.length}
-            </p>
-            <ol className="mt-2 space-y-1">
-              {queue.map((q, i) => (
-                <li
-                  key={q.id}
-                  className={`flex items-center justify-between gap-3 text-xs ${
-                    i + 1 === queueIndex ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  <span className="truncate">
-                    {i + 1}. {q.label}
-                  </span>
-                  <span className="shrink-0">{q.total} × 5min</span>
-                </li>
-              ))}
-            </ol>
           </div>
         )}
 
