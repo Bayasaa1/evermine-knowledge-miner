@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sdk_version": "2.0.2",
+  "sdk_version": "3.6.0",
   "path": "/mcp",
   "auth": {
     "type": "oauth",
@@ -28,7 +28,8 @@
         "inputSchema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
-          "properties": {}
+          "properties": {},
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -49,7 +50,8 @@
               "description": "Only return projects belonging to this persona id.",
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -73,7 +75,8 @@
           },
           "required": [
             "project_id"
-          ]
+          ],
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -98,7 +101,8 @@
               "description": "Only return minds belonging to this project id.",
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -122,7 +126,8 @@
           },
           "required": [
             "mind_id"
-          ]
+          ],
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -146,7 +151,8 @@
           },
           "required": [
             "query"
-          ]
+          ],
+          "additionalProperties": false
         },
         "outputSchema": null
       }
