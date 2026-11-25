@@ -130,7 +130,7 @@ type WizTab = "upload" | "record" | "youtube";
 type Opt = { id: string; name: string; personaId?: string | null };
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-export function ContentCreateWizard({ lang }: { lang: Lang }) {
+export function ContentCreateWizard({ lang, onYoutubeSelect }: { lang: Lang; onYoutubeSelect?: () => void }) {
   const startMining = useServerFn(startUploadMining);
   const reportError = useServerFn(reportUploadMiningError);
   const t = pickCopy(wz, lang);
@@ -284,7 +284,10 @@ export function ContentCreateWizard({ lang }: { lang: Lang }) {
     <section className="mb-6 rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex gap-1 rounded-xl bg-muted p-1">
         {tabs.map(([id, label]) => (
-          <button key={id} type="button" disabled={busy || recording} onClick={() => { setTab(id); setError(""); }}
+          <button key={id} type="button" disabled={busy || recording} onClick={() => {
+            if (id === "youtube" && onYoutubeSelect) { onYoutubeSelect(); return; }
+            setTab(id); setError("");
+          }}
             className={`flex-1 rounded-lg px-2 py-2 text-xs sm:text-sm ${tab === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
             {label}
           </button>

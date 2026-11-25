@@ -112,7 +112,7 @@ function StatusIcon({ status }: { status: MiningJobStatus }) {
  * the server-side worker, so this view only reads state and sends
  * pause/resume/stop commands — closing the app never interrupts mining.
  */
-export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
+export function MiningMonitor({ lang = "en", embedded = false }: { lang?: Lang; embedded?: boolean }) {
   const t = pickCopy(COPY, lang);
   const { isAuthenticated, userId } = useAuth();
   const [mounted, setMounted] = useState(false);
@@ -312,13 +312,13 @@ export function MiningMonitor({ lang = "en" }: { lang?: Lang }) {
   return (
     <section className="space-y-5">
       <header>
-        <div className="flex items-center gap-2">
+        {!embedded && <div className="flex items-center gap-2">
           <h2 className="text-xl font-semibold tracking-tight">{t.title}</h2>
           <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
             {t.refreshing}
           </span>
-        </div>
+        </div>}
         <p className="mt-1 text-sm text-muted-foreground">{t.sub}</p>
       </header>
 

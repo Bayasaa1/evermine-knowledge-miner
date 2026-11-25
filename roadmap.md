@@ -1,5 +1,9 @@
 # Roadmap
 
+## Upload session — displayed step 3
+- [x] Reuse upload/record tabs and live mining monitor in the mining step, with independent Show/Hide controls and no duplicate handlers or jobs
+- [x] Verify signed-in controls on desktop/mobile and run existing tests (219 pass, 0 fail); no new upload or funds transfer performed
+
 ## Crypto checkout currency regression — November 22
 - [x] Read creator pricing, feed/plan picker, export prices, checkout, proof/approval, sales, usage analytics, wallet sending, address-waiting/hourly queues and database definitions; no payment-processing database functions exist
 - [x] Fix currency-mixed sales totals and usage payout deductions, price hints, and source-currency checks before queueing or sending creator/cold-wallet transfers; block invalid crypto proof/manual approval without rewriting settled records

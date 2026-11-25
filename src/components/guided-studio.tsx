@@ -31,9 +31,13 @@ import {
   Pause,
   Terminal as TerminalIcon,
   BrainCircuit,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CategoryList } from "@/components/create-wizard";
+import { CategoryList, ContentCreateWizard } from "@/components/create-wizard";
+import { MiningMonitor } from "@/components/mining-monitor";
+import { Button } from "@/components/ui/button";
 import { tr, pickCopy, useDisplayTexts, type Lang } from "@/lib/i18n";
 import {
   checkDrive,
@@ -130,6 +134,8 @@ export function GuidedStudio({ lang }: { lang: Lang; creatorEmail: string }) {
   const loadAccountKeys = useServerFn(getUserAiKeyStatus);
   const [category, setCategory] = useState<CreationCategory>(() => getCreationCategory());
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [showMining, setShowMining] = useState(false);
   // Step 1 mining rules are shared by steps 4 (saved with the video) and 5 (mining).
   const RULES_KEY = "evermind.mining-rules";
   const [rules, setRules] = useState<Assessment>(() => {
@@ -272,6 +278,35 @@ export function GuidedStudio({ lang }: { lang: Lang; creatorEmail: string }) {
         <div className="space-y-8">
           <ChosenCategory lang={lang} category={category} onBack={() => setStep(1)} />
           <StepUpload lang={lang} mode="mine" category={category} rules={rules} />
+          <section aria-labelledby="studio-upload-title" className="space-y-3 border-t border-border pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="studio-upload-title" className="text-base font-semibold">
+                {pickCopy({ en: "Upload / Record", mn: "Файл хуулах / Бичлэг хийх", ko: "업로드 / 녹화" }, lang)}
+              </h2>
+              <Button type="button" variant="outline" size="sm" aria-expanded={showUpload} aria-controls="studio-upload" onClick={() => setShowUpload((value) => !value)}>
+                {showUpload ? <EyeOff /> : <Eye />}
+                {pickCopy(showUpload ? { en: "Hide", mn: "Нуух", ko: "숨기기" } : { en: "Show", mn: "Харах", ko: "보기" }, lang)}
+              </Button>
+            </div>
+            {/* Keep the upload session mounted: hiding it must not interrupt extraction or recording. */}
+            <div id="studio-upload" hidden={!showUpload}>
+              <ContentCreateWizard lang={lang} onYoutubeSelect={() => setStep(4)} />
+            </div>
+          </section>
+          <section aria-labelledby="studio-mining-title" className="space-y-3 border-t border-border pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="studio-mining-title" className="text-base font-semibold">
+                {pickCopy({ en: "Live mining", mn: "Майнингийн явц", ko: "실시간 마이닝" }, lang)}
+              </h2>
+              <Button type="button" variant="outline" size="sm" aria-expanded={showMining} aria-controls="studio-mining" onClick={() => setShowMining((value) => !value)}>
+                {showMining ? <EyeOff /> : <Eye />}
+                {pickCopy(showMining ? { en: "Hide", mn: "Нуух", ko: "숨기기" } : { en: "Show", mn: "Харах", ko: "보기" }, lang)}
+              </Button>
+            </div>
+            <div id="studio-mining" hidden={!showMining}>
+              <MiningMonitor lang={lang} embedded />
+            </div>
+          </section>
         </div>
       )}
 
