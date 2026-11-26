@@ -659,7 +659,8 @@ function HomeFeed() {
             onMute={() => setMuted((m) => !m)}
             index={i}
             onVisible={setActive}
-            isActive={active === i}
+            // The Mind chat can play its own source clips, so the feed pauses while it is open.
+            isActive={active === i && !talk}
             // Only the current clip and its immediate neighbours load a player;
             // mounting every video at once is what made the feed stutter.
             near={Math.abs(active - i) <= 1}
@@ -1028,6 +1029,8 @@ function FeedCard({
     if (!v) return;
     if (isActive && !paused) void v.play().catch(() => undefined);
     else v.pause();
+    // A removed <video> can keep sounding until it is collected; stop it first.
+    return () => { v.pause(); };
   }, [isActive, paused]);
 
   // Uploaded clips get the same ducking the YouTube player does.

@@ -426,6 +426,11 @@ function NativeStage({
       });
     } else v.pause();
   }, [active, paused]);
+  // Stop sound before the element is removed (episode swap, scroll away).
+  useEffect(() => {
+    const v = video.current;
+    return () => { if (v) { v.pause(); v.muted = true; } };
+  }, [videoUrl]);
 
   useEffect(() => {
     if (!onSeekRef) return;
