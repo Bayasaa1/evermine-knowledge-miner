@@ -330,6 +330,13 @@
       "when": 1795619113858,
       "tag": "0046_hide_moderation_helpers",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1795736146509,
+      "tag": "0047_mind_vaults_lookup_indexes",
+      "breakpoints": true
     }
   ]
 }

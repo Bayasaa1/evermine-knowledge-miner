@@ -134,11 +134,11 @@ export async function finalizeMiningJob(
   //    must never invent a project or move a video between projects/personas.
   const videoId = youtubeIdOf(job.source_url);
   let projectId = job.project_id;
-  let existingContent: { id: string; project_id: string } | null = null;
+  let existingContent: { id: string; project_id: string; mind_id?: string | null } | null = null;
   if (videoId) {
     const { data } = await admin
       .from("project_content")
-      .select("id,project_id")
+      .select("id,project_id,mind_id")
       .eq("user_id", job.user_id)
       .eq("youtube_id", videoId)
       .limit(1)
@@ -176,15 +176,27 @@ export async function finalizeMiningJob(
   //    duplicate card in Saved Minds.
   let vault: { id: string } | null = null;
   if (videoId) {
-    const { data: existingVault } = await admin
-      .from("mind_vaults")
-      .select("id")
-      .eq("user_id", job.user_id)
-      .eq("kind", "mine")
-      .like("payload->source->>url", `%${videoId}%`)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+    // Indexed lookups only: the video card's own vault id first, then the exact
+    // source link. A LIKE scan over every payload exhausted database disk I/O.
+    let existingVault: { id: string } | null = null;
+    const linked = existingContent?.mind_id ?? "";
+    if (/^[0-9a-f-]{36}$/i.test(linked)) {
+      const { data } = await admin
+        .from("mind_vaults").select("id")
+        .eq("id", linked).eq("user_id", job.user_id).eq("kind", "mine")
+        .maybeSingle();
+      existingVault = data ?? null;
+    }
+    if (!existingVault) {
+      const { data } = await admin
+        .from("mind_vaults").select("id")
+        .eq("user_id", job.user_id).eq("kind", "mine")
+        .eq("payload->source->>url", job.source_url)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      existingVault = data ?? null;
+    }
     if (existingVault) {
       const { data: updated } = await admin
         .from("mind_vaults")

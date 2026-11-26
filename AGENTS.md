@@ -59,3 +59,4 @@
 - Chat commands (chat-commands.ts) and web tasks (web-task.ts) only write/submit after a user-pressed button; pasted keys are masked and never reach prompts.
 - Crypto: versioned no-refund agreement precedes orders; each USDT sale queues creator share + cold-wallet sweep in crypto_payouts. Pure guards (crypto-send.ts: address, amount ≤ order and ≤ HOT_WALLET_MAX_PAYOUT) plus a forward-only status trigger mean failed sends are never retried, because a payout must never go out twice.
 - Squad web builds (web-build.ts) are multi-file projects zipped from all Mind replies since the last person, because one-file output forced toy results.
+- mind_vaults lookups use indexed equality (id, exact payload source url, or user_id+kind+title), never LIKE on payload, because payload scans exhausted database disk I/O.

@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS mind_vaults_user_kind_title_idx ON public.mind_vaults (user_id, kind, title);
+CREATE INDEX IF NOT EXISTS mind_vaults_user_kind_source_url_idx ON public.mind_vaults (user_id, kind, ((payload->'source'->>'url')));
