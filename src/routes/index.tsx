@@ -23,7 +23,7 @@ import { ShareTrigger } from "@/components/share-trigger";
 import { RobotSyncModal } from "@/components/robot-sync-modal";
 import { MindFeedback } from "@/components/mind-feedback";
 import { YouTubeStage } from "@/components/youtube-stage";
-import { loadFeed, loadFeedTracks, rankFeedForViewer, type FeedItem } from "@/lib/feed";
+import { loadFeed, loadFeedTracks, loadProjectEpisodes, rankFeedForViewer, type FeedItem } from "@/lib/feed";
 import { readLocalInterests, readLocalSignals, writeLocalInterests, recordWatch, type FeedInterests } from "@/lib/feed-interests";
 import { loadFeedInterests, saveFeedInterests } from "@/lib/viewer-brain.functions";
 import { InterestOnboardingModal } from "@/components/interest-onboarding-modal";
@@ -512,11 +512,39 @@ function HomeFeed() {
     });
   };
   const [swapped, setSwapped] = useState<Record<string, FeedItem>>({});
-  const swipeProject = useCallback((item: FeedItem, direction: "older" | "newer") => {
+  // Full episode lists per project, loaded straight from the database so a
+  // 12-video project shows all 12 — the feed itself only holds a ranked slice.
+  const [episodes, setEpisodes] = useState<Record<string, FeedItem[]>>({});
+  const episodeLoads = useRef<Record<string, Promise<FeedItem[]>>>({});
+  const ensureEpisodes = useCallback((projectId: string): Promise<FeedItem[]> => {
+    const existing = episodeLoads.current[projectId];
+    if (existing) return existing;
+    const load = loadProjectEpisodes(projectId)
+      .then((list) => {
+        setEpisodes((s) => ({ ...s, [projectId]: list }));
+        return list;
+      })
+      .catch(() => {
+        delete episodeLoads.current[projectId];
+        return [] as FeedItem[];
+      });
+    episodeLoads.current[projectId] = load;
+    return load;
+  }, []);
+  // Preload the series of the clip on screen so its "2 / 12" label is ready.
+  useEffect(() => {
+    const base = items[active];
+    const shown = base ? swapped[base.id] ?? base : undefined;
+    if (shown?.projectId) void ensureEpisodes(shown.projectId);
+  }, [active, items, swapped, ensureEpisodes]);
+  const swipeProject = useCallback(async (item: FeedItem, direction: "older" | "newer") => {
     if (!item.projectId) return;
-    const projectVideos = items
-      .filter((candidate) => candidate.projectId === item.projectId)
-      .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0));
+    let projectVideos = await ensureEpisodes(item.projectId);
+    if (!projectVideos.length) {
+      projectVideos = items
+        .filter((candidate) => candidate.projectId === item.projectId)
+        .sort((a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0));
+    }
     const current = projectVideos.findIndex((candidate) => candidate.id === item.id);
     const target = projectVideos[current + (direction === "newer" ? 1 : -1)];
     if (!target) {
@@ -528,7 +556,7 @@ function HomeFeed() {
       const slot = Object.keys(s).find((k) => s[k]?.id === item.id) ?? item.id;
       return { ...s, [slot]: target };
     });
-  }, [items]);
+  }, [items, ensureEpisodes]);
 
 
   const refreshPurchases = useCallback(async () => {
@@ -648,7 +676,12 @@ function HomeFeed() {
             onBlocked={() => setUnplayable((s) => ({ ...s, [item.id]: true }))}
             onFeedback={() => setFeedback(item)}
             onCreator={() => setCreator(item)}
-            onProjectSwipe={(direction) => swipeProject(item, direction)}
+            onProjectSwipe={(direction) => void swipeProject(item, direction)}
+            episode={(() => {
+              const list = item.projectId ? episodes[item.projectId] : undefined;
+              const at = list ? list.findIndex((v) => v.id === item.id) : -1;
+              return list && at >= 0 && list.length > 1 ? { index: at + 1, total: list.length } : undefined;
+            })()}
           />
         ); })}
 
@@ -799,6 +832,7 @@ function FeedCard({
   onFeedback,
   onCreator,
   onProjectSwipe,
+  episode,
 }: {
   item: FeedItem;
   muted: boolean;
@@ -821,6 +855,8 @@ function FeedCard({
   onFeedback: () => void;
   onCreator: () => void;
   onProjectSwipe: (direction: "older" | "newer") => void;
+  /** Position inside the project series, e.g. 2 of 12. */
+  episode?: { index: number; total: number } | undefined;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1371,7 +1407,14 @@ function FeedCard({
           className="pointer-events-auto block w-full text-left"
           aria-expanded={expanded}
         >
-          <p className={`text-sm font-medium ${expanded ? "" : "line-clamp-1"}`}>{shownTitle}</p>
+          <p className={`text-sm font-medium ${expanded ? "" : "line-clamp-1"}`}>
+            {episode && (
+              <span className="mr-1.5 inline-block rounded bg-white/15 px-1.5 py-0.5 align-middle text-[10px] font-semibold tabular-nums">
+                {episode.index}/{episode.total}
+              </span>
+            )}
+            {shownTitle}
+          </p>
           {expanded && (
             <>
               <p className="mt-1 line-clamp-3 text-xs text-white/70">{shownDescription}</p>

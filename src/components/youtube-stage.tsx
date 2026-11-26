@@ -49,6 +49,25 @@ function loadApi(): Promise<YTNamespace> {
   return apiPromise;
 }
 
+/** Hard-stop a player before it goes away: some mobile browsers keep a
+    removed frame's audio running, which made two videos play at once. */
+function hardStop(p: YTPlayer | null, frame: HTMLIFrameElement | null | undefined) {
+  try { p?.pauseVideo(); } catch { /* gone */ }
+  try { p?.mute(); } catch { /* gone */ }
+  try {
+    frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func: "pauseVideo", args: "" }), "*");
+    frame?.contentWindow?.postMessage(JSON.stringify({ event: "command", func: "mute", args: "" }), "*");
+  } catch { /* frame already detached */ }
+  if (frame) frame.src = "about:blank";
+  try { p?.destroy(); } catch { /* already gone */ }
+}
+
+/** Only one feed player may sound at a time; starting one silences the rest. */
+const livePlayers = new Set<{ stop: () => void }>();
+function claimAudio(owner: { stop: () => void }) {
+  for (const other of livePlayers) if (other !== owner) other.stop();
+}
+
 function YouTubeStageImpl({
   videoId,
   active,
@@ -139,12 +158,28 @@ function YouTubeStageImpl({
         });
       })
       .catch(() => undefined);
+    const holderEl = holder.current;
     return () => {
       cancelled = true;
-      player.current?.destroy();
+      hardStop(player.current, holderEl?.querySelector("iframe"));
       player.current = null;
+      holderEl?.replaceChildren();
     };
   }, [videoId]);
+
+  // Single-player lock: when another clip starts, this one pauses and mutes.
+  const lockRef = useRef<{ stop: () => void }>({
+    stop: () => {
+      const p = player.current;
+      try { p?.pauseVideo(); } catch { /* gone */ }
+      try { p?.mute(); } catch { /* gone */ }
+    },
+  });
+  useEffect(() => {
+    const lock = lockRef.current;
+    livePlayers.add(lock);
+    return () => { livePlayers.delete(lock); };
+  }, []);
 
   // Mirror `muted` into a ref so the play/pause effect below never re-runs
   // (and re-mutes) when the viewer toggles sound — the unmute must stay inside
@@ -169,6 +204,7 @@ function YouTubeStageImpl({
     if (active && !paused) {
       // Always start muted so the browser cannot block autoplay. If the viewer
       // already asked for sound (a real tap earlier), restore it once rolling.
+      claimAudio(lockRef.current);
       p.mute();
       p.playVideo();
       if (!mutedRef.current) {
@@ -221,14 +257,17 @@ function YouTubeStageImpl({
     if (!playing) return;
     setShowUi(true);
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => setShowUi(false), 7000);
+    hideTimer.current = window.setTimeout(() => setShowUi(false), 3000);
   }, [playing]);
   const skip = (delta: number) => {
     const p = player.current;
     if (p) {
       const dur = typeof p.getDuration === "function" ? p.getDuration() : 0;
       const next = Math.max(0, p.getCurrentTime() + delta);
-      p.seekTo(dur ? Math.min(next, dur - 1) : next, true);
+      const to = dur ? Math.min(next, dur - 1) : next;
+      p.seekTo(to, true);
+      // Move subtitles and the timeline right away instead of on the next poll.
+      onTime?.(to, dur);
     }
     flashUi();
   };

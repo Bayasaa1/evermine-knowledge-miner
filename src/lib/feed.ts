@@ -11,6 +11,8 @@ import { scopedKey } from "./user-scope";
 import {
   getPublicContentTracks,
   listPublicVisualContentLight,
+  listProjectEpisodesLight,
+  type PublicFeedRow,
   type SubtitleCue,
   type TimelineMark,
 } from "./projects";
@@ -110,7 +112,17 @@ export async function removeFromFeed(id: string): Promise<FeedItem[]> {
 
 /** Playable YouTube clips published inside public Projects. */
 export async function projectFeed(): Promise<FeedItem[]> {
-  const rows = await listPublicVisualContentLight();
+  return rowsToFeedItems(await listPublicVisualContentLight());
+}
+
+/** All episodes of one project, sorted by the creator's sequence — not limited by the feed size. */
+export async function loadProjectEpisodes(projectId: string): Promise<FeedItem[]> {
+  return rowsToFeedItems(await listProjectEpisodesLight(projectId)).sort(
+    (a, b) => (a.sequenceIndex ?? 0) - (b.sequenceIndex ?? 0),
+  );
+}
+
+function rowsToFeedItems(rows: PublicFeedRow[]): FeedItem[] {
   return rows
     .filter((row) => row.youtube_id || otherVideo(row.source_url))
     .map((row) => {

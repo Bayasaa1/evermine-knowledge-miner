@@ -336,6 +336,26 @@ async function fetchFeedRows(orderBy: "created_at" | "view_count", limit: number
   }));
 }
 
+/** Every published episode of one project, in the creator's sequence order. */
+export async function listProjectEpisodesLight(projectId: string): Promise<PublicFeedRow[]> {
+  const { data, error } = await supabase
+    .from("project_content")
+    .select(`${CONTENT_LIGHT_COLS},projects!inner(id,user_id,title,creator_name,creator_avatar_url,price,currency,published,plan_tiers)`)
+    .eq("kind", "VISUAL_CONTENT")
+    .eq("project_id", projectId)
+    .eq("projects.published", true)
+    .order("sequence_index", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true })
+    .limit(1000);
+  if (error) throw error;
+  const rows = (data as unknown as Array<Record<string, unknown>> | null) ?? [];
+  return rows.map((row) => ({
+    ...(row as unknown as PublicFeedRow),
+    tags: Array.isArray(row["tags"]) ? (row["tags"] as string[]) : [],
+    project: (row["projects"] as Project | null) ?? null,
+  }));
+}
+
 /** Subtitles + mined moments for one clip, fetched only when it is watched. */
 export async function getPublicContentTracks(contentId: string): Promise<{
   timeline: TimelineMark[];
