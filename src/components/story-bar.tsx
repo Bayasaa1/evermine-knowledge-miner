@@ -52,7 +52,12 @@ export function StoryBar() {
       .catch(() => setStories([]));
   }, []);
 
-  useEffect(refresh, [refresh]);
+  useEffect(() => {
+    refresh();
+    // Story links last 2 minutes; re-sign them before they expire.
+    const t = setInterval(refresh, 90_000);
+    return () => clearInterval(t);
+  }, [refresh]);
 
   const pick = () => {
     if (!userId) {

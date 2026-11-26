@@ -106,7 +106,7 @@ export async function listPosts(limit = 50): Promise<UserPost[]> {
     .limit(limit);
   if (error) throw new Error(error.message);
   // Post media links last one hour, so a deleted post stops being viewable soon.
-  const linked = await withLinks(data ?? [], STORY_LINK_SECONDS);
+  const linked = await withLinks(data ?? [], 60 * 60);
   return linked.map(({ row, url }) => ({
     id: row.id,
     userId: row.user_id,
