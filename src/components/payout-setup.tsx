@@ -261,7 +261,7 @@ const earnCopy = {
     badUrl: "Links must start with https://", usdtTitle: "USDT payout addresses (automatic payouts)", usdtHint: "Your share of every crypto sale is sent here automatically.", badAddr: "That USDT address is not valid for this network.", needAcct: "Enter an account number and holder name.",
     sales: "Sales", revenue: "Earned (approved)", net: "Your share after commission", pendingSum: "Waiting for your confirmation",
     none: "No sales yet.", buyer: "Buyer", plan: "Plan", amount: "Amount", method: "Method", ref: "Reference / Tx ID", status: "Status",
-    approve: "Approve", reject: "Reject", revoke: "Revoke access", signIn: "Sign in to manage payments.",
+    approve: "Approve", confirmRef: "Type the payment reference exactly as it appears in your bank or Stripe statement:", reject: "Reject", revoke: "Revoke access", signIn: "Sign in to manage payments.",
     statuses: { awaiting: "Awaiting payment", submitted: "Needs check", approved: "Approved", rejected: "Rejected", revoked: "Revoked" } as Record<string, string>,
     names: { month: "1 month", quarter: "3 months", year: "1 year", lifetime: "Lifetime" } as Record<string, string>,
   },
@@ -273,7 +273,7 @@ const earnCopy = {
     badUrl: "Холбоос https:// -ээр эхлэх ёстой", usdtTitle: "USDT хүлээн авах хаяг (автомат шилжүүлэг)", usdtHint: "Крипто борлуулалт бүрийн таны хувь энэ хаяг руу автоматаар очно.", badAddr: "Энэ USDT хаяг тухайн сүлжээнд буруу байна.", needAcct: "Дансны дугаар болон эзэмшигчийн нэрээ оруулна уу.",
     sales: "Борлуулалт", revenue: "Орлого (батлагдсан)", net: "Шимтгэлийн дараа танд", pendingSum: "Таны баталгаажуулалтыг хүлээж буй",
     none: "Одоогоор борлуулалт алга.", buyer: "Худалдан авагч", plan: "Багц", amount: "Дүн", method: "Арга", ref: "Код / Гүйлгээ", status: "Төлөв",
-    approve: "Батлах", reject: "Татгалзах", revoke: "Эрх цуцлах", signIn: "Төлбөр удирдахын тулд нэвтэрнэ үү.",
+    approve: "Батлах", confirmRef: "Банк эсвэл Stripe хуулга дээр харагдах гүйлгээний утгыг яг адилхан бичнэ үү:", reject: "Татгалзах", revoke: "Эрх цуцлах", signIn: "Төлбөр удирдахын тулд нэвтэрнэ үү.",
     statuses: { awaiting: "Төлбөр хүлээж буй", submitted: "Шалгах шаардлагатай", approved: "Батлагдсан", rejected: "Татгалзсан", revoked: "Цуцалсан" } as Record<string, string>,
     names: { month: "1 сар", quarter: "3 сар", year: "1 жил", lifetime: "Насан турш" } as Record<string, string>,
   },
@@ -285,7 +285,7 @@ const earnCopy = {
     badUrl: "링크는 https:// 로 시작해야 합니다", usdtTitle: "USDT 정산 주소 (자동 지급)", usdtHint: "모든 암호화폐 판매의 내 몫이 이 주소로 자동 전송됩니다.", badAddr: "이 네트워크에 맞지 않는 USDT 주소입니다.", needAcct: "계좌번호와 예금주명을 입력하세요.",
     sales: "판매", revenue: "수익 (승인됨)", net: "수수료 후 실수령", pendingSum: "확인 대기 중",
     none: "아직 판매가 없습니다.", buyer: "구매자", plan: "플랜", amount: "금액", method: "방식", ref: "코드 / 거래 ID", status: "상태",
-    approve: "승인", reject: "거절", revoke: "접근 취소", signIn: "결제를 관리하려면 로그인하세요.",
+    approve: "승인", confirmRef: "은행 또는 Stripe 내역에 표시된 결제 참조를 정확히 입력하세요:", reject: "거절", revoke: "접근 취소", signIn: "결제를 관리하려면 로그인하세요.",
     statuses: { awaiting: "결제 대기", submitted: "확인 필요", approved: "승인됨", rejected: "거절됨", revoked: "취소됨" } as Record<string, string>,
     names: { month: "1개월", quarter: "3개월", year: "1년", lifetime: "평생" } as Record<string, string>,
   },
@@ -335,7 +335,12 @@ export function CreatorEarnings({ lang }: { lang: Lang }) {
   const act = async (orderId: string, decision: "approve" | "reject" | "revoke") => {
     setBusy(orderId);
     try {
-      const r = await decide({ data: { orderId, decision } });
+      let receivedRef = "";
+      if (decision === "approve") {
+        receivedRef = (window.prompt(t.confirmRef) ?? "").trim();
+        if (!receivedRef) return;
+      }
+      const r = await decide({ data: { orderId, decision, receivedRef } });
       if (!r.ok) toast.error(r.error === CRYPTO_CURRENCY_ERROR ? t.cryptoCurrency : r.error ?? "Failed");
       await refresh();
     } finally { setBusy(null); }

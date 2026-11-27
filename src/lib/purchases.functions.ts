@@ -309,10 +309,11 @@ export const listCreatorSales = createServerFn({ method: "POST" })
 /** Creator approves (grants access) or revokes/rejects one of their own orders. */
 export const decideOrder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { orderId: string; decision: string }) => {
+  .inputValidator((input: { orderId: string; decision: string; receivedRef?: string }) => {
     if (!/^[0-9a-f-]{36}$/i.test(String(input?.orderId))) throw new Error("Invalid order");
     const decision = input.decision === "approve" ? "approve" : input.decision === "reject" ? "reject" : "revoke";
-    return { orderId: input.orderId, decision } as const;
+    const receivedRef = String(input?.receivedRef ?? "").trim().slice(0, 200);
+    return { orderId: input.orderId, decision, receivedRef } as const;
   })
   .handler(async ({ data, context }): Promise<PurchaseResult> => {
     // Ownership check runs as the caller (RLS): only the creator sees their own sale.
@@ -330,6 +331,13 @@ export const decideOrder = createServerFn({ method: "POST" })
       }
       // Manual (bank/Stripe) approval requires the buyer's submitted payment reference.
       if (!String(order.transaction_ref ?? "").trim()) return { ok: false, error: "The buyer has not submitted a payment reference yet." };
+      // A creator can never unlock their own purchase, and must confirm the reference
+      // they actually received in their own bank/Stripe statement; it must match the buyer's.
+      if (order.buyer_id === context.userId) return { ok: false, error: "You cannot approve your own purchase." };
+      const norm = (v: string) => v.toLowerCase().replace(/\s+/g, "");
+      if (!data.receivedRef || norm(data.receivedRef) !== norm(String(order.transaction_ref))) {
+        return { ok: false, error: "Enter the payment reference exactly as it appears in your bank or Stripe statement." };
+      }
       const plan = (PLAN_LENGTHS.includes(order.plan as PlanLength) ? order.plan : "lifetime") as PlanLength;
       const { error } = await supabaseAdmin.from("mind_purchases").upsert({
         user_id: order.buyer_id, mind_id: order.mind_id, category: order.category,
