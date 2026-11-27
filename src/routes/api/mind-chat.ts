@@ -183,6 +183,23 @@ async function rootBranchBlock(mindId: string, queryText: string, topicId?: stri
   }
 }
 
+async function projectOutlineBlock(mindId: string, queryText: string): Promise<string> {
+  if (!mindId.startsWith("project:")) return "";
+  const projectId = mindId.slice("project:".length);
+  if (!/^[0-9a-f-]{36}$/i.test(projectId)) return "";
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("project_outlines").select("outline, projects!inner(published)")
+      .eq("project_id", projectId).eq("projects.published", true).maybeSingle();
+    if (!data) return "";
+    const { outlinePromptBlock } = await import("@/lib/project-outline");
+    return outlinePromptBlock(data.outline as never, queryText);
+  } catch {
+    return "";
+  }
+}
+
 async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "", topicId?: string, topicTitle?: string) {
   const preset = builtinOperator(mindId);
   if (preset) return operatorLens(preset.id);
@@ -202,6 +219,7 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
   }
   if (!project) return null;
   const branch = await rootBranchBlock(mindId, queryText, topicId, topicTitle);
+  const outline = await projectOutlineBlock(mindId, queryText);
   const q = words(queryText);
   const block = (label: string, items: string[]) => (items.length ? `${label}\n- ${items.map((item) => item.slice(0, 500)).join("\n- ")}` : "");
   const phrases = project.phrases.slice(0, 8);
@@ -234,6 +252,7 @@ async function resolveSystemPrompt(mindId: string, lang: LangCode, queryText = "
       : "",
     `ANSWER AS YOURSELF: always speak in first person ("I", "my") as ${project.name}, using your own vocabulary, mental models and real examples from your videos.`,
     branch.slice(0, 6000),
+    outline,
     // Mined facts are often in another language than the question, so word
     // matching can find nothing; a fixed floor keeps the core facts present.
     block(`WHAT YOU KNOW FROM YOUR OWN VIDEOS (real facts, including typed SCREEN observations — never confuse screen content with your beliefs):`, pickRelevant(project.knowledge, q, 8, 4).slice(0, 12)),

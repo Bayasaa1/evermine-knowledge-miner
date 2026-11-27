@@ -86,7 +86,7 @@ type Hit = {
 };
 
 async function loadIndex(): Promise<Hit[]> {
-  const [projects, content, personas] = await Promise.all([
+  const [projects, content, personas, outlines] = await Promise.all([
     supabase
       .from("projects")
       .select("id,title,description,creator_name,creator_avatar_url")
@@ -100,7 +100,19 @@ async function loadIndex(): Promise<Hit[]> {
       .select("id,name,handle,bio,avatar_url")
       .limit(100)
       .then((r) => r.data ?? []),
+    // Outline keywords: a small index, so search never scans mined payloads.
+    supabase
+      .from("project_outlines")
+      .select("project_id,keywords,video_keywords")
+      .limit(500)
+      .then((r) => r.data ?? []),
   ]);
+  const projectKeys = new Map(outlines.map((o) => [o.project_id, o.keywords ?? []]));
+  const videoKeys = new Map<string, string[]>();
+  for (const o of outlines) {
+    const vk = (o.video_keywords ?? {}) as Record<string, unknown>;
+    for (const [id, words] of Object.entries(vk)) if (Array.isArray(words)) videoKeys.set(id, words.map(String));
+  }
 
   const hits: Hit[] = [];
   for (const p of personas) {
@@ -119,7 +131,7 @@ async function loadIndex(): Promise<Hit[]> {
       kind: "projects",
       title: p.title,
       subtitle: p.creator_name,
-      tags: [],
+      tags: projectKeys.get(p.id) ?? [],
       avatar: p.creator_avatar_url,
     });
   }
@@ -130,7 +142,7 @@ async function loadIndex(): Promise<Hit[]> {
       kind: "videos",
       title: c.title,
       subtitle: c.project?.creator_name ?? "",
-      tags: c.tags.slice(0, 4),
+      tags: [...c.tags, ...(videoKeys.get(c.id) ?? [])],
       avatar: c.youtube_id ? `https://i.ytimg.com/vi/${c.youtube_id}/default.jpg` : null,
       url: c.source_url || (c.youtube_id ? `https://www.youtube.com/watch?v=${c.youtube_id}` : `https://ever-mind.dev/search?q=${encodeURIComponent(c.title)}`),
     });
@@ -238,7 +250,7 @@ function SearchPage() {
                   </span>
                 </span>
               </button>
-              {hit.kind !== "topics" && <ShareTrigger content={{ kind: hit.kind === "personas" ? "mind" : hit.kind === "projects" ? "project" : "video", id: hit.id.replace(/^[^:]+:/, ""), mindId: hit.kind !== "videos" ? hit.id : null, title: hit.title, creator: hit.kind === "personas" ? hit.title : hit.subtitle, handle: hit.kind === "personas" ? hit.subtitle : undefined, image: hit.avatar, topics: hit.tags, url: hit.url || `https://ever-mind.dev/search?q=${encodeURIComponent(hit.title)}` }} />}
+              {hit.kind !== "topics" && <ShareTrigger content={{ kind: hit.kind === "personas" ? "mind" : hit.kind === "projects" ? "project" : "video", id: hit.id.replace(/^[^:]+:/, ""), mindId: hit.kind !== "videos" ? hit.id : null, title: hit.title, creator: hit.kind === "personas" ? hit.title : hit.subtitle, handle: hit.kind === "personas" ? hit.subtitle : undefined, image: hit.avatar, topics: hit.tags.slice(0, 4), url: hit.url || `https://ever-mind.dev/search?q=${encodeURIComponent(hit.title)}` }} />}
               </div>
             );
           })}

@@ -284,6 +284,30 @@ export async function finalizeMiningJob(
         tags,
         emotion_timeline: mined.emotionTimeline ?? [],
       });
+      // Compact outline (keywords, mistakes→fixes, scope) for fast search and chat.
+      if (full) {
+        try {
+          const { buildVideoOutline, mergeProjectOutline } = await import("@/lib/project-outline");
+          const video = buildVideoOutline({
+            title,
+            summary: mined.story?.summary ?? "",
+            tags,
+            concepts: (mined.knowledgeNodes ?? []).map((n) => String(n?.concept_title ?? "")),
+            ...(mined.lessons ? { lessons: mined.lessons } : {}),
+          });
+          const { data: prev } = await admin
+            .from("project_outlines").select("outline").eq("project_id", projectId).maybeSingle();
+          const next = mergeProjectOutline((prev?.outline ?? null) as never, contentId, video);
+          await admin.from("project_outlines").upsert({
+            project_id: projectId,
+            user_id: job.user_id,
+            keywords: next.keywords,
+            video_keywords: next.videoKeywords as never,
+            outline: next.outline as never,
+            updated_at: new Date().toISOString(),
+          });
+        } catch { /* outline is an index; never blocks the save */ }
+      }
     }
 
     // Only an explicit creator choice makes a project public.

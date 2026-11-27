@@ -1,3 +1,4 @@
+import { mergeLessons } from "@/lib/project-outline";
 import type { ChunkResult } from "@/lib/gemini";
 
 import { CHUNK_SECONDS } from "@/lib/chunking";
@@ -119,6 +120,7 @@ function normalizeChunkTimeline(result: ChunkResult, chunkIndex: number): ChunkR
     emotionTimeline: (result.emotionTimeline ?? []).map((item) => ({ ...item, timestamp_start: stamp(item.timestamp_start), timestamp_end: stamp(item.timestamp_end) })),
     copyright: { ...result.copyright, signals: arr(result.copyright?.signals).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) },
     qaPairs: (result.qaPairs ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
+    ...(result.lessons ? { lessons: { ...result.lessons, mistakes: result.lessons.mistakes.map((item) => ({ ...item, timestamp: stamp(item.timestamp) })) } } : {}),
     entities: (result.entities ?? []).map((item) => ({ ...item, timestamps: arr(item.timestamps).map(stamp) })),
     screenText: (result.screenText ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
     journal: (result.journal ?? []).map((item) => ({ ...item, timestamp: stamp(item.timestamp) })),
@@ -254,6 +256,7 @@ export function mergeChunkResults(list: ChunkResult[]): ChunkResult | null {
     },
     knowledgeNodes: normalized.flatMap((r) => (r.knowledgeNodes ?? []).filter(Boolean)),
     qaPairs: normalized.flatMap((r) => r.qaPairs ?? []),
+    lessons: mergeLessons(normalized.map((r) => r.lessons)),
     entities: mergeEntities(normalized.flatMap((r) => r.entities ?? [])),
     screenText: uniqueBy(normalized.flatMap((r) => r.screenText ?? []), (t) => `${t.kind}|${String(t?.text ?? "").trim()}`),
     journal: normalized.flatMap((r, i) => confineToWindow(r.journal ?? [], windowOf(r, i))),

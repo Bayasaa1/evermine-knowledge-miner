@@ -1,3 +1,4 @@
+import { normalizeLessons } from "@/lib/project-outline";
 import { getGeminiAccessToken } from "./google-gemini-auth";
 import type { Lang } from "./i18n";
 
@@ -465,6 +466,8 @@ export type ChunkResult = {
   gaming: GamingExtraction;
   /** Question → answer pairs (interviewer/guest asks, someone answers). */
   qaPairs?: QAPair[];
+  /** Author mistakes with fixes, pitfalls, recommendations, scope and keywords. */
+  lessons?: import("@/lib/project-outline").LessonPack;
   /** People, organisations, places, products and ideas mentioned, with links. */
   entities?: MinedEntity[];
   /** On-screen text: slides, code, charts, captions burned into the frame. */
@@ -1477,6 +1480,7 @@ export function normalizeChunkResult(raw: unknown): ChunkResult {
     copyright,
     gaming,
     qaPairs,
+    lessons: normalizeLessons(v['lessons']),
     entities,
     screenText,
     journal,

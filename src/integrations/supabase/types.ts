@@ -1404,6 +1404,41 @@ export type Database = {
           },
         ]
       }
+      project_outlines: {
+        Row: {
+          keywords: string[]
+          outline: Json
+          project_id: string
+          updated_at: string
+          user_id: string
+          video_keywords: Json
+        }
+        Insert: {
+          keywords?: string[]
+          outline?: Json
+          project_id: string
+          updated_at?: string
+          user_id: string
+          video_keywords?: Json
+        }
+        Update: {
+          keywords?: string[]
+          outline?: Json
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+          video_keywords?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_outlines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           ai_level_default: number

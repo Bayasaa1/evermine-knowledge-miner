@@ -1,1 +1,2 @@
 - mind_vaults lookups use indexed equality (id, exact payload source url, or user_id+kind+title), never LIKE on payload, because payload scans exhausted database disk I/O.
+- Search and chat read project scope, keywords and author mistakes→fixes from project_outlines (built in finalizeMiningJob via src/lib/project-outline.ts), never from mined payload scans, because payload scans exhaust database I/O and mistaken steps must never be taught as correct.
