@@ -1,5 +1,10 @@
 # Roadmap
 
+## One completed project outline — November 27
+- [ ] Process all saved JSON for the 18 completed Full-Stack SaaS videos using only the owner's free Gemini keys; preserve original Minds
+- [ ] Save evidence-grounded outlines, mistakes/fixes, prerequisites, recommendations and keyword indexes with full-input coverage records
+- [ ] Verify all 18 saved entries, search and a real project chat response
+
 ## Upload session — displayed step 3
 - [x] Reuse upload/record tabs and live mining monitor in the mining step, with independent Show/Hide controls and no duplicate handlers or jobs
 - [x] Verify signed-in controls on desktop/mobile and run existing tests (219 pass, 0 fail); no new upload or funds transfer performed
