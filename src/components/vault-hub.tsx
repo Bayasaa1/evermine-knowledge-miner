@@ -292,8 +292,8 @@ export function VaultHub({
           onActivate={async () => { await switchPersona(user.id, null); await loadPersonas(); }}
         />
         {personas.map((p) => (
+          <div key={p.id} className="min-w-0">
           <PersonaCard
-            key={p.id}
             lang={lang}
             name={p.name}
             handle={p.handle}
@@ -327,6 +327,7 @@ export function VaultHub({
             }}
             shareAction={<ShareTrigger content={{ kind: "mind", id: p.id, mindId: `persona:${p.id}`, title: p.name, creator: p.name, handle: p.handle, image: p.avatar_url, url: `https://ever-mind.dev/search?q=${encodeURIComponent(p.name)}` }} />}
           />
+          </div>
         ))}
       </div>
 
