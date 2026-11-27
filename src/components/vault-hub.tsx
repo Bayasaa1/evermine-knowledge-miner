@@ -7,8 +7,9 @@
  * monetization show up in the same dashboard.
  */
 import { ArchitectLauncher } from "@/components/diagnostic-chat";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ShareTrigger } from "@/components/share-trigger";
+import { Button } from "@/components/ui/button";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -291,8 +292,8 @@ export function VaultHub({
           onActivate={async () => { await switchPersona(user.id, null); await loadPersonas(); }}
         />
         {personas.map((p) => (
-          <div key={p.id} className="relative min-w-0">
           <PersonaCard
+            key={p.id}
             lang={lang}
             name={p.name}
             handle={p.handle}
@@ -324,9 +325,8 @@ export function VaultHub({
               await loadPersonas();
               toast.success(t("removed"));
             }}
+            shareAction={<ShareTrigger content={{ kind: "mind", id: p.id, mindId: `persona:${p.id}`, title: p.name, creator: p.name, handle: p.handle, image: p.avatar_url, url: `https://ever-mind.dev/search?q=${encodeURIComponent(p.name)}` }} />}
           />
-          <div className="absolute bottom-2 right-2"><ShareTrigger content={{ kind: "mind", id: p.id, mindId: `persona:${p.id}`, title: p.name, creator: p.name, handle: p.handle, image: p.avatar_url, url: `https://ever-mind.dev/search?q=${encodeURIComponent(p.name)}` }} /></div>
-          </div>
         ))}
       </div>
 
@@ -374,6 +374,7 @@ function PersonaCard({
   onActivate,
   onSave,
   onDelete,
+  shareAction,
   projects = [],
   onOpenProject,
 }: {
@@ -389,6 +390,7 @@ function PersonaCard({
   onActivate: () => void | Promise<void>;
   onSave?: (patch: { name: string; handle: string; bio: string }) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
+  shareAction?: ReactNode;
 }) {
   const t = (k: keyof typeof C) => pickCopy(C[k], lang);
   const [editing, setEditing] = useState(false);
@@ -473,11 +475,14 @@ function PersonaCard({
           ))}
         </ul>
       ) : null}
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {onSave ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             aria-label={t("editPersona")}
+            title={t("editPersona")}
             onClick={() => {
               setEditName(name);
               setEditHandle(handle);
@@ -487,17 +492,21 @@ function PersonaCard({
             className="text-muted-foreground hover:text-foreground"
           >
             <Pencil className="h-4 w-4" />
-          </button>
+          </Button>
         ) : null}
+        {shareAction}
         {onDelete ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             aria-label={`Delete ${name}`}
+            title={pickCopy({ en: `Delete ${name}`, mn: `${name} устгах`, ko: `${name} 삭제` }, lang)}
             onClick={() => void onDelete()}
             className="ml-auto text-muted-foreground hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         ) : null}
       </div>
     </article>
