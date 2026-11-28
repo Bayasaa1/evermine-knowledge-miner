@@ -1,5 +1,11 @@
 # Roadmap
 
+## One-video outline quality — November 28
+- [x] Improve typography/whitespace matching without accepting paraphrases or cross-value quotes; expose rejected evidence and version checkpoints
+- [x] Rebuild the selected ChatGPT-3 video with the owner's free Gemini key, add a source-audit pass and verify saved readback without changing mined Minds
+- [x] 227 tests pass, preview build OK; signed-in Prisma search returns the project
+- [ ] Certify semantic completeness before spreading this extraction to other videos — source audit still produces unsupported classifications and rejects some quotes; not certified or rolled out
+
 ## One completed project outline — November 27
 - [ ] Process all saved JSON for the 18 completed Full-Stack SaaS videos using only the owner's free Gemini keys; preserve original Minds
 - [ ] Save evidence-grounded outlines, mistakes/fixes, prerequisites, recommendations and keyword indexes with full-input coverage records

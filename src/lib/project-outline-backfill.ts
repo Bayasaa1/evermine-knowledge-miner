@@ -2,6 +2,19 @@ import { z } from "zod";
 import type { VideoOutline } from "./project-outline";
 
 const evidence = z.object({ text: z.string().min(1), quote: z.string().min(12) });
+export const OUTLINE_EXTRACTION_VERSION = 3;
+
+// Typography/whitespace equivalence only: never fuzzy-match or remove words.
+export function normalizeEvidence(text: string): string {
+  return text.normalize("NFC").replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/\s+/gu, " ").trim();
+}
+
+function sourceValues(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(sourceValues);
+  if (value && typeof value === "object") return Object.values(value).flatMap(sourceValues);
+  return [];
+}
 export const backfillSchema = z.object({
   summary: z.string().min(1),
   readMeFirst: z.string(),
@@ -49,8 +62,12 @@ export function mergeBackfillParts(parts: z.infer<typeof backfillSchema>[]): z.i
 
 export function groundedOutline(raw: unknown, payload: unknown, title: string) {
   const parsed = backfillSchema.parse(raw);
-  const source = sourceStrings(payload);
-  const verified = (quote: string) => source.includes(quote);
+  const values = sourceValues(payload);
+  const normalized = values.map(normalizeEvidence);
+  const verified = (quote: string) => {
+    const candidate = normalizeEvidence(quote);
+    return candidate.length >= 12 && normalized.some((value) => value.includes(candidate));
+  };
   const items = (xs: z.infer<typeof evidence>[]) => xs.filter((x) => verified(x.quote));
   const mistakes = parsed.mistakes.filter((m) => verified(m.mistakeQuote) && verified(m.fixQuote));
   const chapters = parsed.chapters.filter((c) => verified(c.quote));
@@ -68,5 +85,11 @@ export function groundedOutline(raw: unknown, payload: unknown, title: string) {
     gotchas: grounded.gotchas.map((x) => x.text), recommendations: grounded.recommendations.map((x) => x.text),
     capabilities: grounded.capabilities.map((x) => x.text), limits: grounded.limits.map((x) => x.text),
   };
-  return { ...video, readMeFirst: grounded.readMeFirst, chapters, evidence: grounded };
+  const fields = ["prerequisites", "guidelines", "architecturalDecisions", "mentalModels", "troubleshooting", "milestones", "gotchas", "recommendations", "capabilities", "limits", "mistakes", "chapters"] as const;
+  const evidenceAudit = Object.fromEntries(fields.map((field) => [field, {
+    proposed: parsed[field].length, retained: grounded[field].length,
+    rejected: parsed[field].length - grounded[field].length,
+  }]));
+  return { ...video, readMeFirst: grounded.readMeFirst, chapters, evidence: grounded,
+    validation: { extractionVersion: OUTLINE_EXTRACTION_VERSION, sourceStringCount: values.length, evidenceAudit, semanticCompletenessVerified: false } };
 }
